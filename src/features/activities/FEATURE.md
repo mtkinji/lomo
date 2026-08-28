@@ -28,6 +28,7 @@ briefs:
   - focus-canyon-spring
   - focus-widget
   - geolocation-activity-offers
+  - home-screen-intent-launcher
   - keyboard-input-safety
   - kwilt-text-coach
   - meaningful-first-app-access
@@ -43,7 +44,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-27
 ---
 
 # activities

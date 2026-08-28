@@ -7,20 +7,22 @@ import {
 
 describe('mobile tool provider registry', () => {
   test('keeps a manifest-only tool out of the mobile catalog', () => {
-    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.search')).toBe(true);
-    expect(UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.search')).toBe(false);
+    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(true);
+    expect(UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(false);
     expect(UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === 'goals.read')).toBe(true);
   });
 
   test('returns unavailable instead of invoking an unregistered handler', async () => {
     const execute = jest.fn();
     const registry = createMobileToolProviderRegistry(UNIFIED_CHAT_TOOL_CATALOG);
-    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.search')!;
+    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
 
     await expect(executeMobileRegisteredTool({
       registry,
       context: { execute },
-      call: { id: 'call-1', toolId: tool.id, arguments: { query: 'soup' } },
+      call: { id: 'call-1', toolId: tool.id, arguments: {
+        recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['profile'],
+      } },
       tool,
     })).resolves.toEqual({
       status: 'unavailable', reason: 'mobile_provider_unavailable', retryable: false,

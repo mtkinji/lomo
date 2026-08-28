@@ -6,6 +6,10 @@ import {
   type ScreenTimeRestrictionReason,
   type ScreenTimeToken,
 } from '../screenTimeProtection';
+import {
+  normalizePersonalCompositeScreenTimeRule,
+  type PersonalCompositeScreenTimeRule,
+} from '../../features/screen-time/domain/personalCompositeScreenTimeRule';
 
 type ScreenTimeSelectionResult = {
   selectedApps?: ScreenTimeToken[];
@@ -38,6 +42,7 @@ type KwiltScreenTimeProtectionNativeModule = {
   getAuthorizationStatus?: () => Promise<ScreenTimeAuthorizationStatus | string>;
   requestAuthorization?: (member: 'individual' | 'child') => Promise<ScreenTimeAuthorizationStatus | string>;
   presentActivityPicker?: (json: string) => Promise<ScreenTimeSelectionResult | null | undefined>;
+  transferActivitySelection?: (json: string) => Promise<boolean>;
   applyRestrictions?: (json: string) => Promise<boolean>;
   clearRestrictions?: () => Promise<boolean>;
   clearRestrictionsForSelection?: (json: string) => Promise<boolean>;
@@ -50,6 +55,8 @@ type KwiltScreenTimeProtectionNativeModule = {
   clearPrerequisiteRule?: (json: string) => Promise<boolean>;
   applyPersonalUsageLimit?: (json: string) => Promise<boolean>;
   clearPersonalUsageLimit?: (json: string) => Promise<boolean>;
+  applyPersonalCompositeRule?: (json: string) => Promise<boolean>;
+  clearPersonalCompositeRule?: (json: string) => Promise<boolean>;
   consumePrerequisiteRuleEvent?: () => Promise<unknown>;
 };
 
@@ -155,6 +162,19 @@ export async function presentScreenTimeActivityPicker(
   }
 }
 
+export async function transferScreenTimeActivitySelection(params: {
+  sourceSelectionId: string;
+  targetSelectionId: string;
+}): Promise<boolean> {
+  if (Platform.OS !== 'ios') return false;
+  if (!native?.transferActivitySelection) return false;
+  try {
+    return Boolean(await native.transferActivitySelection(JSON.stringify(params)));
+  } catch {
+    return false;
+  }
+}
+
 export async function applyScreenTimeRestrictions(params: {
   settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
   reasons: ScreenTimeRestrictionReason[];
@@ -238,6 +258,51 @@ export async function clearPersonalScreenTimeUsageLimit(ruleId: string): Promise
   if (Platform.OS !== 'ios' || !native?.clearPersonalUsageLimit || !ruleId.trim()) return false;
   try {
     return Boolean(await native.clearPersonalUsageLimit(JSON.stringify({ ruleId: ruleId.trim() })));
+  } catch {
+    return false;
+  }
+}
+
+export async function applyPersonalCompositeScreenTimeRule(
+  candidate: PersonalCompositeScreenTimeRule,
+  context?: { focusActive?: boolean; realStepComplete?: boolean },
+): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.applyPersonalCompositeRule) return false;
+  const rule = normalizePersonalCompositeScreenTimeRule(candidate);
+  if (!rule || !rule.enabled) return false;
+  const firstTarget = [...rule.selectedApps, ...rule.selectedCategories][0];
+  const targetCount = rule.selectedApps.length + rule.selectedCategories.length;
+  const restrictionLabel = firstTarget?.label?.trim()
+    || `${targetCount} app${targetCount === 1 ? '' : 's'} or categories`;
+  try {
+    const hostTruth = Object.fromEntries(rule.conditions.flatMap((condition) => {
+      if (condition.type === 'focus_active' && context?.focusActive !== undefined) {
+        return [[condition.id, context.focusActive]];
+      }
+      if (condition.type === 'real_step_complete' && context?.realStepComplete !== undefined) {
+        return [[condition.id, context.realStepComplete]];
+      }
+      return [];
+    }));
+    return Boolean(await native.applyPersonalCompositeRule(JSON.stringify({
+      version: 2,
+      ruleId: rule.id,
+      selectionId: rule.selectionId,
+      connector: rule.connector,
+      outcome: rule.outcome,
+      conditions: rule.conditions,
+      restrictionLabel: restrictionLabel.slice(0, 80),
+      ...(Object.keys(hostTruth).length > 0 ? { hostTruth } : {}),
+    })));
+  } catch {
+    return false;
+  }
+}
+
+export async function clearPersonalCompositeScreenTimeRule(ruleId: string): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.clearPersonalCompositeRule || !ruleId.trim()) return false;
+  try {
+    return Boolean(await native.clearPersonalCompositeRule(JSON.stringify({ ruleId: ruleId.trim() })));
   } catch {
     return false;
   }

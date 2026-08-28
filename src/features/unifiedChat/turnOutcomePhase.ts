@@ -269,6 +269,26 @@ export async function materializeUnifiedChatOutcomePhase(
           idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
         },
       });
+    } else if (proposal.capabilityId === 'meal_planning') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'meal_planning',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'groceries') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'groceries',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
     } else if (proposal.capabilityId === 'household') {
       await persistProposal({
         ...common,

@@ -11,7 +11,7 @@ export type UnifiedChatRequestClass =
 export const UNIFIED_CHAT_CAPABILITY_IDS = [
   'arcs', 'goals', 'todos', 'plan', 'chapters', 'profile', 'relationships',
   'household', 'money', 'screenTime', 'notifications', 'account', 'navigation', 'recipes', 'meal_planning',
-  'chores',
+  'chores', 'groceries',
 ] as const;
 export type UnifiedChatCapabilityId = typeof UNIFIED_CHAT_CAPABILITY_IDS[number];
 

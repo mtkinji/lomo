@@ -8,20 +8,22 @@ import {
 
 describe('server tool provider registry', () => {
   test('keeps a manifest-only tool out of the server catalog', () => {
-    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.search')).toBe(true);
-    expect(SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.search')).toBe(false);
+    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(true);
+    expect(SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(false);
     expect(SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === 'goals.read')).toBe(true);
   });
 
   test('returns unavailable instead of invoking an unregistered dispatcher', async () => {
     const dispatch = jest.fn();
     const registry = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
-    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.search')!;
+    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
 
     await expect(executeServerRegisteredTool({
       registry,
       context: { dispatch },
-      call: { id: 'call-1', toolId: tool.id, arguments: { query: 'soup' } },
+      call: { id: 'call-1', toolId: tool.id, arguments: {
+        recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['profile'],
+      } },
       tool,
     })).resolves.toEqual({
       status: 'unavailable', reason: 'server_provider_unavailable', retryable: false,

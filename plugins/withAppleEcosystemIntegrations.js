@@ -19,6 +19,7 @@ const { addWidgetFontResources, copyWidgetFontResources } = require('./appleEcos
 const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { getFocusWidgetSwift } = require('./appleEcosystem/focusWidgetSwift');
 const { getChatWidgetSwift } = require('./appleEcosystem/chatWidgetSwift');
+const { getLauncherWidgetSwift } = require('./appleEcosystem/launcherWidgetSwift');
 const {
   buildRestrictionLedgerSwift,
   withScreenTimeShieldExtensions,
@@ -288,6 +289,10 @@ ${PREREQUISITE_PROPERTIES_SWIFT}
     guard let data = json.data(using: .utf8),
           let payload = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
           let raw = payload["selectionId"] as? String else { return "default" }
+    return selectionIdentifier(raw)
+  }
+
+  private func selectionIdentifier(_ raw: String) -> String {
     let allowed = raw.unicodeScalars.filter {
       CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
     }
@@ -520,6 +525,41 @@ ${PREREQUISITE_HELPERS_SWIFT}
     resolve(nil)
   }
 
+  @objc(transferActivitySelection:resolver:rejecter:)
+  func transferActivitySelection(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings)
+    if #available(iOS 16.0, *) {
+      guard let payload = payload(from: json),
+            let rawSourceSelectionId = payload["sourceSelectionId"] as? String,
+            let rawTargetSelectionId = payload["targetSelectionId"] as? String else {
+        resolve(false)
+        return
+      }
+      let sourceSelectionId = selectionIdentifier(rawSourceSelectionId)
+      let targetSelectionId = selectionIdentifier(rawTargetSelectionId)
+      guard sourceSelectionId != targetSelectionId else {
+        resolve(true)
+        return
+      }
+      let sourceSelection = loadSelection(for: sourceSelectionId)
+      guard !sourceSelection.applicationTokens.isEmpty
+        || !sourceSelection.categoryTokens.isEmpty
+        || !sourceSelection.webDomainTokens.isEmpty else {
+        resolve(false)
+        return
+      }
+      saveSelection(sourceSelection, for: targetSelectionId)
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+
   @objc(applyRestrictions:resolver:rejecter:)
   func applyRestrictions(
     _ json: String,
@@ -692,6 +732,12 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
   presentActivityPicker:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  transferActivitySelection:(NSString *)json
   resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
@@ -1898,7 +1944,10 @@ func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
 
 struct KwiltPalette {
   static let pine: Color = Color(red: 49/255, green: 85/255, blue: 69/255)
-  static let pineSoft: Color = Color(red: 49/255, green: 85/255, blue: 69/255, opacity: 0.12)
+  static let sumi: Color = Color(red: 28/255, green: 26/255, blue: 25/255)
+  static let shellAlt: Color = Color(red: 245/255, green: 245/255, blue: 244/255)
+  static let border: Color = Color(red: 228/255, green: 228/255, blue: 231/255)
+  static let gray300: Color = Color(red: 212/255, green: 212/255, blue: 216/255)
   static let gray50: Color = Color(red: 250/255, green: 250/255, blue: 249/255)
   static let gray800: Color = Color(red: 41/255, green: 37/255, blue: 36/255)
 }
@@ -2155,6 +2204,8 @@ struct KwiltActivitiesWidget: Widget {
 ${getFocusWidgetSwift(targetName)}
 
 ${getChatWidgetSwift(targetName)}
+
+${getLauncherWidgetSwift(targetName)}
 
 // ---------------------------------------------------------------------------
 // Lock Screen Widgets (W1)
@@ -2654,6 +2705,7 @@ struct ${targetName}Bundle: WidgetBundle {
       KwiltStreakWidget()
       KwiltFocusWidget()
       KwiltChatWidget()
+      KwiltLauncherWidget()
       KwiltFlexibleMoneyWidget()
       KwiltMoneyCategoryWidget()
     }

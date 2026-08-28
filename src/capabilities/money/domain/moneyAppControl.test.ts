@@ -155,9 +155,11 @@ describe('Money app control', () => {
 
   it('keeps preset language reductive', () => {
     expect(getMoneyAppControlPresetCopy('when_hot')).toEqual({
-      title: 'When this category is hot',
-      detail: 'Pause when spending runs ahead of the month.',
+      title: 'When spending is 10 points ahead of the month',
+      detail: 'Pause when the share of this budget used exceeds the share of the month elapsed by 10 percentage points.',
     });
+    expect(getMoneyAppControlPresetCopy('when_over').title).toBe('When this budget is fully used');
+    expect(getMoneyAppControlPresetCopy('needs_review').title).toBe('While any transaction needs review');
   });
 
   it('accepts a shield handoff once only inside the two-minute window', () => {

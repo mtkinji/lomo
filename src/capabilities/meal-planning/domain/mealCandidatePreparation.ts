@@ -1,4 +1,4 @@
-import type { MealPlanHorizon } from './mealPlanContracts';
+import type { MealPlanHorizon } from './mealPlanContracts.ts';
 
 export type MealCandidateQuery = 'make_now' | 'almost_there' | 'use_soon' | 'stay_near_target' | 'best_use';
 export type PreparedMealCandidate = {

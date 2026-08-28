@@ -3943,6 +3943,2845 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
+      "title": "Search Recipes",
+    },
+    "canonicalName": "kwilt_recipes_search",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "query": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "query",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_search",
+    "operationId": "recipes.search",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "recipes.search",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Recipe",
+    },
+    "canonicalName": "kwilt_recipes_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "recipeId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "recipeVersionId": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "recipeId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_read",
+    "operationId": "recipes.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "recipes.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Recipe",
+    },
+    "canonicalName": "kwilt_recipes_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipe": {
+          "additionalProperties": false,
+          "properties": {
+            "cookMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "description": {
+              "maxLength": 4000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "ingredients": {
+              "items": {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "instructions": {
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "notes": {
+              "maxLength": 20000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "prepMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "yieldQuantity": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "yieldUnit": {
+              "maxLength": 80,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+          },
+          "required": [
+            "title",
+            "ingredients",
+            "instructions",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "recipe",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_create",
+    "operationId": "recipes.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Prepare Recipe Import",
+    },
+    "canonicalName": "kwilt_recipes_import_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "method": {
+          "enum": [
+            "url",
+            "photo",
+            "scan",
+            "text",
+            "voice",
+            "email",
+          ],
+          "type": "string",
+        },
+        "sourceArtifactRefs": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array",
+        },
+      },
+      "required": [
+        "method",
+        "sourceArtifactRefs",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_import_prepare",
+    "operationId": "recipes.import.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.import.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Approve Recipe Import",
+    },
+    "canonicalName": "kwilt_recipes_import_approve",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedDraftVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "reviewedVersion": {
+          "additionalProperties": false,
+          "properties": {
+            "cookMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "description": {
+              "maxLength": 4000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "ingredients": {
+              "items": {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "instructions": {
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "notes": {
+              "maxLength": 20000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "prepMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "yieldQuantity": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "yieldUnit": {
+              "maxLength": 80,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+          },
+          "required": [
+            "title",
+            "ingredients",
+            "instructions",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "draftId",
+        "expectedDraftVersion",
+        "idempotencyKey",
+        "reviewedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_import_approve",
+    "operationId": "recipes.import.approve",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.import.approve",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Recipe",
+    },
+    "canonicalName": "kwilt_recipes_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "reviewedVersion": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "cookMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "description": {
+              "maxLength": 4000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "ingredients": {
+              "items": {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "instructions": {
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 200,
+              "minItems": 1,
+              "type": "array",
+            },
+            "notes": {
+              "maxLength": 20000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "prepMinutes": {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "yieldQuantity": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "yieldUnit": {
+              "maxLength": 80,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+          },
+          "type": "object",
+        },
+      },
+      "required": [
+        "recipeId",
+        "expectedVersion",
+        "reviewedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_update",
+    "operationId": "recipes.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete Recipe",
+    },
+    "canonicalName": "kwilt_recipes_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_delete",
+    "operationId": "recipes.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Preview Recipe Scaling",
+    },
+    "canonicalName": "kwilt_recipes_scale_preview",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "recipeVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "targetYield": {
+          "exclusiveMinimum": 0,
+          "type": "number",
+        },
+      },
+      "required": [
+        "recipeVersionId",
+        "targetYield",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_scale_preview",
+    "operationId": "recipes.scale.preview",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "recipes.scale.preview",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Recipe Favorite",
+    },
+    "canonicalName": "kwilt_recipes_favorite_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "favorite": {
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeId",
+        "expectedVersion",
+        "favorite",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_favorite_update",
+    "operationId": "recipes.favorite.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.favorite.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Hide or Restore Recipe",
+    },
+    "canonicalName": "kwilt_recipes_visibility_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "visibility": {
+          "enum": [
+            "visible",
+            "hidden",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeId",
+        "expectedVersion",
+        "visibility",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_visibility_update",
+    "operationId": "recipes.visibility.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.visibility.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Save Independent Recipe Copy",
+    },
+    "canonicalName": "kwilt_recipes_fork",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "sourceRecipeVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "sourceRecipeVersionId",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_fork",
+    "operationId": "recipes.fork",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.fork",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Prepare Recipe Copy Sharing",
+    },
+    "canonicalName": "kwilt_recipes_share_copy_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "recipientPersonId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeVersionId",
+        "recipientPersonId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_share_copy_prepare",
+    "operationId": "recipes.share_copy.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.share_copy.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Invite Recipe Collaborator",
+    },
+    "canonicalName": "kwilt_recipes_collaborator_invite",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "recipientPersonId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "role": {
+          "enum": [
+            "viewer",
+            "contributor",
+            "maintainer",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeId",
+        "recipientPersonId",
+        "role",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_collaborator_invite",
+    "operationId": "recipes.collaborator.invite",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.collaborator.invite",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Cook Session",
+    },
+    "canonicalName": "kwilt_cook_session_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "sessionId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_cook_session_read",
+    "operationId": "cook_session.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "cook_session.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Start Cook Session",
+    },
+    "canonicalName": "kwilt_cook_session_start",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recipeScaleMultiplier": {
+          "enum": [
+            1,
+            2,
+            3,
+          ],
+          "type": "integer",
+        },
+        "recipeVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeVersionId",
+        "recipeScaleMultiplier",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_cook_session_start",
+    "operationId": "cook_session.start",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "cook_session.start",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Control Cook Session",
+    },
+    "canonicalName": "kwilt_cook_session_control",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "additionalProperties": false,
+          "properties": {
+            "cueId": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "durationSeconds": {
+              "maximum": 86400,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "label": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "timerId": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "type": {
+              "enum": [
+                "next",
+                "back",
+                "repeat",
+                "pause",
+                "resume",
+                "start_timer",
+                "pause_timer",
+                "resume_timer",
+                "cancel_timer",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "type",
+          ],
+          "type": "object",
+        },
+        "expectedRevision": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "sessionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "sessionId",
+        "expectedRevision",
+        "command",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_cook_session_control",
+    "operationId": "cook_session.control",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "cook_session.control",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Complete Cook Session",
+    },
+    "canonicalName": "kwilt_cook_session_complete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedRevision": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "abandoned",
+          ],
+          "type": "string",
+        },
+        "sessionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "sessionId",
+        "expectedRevision",
+        "outcome",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_cook_session_complete",
+    "operationId": "cook_session.complete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "cook_session.complete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Meal Preferences",
+    },
+    "canonicalName": "kwilt_meal_preferences_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_meal_preferences_read",
+    "operationId": "meal_planning.preferences.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "meal_planning.preferences.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Meal Preferences",
+    },
+    "canonicalName": "kwilt_meal_preferences_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "fields": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string",
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null",
+                ],
+              },
+            },
+            "required": [
+              "key",
+              "value",
+            ],
+            "type": "object",
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "expectedVersion",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_preferences_update",
+    "operationId": "meal_planning.preferences.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.preferences.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Meal Plan",
+    },
+    "canonicalName": "kwilt_meal_plan_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "horizon": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "endsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+            "kind": {
+              "enum": [
+                "open",
+                "next_shop",
+                "meal_count",
+                "date_range",
+              ],
+              "type": "string",
+            },
+            "shopBy": {
+              "maxLength": 40,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "startsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+        "householdId": {
+          "maxLength": 160,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "householdId",
+        "horizon",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_create",
+    "operationId": "meal_planning.plan.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.plan.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Meal Plan",
+    },
+    "canonicalName": "kwilt_meal_plan_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "horizon": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "endsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+            "kind": {
+              "enum": [
+                "open",
+                "next_shop",
+                "meal_count",
+                "date_range",
+              ],
+              "type": "string",
+            },
+            "shopBy": {
+              "maxLength": 40,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "startsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "expectedVersion",
+        "horizon",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_update",
+    "operationId": "meal_planning.plan.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.plan.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add Meal Candidate",
+    },
+    "canonicalName": "kwilt_meal_plan_candidate_add",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate": {
+          "additionalProperties": false,
+          "properties": {
+            "candidateId": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "plannedPortions": {
+              "maximum": 24,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "recipeVersionId": {
+              "maxLength": 160,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+          },
+          "required": [
+            "candidateId",
+            "title",
+            "recipeVersionId",
+            "plannedPortions",
+          ],
+          "type": "object",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "expectedVersion",
+        "candidate",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_candidate_add",
+    "operationId": "meal_planning.candidate.add",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.candidate.add",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Remove Meal Candidate",
+    },
+    "canonicalName": "kwilt_meal_plan_candidate_remove",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "candidateId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_candidate_remove",
+    "operationId": "meal_planning.candidate.remove",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.candidate.remove",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Meal Choice Round",
+    },
+    "canonicalName": "kwilt_meal_choice_round_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "participantPersonIds": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "participantPersonIds",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_choice_round_open",
+    "operationId": "meal_planning.round.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.round.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Close Meal Choice Round",
+    },
+    "canonicalName": "kwilt_meal_choice_round_close",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choiceRoundId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "choiceRoundId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_choice_round_close",
+    "operationId": "meal_planning.round.close",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.round.close",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Submit Meal Choices",
+    },
+    "canonicalName": "kwilt_meal_choice_response_submit",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateIds": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 3,
+          "type": "array",
+        },
+        "choiceRoundId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "pass": {
+          "type": "boolean",
+        },
+        "suggestion": {
+          "maxLength": 320,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "choiceRoundId",
+        "candidateIds",
+        "pass",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_choice_response_submit",
+    "operationId": "meal_planning.response.submit",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.response.submit",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Withdraw Meal Choices",
+    },
+    "canonicalName": "kwilt_meal_choice_response_withdraw",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choiceRoundId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "choiceRoundId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_choice_response_withdraw",
+    "operationId": "meal_planning.response.withdraw",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.response.withdraw",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Finalize Meal Plan",
+    },
+    "canonicalName": "kwilt_meal_plan_finalize",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "occasions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "dishes": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidateId": {
+                      "maxLength": 160,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "dinerPersonIds": {
+                      "items": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "type": "string",
+                      },
+                      "maxItems": 24,
+                      "minItems": 1,
+                      "type": "array",
+                    },
+                    "id": {
+                      "maxLength": 160,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "servings": {
+                      "exclusiveMinimum": 0,
+                      "type": [
+                        "number",
+                        "null",
+                      ],
+                    },
+                  },
+                  "required": [
+                    "id",
+                    "candidateId",
+                    "dinerPersonIds",
+                    "servings",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "type": "array",
+              },
+              "id": {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string",
+              },
+              "notEatingPersonIds": {
+                "items": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "maxItems": 24,
+                "type": "array",
+              },
+              "placementDate": {
+                "maxLength": 10,
+                "type": [
+                  "string",
+                  "null",
+                ],
+              },
+              "timing": {
+                "additionalProperties": false,
+                "properties": {
+                  "date": {
+                    "maxLength": 10,
+                    "minLength": 10,
+                    "type": "string",
+                  },
+                  "dates": {
+                    "items": {
+                      "maxLength": 10,
+                      "minLength": 10,
+                      "type": "string",
+                    },
+                    "maxItems": 31,
+                    "minItems": 1,
+                    "type": "array",
+                  },
+                  "kind": {
+                    "enum": [
+                      "flexible",
+                      "occasion",
+                      "coverage",
+                    ],
+                    "type": "string",
+                  },
+                  "label": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "mealPeriod": {
+                    "enum": [
+                      "breakfast",
+                      "lunch",
+                      "dinner",
+                      "snack",
+                    ],
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "kind",
+                ],
+                "type": "object",
+              },
+              "title": {
+                "maxLength": 160,
+                "type": [
+                  "string",
+                  "null",
+                ],
+              },
+            },
+            "required": [
+              "id",
+              "title",
+              "placementDate",
+              "timing",
+              "notEatingPersonIds",
+              "dishes",
+            ],
+            "type": "object",
+          },
+          "maxItems": 60,
+          "minItems": 1,
+          "type": "array",
+        },
+        "organizerNote": {
+          "maxLength": 2000,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "expectedVersion",
+        "occasions",
+        "organizerNote",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_finalize",
+    "operationId": "meal_planning.plan.finalize",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.plan.finalize",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Revise Meal Plan",
+    },
+    "canonicalName": "kwilt_meal_plan_revise",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_plan_revise",
+    "operationId": "meal_planning.plan.revise",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "meal_planning.plan.revise",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Prepare Meal Candidates",
+    },
+    "canonicalName": "kwilt_meal_candidates_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "additionalProperties": false,
+          "properties": {
+            "maxResults": {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "query": {
+              "enum": [
+                "make_now",
+                "almost_there",
+                "use_soon",
+                "stay_near_target",
+                "best_use",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [],
+          "type": "object",
+        },
+        "horizon": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "endsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+            "kind": {
+              "enum": [
+                "open",
+                "next_shop",
+                "meal_count",
+                "date_range",
+              ],
+              "type": "string",
+            },
+            "shopBy": {
+              "maxLength": 40,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "startsOn": {
+              "maxLength": 40,
+              "minLength": 10,
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "horizon",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_meal_candidates_prepare",
+    "operationId": "meal_planning.candidates.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "meal_planning.candidates.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Food Budget",
+    },
+    "canonicalName": "kwilt_food_budget_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_food_budget_read",
+    "operationId": "food_budget.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "food_budget.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Food Stock",
+    },
+    "canonicalName": "kwilt_food_stock_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concepts": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 100,
+          "type": "array",
+        },
+      },
+      "required": [],
+      "type": "object",
+    },
+    "name": "kwilt_food_stock_read",
+    "operationId": "food_stock.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "food_stock.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Food Stock",
+    },
+    "canonicalName": "kwilt_food_stock_observe",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedObservationId": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "observation": {
+          "additionalProperties": false,
+          "properties": {
+            "concept": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "confidence": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number",
+            },
+            "expiresAt": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "observedAt": {
+              "format": "date-time",
+              "type": "string",
+            },
+            "quantityMax": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "quantityMin": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "source": {
+              "enum": [
+                "already_have",
+                "manual",
+                "voice",
+                "photo",
+                "receipt",
+                "order",
+              ],
+              "type": "string",
+            },
+            "state": {
+              "enum": [
+                "confirmed",
+                "likely",
+                "check_first",
+              ],
+              "type": "string",
+            },
+            "unit": {
+              "maxLength": 80,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+          },
+          "required": [
+            "concept",
+            "state",
+            "quantityMin",
+            "quantityMax",
+            "unit",
+            "source",
+            "confidence",
+            "observedAt",
+            "expiresAt",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "observation",
+        "expectedObservationId",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_food_stock_observe",
+    "operationId": "food_stock.observe",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "food_stock.observe",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Mark Food Stock Depleted",
+    },
+    "canonicalName": "kwilt_food_stock_deplete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedObservationId": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "observedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+      },
+      "required": [
+        "concept",
+        "expectedObservationId",
+        "observedAt",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_food_stock_deplete",
+    "operationId": "food_stock.deplete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "food_stock.deplete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Compile Grocery List",
+    },
+    "canonicalName": "kwilt_groceries_compile",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "mealPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "mealPlanVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "mealPlanId",
+        "mealPlanVersion",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_compile",
+    "operationId": "groceries.compile",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.compile",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add Grocery Item",
+    },
+    "canonicalName": "kwilt_groceries_item_add",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "groceryListId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "sourceKind": {
+          "enum": [
+            "manual",
+            "household_request",
+          ],
+          "type": "string",
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryListId",
+        "expectedVersion",
+        "title",
+        "sourceKind",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_item_add",
+    "operationId": "groceries.item.add",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.item.add",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Grocery Item",
+    },
+    "canonicalName": "kwilt_groceries_item_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "groceryItemId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "patch": {
+          "additionalProperties": false,
+          "properties": {
+            "concept": {
+              "maxLength": 320,
+              "minLength": 1,
+              "type": "string",
+            },
+            "note": {
+              "maxLength": 2000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "quantityMax": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "quantityMin": {
+              "minimum": 0,
+              "type": [
+                "number",
+                "null",
+              ],
+            },
+            "unit": {
+              "maxLength": 80,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+          },
+          "required": [],
+          "type": "object",
+        },
+        "reason": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "groceryItemId",
+        "expectedVersion",
+        "patch",
+        "reason",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_item_update",
+    "operationId": "groceries.item.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.item.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Set Grocery Item State",
+    },
+    "canonicalName": "kwilt_groceries_item_set_state",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "groceryItemId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "state": {
+          "enum": [
+            "needed",
+            "already_have",
+            "purchased",
+            "removed",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryItemId",
+        "state",
+        "expectedVersion",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_item_set_state",
+    "operationId": "groceries.item.set_state",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.item.set_state",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Review Grocery List",
+    },
+    "canonicalName": "kwilt_groceries_list_review",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groceryListId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryListId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_list_review",
+    "operationId": "groceries.list.review",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "groceries.list.review",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Prepare Retailer Product Matches",
+    },
+    "canonicalName": "kwilt_groceries_product_match_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groceryItemId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "locationId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "provider": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryItemId",
+        "provider",
+        "locationId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_product_match_prepare",
+    "operationId": "groceries.product_match.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "groceries.product_match.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Confirm Retailer Product Match",
+    },
+    "canonicalName": "kwilt_groceries_product_match_confirm",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceObservedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "groceryItemId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "provider": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "retailerProductId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryItemId",
+        "provider",
+        "retailerProductId",
+        "evidenceObservedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_product_match_confirm",
+    "operationId": "groceries.product_match.confirm",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.product_match.confirm",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Prepare Grocery Retailer Handoff",
+    },
+    "canonicalName": "kwilt_groceries_handoff_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groceryListId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotencyKey": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "provider": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryListId",
+        "provider",
+        "idempotencyKey",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_handoff_prepare",
+    "operationId": "groceries.handoff.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.handoff.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Grocery Retailer Handoff",
+    },
+    "canonicalName": "kwilt_groceries_handoff_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "retailerHandoffId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "retailerHandoffId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_groceries_handoff_open",
+    "operationId": "groceries.handoff.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "groceries.handoff.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
       "title": "Read Screen Time",
     },
     "canonicalName": "kwilt_screen_time_read",

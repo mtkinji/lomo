@@ -195,9 +195,24 @@ export function recordMoneyAppControlReview(
 }
 
 export function getMoneyAppControlPresetCopy(preset: MoneyAppControlPreset): { title: string; detail: string } {
-  if (preset === 'when_hot') return { title: 'When this category is hot', detail: 'Pause when spending runs ahead of the month.' };
-  if (preset === 'at_95_percent') return { title: 'At 95% used', detail: 'Pause as this category approaches its limit.' };
-  if (preset === 'when_over') return { title: 'When over', detail: 'Pause after this category reaches its monthly plan.' };
-  if (preset === 'needs_review') return { title: 'When transactions need review', detail: 'Pause while Money has uncategorized activity.' };
-  return { title: 'Always review first', detail: 'Review this category before opening selected apps.' };
+  if (preset === 'when_hot') return {
+    title: 'When spending is 10 points ahead of the month',
+    detail: 'Pause when the share of this budget used exceeds the share of the month elapsed by 10 percentage points.',
+  };
+  if (preset === 'at_95_percent') return {
+    title: 'When 95% of this budget is used',
+    detail: 'Pause before the budget is completely used.',
+  };
+  if (preset === 'when_over') return {
+    title: 'When this budget is fully used',
+    detail: 'Pause when spending reaches or exceeds the budget.',
+  };
+  if (preset === 'needs_review') return {
+    title: 'While any transaction needs review',
+    detail: 'Pause while Money has a transaction that still needs review.',
+  };
+  return {
+    title: 'Every time, until I review this budget',
+    detail: 'Pause every attempt until this budget is reviewed in Kwilt.',
+  };
 }

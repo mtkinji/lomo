@@ -2,7 +2,7 @@ import type { UnifiedChatClientAction } from './types';
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
-  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores'; params: Record<string, unknown> };
+  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores' | 'Food'; params: Record<string, unknown> };
 
 export function resolveClientActionOpenInstruction(
   action: UnifiedChatClientAction,
@@ -179,6 +179,41 @@ export function resolveClientActionOpenInstruction(
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsProfile', params: { openAccountDeletion: true } } };
     case 'open_plan_preferences':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsPlanAvailability' } };
+    case 'open_recipe_import': {
+      const method = typeof action.payload.method === 'string' ? action.payload.method : '';
+      if (!['url', 'photo', 'scan', 'text', 'voice', 'email'].includes(method)) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeImportReview', params: { intent: method === 'url' ? 'web' : 'family' },
+      } };
+    }
+    case 'open_cook_session_timer': {
+      const recipeId = typeof action.payload.recipeId === 'string' ? action.payload.recipeId.trim() : '';
+      const multiplier = Number(action.payload.recipeScaleMultiplier);
+      if (!recipeId || ![1, 2, 3].includes(multiplier)) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeCookMode', params: { recipeId, recipeScaleMultiplier: multiplier },
+      } };
+    }
+    case 'open_recipe_share_copy': {
+      const recipeVersionId = typeof action.payload.recipeVersionId === 'string' ? action.payload.recipeVersionId.trim() : '';
+      const recipientPersonId = typeof action.payload.recipientPersonId === 'string' ? action.payload.recipientPersonId.trim() : '';
+      if (!action.targetId || !recipeVersionId || !recipientPersonId) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeHome', params: { recipeId: action.targetId },
+      } };
+    }
+    case 'open_grocery_product_match': {
+      const groceryListId = typeof action.payload.groceryListId === 'string' ? action.payload.groceryListId.trim() : '';
+      if (!action.targetId || action.targetType !== 'grocery_item' || !groceryListId || action.payload.provider !== 'kroger') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'KrogerCart', params: { listId: groceryListId },
+      } };
+    }
+    case 'open_grocery_handoff':
+      if (!action.targetId || action.targetType !== 'grocery_list') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'GroceryHandoff', params: { listId: action.targetId },
+      } };
     default: return null;
   }
 }

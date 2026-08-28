@@ -287,6 +287,27 @@ describe('linkingConfig', () => {
       expect(parse('plan')?.name).toBe('PlanTab');
     });
 
+    test.each([
+      ['plan?source=widget', 'PlanTab'],
+      ['todos?source=widget', 'ActivitiesList'],
+      ['todos?openQuickAdd=1&source=widget', 'ActivitiesList'],
+      ['goals?source=widget', 'GoalsList'],
+      ['arcs?source=widget', 'ArcsList'],
+      ['chapters?source=widget', 'MoreChapters'],
+      ['food/plan?source=widget', 'NextMeals'],
+      ['food?source=widget', 'RecipeLibrary'],
+      ['food/groceries?source=widget', 'GroceryList'],
+      ['chores?source=widget', 'Chores'],
+      ['money?source=widget', 'MoneySummary'],
+      ['settings/screen-time?source=widget', 'SettingsScreenTimeProtection'],
+      ['games?source=widget', 'GamesShelf'],
+      ['explore?source=widget', 'ExploreMap'],
+    ])('%s opens %s from the launcher', (path, routeName) => {
+      const leaf = parse(path);
+      expect(leaf?.name).toBe(routeName);
+      expect(leaf?.params).toMatchObject({ source: 'widget' });
+    });
+
     test('kwilt://activities -> ActivitiesListFromWidget', () => {
       expect(parse('activities')?.name).toBe('ActivitiesListFromWidget');
     });

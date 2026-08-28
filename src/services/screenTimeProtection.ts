@@ -2,6 +2,11 @@ import {
   DEFAULT_TEMPORARY_OPEN_MINUTES,
   type ScreenTimeRule,
 } from '../features/screen-time/domain/screenTimeRule';
+import {
+  migrateLegacyPersonalRule,
+  normalizePersonalCompositeScreenTimeRules,
+  type PersonalCompositeScreenTimeRule,
+} from '../features/screen-time/domain/personalCompositeScreenTimeRule';
 
 export type ScreenTimeAuthorizationStatus = 'notDetermined' | 'approved' | 'denied' | 'revoked' | 'unavailable';
 
@@ -20,6 +25,7 @@ export type ScreenTimeRestrictionReason =
   | 'meaningful_first_locked'
   | 'meaningful_first_bypass'
   | 'personal_usage_limit_reached'
+  | 'personal_composite_rule'
   | 'money_review_required'
   | 'money_over_limit'
   | 'money_ahead_of_pace'
@@ -91,6 +97,9 @@ export type PersonalScreenTimeRule =
 
 export type ScreenTimeProtectionSettings = {
   authorizationStatus: ScreenTimeAuthorizationStatus;
+  personalRuleSchemaVersion: 2;
+  personalCompositeRules: PersonalCompositeScreenTimeRule[];
+  /** @deprecated V1 compatibility storage while installed rules migrate. */
   personalRules: PersonalScreenTimeRule[];
   /** @deprecated Read-only compatibility projection while persisted settings migrate. */
   selectedApps: ScreenTimeToken[];
@@ -183,6 +192,8 @@ export const DEFAULT_SCREEN_TIME_SETUP_OFFER_STATE: ScreenTimeSetupOfferState = 
 
 export const DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS: ScreenTimeProtectionSettings = {
   authorizationStatus: 'notDetermined',
+  personalRuleSchemaVersion: 2,
+  personalCompositeRules: [],
   personalRules: [],
   selectedApps: [],
   selectedCategories: [],
@@ -462,6 +473,10 @@ function unionRuleTokens(
 export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTimeProtectionSettings {
   const raw = value && typeof value === 'object' ? (value as any) : {};
   const personalRules = normalizePersonalRules(raw);
+  const hasCompositeStorage = raw.personalRuleSchemaVersion === 2 && Array.isArray(raw.personalCompositeRules);
+  const personalCompositeRules = hasCompositeStorage
+    ? normalizePersonalCompositeScreenTimeRules(raw.personalCompositeRules)
+    : personalRules.map(migrateLegacyPersonalRule);
   const legacyApps = normalizeTokens(raw.selectedApps);
   const legacyCategories = normalizeTokens(raw.selectedCategories);
   const focusRule = personalRules.find((rule): rule is PersonalFocusScreenTimeRule => rule.kind === 'focus');
@@ -470,6 +485,8 @@ export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTim
   const legacyMeaningful = normalizeMeaningfulFirst(raw.meaningfulFirst);
   return {
     authorizationStatus: normalizeAuthorizationStatus(raw.authorizationStatus),
+    personalRuleSchemaVersion: 2,
+    personalCompositeRules,
     personalRules,
     selectedApps: unionRuleTokens(personalRules, 'selectedApps', legacyApps),
     selectedCategories: unionRuleTokens(personalRules, 'selectedCategories', legacyCategories),
@@ -495,6 +512,42 @@ export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTim
     setupOffer: normalizeSetupOffer(raw.setupOffer),
     lastUpdated: validIsoOrNull(raw.lastUpdated),
   };
+}
+
+export function getPersonalCompositeScreenTimeRuleById(
+  settings: Pick<ScreenTimeProtectionSettings, 'personalCompositeRules'>,
+  ruleId: string,
+): PersonalCompositeScreenTimeRule | null {
+  return settings.personalCompositeRules.find((rule) => rule.id === ruleId) ?? null;
+}
+
+export function replacePersonalCompositeScreenTimeRule(
+  settings: ScreenTimeProtectionSettings,
+  nextRule: PersonalCompositeScreenTimeRule,
+): ScreenTimeProtectionSettings {
+  return normalizeScreenTimeProtectionSettings({
+    ...settings,
+    personalRuleSchemaVersion: 2,
+    personalCompositeRules: [
+      ...settings.personalCompositeRules.filter((rule) => rule.id !== nextRule.id),
+      nextRule,
+    ],
+    personalRules: settings.personalRules.filter((rule) => rule.id !== nextRule.id),
+    lastUpdated: nextRule.lastUpdated ?? settings.lastUpdated,
+  });
+}
+
+export function removePersonalCompositeScreenTimeRule(
+  settings: ScreenTimeProtectionSettings,
+  ruleId: string,
+): ScreenTimeProtectionSettings {
+  return normalizeScreenTimeProtectionSettings({
+    ...settings,
+    personalRuleSchemaVersion: 2,
+    personalCompositeRules: settings.personalCompositeRules.filter((rule) => rule.id !== ruleId),
+    personalRules: settings.personalRules.filter((rule) => rule.id !== ruleId),
+    lastUpdated: new Date().toISOString(),
+  });
 }
 
 export function hasSelectedScreenTimeTargets(settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>): boolean {

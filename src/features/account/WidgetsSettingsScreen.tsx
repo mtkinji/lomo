@@ -68,10 +68,9 @@ export function WidgetsSettingsScreen() {
               style={styles.offerGradient}
             >
               <VStack space="sm">
-                <Text style={styles.offerTitle}>Keep your next step one tap away</Text>
+                <Text style={styles.offerTitle}>Keep Kwilt one tap away</Text>
                 <Text style={styles.offerBody}>
-                  Add a Kwilt widget to your Home Screen so you can jump straight into To-dos—without hunting for
-                  the app.
+                  Put Ask Kwilt and four shortcuts to the parts of Kwilt you use most on your Home Screen.
                 </Text>
 
                 <Button variant="inverse" size="sm" fullWidth onPress={() => void handleOpenHelp()}>
@@ -93,7 +92,8 @@ export function WidgetsSettingsScreen() {
                   <Text style={styles.stepTitle}>Home Screen</Text>
                   <Text style={styles.step}>1) Touch and hold the Home Screen until apps jiggle.</Text>
                   <Text style={styles.step}>2) Tap the “+” button in the top corner.</Text>
-                  <Text style={styles.step}>3) Search for “Kwilt”, then add the widget.</Text>
+                  <Text style={styles.step}>3) Search for “Kwilt”, then add Kwilt Launcher.</Text>
+                  <Text style={styles.step}>4) Touch and hold it, choose Edit Widget, and pick all four shortcuts.</Text>
                 </VStack>
               </VStack>
             </VStack>
@@ -196,5 +196,4 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
 });
-
 

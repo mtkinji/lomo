@@ -37,4 +37,3 @@ describe('resolveScreenTimeActor', () => {
     expect(resolveScreenTimeActor(null)).toEqual({ kind: 'self_adult' });
   });
 });
-

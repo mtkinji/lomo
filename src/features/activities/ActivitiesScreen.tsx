@@ -2684,8 +2684,8 @@ export function ActivitiesScreen() {
               </HStack>
               <Text style={styles.widgetNudgeBody}>
                 {widgetCopyVariant === 'start_focus_faster'
-                  ? 'Start Focus with fewer taps.'
-                  : 'See Today at a glance and jump in faster.'}
+                  ? 'Start Focus or open the parts of Kwilt you use most.'
+                  : 'Keep Ask Kwilt and four shortcuts one tap away.'}
               </Text>
             </VStack>
             <Pressable
@@ -2838,11 +2838,11 @@ export function ActivitiesScreen() {
         visible={widgetModalVisible}
         onClose={() => handleDismissWidgetPrompt('modal')}
         title="Add a Kwilt widget"
-        description="Put Today and your next step on your Home Screen or Lock Screen."
+        description="Put Ask Kwilt and four shortcuts on your Home Screen."
       >
         <VStack space="md">
           <Text style={styles.widgetModalBody}>
-            After you add it, tapping the widget should open Kwilt directly to Today or your next To-do.
+            After adding Kwilt Launcher, touch and hold it, choose Edit Widget, and pick all four shortcuts.
           </Text>
           <HStack justifyContent="space-between" alignItems="center">
             <Button variant="secondary" onPress={() => handleDismissWidgetPrompt('modal')}>

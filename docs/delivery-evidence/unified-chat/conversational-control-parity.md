@@ -5,11 +5,11 @@
 | Measure | Value |
 | --- | --- |
 | Operations | 233 |
-| Mobile | {"ready":129,"excluded":7,"missing_provider":97} |
-| Phone | {"ready":120,"excluded":7,"missing_provider":106} |
-| External | {"boundary":7,"ready":118,"missing_provider":106,"excluded":2} |
+| Mobile | {"ready":172,"excluded":7,"missing_provider":54} |
+| Phone | {"ready":163,"excluded":7,"missing_provider":63} |
+| External | {"boundary":7,"ready":161,"missing_provider":63,"excluded":2} |
 | Voice | {"missing_conformance":226,"excluded":7} |
-| Final parity errors | 652 |
+| Final parity errors | 480 |
 
 ## Operations
 
@@ -87,44 +87,44 @@
 | `explore.open` | explore | excluded | excluded | excluded | excluded | excluded |
 | `games.open` | games | excluded | excluded | excluded | excluded | excluded |
 | `chores.open` | chores | native_handoff | ready | ready | ready | missing_conformance |
-| `recipes.search` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.read` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.create` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.import.prepare` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.import.approve` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.scale.preview` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.fork` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.share_copy.prepare` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.collaborator.invite` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `recipes.search` | recipes | direct | ready | ready | ready | missing_conformance |
+| `recipes.read` | recipes | direct | ready | ready | ready | missing_conformance |
+| `recipes.create` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.import.prepare` | recipes | direct | ready | ready | ready | missing_conformance |
+| `recipes.import.approve` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.update` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.scale.preview` | recipes | direct | ready | ready | ready | missing_conformance |
+| `recipes.fork` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.share_copy.prepare` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.collaborator.invite` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `recipes.publication.prepare` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `recipes.publication.publish` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `recipes.publication.attest_rights` | recipes | supported_boundary | excluded | excluded | boundary | excluded |
-| `recipes.delete` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.plan.create` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.plan.update` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.candidate.add` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.candidate.remove` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.round.open` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.round.close` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.response.submit` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.response.withdraw` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.plan.finalize` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.plan.revise` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.candidates.prepare` | meal_planning | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `food_budget.read` | savings | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `food_stock.read` | groceries | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `food_stock.observe` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `food_stock.deplete` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.compile` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.item.add` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.item.update` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.item.set_state` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.list.review` | groceries | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.product_match.prepare` | groceries | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.product_match.confirm` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.handoff.prepare` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `groceries.handoff.open` | groceries | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `recipes.delete` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.plan.create` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.plan.update` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.candidate.add` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.candidate.remove` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.round.open` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.round.close` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.response.submit` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.response.withdraw` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.plan.finalize` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.plan.revise` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.candidates.prepare` | meal_planning | direct | ready | ready | ready | missing_conformance |
+| `food_budget.read` | savings | direct | ready | ready | ready | missing_conformance |
+| `food_stock.read` | groceries | direct | ready | ready | ready | missing_conformance |
+| `food_stock.observe` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `food_stock.deplete` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.compile` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.item.add` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.item.update` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.item.set_state` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.list.review` | groceries | direct | ready | ready | ready | missing_conformance |
+| `groceries.product_match.prepare` | groceries | direct | ready | ready | ready | missing_conformance |
+| `groceries.product_match.confirm` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.handoff.prepare` | groceries | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `groceries.handoff.open` | groceries | native_handoff | ready | ready | ready | missing_conformance |
 | `groceries.checkout` | groceries | supported_boundary | excluded | excluded | boundary | excluded |
 | `groceries.payment` | groceries | supported_boundary | excluded | excluded | boundary | excluded |
 | `store_opportunity.capture` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -136,10 +136,10 @@
 | `savings.coupon.open` | savings | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `receipt.extract` | groceries | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `receipt.reconcile` | groceries | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `cook_session.read` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `cook_session.start` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `cook_session.control` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `cook_session.complete` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `cook_session.read` | recipes | direct | ready | ready | ready | missing_conformance |
+| `cook_session.start` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `cook_session.control` | recipes | direct | ready | ready | ready | missing_conformance |
+| `cook_session.complete` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `screen_time.read` | screenTime | direct | ready | ready | ready | missing_conformance |
 | `screen_time.agreement.create` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `screen_time.agreement.update` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
@@ -236,10 +236,10 @@
 | `chores.reward.reserve` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `chores.reward.cancel` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `chores.reward.settle` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
-| `recipes.favorite.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `recipes.visibility.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.preferences.read` | meal_planning | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `meal_planning.preferences.update` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `recipes.favorite.update` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `recipes.visibility.update` | recipes | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `meal_planning.preferences.read` | meal_planning | direct | ready | ready | ready | missing_conformance |
+| `meal_planning.preferences.update` | meal_planning | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `screen_time.personal_rule.list` | screenTime | direct | ready | ready | ready | missing_conformance |
 | `screen_time.personal_rule.get` | screenTime | direct | ready | ready | ready | missing_conformance |
 | `screen_time.personal_rule.update` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
@@ -342,56 +342,16 @@
 - money.connection.sync external is missing_provider
 - money.connection.sync voice is missing_conformance
 - chores.open voice is missing_conformance
-- recipes.search mobile is missing_provider
-- recipes.search phone is missing_provider
-- recipes.search external is missing_provider
 - recipes.search voice is missing_conformance
-- recipes.search has no proof paths
-- recipes.read mobile is missing_provider
-- recipes.read phone is missing_provider
-- recipes.read external is missing_provider
 - recipes.read voice is missing_conformance
-- recipes.read has no proof paths
-- recipes.create mobile is missing_provider
-- recipes.create phone is missing_provider
-- recipes.create external is missing_provider
 - recipes.create voice is missing_conformance
-- recipes.create has no proof paths
-- recipes.import.prepare mobile is missing_provider
-- recipes.import.prepare phone is missing_provider
-- recipes.import.prepare external is missing_provider
 - recipes.import.prepare voice is missing_conformance
-- recipes.import.prepare has no proof paths
-- recipes.import.approve mobile is missing_provider
-- recipes.import.approve phone is missing_provider
-- recipes.import.approve external is missing_provider
 - recipes.import.approve voice is missing_conformance
-- recipes.import.approve has no proof paths
-- recipes.update mobile is missing_provider
-- recipes.update phone is missing_provider
-- recipes.update external is missing_provider
 - recipes.update voice is missing_conformance
-- recipes.update has no proof paths
-- recipes.scale.preview mobile is missing_provider
-- recipes.scale.preview phone is missing_provider
-- recipes.scale.preview external is missing_provider
 - recipes.scale.preview voice is missing_conformance
-- recipes.scale.preview has no proof paths
-- recipes.fork mobile is missing_provider
-- recipes.fork phone is missing_provider
-- recipes.fork external is missing_provider
 - recipes.fork voice is missing_conformance
-- recipes.fork has no proof paths
-- recipes.share_copy.prepare mobile is missing_provider
-- recipes.share_copy.prepare phone is missing_provider
-- recipes.share_copy.prepare external is missing_provider
 - recipes.share_copy.prepare voice is missing_conformance
-- recipes.share_copy.prepare has no proof paths
-- recipes.collaborator.invite mobile is missing_provider
-- recipes.collaborator.invite phone is missing_provider
-- recipes.collaborator.invite external is missing_provider
 - recipes.collaborator.invite voice is missing_conformance
-- recipes.collaborator.invite has no proof paths
 - recipes.publication.prepare mobile is missing_provider
 - recipes.publication.prepare phone is missing_provider
 - recipes.publication.prepare external is missing_provider
@@ -406,131 +366,31 @@
 - recipes.publication.attest_rights phone is excluded
 - recipes.publication.attest_rights voice is excluded
 - recipes.publication.attest_rights has no proof paths
-- recipes.delete mobile is missing_provider
-- recipes.delete phone is missing_provider
-- recipes.delete external is missing_provider
 - recipes.delete voice is missing_conformance
-- recipes.delete has no proof paths
-- meal_planning.plan.create mobile is missing_provider
-- meal_planning.plan.create phone is missing_provider
-- meal_planning.plan.create external is missing_provider
 - meal_planning.plan.create voice is missing_conformance
-- meal_planning.plan.create has no proof paths
-- meal_planning.plan.update mobile is missing_provider
-- meal_planning.plan.update phone is missing_provider
-- meal_planning.plan.update external is missing_provider
 - meal_planning.plan.update voice is missing_conformance
-- meal_planning.plan.update has no proof paths
-- meal_planning.candidate.add mobile is missing_provider
-- meal_planning.candidate.add phone is missing_provider
-- meal_planning.candidate.add external is missing_provider
 - meal_planning.candidate.add voice is missing_conformance
-- meal_planning.candidate.add has no proof paths
-- meal_planning.candidate.remove mobile is missing_provider
-- meal_planning.candidate.remove phone is missing_provider
-- meal_planning.candidate.remove external is missing_provider
 - meal_planning.candidate.remove voice is missing_conformance
-- meal_planning.candidate.remove has no proof paths
-- meal_planning.round.open mobile is missing_provider
-- meal_planning.round.open phone is missing_provider
-- meal_planning.round.open external is missing_provider
 - meal_planning.round.open voice is missing_conformance
-- meal_planning.round.open has no proof paths
-- meal_planning.round.close mobile is missing_provider
-- meal_planning.round.close phone is missing_provider
-- meal_planning.round.close external is missing_provider
 - meal_planning.round.close voice is missing_conformance
-- meal_planning.round.close has no proof paths
-- meal_planning.response.submit mobile is missing_provider
-- meal_planning.response.submit phone is missing_provider
-- meal_planning.response.submit external is missing_provider
 - meal_planning.response.submit voice is missing_conformance
-- meal_planning.response.submit has no proof paths
-- meal_planning.response.withdraw mobile is missing_provider
-- meal_planning.response.withdraw phone is missing_provider
-- meal_planning.response.withdraw external is missing_provider
 - meal_planning.response.withdraw voice is missing_conformance
-- meal_planning.response.withdraw has no proof paths
-- meal_planning.plan.finalize mobile is missing_provider
-- meal_planning.plan.finalize phone is missing_provider
-- meal_planning.plan.finalize external is missing_provider
 - meal_planning.plan.finalize voice is missing_conformance
-- meal_planning.plan.finalize has no proof paths
-- meal_planning.plan.revise mobile is missing_provider
-- meal_planning.plan.revise phone is missing_provider
-- meal_planning.plan.revise external is missing_provider
 - meal_planning.plan.revise voice is missing_conformance
-- meal_planning.plan.revise has no proof paths
-- meal_planning.candidates.prepare mobile is missing_provider
-- meal_planning.candidates.prepare phone is missing_provider
-- meal_planning.candidates.prepare external is missing_provider
 - meal_planning.candidates.prepare voice is missing_conformance
-- meal_planning.candidates.prepare has no proof paths
-- food_budget.read mobile is missing_provider
-- food_budget.read phone is missing_provider
-- food_budget.read external is missing_provider
 - food_budget.read voice is missing_conformance
-- food_budget.read has no proof paths
-- food_stock.read mobile is missing_provider
-- food_stock.read phone is missing_provider
-- food_stock.read external is missing_provider
 - food_stock.read voice is missing_conformance
-- food_stock.read has no proof paths
-- food_stock.observe mobile is missing_provider
-- food_stock.observe phone is missing_provider
-- food_stock.observe external is missing_provider
 - food_stock.observe voice is missing_conformance
-- food_stock.observe has no proof paths
-- food_stock.deplete mobile is missing_provider
-- food_stock.deplete phone is missing_provider
-- food_stock.deplete external is missing_provider
 - food_stock.deplete voice is missing_conformance
-- food_stock.deplete has no proof paths
-- groceries.compile mobile is missing_provider
-- groceries.compile phone is missing_provider
-- groceries.compile external is missing_provider
 - groceries.compile voice is missing_conformance
-- groceries.compile has no proof paths
-- groceries.item.add mobile is missing_provider
-- groceries.item.add phone is missing_provider
-- groceries.item.add external is missing_provider
 - groceries.item.add voice is missing_conformance
-- groceries.item.add has no proof paths
-- groceries.item.update mobile is missing_provider
-- groceries.item.update phone is missing_provider
-- groceries.item.update external is missing_provider
 - groceries.item.update voice is missing_conformance
-- groceries.item.update has no proof paths
-- groceries.item.set_state mobile is missing_provider
-- groceries.item.set_state phone is missing_provider
-- groceries.item.set_state external is missing_provider
 - groceries.item.set_state voice is missing_conformance
-- groceries.item.set_state has no proof paths
-- groceries.list.review mobile is missing_provider
-- groceries.list.review phone is missing_provider
-- groceries.list.review external is missing_provider
 - groceries.list.review voice is missing_conformance
-- groceries.list.review has no proof paths
-- groceries.product_match.prepare mobile is missing_provider
-- groceries.product_match.prepare phone is missing_provider
-- groceries.product_match.prepare external is missing_provider
 - groceries.product_match.prepare voice is missing_conformance
-- groceries.product_match.prepare has no proof paths
-- groceries.product_match.confirm mobile is missing_provider
-- groceries.product_match.confirm phone is missing_provider
-- groceries.product_match.confirm external is missing_provider
 - groceries.product_match.confirm voice is missing_conformance
-- groceries.product_match.confirm has no proof paths
-- groceries.handoff.prepare mobile is missing_provider
-- groceries.handoff.prepare phone is missing_provider
-- groceries.handoff.prepare external is missing_provider
 - groceries.handoff.prepare voice is missing_conformance
-- groceries.handoff.prepare has no proof paths
-- groceries.handoff.open mobile is missing_provider
-- groceries.handoff.open phone is missing_provider
-- groceries.handoff.open external is missing_provider
 - groceries.handoff.open voice is missing_conformance
-- groceries.handoff.open has no proof paths
 - groceries.checkout mobile is excluded
 - groceries.checkout phone is excluded
 - groceries.checkout voice is excluded
@@ -583,26 +443,10 @@
 - receipt.reconcile external is missing_provider
 - receipt.reconcile voice is missing_conformance
 - receipt.reconcile has no proof paths
-- cook_session.read mobile is missing_provider
-- cook_session.read phone is missing_provider
-- cook_session.read external is missing_provider
 - cook_session.read voice is missing_conformance
-- cook_session.read has no proof paths
-- cook_session.start mobile is missing_provider
-- cook_session.start phone is missing_provider
-- cook_session.start external is missing_provider
 - cook_session.start voice is missing_conformance
-- cook_session.start has no proof paths
-- cook_session.control mobile is missing_provider
-- cook_session.control phone is missing_provider
-- cook_session.control external is missing_provider
 - cook_session.control voice is missing_conformance
-- cook_session.control has no proof paths
-- cook_session.complete mobile is missing_provider
-- cook_session.complete phone is missing_provider
-- cook_session.complete external is missing_provider
 - cook_session.complete voice is missing_conformance
-- cook_session.complete has no proof paths
 - screen_time.read voice is missing_conformance
 - screen_time.agreement.create voice is missing_conformance
 - screen_time.agreement.update voice is missing_conformance
@@ -863,26 +707,10 @@
 - chores.reward.reserve voice is missing_conformance
 - chores.reward.cancel voice is missing_conformance
 - chores.reward.settle voice is missing_conformance
-- recipes.favorite.update mobile is missing_provider
-- recipes.favorite.update phone is missing_provider
-- recipes.favorite.update external is missing_provider
 - recipes.favorite.update voice is missing_conformance
-- recipes.favorite.update has no proof paths
-- recipes.visibility.update mobile is missing_provider
-- recipes.visibility.update phone is missing_provider
-- recipes.visibility.update external is missing_provider
 - recipes.visibility.update voice is missing_conformance
-- recipes.visibility.update has no proof paths
-- meal_planning.preferences.read mobile is missing_provider
-- meal_planning.preferences.read phone is missing_provider
-- meal_planning.preferences.read external is missing_provider
 - meal_planning.preferences.read voice is missing_conformance
-- meal_planning.preferences.read has no proof paths
-- meal_planning.preferences.update mobile is missing_provider
-- meal_planning.preferences.update phone is missing_provider
-- meal_planning.preferences.update external is missing_provider
 - meal_planning.preferences.update voice is missing_conformance
-- meal_planning.preferences.update has no proof paths
 - screen_time.personal_rule.list voice is missing_conformance
 - screen_time.personal_rule.get voice is missing_conformance
 - screen_time.personal_rule.update voice is missing_conformance

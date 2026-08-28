@@ -188,6 +188,12 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'screen_time.request.decide',
   'plan.read_day_context', 'plan.recommend_day',
   'chores.list', 'chores.get', 'chores.reward.read',
+  'recipes.search', 'recipes.read', 'recipes.scale.preview',
+  'cook_session.read', 'cook_session.control',
+  'meal_planning.preferences.read',
+  'meal_planning.candidates.prepare',
+  'food_budget.read', 'food_stock.read',
+  'groceries.list.review',
 ]);
 
 const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
@@ -207,6 +213,10 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'money.transfer.list', 'money.transfer.get', 'money.transfer.review',
   'chores.evidence.add',
   'chores.open',
+  'recipes.import.prepare',
+  'recipes.share_copy.prepare',
+  'groceries.product_match.prepare', 'groceries.product_match.confirm',
+  'groceries.handoff.prepare', 'groceries.handoff.open',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -226,6 +236,17 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'chores.occurrence.claim', 'chores.occurrence.release', 'chores.occurrence.reopen',
   'chores.occurrence.report_earlier', 'chores.review.leave_missed',
   'chores.reward.configure', 'chores.reward.reserve', 'chores.reward.cancel', 'chores.reward.settle',
+  'recipes.create', 'recipes.update', 'recipes.delete', 'recipes.fork', 'recipes.collaborator.invite',
+  'recipes.import.approve',
+  'cook_session.start', 'cook_session.complete',
+  'recipes.favorite.update', 'recipes.visibility.update', 'meal_planning.preferences.update',
+  'meal_planning.plan.create', 'meal_planning.plan.update',
+  'meal_planning.candidate.add', 'meal_planning.candidate.remove',
+  'meal_planning.round.open', 'meal_planning.round.close',
+  'meal_planning.response.submit', 'meal_planning.response.withdraw',
+  'meal_planning.plan.finalize', 'meal_planning.plan.revise',
+  'food_stock.observe', 'food_stock.deplete',
+  'groceries.compile', 'groceries.item.add', 'groceries.item.update', 'groceries.item.set_state',
 ]);
 
 const MOBILE_AUTO_APPLY_OPERATION_IDS = new Set([
@@ -409,6 +430,80 @@ const choreControlProof = [
   'supabase/functions/_shared/__tests__/serverChoreTools_deno_test.ts',
   'supabase/migrations/20260827_activity_backed_chore_profiles.sql',
 ] as const;
+const foodControlProof = [
+  'src/capabilities/recipes/actions/recipeControlActions.test.ts',
+  'src/capabilities/meal-planning/actions/mealPreferenceActions.test.ts',
+  'src/features/unifiedChat/foodControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/executeMealPreferenceProposalDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeReadProof = [
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeMutationProof = [
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeImportProof = [
+  'src/capabilities/recipes/data/recipeImportRepository.test.ts',
+  'src/capabilities/food-ai/recipeImportProposalExecutor.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeCookProof = [
+  'src/capabilities/recipes/actions/recipeCookActions.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const mealPlanProof = [
+  'src/capabilities/meal-planning/actions/mealPlanActions.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.mealPlan.test.ts',
+  'src/features/unifiedChat/executeMealPlanProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryReadProof = [
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryStockMutationProof = [
+  'src/capabilities/groceries/actions/foodStockActions.test.ts',
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeGroceryProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryListProof = [
+  'src/capabilities/groceries/actions/groceryListActions.test.ts',
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeGroceryProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryRetailerHandoffProof = [
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -445,6 +540,41 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
     toolIds: contract.authority === 'excluded' ? [] : [contract.id],
     sourceRefs: contract.sourceRefs,
   } as const;
+  if (contract.id === 'recipes.search' || contract.id === 'recipes.read' || contract.id === 'recipes.scale.preview') {
+    return live(row, recipeReadProof);
+  }
+  if (contract.id === 'recipes.create' || contract.id === 'recipes.update' || contract.id === 'recipes.delete' || contract.id === 'recipes.fork' || contract.id === 'recipes.collaborator.invite') {
+    return live(row, recipeMutationProof);
+  }
+  if (contract.id === 'recipes.share_copy.prepare') return live(row, recipeImportProof);
+  if (contract.id === 'recipes.import.prepare' || contract.id === 'recipes.import.approve') {
+    return live(row, recipeImportProof);
+  }
+  if (contract.id.startsWith('cook_session.')) {
+    return live(row, recipeCookProof);
+  }
+  if (contract.id === 'meal_planning.plan.create' || contract.id === 'meal_planning.plan.update'
+    || contract.id === 'meal_planning.candidate.add' || contract.id === 'meal_planning.candidate.remove'
+    || contract.id === 'meal_planning.round.open' || contract.id === 'meal_planning.round.close'
+    || contract.id === 'meal_planning.response.submit' || contract.id === 'meal_planning.response.withdraw'
+    || contract.id === 'meal_planning.plan.finalize' || contract.id === 'meal_planning.plan.revise') {
+    return live(row, mealPlanProof);
+  }
+  if (contract.id === 'meal_planning.candidates.prepare') return live(row, mealPlanProof);
+  if (contract.id === 'food_budget.read' || contract.id === 'food_stock.read') return live(row, groceryReadProof);
+  if (contract.id === 'food_stock.observe' || contract.id === 'food_stock.deplete') return live(row, groceryStockMutationProof);
+  if (contract.id === 'groceries.compile' || contract.id === 'groceries.item.add'
+    || contract.id === 'groceries.item.update' || contract.id === 'groceries.item.set_state'
+    || contract.id === 'groceries.list.review') return live(row, groceryListProof);
+  if (contract.id === 'groceries.product_match.prepare' || contract.id === 'groceries.product_match.confirm'
+    || contract.id === 'groceries.handoff.prepare' || contract.id === 'groceries.handoff.open') {
+    return bounded(
+      'confirmation_only',
+      row,
+      'Chat resolves the exact Grocery target and stages native retailer review; retailer selection, substitution, slot, payment, and checkout remain explicitly unclaimed.',
+      groceryRetailerHandoffProof,
+    );
+  }
   return bounded(
     contract.authority === 'excluded' ? 'excluded' : 'pending_provider',
     row,
@@ -494,6 +624,16 @@ function controlParityCapabilityRow(
       toolIds: [contract.id],
       sourceRefs: contract.sourceRefs,
     }, choreControlProof);
+  }
+  if (contract.owner === 'recipes' || contract.owner === 'meal_planning') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, foodControlProof);
   }
   return bounded('pending_provider', {
     id: contract.id,

@@ -31,6 +31,7 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   navigation: 'Open an exact native Kwilt destination such as search.',
   recipes: 'Find and discuss the user\'s authorized Recipes and meal ideas.',
   meal_planning: 'Prepare a household-aware Meal Plan using explicit preferences, budget boundaries, and available food evidence.',
+  groceries: 'Read and update reviewed Food Stock evidence, and manage Grocery lists without claiming retailer checkout or payment.',
 };
 
 const capabilityDescriptions = (Object.keys(CAPABILITY_DESCRIPTIONS) as UnifiedChatCapabilityId[])

@@ -82,9 +82,9 @@ describe('UI parity inventory', () => {
     });
     expect(byOperation.get('recipes.create')).toMatchObject({
       surfaceId: 'recipes',
-      mobile: { state: 'pending_provider' },
-      voice: { state: 'pending_provider' },
-      chatgpt: { state: 'pending_provider' },
+      mobile: { state: 'live', outcome: 'proposal_or_receipt' },
+      voice: { state: 'live', outcome: 'proposal_or_receipt' },
+      chatgpt: { state: 'exposed', outcome: 'mobile_proposal' },
     });
     expect(byOperation.get('games.open')).toMatchObject({
       surfaceId: 'games',
@@ -118,7 +118,7 @@ describe('UI parity inventory', () => {
       expect.stringContaining('Unresolved UI gap'),
     ]));
     expect(errors).toEqual(expect.arrayContaining([
-      expect.stringContaining('recipes.create mobile is missing_provider'),
+      expect.stringContaining('recipes.publication.prepare mobile is missing_provider'),
       expect.stringContaining('activities.capture voice is missing_conformance'),
     ]));
     expect(() => assertFinalConversationalParity({ surfaces: UI_PARITY_SURFACES, rows }))

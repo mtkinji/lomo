@@ -95,6 +95,16 @@ test('the app bridge and extensions render the same concrete App Group', () => {
   assert.equal(rendered.match(/group\.test\.kwilt/g)?.length, 2);
 });
 
+test('the generated Screen Time bridge can transfer an opaque picker selection between rule owners', () => {
+  const rendered = buildScreenTimeProtectionSwift('group.test.kwilt');
+  assert.match(rendered, /@objc\(transferActivitySelection:resolver:rejecter:\)/);
+  assert.match(rendered, /sourceSelectionId/);
+  assert.match(rendered, /targetSelectionId/);
+  assert.match(rendered, /let sourceSelectionId = selectionIdentifier\(rawSourceSelectionId\)/);
+  assert.match(rendered, /saveSelection\(sourceSelection, for: targetSelectionId\)/);
+  assert.match(bridgeGenerator, /transferActivitySelection:\(NSString \*\)json/);
+});
+
 test('the shield and action extension resolve the same highest-priority matching reason', () => {
   assert.match(generator, /matchingRestrictions/);
   assert.match(generator, /priority\(for reason:/);

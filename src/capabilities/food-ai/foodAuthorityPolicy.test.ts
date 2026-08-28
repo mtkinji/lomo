@@ -70,11 +70,16 @@ describe('Food AI operation authority', () => {
     });
   });
 
-  test('does not report Food operations live before executor, receipt, and return proof exist', () => {
+  test('reports Food operations live only with executor, receipt, and return proof', () => {
     for (const operationId of FOOD_OPERATION_IDS) {
       const operation = KWILT_CAPABILITY_MANIFEST.find((candidate) => candidate.id === operationId);
-      expect(operation?.channels.mobile.state).not.toBe('live');
-      expect(operation?.channels.phone.state).not.toBe('live');
+      if (!operation) throw new Error(`Missing ${operationId}`);
+      for (const channel of [operation.channels.mobile, operation.channels.phone]) {
+        if (channel.state === 'live' || channel.state === 'confirmation_only') {
+          expect(operation.tools.length).toBeGreaterThan(0);
+          expect(channel.proofPaths.length).toBeGreaterThan(0);
+        }
+      }
     }
   });
 });

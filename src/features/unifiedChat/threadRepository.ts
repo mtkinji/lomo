@@ -36,6 +36,9 @@ import { isUnifiedChatCapabilityId } from './requestPolicy';
 import { parseStoredScreenTimeProposalOperation } from './screenTimeProposal';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
 import { parseReviewedRecipeData } from '../../capabilities/recipes/domain/recipeValidation';
+import { validateMealPlanHorizon } from '../../capabilities/meal-planning/domain/mealPlanLifecycle';
+import { parseReviewedMealPlanOccasions } from '../../capabilities/meal-planning/domain/mealPlanFinalization';
+import { parseFoodStockObservation } from '../../capabilities/groceries/domain/foodStockContracts';
 
 const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
 const MESSAGE_COLUMNS =
@@ -300,6 +303,63 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
   };
   const { _outcomeStep: _storedOutcomeStep, ...payload } = rawPayload;
   if (
+    row.capability_id === 'recipes' && row.operation_type === 'recipes.collaborator.invite' &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 1 &&
+    typeof payload.recipientPersonId === 'string' && payload.recipientPersonId.length > 0 &&
+    (payload.role === 'viewer' || payload.role === 'contributor' || payload.role === 'maintainer')
+  ) {
+    return { ...base, capabilityId: 'recipes', type: 'recipes.collaborator.invite', targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {
+        recipientPersonId: payload.recipientPersonId,
+        role: payload.role,
+      } } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.capability_id === 'recipes' && row.operation_type === 'recipes.fork' &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 1 &&
+    typeof payload.sourceRecipeId === 'string' && payload.sourceRecipeId.length > 0
+  ) {
+    try {
+      return {
+        ...base, capabilityId: 'recipes', type: 'recipes.fork', targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: {
+          sourceRecipeId: payload.sourceRecipeId,
+          reviewedData: parseReviewedRecipeData(payload.reviewedData),
+        },
+      } as UnifiedChatProposalOperation;
+    } catch { return null; }
+  }
+  if (
+    row.capability_id === 'recipes' &&
+    (row.operation_type === 'cook_session.start' || row.operation_type === 'cook_session.complete') &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 1 &&
+    (row.operation_type === 'cook_session.start'
+      ? payload.recipeScaleMultiplier === 1 || payload.recipeScaleMultiplier === 2 || payload.recipeScaleMultiplier === 3
+      : payload.outcome === 'completed' || payload.outcome === 'abandoned')
+  ) {
+    return {
+      ...base, capabilityId: 'recipes', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: row.operation_type === 'cook_session.start'
+        ? { recipeScaleMultiplier: payload.recipeScaleMultiplier as 1 | 2 | 3 }
+        : { outcome: payload.outcome as 'completed' | 'abandoned' },
+    } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.capability_id === 'recipes' && row.operation_type === 'recipes.import.approve' &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 1 &&
+    typeof payload.approvalIdempotencyKey === 'string' && payload.approvalIdempotencyKey.length > 0
+  ) {
+    try {
+      return {
+        ...base, capabilityId: 'recipes', type: 'recipes.import.approve', targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: {
+          reviewedData: parseReviewedRecipeData(payload.reviewedData),
+          approvalIdempotencyKey: payload.approvalIdempotencyKey,
+        },
+      } as UnifiedChatProposalOperation;
+    } catch { return null; }
+  }
+  if (
     row.capability_id === 'recipes' &&
     (row.operation_type === 'create_recipe' || row.operation_type === 'update_recipe') &&
     Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 0 &&
@@ -332,6 +392,193 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
       ...base, capabilityId: 'recipes', type: 'delete_recipe', targetId: row.target_id,
       expectedVersion: Number(payload.expectedVersion), payload: {},
     } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.capability_id === 'recipes' &&
+    (row.operation_type === 'recipes.favorite.update' || row.operation_type === 'recipes.visibility.update') &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) &&
+    (payload.expectedVersion === 0 || payload.expectedVersion === 1) &&
+    (row.operation_type === 'recipes.favorite.update'
+      ? typeof payload.favorite === 'boolean'
+      : payload.visibility === 'visible' || payload.visibility === 'hidden')
+  ) {
+    return {
+      ...base, capabilityId: 'recipes', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion),
+      payload: row.operation_type === 'recipes.favorite.update'
+        ? { favorite: payload.favorite }
+        : { visibility: payload.visibility },
+    } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.preferences.update' &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) &&
+    Number(payload.expectedVersion) >= 0 && payload.patch && typeof payload.patch === 'object' &&
+    !Array.isArray(payload.patch) && Object.keys(payload.patch as Record<string, unknown>).length > 0
+  ) {
+    return {
+      ...base, capabilityId: 'meal_planning', type: 'meal_planning.preferences.update', targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: { patch: payload.patch },
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.plan.create'
+    && row.target_id == null && payload.householdId !== undefined
+    && (payload.householdId === null || typeof payload.householdId === 'string')
+    && payload.expectedVersion === 0) {
+    try {
+      return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: null,
+        expectedVersion: 0, payload: {
+          householdId: payload.householdId,
+          horizon: validateMealPlanHorizon(payload.horizon as never),
+        } } as UnifiedChatProposalOperation;
+    } catch { return null; }
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.plan.update'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1) {
+    try {
+      return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: {
+          horizon: validateMealPlanHorizon(payload.horizon as never),
+        } } as UnifiedChatProposalOperation;
+    } catch { return null; }
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.candidate.add'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1 && payload.candidate && typeof payload.candidate === 'object'
+    && !Array.isArray(payload.candidate)) {
+    const candidate = payload.candidate as Record<string, unknown>;
+    const recipeSnapshot = candidate.recipeSnapshot;
+    if (typeof candidate.id === 'string' && candidate.id.length > 0
+      && typeof candidate.title === 'string' && candidate.title.trim().length > 0
+      && (candidate.kind === 'recipe' || candidate.kind === 'meal_note')
+      && ((candidate.kind === 'recipe' && recipeSnapshot && typeof recipeSnapshot === 'object' && !Array.isArray(recipeSnapshot))
+        || (candidate.kind === 'meal_note' && recipeSnapshot === null))) {
+      return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: { candidate: {
+          id: candidate.id, kind: candidate.kind, title: candidate.title,
+          recipeSnapshot: recipeSnapshot as Record<string, unknown> | null,
+        } } } as UnifiedChatProposalOperation;
+    }
+    return null;
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.candidate.remove'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1 && typeof payload.candidateId === 'string'
+    && payload.candidateId.length > 0) {
+    return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: { candidateId: payload.candidateId } } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.round.open'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1 && Array.isArray(payload.participantPersonIds)
+    && payload.participantPersonIds.length >= 1 && payload.participantPersonIds.length <= 20
+    && payload.participantPersonIds.every((id) => typeof id === 'string' && id.length > 0)
+    && new Set(payload.participantPersonIds).size === payload.participantPersonIds.length) {
+    return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {
+        participantPersonIds: payload.participantPersonIds as string[],
+      } } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'meal_planning'
+    && (row.operation_type === 'meal_planning.round.close'
+      || row.operation_type === 'meal_planning.response.withdraw'
+      || row.operation_type === 'meal_planning.plan.revise')
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1) {
+    return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {} } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.response.submit'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1 && Array.isArray(payload.candidateIds)
+    && Array.isArray(payload.availableCandidateIds) && typeof payload.pass === 'boolean'
+    && (payload.suggestion === null || typeof payload.suggestion === 'string')) {
+    const candidateIds = payload.candidateIds.filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const availableCandidateIds = payload.availableCandidateIds.filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (candidateIds.length !== payload.candidateIds.length || candidateIds.length > 3
+      || new Set(candidateIds).size !== candidateIds.length
+      || candidateIds.some((id) => !availableCandidateIds.includes(id))
+      || (payload.pass && candidateIds.length > 0)) return null;
+    return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {
+        candidateIds, availableCandidateIds, pass: payload.pass,
+        suggestion: payload.suggestion as string | null,
+      } } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'meal_planning' && row.operation_type === 'meal_planning.plan.finalize'
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion)
+    && Number(payload.expectedVersion) >= 1 && (payload.organizerNote === null || typeof payload.organizerNote === 'string')) {
+    const rawOccasions = Array.isArray(payload.occasions) ? payload.occasions : [];
+    const candidateIds = rawOccasions.flatMap((occasion) => {
+      const row = occasion && typeof occasion === 'object' && !Array.isArray(occasion) ? occasion as Record<string, unknown> : null;
+      return Array.isArray(row?.dishes) ? row.dishes.flatMap((dish) => {
+        const item = dish && typeof dish === 'object' && !Array.isArray(dish) ? dish as Record<string, unknown> : null;
+        return typeof item?.candidateId === 'string' ? [item.candidateId] : [];
+      }) : [];
+    });
+    const eligiblePersonIds = rawOccasions.flatMap((occasion) => {
+      const row = occasion && typeof occasion === 'object' && !Array.isArray(occasion) ? occasion as Record<string, unknown> : null;
+      const notEating = Array.isArray(row?.notEatingPersonIds) ? row.notEatingPersonIds.filter((id): id is string => typeof id === 'string') : [];
+      const diners = Array.isArray(row?.dishes) ? row.dishes.flatMap((dish) => {
+        const item = dish && typeof dish === 'object' && !Array.isArray(dish) ? dish as Record<string, unknown> : null;
+        return Array.isArray(item?.dinerPersonIds) ? item.dinerPersonIds.filter((id): id is string => typeof id === 'string') : [];
+      }) : [];
+      return [...notEating, ...diners];
+    });
+    const occasions = parseReviewedMealPlanOccasions(rawOccasions, { candidateIds, eligiblePersonIds });
+    if (!occasions) return null;
+    return { ...base, capabilityId: 'meal_planning', type: row.operation_type, targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {
+        occasions, organizerNote: payload.organizerNote as string | null,
+      } } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'groceries'
+    && (row.operation_type === 'food_stock.observe' || row.operation_type === 'food_stock.deplete')
+    && (row.target_id === null || typeof row.target_id === 'string')
+    && (payload.expectedObservationId === null || typeof payload.expectedObservationId === 'string')) {
+    if (row.operation_type === 'food_stock.observe') {
+      const observation = payload.observation && typeof payload.observation === 'object' && !Array.isArray(payload.observation)
+        ? payload.observation as Record<string, unknown> : null;
+      if (!observation) return null;
+      try {
+        parseFoodStockObservation({ id: 'pending', ownerPersonId: 'pending', ...observation,
+          supersedesObservationId: null, correctedAt: null } as never);
+      } catch { return null; }
+      return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+        expectedObservationId: payload.expectedObservationId as string | null,
+        payload: { observation } } as UnifiedChatProposalOperation;
+    }
+    if (typeof payload.concept !== 'string' || !payload.concept.trim()
+      || typeof payload.observedAt !== 'string' || !Number.isFinite(Date.parse(payload.observedAt))) return null;
+    return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+      expectedObservationId: payload.expectedObservationId as string | null,
+      payload: { concept: payload.concept, observedAt: payload.observedAt } } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'groceries'
+    && (row.operation_type === 'groceries.compile' || row.operation_type === 'groceries.item.add'
+      || row.operation_type === 'groceries.item.update' || row.operation_type === 'groceries.item.set_state')
+    && typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 1) {
+    if (row.operation_type === 'groceries.compile') {
+      return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: { mealPlanVersion: Number(payload.expectedVersion) } } as UnifiedChatProposalOperation;
+    }
+    if (row.operation_type === 'groceries.item.add' && typeof payload.title === 'string'
+      && (payload.sourceKind === 'manual' || payload.sourceKind === 'household_request')) {
+      return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: { title: payload.title, sourceKind: payload.sourceKind } } as UnifiedChatProposalOperation;
+    }
+    if (row.operation_type === 'groceries.item.update' && payload.patch && typeof payload.patch === 'object'
+      && !Array.isArray(payload.patch) && (payload.reason === null || typeof payload.reason === 'string')) {
+      return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: { patch: payload.patch, reason: payload.reason } } as UnifiedChatProposalOperation;
+    }
+    if (row.operation_type === 'groceries.item.set_state'
+      && ['needed','already_have','purchased','removed'].includes(String(payload.state))) {
+      return { ...base, capabilityId: 'groceries', type: row.operation_type, targetId: row.target_id,
+        expectedVersion: Number(payload.expectedVersion), payload: { state: payload.state } } as UnifiedChatProposalOperation;
+    }
+    return null;
   }
   if (
     row.capability_id === 'money' && row.operation_type === 'create_money_category' &&
@@ -1090,12 +1337,20 @@ export function createUnifiedChatRepository(
       const expectedUpdatedAt = 'expectedUpdatedAt' in input.operation
         ? input.operation.expectedUpdatedAt
         : undefined;
-      const storedPayload = input.capabilityId === 'recipes'
+      const storedPayload = input.capabilityId === 'recipes' || input.capabilityId === 'meal_planning'
         ? {
             ...input.operation.payload,
             expectedVersion: input.operation.expectedVersion,
             ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
           }
+        : input.capabilityId === 'groceries'
+          ? {
+              ...input.operation.payload,
+              ...('expectedObservationId' in input.operation
+                ? { expectedObservationId: input.operation.expectedObservationId }
+                : { expectedVersion: input.operation.expectedVersion }),
+              ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+            }
         : input.capabilityId === 'screenTime'
           ? {
               ...input.operation.payload,
@@ -1113,7 +1368,28 @@ export function createUnifiedChatRepository(
           proposal_id: proposalId,
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
-          target_type: input.capabilityId === 'recipes' ? 'recipe'
+          target_type: input.capabilityId === 'recipes'
+            ? input.operation.type === 'recipes.favorite.update' || input.operation.type === 'recipes.visibility.update'
+              ? 'recipe_preference'
+              : input.operation.type === 'recipes.import.approve'
+                ? 'recipe_import_draft'
+              : input.operation.type === 'recipes.fork'
+                ? 'recipe_version'
+              : input.operation.type === 'recipes.collaborator.invite'
+                ? 'recipe'
+              : input.operation.type === 'cook_session.start'
+                ? 'recipe_version'
+              : input.operation.type === 'cook_session.complete'
+                ? 'cook_session'
+              : 'recipe'
+            : input.capabilityId === 'meal_planning'
+              ? input.operation.type === 'meal_planning.preferences.update' ? 'household_meal_preferences'
+                : input.operation.type.startsWith('meal_planning.round.') ? 'meal_choice_round'
+                  : input.operation.type.startsWith('meal_planning.response.') ? 'meal_choice_response'
+                    : 'meal_plan'
+            : input.capabilityId === 'groceries'
+              ? input.operation.type.startsWith('food_stock.') ? 'food_stock_observation'
+                : input.operation.type === 'groceries.compile' || input.operation.type === 'groceries.item.add' ? 'grocery_list' : 'grocery_item'
             : input.capabilityId === 'screenTime'
             ? input.operation.type === 'create_family_screen_time_prerequisite_agreement'
               || input.operation.type === 'update_family_screen_time_agreement'
@@ -1148,8 +1424,12 @@ export function createUnifiedChatRepository(
         capability_id: input.capabilityId,
         operation_type: input.operation.type,
         target_id: input.operation.targetId,
-        payload: input.capabilityId === 'recipes'
+        payload: input.capabilityId === 'recipes' || input.capabilityId === 'meal_planning'
           ? { ...input.operation.payload, expectedVersion: input.operation.expectedVersion }
+          : input.capabilityId === 'groceries'
+            ? { ...input.operation.payload, ...('expectedObservationId' in input.operation
+              ? { expectedObservationId: input.operation.expectedObservationId }
+              : { expectedVersion: input.operation.expectedVersion }) }
           : input.capabilityId === 'screenTime'
             ? input.operation.payload
             : { ...input.operation.payload, expectedUpdatedAt },

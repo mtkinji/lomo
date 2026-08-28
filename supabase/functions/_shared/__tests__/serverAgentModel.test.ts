@@ -23,15 +23,19 @@ test('catalog hashing is deterministic and sensitive to contract changes', () =>
     .not.toBe(serverResponsesToolCatalogHash([first]));
 });
 
-test('the proxy accepts the complete current server catalog', () => {
-  expect(validateKwiltAiRequestShape('/v1/responses', {
+test('the proxy accepts the bounded turn catalog and rejects an unplanned full catalog', () => {
+  const request = {
     store: false,
     max_output_tokens: 1_200,
     parallel_tool_calls: false,
     input: [{ role: 'user', content: 'What needs my attention?' }],
-    tools: toServerResponsesTools(SERVER_AGENT_TOOL_CATALOG),
+    tools: toServerResponsesTools(SERVER_AGENT_TOOL_CATALOG.slice(0, 128)),
     policy_context: { currentDate: '2026-08-26', timeZone: 'America/Denver' },
-  }, 'unified_chat_agent')).toEqual({ ok: true });
+  };
+  expect(validateKwiltAiRequestShape('/v1/responses', request, 'unified_chat_agent')).toEqual({ ok: true });
+  expect(validateKwiltAiRequestShape('/v1/responses', {
+    ...request, tools: toServerResponsesTools(SERVER_AGENT_TOOL_CATALOG),
+  }, 'unified_chat_agent')).toEqual({ ok: false, message: 'unified chat agent tools are invalid' });
 });
 
 test('requests bounded namespace judgment without publishing tool schemas or ids', async () => {

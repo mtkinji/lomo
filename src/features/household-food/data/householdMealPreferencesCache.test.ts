@@ -10,6 +10,8 @@ describe('household meal preferences cache', () => {
     });
     const projection = {
       householdId: 'household-1',
+      version: 3,
+      updatedAt: '2026-08-27T21:00:00.000Z',
       usualDinerCount: 7,
       usualDinerPersonIds: ['adult', 'child'],
       setupState: 'completed' as const,

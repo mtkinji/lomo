@@ -30,6 +30,48 @@ test('Chores handoffs open either the inventory or one exact occurrence evidence
   });
 });
 
+test('Recipe import acquisition opens native review without claiming a saved Recipe', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_recipe_import'), capabilityId: 'recipes', targetType: 'recipe_import_source',
+    payload: { method: 'photo', sourceArtifactRefs: ['attachment-1'] },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeImportReview', params: { intent: 'family' },
+  } });
+});
+
+test('Cook timer handoff opens the exact native Cook Session surface', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_cook_session_timer', 'session-1'), capabilityId: 'recipes', targetType: 'cook_session',
+    payload: { recipeId: 'recipe-1', recipeScaleMultiplier: 2, expectedRevision: 3, command: { type: 'start_timer' } },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeCookMode', params: { recipeId: 'recipe-1', recipeScaleMultiplier: 2 },
+  } });
+});
+
+test('Recipe copy handoff opens the exact Recipe for native recipient review', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_recipe_share_copy', 'recipe-1'), capabilityId: 'recipes', targetType: 'recipe',
+    payload: { recipeVersionId: 'version-2', recipientPersonId: 'person-2' },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeHome', params: { recipeId: 'recipe-1' },
+  } });
+});
+
+test('Grocery retailer actions open the exact native list workflow without claiming checkout', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_product_match', 'item-1'), capabilityId: 'groceries', targetType: 'grocery_item',
+    payload: { groceryListId: 'list-1', provider: 'kroger', locationId: 'store-1' },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'KrogerCart', params: { listId: 'list-1' },
+  } });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_handoff', 'list-1'), capabilityId: 'groceries', targetType: 'grocery_list',
+    payload: { provider: 'instacart', expectedVersion: 3 },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'GroceryHandoff', params: { listId: 'list-1' },
+  } });
+});
+
 test('account deletion returns only to the native two-step confirmation flow', () => {
   expect(resolveClientActionOpenInstruction(action('open_account_deletion'))).toEqual({
     kind: 'navigate', name: 'Settings',

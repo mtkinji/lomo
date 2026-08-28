@@ -93,7 +93,7 @@ export type AgentWorkbenchProposal = {
   id: string;
   runId: string;
   messageId?: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes' | 'chores';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes' | 'meal_planning' | 'chores' | 'groceries';
   title: string;
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
@@ -113,7 +113,17 @@ export type AgentWorkbenchProposal = {
       'update_money_budget' | 'update_money_transaction_meaning' |
       'update_money_transaction_plan_treatment' | 'review_money_transfer' |
       'disconnect_money_connection' |
-      'create_recipe' | 'update_recipe' | 'delete_recipe' |
+      'create_recipe' | 'update_recipe' | 'delete_recipe' | 'recipes.import.approve' | 'recipes.fork' |
+      'recipes.collaborator.invite' |
+      'cook_session.start' | 'cook_session.complete' |
+      'recipes.favorite.update' | 'recipes.visibility.update' | 'meal_planning.preferences.update' |
+      'meal_planning.plan.create' | 'meal_planning.plan.update' |
+      'meal_planning.candidate.add' | 'meal_planning.candidate.remove' |
+      'meal_planning.round.open' | 'meal_planning.round.close' |
+      'meal_planning.response.submit' | 'meal_planning.response.withdraw' |
+      'meal_planning.plan.finalize' | 'meal_planning.plan.revise' |
+      'food_stock.observe' | 'food_stock.deplete' |
+      'groceries.compile' | 'groceries.item.add' | 'groceries.item.update' | 'groceries.item.set_state' |
       'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
       'household.member.add_dependent' | 'household.invitation.create' | 'household.invitation.accept' |
       'household.child_capability.update' | 'household.caregiver_grant.update' |

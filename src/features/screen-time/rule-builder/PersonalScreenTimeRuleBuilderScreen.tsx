@@ -1,144 +1,144 @@
-import { Pressable } from '@/src/ui/HapticPressable';
 import { useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Crypto from 'expo-crypto';
 import * as Device from 'expo-device';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
-import { navigateWhenReady } from '../../../navigation/rootNavigationRef';
 import { useAppStore } from '../../../store/useAppStore';
 import {
-  createPersonalScreenTimeRule,
-  getAvailablePersonalScreenTimeRuleKinds,
-  getPersonalScreenTimeRuleById,
+  getPersonalCompositeScreenTimeRuleById,
   normalizeScreenTimeProtectionSettings,
-  type PersonalScreenTimeRuleKind,
   type ScreenTimeToken,
 } from '../../../services/screenTimeProtection';
 import {
   presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
+  transferScreenTimeActivitySelection,
 } from '../../../services/appleEcosystem/screenTimeProtection';
-import {
-  reconcileScreenTimeRestrictions,
-} from '../../../services/screenTimeProtectionRuntime';
+import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
-import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
-import { Icon, type IconName } from '../../../ui/Icon';
-import { Text } from '../../../ui/primitives';
-import { colors, spacing, typography } from '../../../theme';
+import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import { KwiltSwitch } from '../../../ui/KwiltSwitch';
+import { Pressable } from '../../../ui/HapticPressable';
+import { Text } from '../../../ui/Typography';
+import { SettingsChoiceRow, SettingsDivider, SettingsGroup, SettingsPage } from '../../../ui/SettingsSurface';
+import { colors, fonts, radii, spacing, typography } from '../../../theme';
+import { DurationPicker } from '../../activities/DurationPicker';
 import {
-  getPersonalRuleBuilderCopy,
-  getPersonalRuleBuilderStep,
-  personalRuleBehaviorLabel,
-  personalRuleSentence,
-} from './personalRuleBuilderModel';
+  deletePersonalCompositeScreenTimeRule,
+  savePersonalCompositeScreenTimeRule,
+} from '../domain/personalCompositeRuleActions';
 import {
-  deletePersonalScreenTimeRule,
-  savePersonalScreenTimeRule,
-} from '../domain/personalScreenTimeRuleActions';
-import { createPersonalScreenTimeRuleActionBoundary } from '../runtime/personalScreenTimeRuleActionBoundary';
+  migrateLegacyPersonalRule,
+  type PersonalCompositeScreenTimeRule,
+  type PersonalRuleCondition,
+  type PersonalRuleConnector,
+  type PersonalRuleOutcome,
+} from '../domain/personalCompositeScreenTimeRule';
+import { createPersonalCompositeRuleActionBoundary } from '../runtime/personalScreenTimeRuleActionBoundary';
+import { PersonalRuleConditionRow } from './PersonalRuleConditionRow';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
+import { saveMoneyAppControlSettings } from '../../../capabilities/money/runtime/moneyAppControlStorage';
+import { reconcileLatestMoneyAppControls } from '../../../capabilities/money/runtime/moneyAppControlRuntime';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
+type RuleTargets = { selectedApps: ScreenTimeToken[]; selectedCategories: ScreenTimeToken[] };
+type Drawer = 'condition' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | null;
 
-type RuleTargets = {
-  selectedApps: ScreenTimeToken[];
-  selectedCategories: ScreenTimeToken[];
-};
+const MINUTE_OPTIONS = Array.from({ length: 288 }, (_, index) => (index + 1) * 5);
 
 function targetLabel(targets: RuleTargets): string {
-  const allTargets = [...targets.selectedApps, ...targets.selectedCategories];
-  if (allTargets.length === 0) return 'Not chosen';
-  const firstLabel = allTargets[0]?.label?.trim();
-  if (allTargets.length === 1) return firstLabel || '1 app or category';
-  return firstLabel
-    ? `${firstLabel} + ${allTargets.length - 1}`
-    : `${allTargets.length} apps or categories`;
+  const all = [...targets.selectedApps, ...targets.selectedCategories];
+  if (!all.length) return 'Choose apps and categories';
+  const first = all[0]?.label?.trim();
+  if (all.length === 1) return first || '1 app or category';
+  return first ? `${first} + ${all.length - 1}` : `${all.length} apps or categories`;
+}
+
+function conditionDefault(type: PersonalRuleCondition['type'], id: string): PersonalRuleCondition {
+  if (type === 'real_step_complete') return { id, type };
+  if (type === 'focus_active') return { id, type, operator: 'is', value: true };
+  if (type === 'daily_usage') return { id, type, operator: 'below', minutes: 15 };
+  return { id, type, operator: 'after', minuteOfDay: 17 * 60 };
+}
+
+function suggestedDraft(params: PersonalScreenTimeRuleBuilderParams, id: string) {
+  if (params.suggestedKind === 'focus') {
+    return { outcome: 'pause' as const, conditions: [{ id: `${id}:focus`, type: 'focus_active' as const, operator: 'is' as const, value: true as const }] };
+  }
+  if (params.suggestedKind === 'real_step') {
+    return { outcome: 'available' as const, conditions: [{ id: `${id}:real-step`, type: 'real_step_complete' as const }] };
+  }
+  if (params.suggestedKind === 'daily_limit') {
+    const minutes = Number.isInteger(params.suggestedLimitMinutes) ? Number(params.suggestedLimitMinutes) : 10;
+    return { outcome: 'pause' as const, conditions: [{ id: `${id}:usage`, type: 'daily_usage' as const, operator: 'reaches' as const, minutes }] };
+  }
+  return { outcome: 'available' as const, conditions: [] as PersonalRuleCondition[] };
 }
 
 export function PersonalScreenTimeRuleBuilderScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-
-  return (
-    <PersonalScreenTimeRuleBuilderDrawer
-      params={route.params}
-      onClose={() => navigation.goBack()}
-    />
-  );
+  return <PersonalScreenTimeRuleBuilderDrawer params={route.params} onClose={() => navigation.goBack()} />;
 }
 
-export function PersonalScreenTimeRuleBuilderDrawer(props: {
-  params: PersonalScreenTimeRuleBuilderParams;
-  onClose: () => void;
-}) {
+export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScreenTimeRuleBuilderParams; onClose: () => void }) {
   const { capture } = useAnalytics();
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
   const normalized = useMemo(() => normalizeScreenTimeProtectionSettings(settings), [settings]);
-  const existingRule = useMemo(
-    () => props.params.ruleId ? getPersonalScreenTimeRuleById(normalized, props.params.ruleId) : null,
-    [normalized, props.params.ruleId],
-  );
-  const availableKinds = useMemo(
-    () => getAvailablePersonalScreenTimeRuleKinds(normalized),
-    [normalized],
-  );
-  const entry = props.params.entry;
-  const suggestedKind = props.params.suggestedKind;
-  const suggestedLimitMinutes = existingRule?.kind === 'daily_limit'
-    ? existingRule.limitMinutes
-    : Number.isInteger(props.params.suggestedLimitMinutes)
-      && Number(props.params.suggestedLimitMinutes) >= 1
-      && Number(props.params.suggestedLimitMinutes) <= 1440
-      ? Number(props.params.suggestedLimitMinutes)
-      : 10;
+  const existingRule = useMemo(() => {
+    if (!props.params.ruleId) return null;
+    const composite = getPersonalCompositeScreenTimeRuleById(normalized, props.params.ruleId);
+    if (composite) return composite;
+    const legacy = normalized.personalRules.find((rule) => rule.id === props.params.ruleId);
+    return legacy ? migrateLegacyPersonalRule(legacy) : null;
+  }, [normalized, props.params.ruleId]);
+  const isEditing = !!existingRule;
+  const isReplacingMoney = !!props.params.replacingMoneyCategoryId;
   const [draftRuleId] = useState(() => existingRule?.id ?? `personal_rule_${Crypto.randomUUID()}`);
-  const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
-    existingRule?.kind ?? (suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null)
-  ));
-  const [targets, setTargets] = useState<RuleTargets>(() => ({
-    selectedApps: existingRule?.selectedApps ?? [],
-    selectedCategories: existingRule?.selectedCategories ?? [],
-  }));
-  const [appsConfirmed, setAppsConfirmed] = useState(Boolean(existingRule));
+  const suggestion = useMemo(() => suggestedDraft(props.params, draftRuleId), [draftRuleId, props.params]);
+  const [targets, setTargets] = useState<RuleTargets>({
+    selectedApps: existingRule?.selectedApps ?? props.params.selectedApps ?? [],
+    selectedCategories: existingRule?.selectedCategories ?? props.params.selectedCategories ?? [],
+  });
+  const [appsConfirmed, setAppsConfirmed] = useState(!!existingRule || isReplacingMoney);
+  const [enabled, setEnabled] = useState(existingRule?.enabled ?? true);
+  const [connector, setConnector] = useState<PersonalRuleConnector>(existingRule?.connector ?? 'all');
+  const [outcome, setOutcome] = useState<PersonalRuleOutcome>(existingRule?.outcome ?? suggestion.outcome);
+  const [conditions, setConditions] = useState<PersonalRuleCondition[]>(existingRule?.conditions ?? suggestion.conditions);
+  const [drawer, setDrawer] = useState<Drawer>(null);
+  const [activeConditionId, setActiveConditionId] = useState<string | null>(null);
+  const [durationDraft, setDurationDraft] = useState(15);
+  const [timeDraft, setTimeDraft] = useState(() => new Date(2026, 0, 1, 17, 0));
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const count = targets.selectedApps.length + targets.selectedCategories.length;
-  const targetsLabel = targetLabel(targets);
-  const suggestedAppLabels = useMemo(
-    () => [...targets.selectedApps, ...targets.selectedCategories]
-      .map((target) => target.label?.trim())
-      .filter((label): label is string => Boolean(label)),
-    [targets],
-  );
-  const step = getPersonalRuleBuilderStep({ kind, targetCount: count, appsConfirmed });
-  const copy = getPersonalRuleBuilderCopy({
-    entry,
-    kind,
-    step,
-    targetLabel: appsConfirmed && count > 0 ? targetsLabel : undefined,
-    limitMinutes: suggestedLimitMinutes,
-    suggestedAppLabel: props.params.suggestedAppLabel,
-  });
-  const isContextualFlow = entry === 'contextual' && Boolean(suggestedKind);
-  const totalSteps = isContextualFlow ? 2 : 3;
-  const progressStep = step === 'apps' ? 1 : step === 'behavior' ? 2 : totalSteps;
+  const label = targetLabel(targets);
+  const showComposer = appsConfirmed && count > 0;
+  const activeCondition = conditions.find((condition) => condition.id === activeConditionId) ?? null;
+  const valid = showComposer && conditions.length > 0;
+
+  const goBack = () => {
+    if (showComposer && !isEditing && !isReplacingMoney) {
+      setAppsConfirmed(false);
+      return;
+    }
+    props.onClose();
+  };
 
   const chooseApps = async () => {
     setChoosingApps(true);
     if (normalized.authorizationStatus !== 'approved') {
       const authorizationStatus = await requestScreenTimeAuthorization();
-      setSettings((current) => ({
-        ...current,
-        authorizationStatus,
-        lastUpdated: new Date().toISOString(),
-      }));
+      setSettings((current) => ({ ...current, authorizationStatus, lastUpdated: new Date().toISOString() }));
       if (authorizationStatus !== 'approved') {
         setChoosingApps(false);
         Alert.alert('Screen Time access needed', 'Allow Screen Time access to choose apps for this rule.');
@@ -148,468 +148,296 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     const selection = await presentScreenTimeActivityPicker(targets, { selectionId: draftRuleId });
     setChoosingApps(false);
     if (!selection) return;
-    const nextTargets = {
+    const next = {
       selectedApps: selection.selectedApps ?? targets.selectedApps,
       selectedCategories: selection.selectedCategories ?? targets.selectedCategories,
     };
-    setTargets(nextTargets);
-    setAppsConfirmed(nextTargets.selectedApps.length + nextTargets.selectedCategories.length > 0);
+    setTargets(next);
+    setAppsConfirmed(next.selectedApps.length + next.selectedCategories.length > 0);
+  };
+
+  const openCondition = (conditionId?: string) => {
+    setActiveConditionId(conditionId ?? null);
+    setDrawer('condition');
+  };
+
+  const chooseConditionType = (type: PersonalRuleCondition['type']) => {
+    if (activeConditionId) {
+      setConditions((current) => current.map((condition) => condition.id === activeConditionId
+        ? conditionDefault(type, condition.id)
+        : condition));
+    } else {
+      const id = `${draftRuleId}:condition:${conditions.length}:${Crypto.randomUUID()}`;
+      setConditions((current) => [...current, conditionDefault(type, id)]);
+    }
+    setDrawer(null);
+    setActiveConditionId(null);
+  };
+
+  const removeCondition = () => {
+    if (!activeConditionId) return;
+    setConditions((current) => current.filter((condition) => condition.id !== activeConditionId));
+    setActiveConditionId(null);
+    setDrawer(null);
+  };
+
+  const openOperator = (condition: PersonalRuleCondition) => {
+    setActiveConditionId(condition.id);
+    setDrawer('operator');
+  };
+
+  const setOperator = (operator: string) => {
+    if (!activeConditionId) return;
+    setConditions((current) => current.map((condition) => {
+      if (condition.id !== activeConditionId) return condition;
+      if (condition.type === 'focus_active') return { ...condition, operator: operator as 'is' | 'is_not' };
+      if (condition.type === 'daily_usage') return { ...condition, operator: operator as 'below' | 'reaches' };
+      if (condition.type === 'time_of_day') return { ...condition, operator: operator as 'after' | 'before' };
+      return condition;
+    }));
+    setDrawer(null);
+  };
+
+  const openValue = (condition: PersonalRuleCondition) => {
+    setActiveConditionId(condition.id);
+    if (condition.type === 'daily_usage') {
+      setDurationDraft(condition.minutes);
+      setDrawer('duration');
+    } else if (condition.type === 'time_of_day') {
+      setTimeDraft(new Date(2026, 0, 1, Math.floor(condition.minuteOfDay / 60), condition.minuteOfDay % 60));
+      setDrawer('time');
+    }
+  };
+
+  const commitValue = () => {
+    if (!activeConditionId) return;
+    setConditions((current) => current.map((condition) => {
+      if (condition.id !== activeConditionId) return condition;
+      if (condition.type === 'daily_usage') return { ...condition, minutes: durationDraft };
+      if (condition.type === 'time_of_day') return { ...condition, minuteOfDay: timeDraft.getHours() * 60 + timeDraft.getMinutes() };
+      return condition;
+    }));
+    setDrawer(null);
   };
 
   const saveRule = async () => {
-    if (!kind || count === 0 || saving) return;
+    if (!valid || saving) return;
     setSaving(true);
-    const nowIso = new Date().toISOString();
-    const nextRule = createPersonalScreenTimeRule({
-      id: draftRuleId,
-      selectionId: draftRuleId,
-      kind,
-      selectedApps: targets.selectedApps,
-      selectedCategories: targets.selectedCategories,
-      enabled: existingRule?.enabled ?? true,
-      setupCompleted: true,
-      limitMinutes: kind === 'daily_limit' ? suggestedLimitMinutes : undefined,
-      nowIso,
-    });
-    try {
-      await savePersonalScreenTimeRule({
-        rule: nextRule,
-        expectedUpdatedAt: existingRule ? existingRule.lastUpdated ?? 'unversioned' : null,
-        confirmed: true,
-      }, createPersonalScreenTimeRuleActionBoundary());
-    } catch (error) {
-      setSaving(false);
-      if (!Device.isDevice && kind === 'daily_limit') {
-        Alert.alert(
-          'A physical device is required',
-          'The Simulator can preview this setup, but Apple Screen Time can only turn on a daily limit in an entitlement-enabled build on a physical iPhone.',
-        );
+    const rule: PersonalCompositeScreenTimeRule = {
+      id: draftRuleId, selectionId: draftRuleId,
+      selectedApps: targets.selectedApps, selectedCategories: targets.selectedCategories,
+      enabled, setupCompleted: true, connector, outcome, conditions,
+      lastUpdated: new Date().toISOString(),
+    };
+    if (props.params.sourceSelectionId && props.params.sourceSelectionId !== draftRuleId) {
+      const transferred = await transferScreenTimeActivitySelection({
+        sourceSelectionId: props.params.sourceSelectionId, targetSelectionId: draftRuleId,
+      });
+      if (!transferred) {
+        setSaving(false);
+        Alert.alert('Couldn’t carry over the selected apps', 'Return to the previous rule and try again.');
         return;
       }
-      Alert.alert(
-        existingRule ? 'Couldn’t update this rule' : 'Couldn’t turn on this rule',
+    }
+    try {
+      await savePersonalCompositeScreenTimeRule({
+        rule, expectedUpdatedAt: existingRule?.lastUpdated ?? null, confirmed: true,
+      }, createPersonalCompositeRuleActionBoundary());
+      if (props.params.replacingMoneyCategoryId) {
+        await saveMoneyAppControlSettings((current) => {
+          const policies = { ...current.policies };
+          delete policies[props.params.replacingMoneyCategoryId!];
+          return { ...current, policies };
+        });
+        await reconcileLatestMoneyAppControls();
+      }
+    } catch (error) {
+      setSaving(false);
+      if (!Device.isDevice) {
+        Alert.alert('A physical device is required', 'The Simulator can preview this rule, but Apple Screen Time can only enforce it in an entitlement-enabled build on a physical iPhone.');
+        return;
+      }
+      Alert.alert(isEditing ? 'Couldn’t update this rule' : 'Couldn’t turn on this rule',
         error instanceof Error && error.message === 'duplicate_personal_screen_time_rule'
-          ? 'The same apps and condition are already saved.'
-          : 'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
-      );
+          ? 'The same apps and conditions are already saved.'
+          : 'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.');
       return;
     }
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
       setup_intent: props.params.setupIntent ?? 'settings_discovery',
       surface: props.params.entrySurface ?? 'settings',
-      rule: kind === 'focus' ? 'focus_session' : kind === 'daily_limit' ? 'daily_limit' : 'real_step',
+      rule: 'composite',
     });
     await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
     props.onClose();
   };
 
-  const openBudgetControls = () => {
-    props.onClose();
-    navigateWhenReady('Money', {
-      screen: 'MoneySummary',
-      params: {
-        entryIntent: 'app-control-onboarding',
-        ...(suggestedAppLabels.length ? { suggestedAppLabels } : {}),
-      },
-    });
-  };
-
   const deleteRule = () => {
-    if (!existingRule || saving) return;
+    if (!existingRule?.lastUpdated) return;
     Alert.alert('Delete this rule?', 'These apps will no longer be controlled by this rule.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete rule',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            setSaving(true);
-            try {
-              await deletePersonalScreenTimeRule({
-                ruleId: existingRule.id,
-                expectedUpdatedAt: existingRule.lastUpdated ?? 'unversioned',
-                confirmed: true,
-              }, createPersonalScreenTimeRuleActionBoundary());
-              await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-              props.onClose();
-            } catch {
-              setSaving(false);
-              Alert.alert(
-                'Couldn’t delete this rule',
-                'Kwilt could not turn off its Screen Time restriction. Nothing was changed.',
-              );
-            }
-          })();
-        },
-      },
+      { text: 'Delete rule', style: 'destructive', onPress: () => void (async () => {
+        setSaving(true);
+        try {
+          await deletePersonalCompositeScreenTimeRule({
+            ruleId: existingRule.id, expectedUpdatedAt: existingRule.lastUpdated!, confirmed: true,
+          }, createPersonalCompositeRuleActionBoundary());
+        } catch {
+          setSaving(false);
+          Alert.alert('Couldn’t delete this rule', 'Kwilt could not turn off its Screen Time restriction. Nothing was changed.');
+          return;
+        }
+        props.onClose();
+      })() },
     ]);
   };
 
-  const addRuleAction = step === 'review' ? (
-    <View style={styles.footer}>
-      {existingRule ? (
-        <Button variant="destructive" size="lg" fullWidth disabled={saving} onPress={deleteRule}>
-          Delete rule
-        </Button>
-      ) : null}
-      <Button
-        variant="inverse"
-        size="lg"
-        fullWidth
-        loading={saving}
-        loadingLabel={existingRule ? 'Saving…' : 'Adding…'}
-        onPress={() => void saveRule()}
-      >
-        {existingRule ? 'Save changes' : 'Add rule'}
-      </Button>
-    </View>
-  ) : undefined;
+  const conditionTypes: Array<{ type: PersonalRuleCondition['type']; label: string }> = [
+    { type: 'time_of_day', label: 'Time of day' },
+    { type: 'daily_usage', label: 'Daily use' },
+    { type: 'focus_active', label: 'Focus' },
+    { type: 'real_step_complete', label: 'Real step' },
+  ];
 
   return (
-    <BottomDrawer
-      visible
-      onClose={props.onClose}
-      snapPoints={['100%']}
-      presentation="modal"
-      dismissable
-      dismissOnBackdropPress
-      enableContentPanningGesture
-      bottomAccessory={addRuleAction}
-      sheetStyle={styles.sheet}
-      handleStyle={styles.handle}
-    >
-        <View style={styles.header}>
-          <View
-            accessibilityRole="progressbar"
-            accessibilityLabel="Rule setup progress"
-            accessibilityValue={{ min: 1, max: totalSteps, now: progressStep }}
-            style={styles.progressTrack}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${Math.round((progressStep / totalSteps) * 100)}%` },
-              ]}
-            />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close rule setup"
-            onPress={props.onClose}
-            style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
-          >
-            <Icon name="close" size={20} color={colors.parchment} />
+    <SettingsPage onBack={goBack} title={isEditing || isReplacingMoney ? 'Edit rule' : 'Add rule'} contentStyle={styles.content}>
+      {!showComposer ? (
+        <View style={styles.intro}>
+          <Text style={styles.question}>Which apps should this rule manage?</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Apps and categories" disabled={choosingApps}
+            onPress={() => void chooseApps()} style={({ pressed }) => [styles.targetPicker, pressed ? styles.pressed : null]}>
+            <Text style={styles.targetPickerText}>{choosingApps ? 'Opening…' : label}</Text>
+            <Text aria-hidden style={styles.chevron}>›</Text>
           </Pressable>
         </View>
+      ) : (
+        <>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Change apps and categories. ${label}`} onPress={() => void chooseApps()}>
+            <Text style={styles.question}>Rule for {label}</Text>
+          </Pressable>
+          {isEditing ? (
+            <View style={styles.enabledRow}>
+              <Text style={styles.enabledLabel}>Rule enabled</Text>
+              <KwiltSwitch style={styles.switchTarget} tone="neutral" accessibilityLabel="Rule enabled" value={enabled} onPress={() => setEnabled((value) => !value)} />
+            </View>
+          ) : null}
 
-        <BottomDrawerScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.promptBlock}>
-            <Text accessibilityRole="header" style={styles.question}>{copy.question}</Text>
-            {copy.support ? <Text style={styles.support}>{copy.support}</Text> : null}
+          <View style={styles.builderSection}>
+            <Text style={styles.sectionTitle}>When</Text>
+            <View style={styles.conditionStack}>
+              {conditions.map((condition, index) => (
+                <View key={condition.id}>
+                  {index > 0 ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Change ${connector === 'all' ? 'AND' : 'OR'} connector`}
+                      onPress={() => setDrawer('connector')} style={styles.connector}>
+                      <Text style={styles.connectorText}>{connector === 'all' ? 'AND' : 'OR'}  ⌄</Text>
+                    </Pressable>
+                  ) : null}
+                  <PersonalRuleConditionRow condition={condition} onEditField={() => openCondition(condition.id)}
+                    onEditOperator={() => openOperator(condition)} onEditValue={() => openValue(condition)} />
+                </View>
+              ))}
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => openCondition()} style={styles.addCondition}>
+              <Text style={styles.addConditionText}>＋ Add condition</Text>
+            </Pressable>
           </View>
 
-          {step === 'apps' ? (
-            <View style={styles.choiceStack}>
-              <GuidedChoice
-                accessibilityLabel="Apps and categories"
-                accessibilityHint={count > 0
-                  ? `${targetsLabel} currently selected. Opens the Screen Time picker.`
-                  : 'Opens the Screen Time picker.'}
-                icon="layers"
-                label={choosingApps ? 'Opening picker…' : 'Apps and categories'}
-                disabled={choosingApps}
-                onPress={() => void chooseApps()}
-              />
-            </View>
-          ) : null}
+          <View style={styles.builderSection}>
+            <Text style={styles.sectionTitle}>Then</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Change outcome" onPress={() => setDrawer('outcome')}
+              style={({ pressed }) => [styles.outcome, pressed ? styles.pressed : null]}>
+              <Text style={styles.outcomeText}>{outcome === 'available' ? `Make ${label} available` : `Pause ${label}`}</Text>
+              <Text aria-hidden style={styles.chevron}>›</Text>
+            </Pressable>
+          </View>
 
-          {step === 'behavior' ? (
-            <View style={styles.choiceStack}>
-              {availableKinds.includes('real_step') ? (
-                <GuidedChoice
-                  accessibilityHint="Apps unlock when you complete any one of these in Kwilt."
-                  icon="checklist"
-                  label="After a to-do, progress update, or Focus"
-                  onPress={() => setKind('real_step')}
-                />
-              ) : null}
-              {availableKinds.includes('focus') ? (
-                <GuidedChoice
-                  accessibilityHint="Apps stay paused while Focus is running."
-                  icon="focus"
-                  label="After Focus ends"
-                  onPress={() => setKind('focus')}
-                />
-              ) : null}
-              {availableKinds.includes('daily_limit') ? (
-                <GuidedChoice
-                  accessibilityHint="Apps pause after the chosen amount of use each day."
-                  icon="clock"
-                  label="After a daily time limit"
-                  onPress={() => setKind('daily_limit')}
-                />
-              ) : null}
-              <GuidedChoice
-                accessibilityHint="Choose a Money budget, then decide which budget signal pauses these apps."
-                icon="wallet"
-                label="Based on a budget"
-                description="Review first, when spending is hot, near its limit, over, or needs review."
-                onPress={openBudgetControls}
-              />
-            </View>
+          <View style={styles.action}>
+            <Button fullWidth size="lg" variant="primary" disabled={!valid} loading={saving} loadingLabel="Saving…" onPress={() => void saveRule()}>
+              {isEditing || isReplacingMoney ? 'Save changes' : 'Add rule'}
+            </Button>
+          </View>
+          {isEditing ? (
+            <Pressable accessibilityRole="button" disabled={saving} onPress={deleteRule} style={styles.deleteAction}>
+              <Text style={styles.deleteText}>Delete rule</Text>
+            </Pressable>
           ) : null}
+        </>
+      )}
 
-          {step === 'review' && kind ? (
-            <View style={styles.receipt}>
-              <Text style={styles.receiptSentence}>
-                {personalRuleSentence(kind, targetsLabel, suggestedLimitMinutes)}
-              </Text>
-            </View>
-          ) : null}
-
-          {step !== 'apps' ? (
-            <View style={styles.answerSection}>
-              <Text style={styles.answerSectionLabel}>Your choices</Text>
-              <AnswerSummary
-                label="Apps"
-                value={targetsLabel}
-                accessibilityLabel="Change apps"
-                onPress={() => void chooseApps()}
-              />
-              {step === 'review' && kind ? (
-                <AnswerSummary
-                  label="Rule behavior"
-                  value={personalRuleBehaviorLabel(kind, suggestedLimitMinutes)}
-                  accessibilityLabel={isContextualFlow ? undefined : 'Change rule behavior'}
-                  onPress={isContextualFlow ? undefined : () => setKind(null)}
-                />
-              ) : null}
-            </View>
+      <BottomDrawer visible={drawer !== null} onClose={() => setDrawer(null)}
+        snapPoints={[drawer === 'duration' || drawer === 'time' ? '54%' : '48%']} keyboardAvoidanceEnabled={false}
+        footer={drawer === 'duration' || drawer === 'time' ? { primaryAction: { label: 'Done', onPress: commitValue } } : undefined}>
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
+          <BottomDrawerHeader title={drawer === 'condition' ? (activeConditionId ? 'Condition' : 'Add condition')
+            : drawer === 'connector' ? 'Match conditions' : drawer === 'outcome' ? 'Then'
+              : drawer === 'operator' ? 'Operator' : drawer === 'duration' ? 'Daily use' : 'Time of day'}
+            variant="withClose" onClose={() => setDrawer(null)} closeAccessibilityLabel="Close" />
+          {drawer === 'condition' ? (
+            <SettingsGroup>
+              {conditionTypes.map((item, index) => {
+                const selected = activeCondition?.type === item.type;
+                const alreadyUsed = !selected && conditions.some((condition) => condition.type === item.type);
+                return <View key={item.type}>{index > 0 ? <SettingsDivider /> : null}
+                  <SettingsChoiceRow disabled={alreadyUsed} selected={selected} title={item.label} onPress={() => chooseConditionType(item.type)} />
+                </View>;
+              })}
+              {activeConditionId ? <><SettingsDivider /><Pressable accessibilityRole="button" onPress={removeCondition} style={styles.drawerDestructive}><Text style={styles.deleteText}>Remove condition</Text></Pressable></> : null}
+            </SettingsGroup>
+          ) : drawer === 'connector' ? (
+            <SettingsGroup>
+              <SettingsChoiceRow selected={connector === 'all'} title="All conditions (AND)" onPress={() => { setConnector('all'); setDrawer(null); }} />
+              <SettingsDivider /><SettingsChoiceRow selected={connector === 'any'} title="Any condition (OR)" onPress={() => { setConnector('any'); setDrawer(null); }} />
+            </SettingsGroup>
+          ) : drawer === 'outcome' ? (
+            <SettingsGroup>
+              <SettingsChoiceRow selected={outcome === 'available'} title={`Make ${label} available`} onPress={() => { setOutcome('available'); setDrawer(null); }} />
+              <SettingsDivider /><SettingsChoiceRow selected={outcome === 'pause'} title={`Pause ${label}`} onPress={() => { setOutcome('pause'); setDrawer(null); }} />
+            </SettingsGroup>
+          ) : drawer === 'operator' && activeCondition?.type === 'focus_active' ? (
+            <SettingsGroup><SettingsChoiceRow selected={activeCondition.operator === 'is'} title="is" onPress={() => setOperator('is')} />
+              <SettingsDivider /><SettingsChoiceRow selected={activeCondition.operator === 'is_not'} title="is not" onPress={() => setOperator('is_not')} /></SettingsGroup>
+          ) : drawer === 'operator' && activeCondition?.type === 'daily_usage' ? (
+            <SettingsGroup><SettingsChoiceRow selected={activeCondition.operator === 'below'} title="is below" onPress={() => setOperator('below')} />
+              <SettingsDivider /><SettingsChoiceRow selected={activeCondition.operator === 'reaches'} title="reaches" onPress={() => setOperator('reaches')} /></SettingsGroup>
+          ) : drawer === 'operator' && activeCondition?.type === 'time_of_day' ? (
+            <SettingsGroup><SettingsChoiceRow selected={activeCondition.operator === 'after'} title="is after" onPress={() => setOperator('after')} />
+              <SettingsDivider /><SettingsChoiceRow selected={activeCondition.operator === 'before'} title="is before" onPress={() => setOperator('before')} /></SettingsGroup>
+          ) : drawer === 'duration' ? (
+            <DurationPicker valueMinutes={durationDraft} onChangeMinutes={setDurationDraft} optionsMinutes={MINUTE_OPTIONS}
+              accessibilityLabel="Select daily use" iosWheelHeight={180} showHelperText={false} iosUseEdgeFades={false} />
+          ) : drawer === 'time' ? (
+            <DateTimePicker value={timeDraft} mode="time" display="spinner" onChange={(_event, date) => date && setTimeDraft(date)} />
           ) : null}
         </BottomDrawerScrollView>
-    </BottomDrawer>
-  );
-}
-
-function GuidedChoice(props: {
-  accessibilityLabel?: string;
-  accessibilityHint: string;
-  icon: IconName;
-  label: string;
-  description?: string;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={props.accessibilityLabel ?? props.label}
-      accessibilityHint={props.accessibilityHint}
-      accessibilityState={{ disabled: props.disabled, busy: props.disabled }}
-      disabled={props.disabled}
-      onPress={props.onPress}
-      style={({ pressed }) => [
-        styles.choiceCard,
-        props.disabled ? styles.disabled : null,
-        pressed ? styles.choiceCardPressed : null,
-      ]}
-    >
-      <View
-        testID={`rule-choice-icon-${props.icon}`}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={styles.choiceIcon}
-      >
-        <Icon name={props.icon} size={24} color={colors.parchment} />
-      </View>
-      <View style={styles.choiceCopy}>
-        <Text style={styles.choiceLabel}>{props.label}</Text>
-        {props.description ? <Text style={styles.choiceDescription}>{props.description}</Text> : null}
-      </View>
-      <Icon name="chevronRight" size={20} color={colors.parchment} />
-    </Pressable>
-  );
-}
-
-function AnswerSummary(props: {
-  label: string;
-  value: string;
-  accessibilityLabel?: string;
-  onPress?: () => void;
-}) {
-  const content = (
-    <>
-      <View style={styles.answerCopy}>
-        <Text style={styles.answerLabel}>{props.label}</Text>
-        <Text style={styles.answerValue}>{props.value}</Text>
-      </View>
-      {props.onPress ? <Icon name="chevronRight" size={18} color={colors.parchment} /> : null}
-    </>
-  );
-
-  if (!props.onPress) {
-    return <View style={styles.answerRow}>{content}</View>;
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={props.accessibilityLabel}
-      onPress={props.onPress}
-      style={({ pressed }) => [styles.answerRow, pressed ? styles.pressed : null]}
-    >
-      {content}
-    </Pressable>
+      </BottomDrawer>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    backgroundColor: colors.pine700, // @kwilt-brand-moment: immersive Screen Time setup matches its canonical introduction flow.
-  },
-  handle: {
-    backgroundColor: 'rgba(250, 247, 237, 0.42)',
-  },
-  header: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.md,
-    paddingHorizontal: spacing.sm,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(250, 247, 237, 0.22)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: colors.parchment,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: -spacing.sm,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing['2xl'],
-  },
-  promptBlock: {
-    rowGap: spacing.sm,
-  },
-  question: {
-    ...typography.titleMd,
-    color: colors.parchment,
-  },
-  support: {
-    ...typography.body,
-    color: colors.parchment,
-    opacity: 0.78,
-  },
-  choiceStack: {
-    rowGap: spacing.sm,
-    marginTop: spacing['2xl'],
-  },
-  choiceCard: {
-    minHeight: 80,
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(250, 247, 237, 0.24)',
-    borderRadius: 20,
-    backgroundColor: 'rgba(250, 247, 237, 0.08)',
-  },
-  choiceCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  choiceIcon: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  choiceLabel: {
-    ...typography.titleSm,
-    color: colors.parchment,
-  },
-  choiceDescription: {
-    ...typography.bodySm,
-    color: colors.parchment,
-    opacity: 0.72,
-    marginTop: spacing.xs,
-  },
-  choiceCardPressed: {
-    backgroundColor: 'rgba(250, 247, 237, 0.14)',
-    transform: [{ scale: 0.985 }],
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  disabled: {
-    opacity: 0.52,
-  },
-  receipt: {
-    marginTop: spacing['2xl'],
-    borderWidth: 1,
-    borderColor: 'rgba(250, 247, 237, 0.24)',
-    borderRadius: 20,
-    backgroundColor: 'rgba(250, 247, 237, 0.08)',
-    padding: spacing.lg,
-  },
-  receiptSentence: {
-    ...typography.titleSm,
-    color: colors.parchment,
-  },
-  answerSection: {
-    marginTop: spacing['2xl'],
-  },
-  answerSectionLabel: {
-    ...typography.label,
-    color: colors.parchment,
-    opacity: 0.68,
-    paddingBottom: spacing.xs,
-  },
-  answerRow: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(250, 247, 237, 0.22)',
-    paddingVertical: spacing.sm,
-  },
-  answerCopy: {
-    flex: 1,
-    minWidth: 0,
-    rowGap: 2,
-  },
-  answerLabel: {
-    ...typography.label,
-    color: colors.parchment,
-    opacity: 0.68,
-  },
-  answerValue: {
-    ...typography.body,
-    color: colors.parchment,
-  },
-  footer: {
-    paddingTop: spacing.sm,
-    backgroundColor: colors.pine700, // @kwilt-brand-moment: the fixed action continues the immersive Screen Time setup canvas.
-  },
+  content: { paddingBottom: spacing['2xl'] },
+  intro: { gap: spacing.lg },
+  question: { ...typography.titleLg, color: colors.textPrimary, letterSpacing: -0.7 },
+  targetPicker: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, borderRadius: radii.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.canvas },
+  targetPickerText: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
+  chevron: { color: colors.textSecondary, fontSize: 24 },
+  enabledRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md },
+  enabledLabel: { ...typography.bodySm, color: colors.textSecondary },
+  switchTarget: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+  builderSection: { marginTop: spacing.xl },
+  sectionTitle: { ...typography.titleSm, color: colors.textPrimary, marginBottom: spacing.sm },
+  conditionStack: { gap: 0 },
+  connector: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.xs },
+  connectorText: { ...typography.caption, fontFamily: fonts.bold, color: colors.textSecondary, letterSpacing: 0.5 },
+  addCondition: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xs },
+  addConditionText: { ...typography.bodySm, fontFamily: fonts.semibold, color: colors.textPrimary },
+  outcome: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radii.input, backgroundColor: colors.canvas },
+  outcomeText: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
+  action: { marginTop: spacing.xl },
+  deleteAction: { minHeight: 48, justifyContent: 'center', marginTop: spacing['2xl'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  deleteText: { ...typography.body, color: colors.destructive },
+  pressed: { opacity: 0.65 },
+  drawerContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  drawerDestructive: { minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.md },
 });

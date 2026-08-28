@@ -10,6 +10,7 @@ import { executeServerHouseholdTool } from './serverHouseholdTools.ts';
 import { executeServerScreenTimeTool } from './serverScreenTimeTools.ts';
 import { executeServerMoneyTool } from './serverMoneyTools.ts';
 import { executeServerChoreTool } from './serverChoreTools.ts';
+import { executeServerFoodTool } from './serverFoodTools.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import {
   createServerToolProviderRegistry,
@@ -435,6 +436,8 @@ async function executeServerAgentToolHandler({
   if (moneyResult) return moneyResult;
   const choreResult = await executeServerChoreTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (choreResult) return choreResult;
+  const foodResult = await executeServerFoodTool({ client, userId, call, stageProposal, stageDeviceAction });
+  if (foodResult) return foodResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,

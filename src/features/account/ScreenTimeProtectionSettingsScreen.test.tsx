@@ -6,13 +6,12 @@ import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTi
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
-import { usePersonalRuleBuilderDrawerStore } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
+import { colors } from '../../theme';
 import type { HouseholdSnapshot } from '../household/data/household';
 import { ScreenTimeProtectionSettingsScreen } from './ScreenTimeProtectionSettingsScreen';
 
 const mockSettingsNavigate = jest.fn();
 const mockRootNavigate = jest.fn();
-const mockRootGoBack = jest.fn();
 const mockGetHouseholdSnapshot = jest.fn();
 const mockMoneySettings = jest.fn<MoneyAppControlSettings, []>();
 const mockGetScreenTimeAuthorizationStatus = jest.fn();
@@ -28,7 +27,7 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({
       goBack: jest.fn(),
       navigate: mockSettingsNavigate,
-      getParent: () => ({ navigate: mockRootNavigate, goBack: mockRootGoBack }),
+      getParent: () => ({ navigate: mockRootNavigate }),
     }),
     useRoute: () => ({ params: mockRouteParams }),
   };
@@ -57,8 +56,6 @@ jest.mock('../../services/appleEcosystem/screenTimeProtection', () => ({
 }));
 
 jest.mock('../../services/screenTimeProtectionRuntime', () => ({
-  activatePersonalScreenTimeRule: jest.fn(async () => true),
-  deactivatePersonalScreenTimeRule: jest.fn(async () => true),
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
 }));
 
@@ -99,8 +96,6 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     resetAllStores();
     mockSettingsNavigate.mockReset();
     mockRootNavigate.mockReset();
-    mockRootGoBack.mockReset();
-    usePersonalRuleBuilderDrawerStore.getState().close();
     mockGetHouseholdSnapshot.mockReset().mockResolvedValue(household);
     mockMoneySettings.mockReset().mockReturnValue(money);
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
@@ -127,9 +122,13 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
   });
 
   it('shows scoped rule counts, individual Money rules, and Household setup', async () => {
-    const { getByText, queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    const { getByRole, getByTestId, getByText, queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
     expect(getByText('Screen Time')).toBeTruthy();
+    expect(getByRole('button', { name: 'Go back from Screen Time' })).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('app-shell-container').props.style)).toMatchObject({
+      backgroundColor: colors.shellAlt,
+    });
     expect(getByText('My rules · 2')).toBeTruthy();
     expect(getByText('Household rules · 0')).toBeTruthy();
     expect(await waitFor(() => getByText('Charlie'))).toBeTruthy();
@@ -277,7 +276,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(queryByText('Do what matters first.')).toBeNull();
   });
 
-  it('returns an authorized Focus offer to its Activity and opens the root rule drawer', async () => {
+  it('continues an authorized Focus offer in the standard rule management page', async () => {
     mockRouteParams = {
       setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
@@ -302,17 +301,10 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     fireEvent.press(getByText('Set Up'));
 
-    expect(mockRootGoBack).toHaveBeenCalledTimes(1);
-    expect(usePersonalRuleBuilderDrawerStore.getState().request?.params).toEqual({
-      entry: 'contextual',
-      suggestedKind: 'focus',
-      setupIntent: 'focus_sessions',
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+      entry: 'contextual', suggestedKind: 'focus', setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
     });
-    expect(mockSettingsNavigate).not.toHaveBeenCalledWith(
-      'SettingsScreenTimeRuleBuilder',
-      expect.anything(),
-    );
   });
 
   it('continues from Screen Time permission into the contextual rule builder', async () => {
@@ -352,7 +344,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
   });
 
-  it('keeps Add available and toggles one repeated rule by identity', async () => {
+  it('keeps repeated rules as uniform disclosure rows and opens detail by identity', () => {
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
@@ -394,13 +386,14 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     expect(screen.getByLabelText('Add My rule').props.accessibilityState.disabled).toBe(false);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
 
-    fireEvent.press(screen.getByLabelText('YouTube on'));
+    fireEvent.press(screen.getByLabelText('YouTube. Pause while Focus is running. On'));
 
-    await waitFor(() => {
-      const rules = useAppStore.getState().screenTimeProtection.personalRules;
-      expect(rules.find((rule) => rule.id === 'focus-social')?.enabled).toBe(true);
-      expect(rules.find((rule) => rule.id === 'focus-video')?.enabled).toBe(false);
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+      entry: 'inventory',
+      ruleId: 'focus-video',
     });
+    expect(presentScreenTimeActivityPicker).not.toHaveBeenCalled();
   });
 });

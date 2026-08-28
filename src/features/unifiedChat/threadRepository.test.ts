@@ -713,6 +713,171 @@ describe('Unified Chat repository', () => {
     });
   });
 
+  test('persists and maps a versioned Recipe import approval', async () => {
+    const reviewedData = buildReviewedRecipeCreate({ title: 'Imported Soup', ingredients: ['onion'], instructions: ['Cook.'] })!;
+    const proposalRow = {
+      id: 'proposal-import', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'recipes', title: 'Save imported soup', body: 'Private Recipe.',
+      status: 'pending', version: 1, created_at: 'now', updated_at: 'now',
+    };
+    const operationRow = {
+      id: 'operation-import', proposal_id: 'proposal-import', capability_id: 'recipes',
+      operation_type: 'recipes.import.approve', target_type: 'recipe_import_draft', target_id: 'draft-1',
+      summary: 'Save imported soup', payload: { reviewedData, expectedVersion: 2, approvalIdempotencyKey: 'approval-1' },
+      idempotency_key: 'unified-chat:run-1:import:1', sequence: 1,
+    };
+    const { client, calls } = createClient([{ data: proposalRow, error: null }, { data: operationRow, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'recipes',
+      title: 'Save imported soup', body: 'Private Recipe.', permissionPolicy: { requiresExplicitApproval: true },
+      operation: { type: 'recipes.import.approve', targetId: 'draft-1', expectedVersion: 2,
+        payload: { reviewedData, approvalIdempotencyKey: 'approval-1' }, summary: 'Save imported soup',
+        idempotencyKey: 'unified-chat:run-1:import:1' },
+    })).resolves.toMatchObject({ operation: { type: 'recipes.import.approve', targetId: 'draft-1', expectedVersion: 2 } });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      operation_type: 'recipes.import.approve', target_type: 'recipe_import_draft', target_id: 'draft-1',
+      payload: expect.objectContaining({ expectedVersion: 2, approvalIdempotencyKey: 'approval-1' }),
+    })] });
+  });
+
+  test('persists and maps exact-version Cook Session proposals', async () => {
+    const proposalRow = {
+      id: 'proposal-cook', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'recipes', title: 'Start cooking', body: 'Reviewed Cook Session.',
+      status: 'pending', version: 1, created_at: 'now', updated_at: 'now',
+    };
+    const operationRow = {
+      id: 'operation-cook', proposal_id: 'proposal-cook', capability_id: 'recipes',
+      operation_type: 'cook_session.start', target_type: 'recipe_version', target_id: 'version-2',
+      summary: 'Start cooking', payload: { expectedVersion: 2, recipeScaleMultiplier: 2 },
+      idempotency_key: 'cook-start-1', sequence: 1,
+    };
+    const { client, calls } = createClient([{ data: proposalRow, error: null }, { data: operationRow, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'recipes',
+      title: 'Start cooking', body: 'Reviewed Cook Session.', permissionPolicy: { requiresExplicitApproval: true },
+      operation: { type: 'cook_session.start', targetId: 'version-2', expectedVersion: 2,
+        payload: { recipeScaleMultiplier: 2 }, summary: 'Start cooking', idempotencyKey: 'cook-start-1' },
+    })).resolves.toMatchObject({
+      operation: { type: 'cook_session.start', targetId: 'version-2', expectedVersion: 2,
+        payload: { recipeScaleMultiplier: 2 } },
+    });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      operation_type: 'cook_session.start', target_type: 'recipe_version', target_id: 'version-2',
+      payload: { expectedVersion: 2, recipeScaleMultiplier: 2 },
+    })] });
+  });
+
+  test('persists and maps exact-version Recipe collaborator proposals', async () => {
+    const proposalRow = { id: 'proposal-collaboration', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'recipes', title: 'Share Recipe', body: 'One bounded grant.', status: 'pending', version: 1,
+      created_at: 'now', updated_at: 'now' };
+    const operationRow = { id: 'operation-collaboration', proposal_id: 'proposal-collaboration', capability_id: 'recipes',
+      operation_type: 'recipes.collaborator.invite', target_type: 'recipe', target_id: 'recipe-1', summary: 'Share Recipe',
+      payload: { expectedVersion: 2, recipientPersonId: 'person-2', role: 'viewer' },
+      idempotency_key: 'collaboration-request-1', sequence: 1 };
+    const { client, calls } = createClient([{ data: proposalRow, error: null }, { data: operationRow, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+    await expect(repository.createProposal({ threadId: 'thread-1', runId: 'run-1', messageId: 'message-2',
+      capabilityId: 'recipes', title: 'Share Recipe', body: 'One bounded grant.',
+      permissionPolicy: { requiresExplicitApproval: true }, operation: { type: 'recipes.collaborator.invite',
+        targetId: 'recipe-1', expectedVersion: 2, payload: { recipientPersonId: 'person-2', role: 'viewer' },
+        summary: 'Share Recipe', idempotencyKey: 'collaboration-request-1' },
+    })).resolves.toMatchObject({ operation: { type: 'recipes.collaborator.invite', targetId: 'recipe-1',
+      expectedVersion: 2, payload: { recipientPersonId: 'person-2', role: 'viewer' } } });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      operation_type: 'recipes.collaborator.invite', target_type: 'recipe', target_id: 'recipe-1',
+      payload: { expectedVersion: 2, recipientPersonId: 'person-2', role: 'viewer' },
+    })] });
+  });
+
+  test('persists and maps versioned food-control proposals', async () => {
+    const recipeProposal = {
+      id: 'proposal-favorite', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'recipes', title: 'Favorite recipe', body: 'Personal preference.', status: 'pending', version: 1,
+      created_at: 'now', updated_at: 'now',
+    };
+    const recipeOperation = {
+      id: 'operation-favorite', proposal_id: 'proposal-favorite', capability_id: 'recipes',
+      operation_type: 'recipes.favorite.update', target_type: 'recipe_preference', target_id: 'recipe-1',
+      summary: 'Favorite recipe', payload: { favorite: true, expectedVersion: 0 }, idempotency_key: 'favorite-request', sequence: 1,
+    };
+    const { client, calls } = createClient([{ data: recipeProposal, error: null }, { data: recipeOperation, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'recipes',
+      title: 'Favorite recipe', body: 'Personal preference.', permissionPolicy: { requiresExplicitApproval: true },
+      operation: { type: 'recipes.favorite.update', targetId: 'recipe-1', expectedVersion: 0,
+        payload: { favorite: true }, summary: 'Favorite recipe', idempotencyKey: 'favorite-request' },
+    })).resolves.toMatchObject({ capabilityId: 'recipes', operation: { type: 'recipes.favorite.update', expectedVersion: 0 } });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      target_type: 'recipe_preference', payload: { favorite: true, expectedVersion: 0 },
+    })] });
+
+    const mealProposal = { ...recipeProposal, id: 'proposal-meal', capability_id: 'meal_planning', title: 'Update meal preferences' };
+    const mealOperation = { ...recipeOperation, id: 'operation-meal', proposal_id: 'proposal-meal', capability_id: 'meal_planning',
+      operation_type: 'meal_planning.preferences.update', target_type: 'household_meal_preferences', target_id: 'household-1',
+      payload: { patch: { usualDinerCount: 5 }, expectedVersion: 3 }, idempotency_key: 'meal-request' };
+    const mealClient = createClient([{ data: mealProposal, error: null }, { data: mealOperation, error: null }]);
+    await expect(createUnifiedChatRepository(mealClient.client as never).createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'meal_planning',
+      title: 'Update meal preferences', body: 'Household preference.', permissionPolicy: { requiresExplicitApproval: true },
+      operation: { type: 'meal_planning.preferences.update', targetId: 'household-1', expectedVersion: 3,
+        payload: { patch: { usualDinerCount: 5 } }, summary: 'Update meal preferences', idempotencyKey: 'meal-request' },
+    })).resolves.toMatchObject({ capabilityId: 'meal_planning', operation: { type: 'meal_planning.preferences.update', expectedVersion: 3 } });
+  });
+
+  test('persists and maps exact-version Meal Plan proposals as Meal Plan targets', async () => {
+    const proposalRow = { id: 'proposal-meal-plan', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'meal_planning', title: 'Add tacos', body: 'Reviewed candidate.', status: 'pending', version: 1,
+      created_at: 'now', updated_at: 'now' };
+    const operationRow = { id: 'operation-meal-plan', proposal_id: 'proposal-meal-plan', capability_id: 'meal_planning',
+      operation_type: 'meal_planning.candidate.add', target_type: 'meal_plan', target_id: 'plan-1', summary: 'Add tacos',
+      payload: { expectedVersion: 3, candidate: { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null } },
+      idempotency_key: 'meal-plan-request-1', sequence: 1 };
+    const { client, calls } = createClient([{ data: proposalRow, error: null }, { data: operationRow, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+    await expect(repository.createProposal({ threadId: 'thread-1', runId: 'run-1', messageId: 'message-2',
+      capabilityId: 'meal_planning', title: 'Add tacos', body: 'Reviewed candidate.',
+      permissionPolicy: { requiresExplicitApproval: true }, operation: {
+        type: 'meal_planning.candidate.add', targetId: 'plan-1', expectedVersion: 3,
+        payload: { candidate: { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null } },
+        summary: 'Add tacos', idempotencyKey: 'meal-plan-request-1',
+      },
+    })).resolves.toMatchObject({ capabilityId: 'meal_planning', operation: {
+      type: 'meal_planning.candidate.add', targetId: 'plan-1', expectedVersion: 3,
+    } });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      operation_type: 'meal_planning.candidate.add', target_type: 'meal_plan', target_id: 'plan-1',
+      payload: { expectedVersion: 3, candidate: { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null } },
+    })] });
+  });
+
+  test('persists and maps bounded Meal choice responses as response targets', async () => {
+    const proposalRow = { id: 'proposal-response', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'meal_planning', title: 'Submit meal choices', body: 'Own response.', status: 'pending', version: 1,
+      created_at: 'now', updated_at: 'now' };
+    const operationRow = { id: 'operation-response', proposal_id: 'proposal-response', capability_id: 'meal_planning',
+      operation_type: 'meal_planning.response.submit', target_type: 'meal_choice_response', target_id: 'round-1',
+      summary: 'Submit meal choices', payload: { expectedVersion: 2, candidateIds: ['candidate-1'],
+        availableCandidateIds: ['candidate-1', 'candidate-2'], pass: false, suggestion: null },
+      idempotency_key: 'meal-response-request-1', sequence: 1 };
+    const { client, calls } = createClient([{ data: proposalRow, error: null }, { data: operationRow, error: null }]);
+    await expect(createUnifiedChatRepository(client as never).createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'meal_planning',
+      title: 'Submit meal choices', body: 'Own response.', permissionPolicy: { requiresExplicitApproval: true },
+      operation: { type: 'meal_planning.response.submit', targetId: 'round-1', expectedVersion: 2,
+        payload: { candidateIds: ['candidate-1'], availableCandidateIds: ['candidate-1', 'candidate-2'], pass: false, suggestion: null },
+        summary: 'Submit meal choices', idempotencyKey: 'meal-response-request-1' },
+    })).resolves.toMatchObject({ operation: { type: 'meal_planning.response.submit', targetId: 'round-1', expectedVersion: 2 } });
+    expect(calls).toContainEqual({ table: 'kwilt_agent_proposal_operations', method: 'insert', args: [expect.objectContaining({
+      operation_type: 'meal_planning.response.submit', target_type: 'meal_choice_response', target_id: 'round-1',
+    })] });
+  });
+
   test('persists a pending Plan schedule proposal with provider-complete calendar context', async () => {
     const proposalRow = {
       id: 'proposal-plan', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',

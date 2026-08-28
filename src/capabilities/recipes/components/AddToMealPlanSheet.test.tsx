@@ -28,7 +28,8 @@ describe('Add to Meal Plan household fit', () => {
     useHouseholdMealPreferencesStore.setState({
       userId: 'user', status: 'ready', error: null,
       projection: {
-        householdId: 'household', setupState: 'completed', usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child'],
+        householdId: 'household', version: 1, updatedAt: '2026-08-27T21:00:00.000Z',
+        setupState: 'completed', usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child'],
         members: [
           { id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult', role: 'owner', updatedAt: 'version' },
           { id: 'member-child', personId: 'child', displayName: 'Avery', kind: 'dependent', role: 'child', updatedAt: 'version' },

@@ -3,6 +3,8 @@ import { createStore, type StateCreator } from 'zustand/vanilla';
 
 import { recipeFavoriteCache, type RecipeFavoriteCache } from '../data/recipeFavoriteCache';
 import { createRecipeFavoriteRepository, type RecipeFavoriteRepository } from '../data/recipeFavoriteRepository';
+import { createHiddenRecipeRepository } from '../data/hiddenRecipeRepository';
+import { createRecipeControlActions } from '../actions/recipeControlActions';
 
 type RecipeFavoriteStatus = 'idle' | 'cached' | 'refreshing' | 'ready' | 'error';
 
@@ -84,7 +86,18 @@ export function createRecipeFavoriteStore(repository: RecipeFavoriteRepository, 
 
 const lazyRepository: RecipeFavoriteRepository = {
   list: () => createRecipeFavoriteRepository().list(),
-  set: (recipeRef, favorite) => createRecipeFavoriteRepository().set(recipeRef, favorite),
+  set: async (recipeRef, favorite) => {
+    const favoriteRepository = createRecipeFavoriteRepository();
+    const actions = createRecipeControlActions({ favorite: favoriteRepository, hidden: createHiddenRecipeRepository() });
+    const current = await favoriteRepository.list();
+    await actions.setFavorite({
+      requestId: `native-recipe-favorite-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      confirmed: true,
+      recipeId: recipeRef,
+      expectedVersion: current.includes(recipeRef) ? 1 : 0,
+      favorite,
+    });
+  },
 };
 
 export const useRecipeFavoriteStore = create<RecipeFavoriteStoreState>(initializer(lazyRepository, recipeFavoriteCache));

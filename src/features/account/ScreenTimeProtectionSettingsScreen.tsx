@@ -1,11 +1,9 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AppShell } from '../../ui/layout/AppShell';
-import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -36,9 +34,10 @@ import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { useMoneyAppControlSettings } from '../../capabilities/money/runtime/moneyAppControlStorage';
 import {
   SettingsDivider,
+  SettingsDetailRow,
   SettingsGroup,
+  SettingsPage,
   SettingsRow,
-  SettingsToggle,
 } from '../../ui/SettingsSurface';
 import {
   getHouseholdSnapshot,
@@ -49,11 +48,7 @@ import {
   buildMyScreenTimeRuleInventory,
   type ScreenTimeRuleInventoryRow,
 } from '../screen-time/domain/screenTimeRuleInventory';
-import { openPersonalScreenTimeRuleBuilder } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
-import {
-  listPersonalScreenTimeRules,
-  savePersonalScreenTimeRule,
-} from '../screen-time/domain/personalScreenTimeRuleActions';
+import { listPersonalScreenTimeRules } from '../screen-time/domain/personalScreenTimeRuleActions';
 import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -355,12 +350,6 @@ export function ScreenTimeProtectionSettingsScreen() {
       entrySurface,
     } as const;
 
-    if (returnToActivityId && builderParams.entry === 'contextual') {
-      rootNavigation?.goBack();
-      openPersonalScreenTimeRuleBuilder(builderParams);
-      return;
-    }
-
     navigation.navigate('SettingsScreenTimeRuleBuilder', builderParams);
   };
 
@@ -461,70 +450,6 @@ export function ScreenTimeProtectionSettingsScreen() {
     setSetupPhase('done');
   };
 
-  const handleToggleRule = async (ruleId: string, enabled: boolean) => {
-    const nowIso = new Date().toISOString();
-    const existing = getPersonalScreenTimeRuleById(
-      normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
-      ruleId,
-    );
-    if (!existing) return;
-    try {
-      await savePersonalScreenTimeRule({
-        rule: {
-        ...existing,
-        enabled,
-        setupCompleted: true,
-        lastUpdated: nowIso,
-        },
-        expectedUpdatedAt: existing.lastUpdated ?? 'unversioned',
-        confirmed: true,
-      }, createPersonalScreenTimeRuleActionBoundary());
-    } catch {
-      Alert.alert('Couldn’t update this rule', 'Kwilt did not receive confirmation from Screen Time. Nothing was changed.');
-      return;
-    }
-    if (enabled) {
-      capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
-        setup_intent: setupIntent,
-        surface: entrySurface,
-        rule: existing.kind === 'focus'
-          ? 'focus_session'
-          : existing.kind === 'daily_limit'
-            ? 'daily_limit'
-            : 'real_step',
-      });
-    }
-    reconcileAfterSettingsChange();
-  };
-
-  const handleChooseRuleTargets = async (ruleId: string) => {
-    const rule = getPersonalScreenTimeRuleById(
-      normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
-      ruleId,
-    );
-    if (!rule) return;
-    setSetupStep('selection');
-    const selection = await presentScreenTimeActivityPicker({
-      selectedApps: rule.selectedApps,
-      selectedCategories: rule.selectedCategories,
-    }, { selectionId: rule.selectionId });
-    setSetupStep('idle');
-    if (!selection) return;
-    const nowIso = new Date().toISOString();
-    setSettings((current) => {
-      const currentRule = getPersonalScreenTimeRuleById(current, ruleId);
-      if (!currentRule) return current;
-      return replacePersonalScreenTimeRule(current, {
-        ...currentRule,
-        selectedApps: selection.selectedApps ?? currentRule.selectedApps,
-        selectedCategories: selection.selectedCategories ?? currentRule.selectedCategories,
-        needsSelectionReview: false,
-        lastUpdated: nowIso,
-      });
-    });
-    reconcileAfterSettingsChange();
-  };
-
   const beginPersonalRuleDraft = () => {
     if (!isApproved) return;
     navigation.navigate('SettingsScreenTimeRuleBuilder', { entry: 'inventory' });
@@ -587,14 +512,6 @@ export function ScreenTimeProtectionSettingsScreen() {
       entry: 'inventory',
       ruleId: row.destination.ruleId,
     });
-  };
-
-  const toggleInventoryRule = (row: ScreenTimeRuleInventoryRow) => {
-    if (row.destination.kind !== 'personal') {
-      openRule(row);
-      return;
-    }
-    void handleToggleRule(row.destination.ruleId, !row.enabled);
   };
 
   const openHouseholdRuleBuilder = () => {
@@ -675,7 +592,6 @@ export function ScreenTimeProtectionSettingsScreen() {
               row={row}
               disabled={isBusy || normalized.authorizationStatus === 'unavailable'}
               onPress={() => openRule(row)}
-              onToggle={() => toggleInventoryRule(row)}
             />
           </Fragment>
         ))}
@@ -811,15 +727,12 @@ export function ScreenTimeProtectionSettingsScreen() {
   ) : null;
 
   return (
-    <AppShell>
-      <View style={styles.screen}>
-        <PageHeader title="Screen Time" onPressBack={() => navigation.goBack()} />
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {managementContent}
-        </ScrollView>
-      </View>
+    <>
+      <SettingsPage title="Screen Time" onBack={() => navigation.goBack()}>
+        {managementContent}
+      </SettingsPage>
       {setupDrawer}
-    </AppShell>
+    </>
   );
 }
 
@@ -884,9 +797,9 @@ function RuleInventoryGroup(props: {
   children?: ReactNode;
 }) {
   return (
-    <View style={styles.ruleGroupBlock}>
-      <HStack alignItems="center" justifyContent="space-between">
-        <Text style={styles.ruleGroupLabel}>{props.title}</Text>
+    <SettingsGroup
+      title={props.title}
+      headerAction={(
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={props.addAccessibilityLabel}
@@ -898,11 +811,10 @@ function RuleInventoryGroup(props: {
           <Icon name="plus" size={16} color={colors.textPrimary} />
           <Text style={styles.addRuleButtonText}>Add rule</Text>
         </Pressable>
-      </HStack>
-      <View style={styles.ruleGroupSurface}>
-        {props.isEmpty ? <Text style={styles.ruleGroupEmpty}>{props.emptyCopy}</Text> : props.children}
-      </View>
-    </View>
+      )}
+    >
+      {props.isEmpty ? <SettingsRow multiline title={props.emptyCopy} /> : props.children}
+    </SettingsGroup>
   );
 }
 
@@ -910,62 +822,20 @@ function RuleInventoryRow(props: {
   row: ScreenTimeRuleInventoryRow;
   disabled?: boolean;
   onPress: () => void;
-  onToggle: () => void;
 }) {
-  const copy = (
-    <VStack flex={1} space={0}>
-      <Text style={[styles.rowTitle, props.disabled ? styles.disabledText : null]}>{props.row.title}</Text>
-      <Text style={styles.rowSubtitle}>{props.row.detail}</Text>
-      {props.row.contextLabel ? <Text style={styles.ruleOwnerCopy}>{props.row.contextLabel}</Text> : null}
-    </VStack>
-  );
-  if (props.row.domain === 'personal') {
-    return (
-      <View style={[styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${props.row.title}. ${props.row.detail}`}
-          disabled={props.disabled}
-          onPress={props.onPress}
-          style={({ pressed }) => [styles.inventoryRowMain, pressed ? styles.ruleDraftRowPressed : null]}
-        >
-          {copy}
-        </Pressable>
-        <SettingsToggle
-          accessibilityLabel={`${props.row.title} ${props.row.enabled ? 'on' : 'off'}`}
-          disabled={props.disabled}
-          value={props.row.enabled}
-          onPress={props.onToggle}
-        />
-      </View>
-    );
-  }
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${props.row.title}. ${props.row.detail}${props.row.contextLabel ? `. ${props.row.contextLabel}` : ''}`}
+    <SettingsDetailRow
+      context={props.row.contextLabel ?? undefined}
+      description={props.row.detail}
       disabled={props.disabled}
       onPress={props.onPress}
-      style={({ pressed }) => [styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null, pressed ? styles.ruleDraftRowPressed : null]}
-    >
-      {copy}
-      <Icon name="chevronRight" size={17} color={colors.textSecondary} />
-    </Pressable>
+      state={props.row.enabled ? 'On' : 'Off'}
+      title={props.row.title}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing['2xl'],
-    gap: spacing.md,
-  },
   sectionLabel: {
     ...typography.label,
     color: colors.textSecondary,
@@ -1267,14 +1137,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  ruleGroupBlock: {
-    rowGap: spacing.sm,
-  },
-  ruleGroupLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    paddingLeft: spacing.sm,
-  },
   addRuleButton: {
     minHeight: 44,
     flexDirection: 'row',
@@ -1290,37 +1152,5 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
     fontFamily: typography.titleSm.fontFamily,
-  },
-  ruleGroupSurface: {
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.canvas,
-  },
-  ruleGroupEmpty: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-  },
-  inventoryRow: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  inventoryRowMain: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 54,
-    justifyContent: 'center',
-  },
-  ruleOwnerCopy: {
-    ...typography.bodyXs,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
   },
 });

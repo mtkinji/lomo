@@ -47,7 +47,9 @@ describe('externalMcp helpers', () => {
       for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
     };
 
-    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(118);
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(
+      EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'exposed').length,
+    );
     for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
       assertStrict(tool.inputSchema);
       expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));

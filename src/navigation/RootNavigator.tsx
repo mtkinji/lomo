@@ -53,7 +53,6 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { ScreenTimeProtectionSettingsScreen } from '../features/account/ScreenTimeProtectionSettingsScreen';
 import { PersonalScreenTimeRuleBuilderScreen } from '../features/screen-time/rule-builder/PersonalScreenTimeRuleBuilderScreen';
-import { PersonalScreenTimeRuleBuilderHost } from '../features/screen-time/rule-builder/PersonalScreenTimeRuleBuilderHost';
 import type { PersonalScreenTimeRuleBuilderParams } from '../features/screen-time/rule-builder/personalRuleBuilderLaunch';
 import type {
   ScreenTimeSetupIntent,
@@ -832,7 +831,6 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
       <AuthPromptDrawerHost />
-      <PersonalScreenTimeRuleBuilderHost />
       <ScreenTimeUnlockGuideHost />
       <ToastHost />
     </NavigationContainer>
@@ -1113,11 +1111,6 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsScreenTimeRuleBuilder"
         component={PersonalScreenTimeRuleBuilderScreen}
-        options={{
-          presentation: 'transparentModal',
-          animation: 'none',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
       />
       <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
       <SettingsStack.Screen name="SettingsHouseholdMember" component={HouseholdMemberDetailScreen} />
@@ -1395,6 +1388,52 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     );
   }, [chatRepository, chatThreads, navigateAfterChatRemoval]);
 
+  const deleteChatThreads = useCallback((threadIds: readonly string[]): Promise<boolean> => {
+    const requestedIds = [...new Set(threadIds)];
+    if (requestedIds.length === 0) return Promise.resolve(false);
+    const chatNoun = requestedIds.length === 1 ? 'chat' : 'chats';
+    return new Promise((resolve) => {
+      Alert.alert(
+        `Delete ${requestedIds.length} ${chatNoun}?`,
+        `Their conversation ${requestedIds.length === 1 ? 'history' : 'histories'} will be permanently deleted. This cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: `Delete ${requestedIds.length}`,
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                const results = await Promise.allSettled(
+                  requestedIds.map((threadId) => chatRepository.deleteThread(threadId)),
+                );
+                const deletedIds = requestedIds.filter((_, index) => results[index]?.status === 'fulfilled');
+                const deletedIdSet = new Set(deletedIds);
+                if (deletedIds.length > 0) {
+                  const remaining = chatThreads.filter((thread) => !deletedIdSet.has(thread.id));
+                  setChatThreads(remaining);
+                  if (activeChatThreadId && deletedIdSet.has(activeChatThreadId)) {
+                    navigateAfterChatRemoval(activeChatThreadId, remaining);
+                  }
+                }
+                const failedCount = requestedIds.length - deletedIds.length;
+                useToastStore.getState().showToast({
+                  message: deletedIds.length === 0
+                    ? 'Could not delete chats'
+                    : failedCount === 0
+                      ? `${deletedIds.length} ${deletedIds.length === 1 ? 'chat' : 'chats'} deleted`
+                      : `${deletedIds.length} deleted; ${failedCount} could not be deleted`,
+                  variant: failedCount > 0 ? 'danger' : undefined,
+                });
+                resolve(deletedIds.length > 0);
+              })();
+            },
+          },
+        ],
+        { onDismiss: () => resolve(false) },
+      );
+    });
+  }, [activeChatThreadId, chatRepository, chatThreads, navigateAfterChatRemoval]);
+
   const capabilityMenuNavigationHandlers = createCapabilityMenuNavigationHandlers({
     dispatch: (action) => rootNavigationRef.dispatch(action),
     coverMenu,
@@ -1448,6 +1487,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         onSelectChat={openChatThread}
         onArchiveChat={(threadId) => void archiveChatThread(threadId)}
         onDeleteChat={deleteChatThread}
+        onDeleteChats={deleteChatThreads}
         onCreateChat={() => void createChatThread()}
         onOpenSearch={() => {
           coverMenu();

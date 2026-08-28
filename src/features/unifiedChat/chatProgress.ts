@@ -36,6 +36,7 @@ const SINGLE_CAPABILITY_CHECKING_COPY: Record<UnifiedChatCapabilityId, string> =
   household: 'Checking your Household',
   money: 'Checking your money',
   meal_planning: 'Checking your meals',
+  groceries: 'Checking your groceries',
   navigation: 'Checking where to go',
   notifications: 'Checking your notifications',
   plan: 'Checking your plan',

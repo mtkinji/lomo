@@ -46,4 +46,13 @@ describe('Grocery repository', () => {
     const from=jest.fn((table)=>table==='kwilt_grocery_lists'?listChain:handoffChain);
     await expect(createGroceryRepository({from} as never).resolveActivity('list-1')).resolves.toEqual({state:'ready',handoffState:'provider_link_created',expiresAt:'2099-01-01T00:00:00.000Z'});
   });
+
+  it('resolves one owner-visible retailer handoff to its exact Grocery list', async () => {
+    const chain={select:jest.fn(),eq:jest.fn(),maybeSingle:jest.fn().mockResolvedValue({data:{
+      id:'handoff-1',grocery_list_id:'list-1',provider:'instacart',state:'provider_link_created',expires_at:'2099-01-01T00:00:00.000Z',
+    },error:null})};chain.select.mockReturnValue(chain);chain.eq.mockReturnValue(chain);
+    await expect(createGroceryRepository({from:jest.fn().mockReturnValue(chain)} as never).resolveHandoff('handoff-1'))
+      .resolves.toEqual({id:'handoff-1',groceryListId:'list-1',provider:'instacart',state:'provider_link_created',expiresAt:'2099-01-01T00:00:00.000Z'});
+    expect(chain.select).toHaveBeenCalledWith('id,grocery_list_id,provider,state,expires_at');
+  });
 });

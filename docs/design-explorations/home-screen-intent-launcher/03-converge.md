@@ -53,9 +53,9 @@ Still intentionally not possible:
 ### Four configurable affordances
 
 - All four upper positions are independently configurable through iOS Edit Widget.
-- Every position shows a recognizable icon and short visible label; accessibility labels name both the action and destination.
+- Every position shows one large, recognizable icon without a visible label. The full destination name remains present in Edit Widget and in the accessibility label.
 - Configuration is optional because every new widget starts with useful defaults.
-- The four positions must resolve to four distinct choices. The configuration experience should omit already-selected destinations where practical and otherwise reject duplication clearly rather than silently changing a selection.
+- All four positions remain independently configurable. V1 honors duplicate selections visibly rather than silently normalizing or rejecting the user's configuration.
 - Position order is meaningful and remains stable until the user edits it.
 
 ### Initial bounded destination list
@@ -126,19 +126,22 @@ Natural adoption means the combined launcher replaces the separate Chat/Focus fo
 - Four destinations leave less room per shortcut than a three-slot design.
 - Configuration occurs in Apple's Edit Widget surface rather than inside Kwilt.
 - Active Focus status is compact rather than reproducing the full standalone Focus widget.
-- A bounded destination list sacrifices arbitrary flexibility for reliable routes, labels, and accessibility.
+- A bounded destination list sacrifices arbitrary flexibility for reliable routes, distinctive symbols, and accessibility.
 
 ## Rejected trade-offs
 
 - Do not reduce to three positions solely to simplify layout.
-- Do not remove labels and rely on ambiguous capability icons.
+- Do not admit a destination whose symbol is ambiguous beside the rest of the bounded set; improve or replace the symbol rather than restoring labels to every control.
+- Do not derive pale pine fills for secondary controls. The upper controls use Kwilt's canonical neutral `shellAlt`, border, and Sumi roles; pine is reserved for the branded Ask Kwilt action.
+- Do not let the four shortcut circles compete with Ask Kwilt or drift into an uneven fixed-gap rhythm. Keep them compact, evenly distributed, and clearly edged against the white widget surface.
+- The Ask Kwilt capsule uses matching left, right, and bottom insets so its capsule nests into the widget shell.
 - Do not auto-rank or swap destinations based on recent use.
 - Do not make Ask Kwilt configurable or removable.
 - Do not turn the widget into a private-content dashboard.
 
 ## Stated bet
 
-We're betting that four user-chosen destinations plus one stable Ask Kwilt entry will earn the space currently occupied by separate widgets and reduce navigation enough to become the user's habitual Kwilt front door. If four labeled positions cannot remain calm and legible at real size, we will revisit the visual shape and typography while preserving the four-position contract.
+We're betting that configuration-time labels, stable positions, and four distinctive symbols make the user's chosen destinations recognizable without persistent visual labels. If a destination remains unclear in dogfood, we will improve its symbol while preserving the four-position and label-free contracts.
 
 ## Success signal
 
