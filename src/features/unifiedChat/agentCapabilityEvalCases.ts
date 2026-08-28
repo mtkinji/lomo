@@ -308,7 +308,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('cook_session.complete', 'We finished dinner and I would make it again.'),
   languageCase('notifications.configure', 'Open notification settings so I can change reminders.'),
   languageCase('search.open', 'Search all of Kwilt for school.'),
-  languageCase('channel.phone.continue_run', 'Continue this conversation on my phone.'),
+  languageCase('channel.phone.continue_run', 'Continue this Kwilt conversation through my Phone Agent.'),
   ...CONTROL_PARITY_LANGUAGE_CASES,
 ];
 

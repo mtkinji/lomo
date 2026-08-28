@@ -38,7 +38,10 @@ export function resolvePersonalRuleCondition(
   condition: PersonalRuleCondition,
   context: PersonalRuleEvaluationContext,
 ): boolean | 'unknown' {
-  if (condition.type === 'real_step_complete') return context.realStepComplete ?? 'unknown';
+  if (condition.type === 'real_step_complete') {
+    if (context.realStepComplete === null) return 'unknown';
+    return condition.operator === 'is_not' ? !context.realStepComplete : context.realStepComplete;
+  }
   if (condition.type === 'focus_active') {
     if (context.focusActive === null) return 'unknown';
     return condition.operator === 'is' ? context.focusActive : !context.focusActive;

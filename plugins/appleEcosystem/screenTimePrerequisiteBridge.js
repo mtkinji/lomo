@@ -454,7 +454,9 @@ const PREREQUISITE_METHODS_SWIFT = `
       let conditionIds = Set(payload.conditions.map { safeIdentifier($0.id) })
       let conditionsAreValid = conditionIds.count == payload.conditions.count
         && payload.conditions.allSatisfy { condition in
-          if condition.type == "real_step_complete" { return true }
+          if condition.type == "real_step_complete" {
+            return condition.operator == "is" || condition.operator == "is_not"
+          }
           if condition.type == "focus_active" {
             return condition.operator == "is" || condition.operator == "is_not"
           }

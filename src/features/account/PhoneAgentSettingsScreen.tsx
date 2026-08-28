@@ -19,6 +19,10 @@ import {
   type PhoneAgentLink,
   type PhoneAgentStatus,
 } from '../../services/phoneAgent';
+import {
+  createPhoneAgentSettingsActions,
+  phoneAgentPermissionSnapshot,
+} from './actions/phoneAgentSettingsActions';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
 
 type PhoneAgentSettingsNavigationProp = NativeStackNavigationProp<
@@ -71,6 +75,11 @@ const EMPTY_STATUS: PhoneAgentStatus = {
   recentActions: [],
 };
 
+const phoneAgentSettingsActions = createPhoneAgentSettingsActions({
+  load: getPhoneAgentStatus,
+  update: updatePhoneAgentSettings,
+});
+
 function firstLink(status: PhoneAgentStatus): PhoneAgentLink | null {
   return status.links[0] ?? null;
 }
@@ -88,7 +97,7 @@ export function PhoneAgentSettingsScreen() {
   const loadStatus = useCallback(async () => {
     setIsLoading(true);
     try {
-      const next = await getPhoneAgentStatus();
+      const next = await phoneAgentSettingsActions.loadNativeStatus();
       setStatus(next);
       const currentLink = firstLink(next);
       if (currentLink) {
@@ -121,12 +130,17 @@ export function PhoneAgentSettingsScreen() {
     if (!link) return;
     setIsSaving(true);
     try {
-      const next = await updatePhoneAgentSettings({
-        phone: link.phone,
-        permissions,
-        promptCapPerDay: Number.isFinite(promptCap) ? promptCap : link.promptCapPerDay,
+      const nextLink = await phoneAgentSettingsActions.update({
+        expectedPromptCapPerDay: link.promptCapPerDay,
+        expectedPermissions: phoneAgentPermissionSnapshot(link.permissions),
+        fields: {
+          permissions: phoneAgentPermissionSnapshot(permissions),
+          promptCapPerDay: Number.isFinite(promptCap) ? promptCap : link.promptCapPerDay,
+        },
       });
+      const next = await phoneAgentSettingsActions.loadNativeStatus();
       setStatus(next);
+      setPromptCapText(String(nextLink.promptCapPerDay));
     } catch (error) {
       Alert.alert('Could not save Phone Agent settings', error instanceof Error ? error.message : 'Try again in a moment.');
     } finally {

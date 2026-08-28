@@ -200,4 +200,22 @@ describe('conversational parity', () => {
       rows: accountRows,
     }).join('\n')).toContain('Unsupported program exclusion: account.delete');
   });
+
+  it('accepts an explicitly modeled supported boundary without pretending Kwilt performs the final act', () => {
+    const boundaryCoverage: ChatCapabilityCoverageRow = {
+      ...coverage('groceries.payment'),
+      toolIds: [], toolCoverage: [], completionMode: 'supported_boundary',
+      supportedBoundary: { finalActOwner: 'provider', reason: 'Payment remains retailer-owned.' },
+      channels: {
+        mobile: { state: 'excluded', outcome: 'honest_boundary', proofPaths: [SOURCE_PATH], boundaryReason: 'Provider-owned.' },
+        phone: { state: 'excluded', outcome: 'honest_boundary', proofPaths: [SOURCE_PATH], boundaryReason: 'Provider-owned.' },
+      },
+    };
+    const rows = buildConversationalParity({
+      surfaces: [includedSurface('groceries.payment')], coverage: [boundaryCoverage],
+      externalCoverage: [{ ...external('groceries.payment'), state: 'explicit_boundary' }],
+      voiceConformanceOperationIds: [],
+    });
+    expect(validateConversationalParity({ surfaces: [includedSurface('groceries.payment')], rows })).toEqual([]);
+  });
 });

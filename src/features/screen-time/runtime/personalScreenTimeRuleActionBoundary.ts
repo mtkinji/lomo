@@ -1,7 +1,5 @@
 import { useAppStore } from '../../../store/useAppStore';
 import {
-  activatePersonalScreenTimeRule,
-  deactivatePersonalScreenTimeRule,
   activatePersonalCompositeScreenTimeRule,
   deactivatePersonalCompositeScreenTimeRule,
 } from '../../../services/screenTimeProtectionRuntime';
@@ -12,8 +10,8 @@ export function createPersonalScreenTimeRuleActionBoundary(): PersonalScreenTime
   return {
     readSettings: () => useAppStore.getState().screenTimeProtection,
     persistSettings: (settings) => useAppStore.getState().setScreenTimeProtection(settings),
-    activateRule: (rule) => activatePersonalScreenTimeRule({ rule, focusSessionActive: false }),
-    deactivateRule: deactivatePersonalScreenTimeRule,
+    activateRule: (rule) => activatePersonalCompositeScreenTimeRule({ rule }),
+    deactivateRule: deactivatePersonalCompositeScreenTimeRule,
   };
 }
 

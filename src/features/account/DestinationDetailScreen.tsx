@@ -10,15 +10,11 @@ import { Button, Card, HStack, Heading, Input, Text, Textarea, VStack, KeyboardA
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import {
-  createExecutionTargetFromDefinition,
-  deleteExecutionTarget,
   getKwiltMcpBaseUrl,
-  listExecutionTargetDefinitions,
-  listExecutionTargets,
-  updateExecutionTarget,
   type ExecutionTargetDefinitionRow,
   type ExecutionTargetRow,
 } from '../../services/executionTargets/executionTargets';
+import { executionTargetActions } from './actions/executionTargetActionsBoundary';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsDestinationDetail'>;
 type Rt = RouteProp<SettingsStackParamList, 'SettingsDestinationDetail'>;
@@ -88,18 +84,17 @@ export function DestinationDetailScreen() {
       setLoading(true);
       try {
         await ensureSignedInWithPrompt('settings');
-        const defs = await listExecutionTargetDefinitions();
-        setDefinitions(defs);
+        const inventory = await executionTargetActions.loadNativeInventory();
+        setDefinitions(inventory.definitions);
         if (!isCreate) {
-          const tgs = await listExecutionTargets();
-          const found = tgs.find((t) => t.id === targetId) ?? null;
+          const found = inventory.targets.find((t) => t.id === targetId) ?? null;
           setTarget(found);
           if (found?.kind === 'cursor_repo') {
             setCursorDraft(draftFromTarget(found));
           }
         } else {
           // Default draft for Cursor installs.
-          const def = defs.find((d) => d.id === definitionId) ?? null;
+          const def = inventory.definitions.find((candidate) => candidate.id === definitionId) ?? null;
           if (def?.kind === 'cursor_repo') {
             setCursorDraft({
               displayName: '',
@@ -154,20 +149,13 @@ export function DestinationDetailScreen() {
       setLoading(true);
       if (isCreate) {
         if (!definition || definition.kind !== 'cursor_repo') throw new Error('Invalid destination definition');
-        const config = {
-          ...(definition.default_config ?? {}),
-          repo_name: cursorDraft.repoName.trim(),
-          repo_url: cursorDraft.repoUrl.trim() || null,
-          branch_policy: cursorDraft.branchPolicy.trim() || 'feature_branch',
-          verification_commands: normalizeCommands(cursorDraft.verificationCommandsText),
-        };
-        const created = await createExecutionTargetFromDefinition({
+        const created = await executionTargetActions.createNativeCursor({
           definitionId: definition.id,
-          kind: definition.kind,
           displayName: cursorDraft.displayName.trim(),
-          config,
-          requirements: definition.default_requirements ?? {},
-          playbook: definition.default_playbook ?? {},
+          repoName: cursorDraft.repoName.trim(),
+          repoUrl: cursorDraft.repoUrl.trim() || null,
+          branchPolicy: cursorDraft.branchPolicy.trim() || 'feature_branch',
+          verificationCommands: normalizeCommands(cursorDraft.verificationCommandsText),
         });
         if (!created) throw new Error('Unable to create destination');
         navigation.goBack();
@@ -175,17 +163,14 @@ export function DestinationDetailScreen() {
       }
 
       if (!target) throw new Error('Destination not found');
-      const config = {
-        ...(target.config ?? {}),
-        repo_name: cursorDraft.repoName.trim(),
-        repo_url: cursorDraft.repoUrl.trim() || null,
-        branch_policy: cursorDraft.branchPolicy.trim() || 'feature_branch',
-        verification_commands: normalizeCommands(cursorDraft.verificationCommandsText),
-      };
-      const updated = await updateExecutionTarget({
-        id: target.id,
+      const updated = await executionTargetActions.updateNativeCursor({
+        targetId: target.id,
+        expectedUpdatedAt: target.updated_at,
         displayName: cursorDraft.displayName.trim(),
-        config,
+        repoName: cursorDraft.repoName.trim(),
+        repoUrl: cursorDraft.repoUrl.trim() || null,
+        branchPolicy: cursorDraft.branchPolicy.trim() || 'feature_branch',
+        verificationCommands: normalizeCommands(cursorDraft.verificationCommandsText),
       });
       if (!updated) throw new Error('Unable to update destination');
       setTarget(updated);
@@ -201,7 +186,11 @@ export function DestinationDetailScreen() {
     if (!target) return;
     try {
       setLoading(true);
-      const updated = await updateExecutionTarget({ id: target.id, isEnabled: !target.is_enabled });
+      await executionTargetActions.update({
+        targetId: target.id, expectedUpdatedAt: target.updated_at, fields: { enabled: !target.is_enabled },
+      });
+      const inventory = await executionTargetActions.loadNativeInventory();
+      const updated = inventory.targets.find((item) => item.id === target.id) ?? null;
       if (!updated) throw new Error('Unable to update destination');
       setTarget(updated);
     } catch (e: any) {
@@ -220,9 +209,11 @@ export function DestinationDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           setLoading(true);
-          const ok = await deleteExecutionTarget({ id: target.id });
+          const result = await executionTargetActions.delete({
+            targetId: target.id, expectedUpdatedAt: target.updated_at,
+          }).catch(() => null);
           setLoading(false);
-          if (!ok) {
+          if (!result) {
             Alert.alert('Delete failed', 'Unable to delete destination.');
             return;
           }
@@ -356,6 +347,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
-
-

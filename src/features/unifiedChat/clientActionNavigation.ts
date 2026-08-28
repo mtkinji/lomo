@@ -1,4 +1,9 @@
 import type { UnifiedChatClientAction } from './types';
+import {
+  parseCapabilityNavigationRequest,
+  resolveChatCapabilityNavigation,
+} from '../../navigation/capabilityNavigationAction';
+import { parseConnectedToolConnectRequest } from '../account/actions/connectedToolActions';
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
@@ -9,6 +14,24 @@ export function resolveClientActionOpenInstruction(
 ): ClientActionOpenInstruction | null {
   switch (action.actionType) {
     case 'open_search': return { kind: 'search' };
+    case 'open_widgets_settings':
+      if (action.targetType !== 'device_setting' || action.targetId !== 'widgets'
+        || action.payload.openSetup !== true) return null;
+      return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsWidgets' } };
+    case 'open_connected_tool_setup': {
+      const request = parseConnectedToolConnectRequest(action.payload);
+      if (!request || action.targetType !== 'connection_provider' || action.targetId !== request.providerId) return null;
+      return {
+        kind: 'navigate', name: 'Settings',
+        params: { screen: 'SettingsConnectKwiltApp', params: { app: request.providerId } },
+      };
+    }
+    case 'open_capability': {
+      const request = parseCapabilityNavigationRequest(action.payload);
+      if (!request) return null;
+      const target = resolveChatCapabilityNavigation(request);
+      return { kind: 'navigate', name: target.name, params: 'params' in target ? target.params : {} };
+    }
     case 'open_activity_focus':
       if (!action.targetId) return null;
       return {
@@ -50,10 +73,19 @@ export function resolveClientActionOpenInstruction(
         ? action.payload.suggestedAppLabels.filter((value): value is string => typeof value === 'string')
         : [];
       if (!action.targetId || action.payload.subject == null || suggestedPreset === null) return null;
+      const categoryName = action.targetId.replace(/[_-]+/g, ' ').replace(/^./, (value) => value.toUpperCase());
       return {
-        kind: 'navigate', name: 'Money', params: {
-          screen: 'MoneyAppControl', params: {
-            categoryId: action.targetId, suggestedPreset, suggestedAppLabels,
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsScreenTimeRuleBuilder', params: {
+            entry: 'contextual',
+            suggestedBudgetCondition: {
+              categorySourceId: action.targetId,
+              categoryName,
+              preset: suggestedPreset,
+            },
+            ...(suggestedAppLabels[0] ? { suggestedAppLabel: suggestedAppLabels[0] } : {}),
+            setupIntent: 'settings_discovery',
+            entrySurface: 'settings',
           },
         },
       };
@@ -64,6 +96,37 @@ export function resolveClientActionOpenInstruction(
       return { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } };
     case 'open_money_control': {
       const toolId = typeof action.payload.toolId === 'string' ? action.payload.toolId : '';
+      if (toolId === 'money.read') {
+        return { kind: 'navigate', name: 'Money', params: { screen: 'MoneySummary' } };
+      }
+      if (toolId === 'money.review_transaction') {
+        if (action.targetType === 'money_transaction' && action.targetId) {
+          return {
+            kind: 'navigate', name: 'Money',
+            params: { screen: 'MoneyTransactionDetail', params: { transactionId: action.targetId } },
+          };
+        }
+        return action.targetType === 'money'
+          ? { kind: 'navigate', name: 'Money', params: { screen: 'MoneyTransactions', params: { reviewState: 'needs_review' } } }
+          : null;
+      }
+      if (toolId === 'money.category.create') {
+        return action.targetType === 'money'
+          ? { kind: 'navigate', name: 'Money', params: { screen: 'MoneyCategoryCreate' } } : null;
+      }
+      if (toolId === 'money.category.rename' || toolId === 'money.category.update') {
+        return action.targetType === 'money_category' && action.targetId
+          ? { kind: 'navigate', name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: action.targetId } } }
+          : null;
+      }
+      if (toolId === 'money.privacy.configure') {
+        return action.targetType === 'money'
+          ? { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsMoneyPrivacy' } } : null;
+      }
+      if (toolId === 'money.connection.connect' || toolId === 'money.connection.sync') {
+        return action.targetType === 'money' || action.targetType === 'money_connection'
+          ? { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } } : null;
+      }
       if (toolId.startsWith('money.transaction.')) {
         if (!action.targetId || action.targetType !== 'money_transaction') return null;
         return {

@@ -48,19 +48,18 @@ describe('ScreenTimeRule', () => {
 
   it('rejects malformed or mismatched rule triggers', () => {
     const base: Omit<ScreenTimeRule, 'trigger'> = {
-      id: 'money-shopping',
-      domain: 'money',
+      id: 'personal-rule',
+      domain: 'personal',
       subject: { kind: 'self' },
-      selectionId: 'money_shopping',
-      title: 'Review Shopping',
+      selectionId: 'personal-rule',
+      title: 'Pause Social',
       temporaryOpen: { allowed: true, durationMinutes: 20 },
       active: true,
       desiredVersion: 1,
       appliedVersion: null,
     };
 
-    expect(normalizeScreenTimeRule({ ...base, trigger: { type: 'focus_active' } })).toBeNull();
-    expect(normalizeScreenTimeRule({ ...base, trigger: { type: 'money_review', categorySourceId: '' } })).toBeNull();
+    expect(normalizeScreenTimeRule({ ...base, trigger: { type: 'family_agreement', agreementId: 'family' } })).toBeNull();
+    expect(normalizeScreenTimeRule({ ...base, domain: 'money', trigger: { type: 'money_review', categorySourceId: 'shopping' } })).toBeNull();
   });
 });
-

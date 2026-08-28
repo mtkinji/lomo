@@ -11,11 +11,10 @@ import { Badge, Button, Card, HStack, Heading, Input, Text, VStack, KeyboardAwar
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import {
-  listExecutionTargetDefinitions,
-  listExecutionTargets,
   type ExecutionTargetDefinitionRow,
   type ExecutionTargetRow,
 } from '../../services/executionTargets/executionTargets';
+import { executionTargetActions } from './actions/executionTargetActionsBoundary';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { formatActivityTypeLabel, getDestinationSupportedActivityTypes } from '../../domain/destinationCapabilities';
 import { OOTB_DESTINATIONS } from '../../domain/ootbDestinations';
@@ -33,15 +32,14 @@ export function ExecutionTargetsSettingsScreen() {
   const [libraryVisible, setLibraryVisible] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
   const enabledSendToDestinations = useAppStore((s) => s.enabledSendToDestinations);
-  const toggleSendToDestinationEnabled = useAppStore((s) => s.toggleSendToDestinationEnabled);
 
   const load = async () => {
     setLoading(true);
     try {
       await ensureSignedInWithPrompt('settings');
-      const [defs, tgs] = await Promise.all([listExecutionTargetDefinitions(), listExecutionTargets()]);
-      setDefinitions(defs);
-      setTargets(tgs);
+      const inventory = await executionTargetActions.loadNativeInventory();
+      setDefinitions(inventory.definitions);
+      setTargets(inventory.targets);
     } catch (e: any) {
       Alert.alert('Unable to load', typeof e?.message === 'string' ? e.message : 'Unknown error');
     } finally {
@@ -519,5 +517,4 @@ const styles = StyleSheet.create({
     right: 2,
   },
 });
-
 

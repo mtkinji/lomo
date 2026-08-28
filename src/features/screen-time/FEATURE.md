@@ -14,7 +14,7 @@ briefs:
   - rule-based-screen-time-contextual-unlock
   - screen-time-rule-governance
 status: shipping
-last_reviewed: 2026-08-13
+last_reviewed: 2026-08-28
 ---
 
 # Screen Time
@@ -29,7 +29,10 @@ collapsing their distinct visibility or authority.
 
 ## Boundaries
 
-- Personal, Money, and Household retain their canonical condition editors.
+- Screen Time owns the canonical rule aggregate, sentence composer, lifecycle,
+  explanation, and native enforcement projection.
+- Money, Focus, Activities, time, and usage supply typed condition truth; they
+  do not own separate Screen Time editors or persistence.
 - Native enforcement uses stable selection and store identity per rule.
 - Family authority remains distinct from Apple authorization and device delivery.
 - Children can act on a requirement or request caregiver help, but cannot approve

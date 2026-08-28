@@ -130,7 +130,9 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('loadingLabel="Saving…"');
     expect(source).toContain('Save changes');
     expect(source).toContain('title="FOLLOW THROUGH"');
-    expect(source).toContain('title="App controls"');
+    expect(source).toContain('title="Screen Time rule"');
+    expect(source).toContain("screen: 'SettingsScreenTimeRuleBuilder'");
+    expect(source).toContain('suggestedBudgetCondition');
     expect(source).not.toContain('<DetailMenuItem icon="shield" label="App controls"');
     expect(source).not.toContain('<Button fullWidth variant="outline"');
   });

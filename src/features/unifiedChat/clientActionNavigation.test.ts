@@ -18,6 +18,48 @@ test('Focus opens the native Activity sheet without auto-starting a session', ()
   });
 });
 
+test('universal navigation opens only a validated included capability or stable object', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_capability'), capabilityId: 'navigation',
+    targetType: 'recipe', targetId: 'recipe-1',
+    payload: { capabilityId: 'recipes', objectRef: { objectType: 'recipe', objectId: 'recipe-1' } },
+  })).toEqual({
+    kind: 'navigate', name: 'Food',
+    params: { screen: 'RecipeHome', params: { recipeId: 'recipe-1' } },
+  });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_capability'), capabilityId: 'navigation',
+    payload: { capabilityId: 'games', objectRef: null },
+  })).toBeNull();
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_capability'), capabilityId: 'navigation',
+    payload: { capabilityId: 'goals', objectRef: null, route: 'Settings' },
+  })).toBeNull();
+});
+
+test('widget setup opens Kwilt guidance without claiming iOS placed a widget', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_widgets_settings'), capabilityId: 'account',
+    targetType: 'device_setting', targetId: 'widgets', payload: { openSetup: true },
+  })).toEqual({
+    kind: 'navigate', name: 'Settings', params: { screen: 'SettingsWidgets' },
+  });
+});
+
+test('connected-tool setup opens only a supported provider-owned route', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_connected_tool_setup', 'cursor'), capabilityId: 'account',
+    targetType: 'connection_provider', payload: { providerId: 'cursor' },
+  })).toEqual({
+    kind: 'navigate', name: 'Settings',
+    params: { screen: 'SettingsConnectKwiltApp', params: { app: 'cursor' } },
+  });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_connected_tool_setup', 'https://evil.example'), capabilityId: 'account',
+    targetType: 'connection_provider', payload: { providerId: 'https://evil.example' },
+  })).toBeNull();
+});
+
 test('Chores handoffs open either the inventory or one exact occurrence evidence review', () => {
   expect(resolveClientActionOpenInstruction({ ...action('open_chores'), capabilityId: 'chores' })).toEqual({
     kind: 'navigate', name: 'Chores', params: {},
@@ -217,15 +259,21 @@ test('an external personal rule handoff opens the exact native rule editor', () 
   });
 });
 
-test('Money-owned self control opens the exact category app-control editor', () => {
+test('Money context opens the canonical sentence composer with a budget condition suggestion', () => {
   expect(resolveClientActionOpenInstruction({
     ...action('review_money_app_control', 'shopping'),
     capabilityId: 'money', targetType: 'money_category',
     payload: { subject: { kind: 'self' }, preset: 'when_hot', suggestedAppLabels: ['Amazon'] },
   })).toEqual({
-    kind: 'navigate', name: 'Money', params: {
-      screen: 'MoneyAppControl',
-      params: { categoryId: 'shopping', suggestedPreset: 'when_hot', suggestedAppLabels: ['Amazon'] },
+    kind: 'navigate', name: 'Settings', params: {
+      screen: 'SettingsScreenTimeRuleBuilder',
+      params: {
+        entry: 'contextual',
+        suggestedBudgetCondition: {
+          categorySourceId: 'shopping', categoryName: 'Shopping', preset: 'when_hot',
+        },
+        suggestedAppLabel: 'Amazon', setupIntent: 'settings_discovery', entrySurface: 'settings',
+      },
     },
   });
 });
@@ -255,6 +303,24 @@ test('external connection repair opens the provider-owned account repair surface
     capabilityId: 'money', targetType: 'money_connection',
     payload: { toolId: 'money.connection.repair.open', arguments: { connectionId: 'connection-1' } },
   })).toEqual({ kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } });
+});
+
+test.each([
+  ['money.read', 'money', null, 'Money', 'MoneySummary'],
+  ['money.review_transaction', 'money', null, 'Money', 'MoneyTransactions'],
+  ['money.category.create', 'money', null, 'Money', 'MoneyCategoryCreate'],
+  ['money.category.rename', 'money_category', 'category-1', 'Money', 'MoneyCategoryDetail'],
+  ['money.category.update', 'money_category', 'category-1', 'Money', 'MoneyCategoryDetail'],
+  ['money.privacy.configure', 'money', null, 'Settings', 'SettingsMoneyPrivacy'],
+  ['money.connection.connect', 'money', null, 'Money', 'MoneyAccounts'],
+  ['money.connection.sync', 'money_connection', 'connection-1', 'Money', 'MoneyAccounts'],
+] as const)('%s opens the matching native Money control surface', (
+  toolId, targetType, targetId, root, screen,
+) => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_control', targetId), capabilityId: 'money', targetType,
+    payload: { toolId, arguments: {} },
+  })).toMatchObject({ kind: 'navigate', name: root, params: { screen } });
 });
 
 test('Money control refuses a mismatched target type instead of opening unrelated data', () => {

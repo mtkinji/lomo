@@ -28,6 +28,8 @@ import {
 } from '../../../packages/kwilt-agent-runtime/src/actionExecution.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
+import { parseCapabilityNavigationRequest } from '../../../packages/kwilt-agent-runtime/src/capabilityNavigationContract.ts';
+import { continueThreadOnPhoneAgent } from './phoneAgentContinuation.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
 type ReadResult = { data: unknown; error: unknown }; type ReadQuery = {
   select: (...args: unknown[]) => ReadQuery;
@@ -419,6 +421,27 @@ async function executeServerAgentToolHandler({
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
+  if (call.toolId === 'channel.phone.continue_run') {
+    if (Object.keys(call.arguments).length !== 0 || !writeContext?.threadId || !client.rpc) return {
+      status: 'failed', code: 'invalid_phone_continuation',
+      message: 'A durable current Kwilt thread is required, and phone numbers are never accepted.', retryable: false,
+    };
+    try {
+      const output = await continueThreadOnPhoneAgent({
+        client: client as never, userId, threadId: writeContext.threadId,
+      });
+      return { status: 'completed', output, receipt: null };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'phone_agent_continuation_failed';
+      if (code === 'phone_agent_not_linked') return {
+        status: 'unavailable', reason: code, retryable: false,
+      };
+      return {
+        status: 'failed', code,
+        message: 'Kwilt could not connect this conversation to Phone Agent.', retryable: true,
+      };
+    }
+  }
   if (call.toolId === 'notifications.preferences.read') {
     const { data, error } = await (client.from('kwilt_agent_profile_projections') as ReadQuery)
       .select('notification_preferences,updated_at').eq('user_id', userId).maybeSingle();
@@ -451,6 +474,456 @@ async function executeServerAgentToolHandler({
       consequenceSummary: 'Reviews these exact settings on your iPhone. Any iOS permission prompt remains native-owned.',
       payload: { fields },
     };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'navigation.open_capability') {
+    const navigation = parseCapabilityNavigationRequest(call.arguments);
+    if (!navigation) {
+      return {
+        status: 'failed', code: 'invalid_capability_navigation',
+        message: 'Choose an included Kwilt capability or one supported stable object.', retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'navigation', actionType: 'open_capability',
+      targetType: navigation.objectRef?.objectType ?? 'capability',
+      targetId: navigation.objectRef?.objectId ?? navigation.capabilityId,
+      title: `Open ${navigation.capabilityId}`,
+      consequenceSummary: 'Kwilt will open this native destination without changing its contents.',
+      payload: navigation,
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.haptics.read' || call.toolId === 'settings.haptics.update') {
+    if (call.toolId === 'settings.haptics.update'
+      && (typeof call.arguments.expectedEnabled !== 'boolean' || typeof call.arguments.enabled !== 'boolean')) {
+      return {
+        status: 'failed', code: 'invalid_haptics_preference',
+        message: 'Choose whether haptics should be enabled on the target device.', retryable: false,
+      };
+    }
+    const isRead = call.toolId === 'settings.haptics.read';
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_haptics_preference' : 'apply_haptics_preference',
+      targetType: 'device_preference', targetId: 'haptics',
+      title: isRead ? 'Read haptics on this device' : 'Apply haptics on this device',
+      consequenceSummary: isRead
+        ? 'The selected Kwilt device will return its local haptics preference.'
+        : 'The selected Kwilt device will apply this exact haptics preference if its reviewed state is still current.',
+      payload: isRead ? {} : {
+        expectedEnabled: call.arguments.expectedEnabled,
+        enabled: call.arguments.enabled,
+      },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.widgets.read' || call.toolId === 'settings.widgets.configure') {
+    const isRead = call.toolId === 'settings.widgets.read';
+    if (!isRead && (Object.keys(call.arguments).length !== 1 || call.arguments.openSetup !== true)) {
+      return {
+        status: 'failed', code: 'invalid_widget_setup',
+        message: 'Kwilt can open widget setup guidance, but iOS owns widget placement and shortcut selection.',
+        retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_widget_status' : 'open_widgets_settings',
+      targetType: 'device_setting', targetId: 'widgets',
+      title: isRead ? 'Read widget status on this device' : 'Open widget setup',
+      consequenceSummary: isRead
+        ? 'The selected Kwilt device will return bounded widget sync status; iOS does not expose placement state.'
+        : 'Kwilt will open native widget guidance. iOS still owns Home Screen placement and widget editing.',
+      payload: isRead ? {} : { openSetup: true },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.appearance.read' || call.toolId === 'settings.appearance.update') {
+    const isRead = call.toolId === 'settings.appearance.read';
+    const styles = Array.isArray(call.arguments.thumbnailStyles)
+      ? call.arguments.thumbnailStyles.filter((value): value is string => typeof value === 'string')
+      : [];
+    if (!isRead && (typeof call.arguments.expectedUpdatedAt !== 'string'
+      || styles.length !== (Array.isArray(call.arguments.thumbnailStyles) ? call.arguments.thumbnailStyles.length : -1))) {
+      return {
+        status: 'failed', code: 'invalid_appearance_preference',
+        message: 'Choose one or more supported Kwilt thumbnail styles.', retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_appearance_preference' : 'apply_appearance_preference',
+      targetType: 'device_preference', targetId: 'appearance',
+      title: isRead ? 'Read appearance on this device' : 'Apply appearance on this device',
+      consequenceSummary: isRead
+        ? 'The selected Kwilt device will return its bounded appearance preference.'
+        : 'The selected Kwilt device will apply the exact reviewed thumbnail styles if its version is still current.',
+      payload: isRead ? {} : { expectedUpdatedAt: call.arguments.expectedUpdatedAt, thumbnailStyles: styles },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.connected_tools.')) {
+    const providerIds = new Set(['chatgpt', 'claude', 'cursor', 'codex', 'other']);
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.connected_tools.list') {
+      request = {
+        capabilityId: 'account', actionType: 'read_connected_tools',
+        targetType: 'connection_inventory', targetId: 'self', title: 'Read connected apps',
+        consequenceSummary: 'The selected Kwilt device will return bounded connection status without credentials or tokens.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.connected_tools.get') {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      if (!connectionId) return { status: 'failed', code: 'invalid_connection_id', message: 'Choose a connected tool.', retryable: false };
+      request = {
+        capabilityId: 'account', actionType: 'read_connected_tool',
+        targetType: 'external_connection', targetId: connectionId, title: 'Read connected app',
+        consequenceSummary: 'The selected Kwilt device will return bounded access and recent status without credentials, tokens, or private object IDs.',
+        payload: { connectionId },
+      };
+    } else if (call.toolId === 'settings.connected_tools.connect.open') {
+      const providerId = typeof call.arguments.providerId === 'string' ? call.arguments.providerId : '';
+      if (!providerIds.has(providerId) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_connection_provider',
+        message: 'Choose a supported app. Credentials and tokens are never accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'open_connected_tool_setup',
+        targetType: 'connection_provider', targetId: providerId, title: `Connect ${providerId}`,
+        consequenceSummary: 'Kwilt will open provider-owned connector setup. OAuth approval stays outside Chat.',
+        payload: { providerId },
+      };
+    } else {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      const expectedConnectedAt = typeof call.arguments.expectedConnectedAt === 'string'
+        ? call.arguments.expectedConnectedAt : call.arguments.expectedConnectedAt === null ? null : undefined;
+      if (!connectionId || expectedConnectedAt === undefined) return {
+        status: 'failed', code: 'invalid_connection_revoke',
+        message: 'Choose an exact reviewed connection version.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'revoke_connected_tool',
+        targetType: 'external_connection', targetId: connectionId, title: 'Disconnect app',
+        consequenceSummary: 'The selected device will revoke this app, verify provider state, and end its Kwilt access.',
+        payload: { connectionId, expectedConnectedAt },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.phone_agent.read' || call.toolId === 'settings.phone_agent.update') {
+    const isRead = call.toolId === 'settings.phone_agent.read';
+    const permissionKeys = [
+      'create_activities', 'remember_relationships', 'send_followups',
+      'log_done_replies', 'offer_drafts', 'suggest_arc_alignment',
+    ];
+    if (isRead && Object.keys(call.arguments).length !== 0) {
+      return { status: 'failed', code: 'invalid_phone_agent_settings', message: 'Phone Agent status does not accept secrets or phone numbers.', retryable: false };
+    }
+    if (!isRead) {
+      const expected = asRecord(call.arguments.expectedPermissions);
+      const fields = asRecord(call.arguments.fields);
+      const permissions = fields.permissions === undefined ? null : asRecord(fields.permissions);
+      const validPromptCap = (value: unknown) => Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 10;
+      const validPermissionRecord = (record: Record<string, unknown>, requireAll: boolean) => (
+        Object.keys(record).every((key) => permissionKeys.includes(key) && typeof record[key] === 'boolean')
+        && (!requireAll || permissionKeys.every((key) => typeof record[key] === 'boolean'))
+      );
+      if (Object.keys(call.arguments).some((key) => !['expectedPromptCapPerDay', 'expectedPermissions', 'fields'].includes(key))
+        || !validPromptCap(call.arguments.expectedPromptCapPerDay)
+        || !validPermissionRecord(expected, true)
+        || Object.keys(fields).length === 0
+        || Object.keys(fields).some((key) => !['promptCapPerDay', 'permissions'].includes(key))
+        || (fields.promptCapPerDay !== undefined && !validPromptCap(fields.promptCapPerDay))
+        || (permissions !== null && (Object.keys(permissions).length === 0 || !validPermissionRecord(permissions, false)))) {
+        return {
+          status: 'failed', code: 'invalid_phone_agent_settings',
+          message: 'Choose supported Phone Agent permissions and a daily prompt cap from 0 through 10.', retryable: false,
+        };
+      }
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_phone_agent_settings' : 'apply_phone_agent_settings',
+      targetType: 'phone_agent_preferences', targetId: 'self',
+      title: isRead ? 'Read Phone Agent settings' : 'Apply Phone Agent settings',
+      consequenceSummary: isRead
+        ? 'The selected Kwilt device will return bounded Phone Agent status without a phone number, verification secret, or private object IDs.'
+        : 'The selected Kwilt device will apply this reviewed preference diff only if the current settings still match, then verify the provider result.',
+      payload: isRead ? {} : { ...call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.ai_model.read' || call.toolId === 'settings.ai_model.update') {
+    const isRead = call.toolId === 'settings.ai_model.read';
+    const models = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2']);
+    if ((isRead && Object.keys(call.arguments).length !== 0)
+      || (!isRead && (Object.keys(call.arguments).length !== 2
+        || typeof call.arguments.expectedModelId !== 'string'
+        || typeof call.arguments.modelId !== 'string'
+        || !models.has(call.arguments.expectedModelId)
+        || !models.has(call.arguments.modelId)))) {
+      return {
+        status: 'failed', code: 'invalid_ai_model',
+        message: 'Choose a supported AI model without adding provider credentials.', retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_ai_model_preference' : 'apply_ai_model_preference',
+      targetType: 'device_preference', targetId: 'ai_model',
+      title: isRead ? 'Read AI model on this device' : 'Apply AI model on this device',
+      consequenceSummary: isRead
+        ? 'The selected Kwilt device will return its current model and plan-bounded choices.'
+        : 'The selected Kwilt device will apply this exact model only if its reviewed state and current plan still allow it.',
+      payload: isRead ? {} : {
+        expectedModelId: call.arguments.expectedModelId,
+        modelId: call.arguments.modelId,
+      },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.sharing.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.sharing.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_sharing_read', message: 'Sharing status does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_sharing_connections',
+        targetType: 'sharing_inventory', targetId: 'self', title: 'Read sharing connections',
+        consequenceSummary: 'The selected Kwilt device will return bounded friendship and Goal-sharing status without invite codes, avatars, or private user IDs.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.sharing.invitation.prepare') {
+      const expiresInDays = call.arguments.expiresInDays;
+      if (Object.keys(call.arguments).length !== 1 || !Number.isInteger(expiresInDays)
+        || Number(expiresInDays) < 1 || Number(expiresInDays) > 30) return {
+        status: 'failed', code: 'invalid_sharing_invitation',
+        message: 'Choose an invitation expiration from 1 through 30 days.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'prepare_friend_invitation',
+        targetType: 'sharing_invitation', targetId: null, title: 'Invite a friend',
+        consequenceSummary: 'The selected device will prepare a one-use friendship invitation. The person still chooses the exact recipient and delivery natively; friendship grants no content access.',
+        payload: { expiresInDays },
+      };
+    } else {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      if (Object.keys(call.arguments).length !== 2 || !connectionId || !expectedFingerprint) return {
+        status: 'failed', code: 'invalid_sharing_revocation',
+        message: 'Choose the exact reviewed sharing connection.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'revoke_sharing_connection',
+        targetType: 'sharing_connection', targetId: connectionId, title: 'Revoke sharing connection',
+        consequenceSummary: 'The selected device will revoke this exact friendship or Goal-sharing connection only if its reviewed state still matches, then verify it disappeared.',
+        payload: { connectionId, expectedFingerprint },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.execution_targets.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.execution_targets.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_execution_target_read',
+        message: 'Execution-target inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_execution_targets',
+        targetType: 'execution_target_inventory', targetId: 'self', title: 'Read execution targets',
+        consequenceSummary: 'The selected Kwilt device will return bounded target status without owner IDs, repository URLs, or executable instructions.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.execution_targets.get') {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      if (!targetId || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_execution_target_read', message: 'Choose one execution target.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_execution_target',
+        targetType: 'execution_target', targetId, title: 'Read execution target',
+        consequenceSummary: 'The selected Kwilt device will return bounded target status without owner IDs, repository URLs, or executable instructions.',
+        payload: { targetId },
+      };
+    } else if (call.toolId === 'settings.execution_targets.create') {
+      const { providerId, displayName, repoName } = call.arguments;
+      if (providerId !== 'cursor_mcp_v1' || typeof displayName !== 'string' || typeof repoName !== 'string'
+        || !displayName.trim() || !repoName.trim() || Object.keys(call.arguments).length !== 3) return {
+        status: 'failed', code: 'invalid_execution_target_create',
+        message: 'Choose the curated Cursor provider, a display name, and a repository name. URLs and executable instructions are not accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'create_execution_target',
+        targetType: 'execution_target', targetId: null, title: 'Install Cursor execution target',
+        consequenceSummary: 'The selected device will install the curated Cursor target from provider-owned defaults using only the reviewed names.',
+        payload: { providerId, displayName: displayName.trim(), repoName: repoName.trim() },
+      };
+    } else if (call.toolId === 'settings.execution_targets.update') {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+      const fields = call.arguments.fields;
+      const allowed = new Set(['displayName', 'repoName', 'enabled']);
+      if (!targetId || !expectedUpdatedAt || !fields || typeof fields !== 'object' || Array.isArray(fields)
+        || Object.keys(call.arguments).length !== 3 || Object.keys(fields).length === 0
+        || Object.keys(fields).some((key) => !allowed.has(key))) return {
+        status: 'failed', code: 'invalid_execution_target_update',
+        message: 'Choose bounded target fields. URLs and executable instructions are not accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'update_execution_target',
+        targetType: 'execution_target', targetId, title: 'Update execution target',
+        consequenceSummary: 'The selected device will apply only the reviewed name or enabled-state fields if the target has not changed.',
+        payload: { targetId, expectedUpdatedAt, fields },
+      };
+    } else {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+      if (!targetId || !expectedUpdatedAt || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_execution_target_delete',
+        message: 'Choose the exact reviewed execution target to delete.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'delete_execution_target',
+        targetType: 'execution_target', targetId, title: 'Delete execution target',
+        consequenceSummary: 'The selected device will delete this exact target only if its reviewed version still matches, then verify removal.',
+        payload: { targetId, expectedUpdatedAt },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.destinations.')) {
+    const supported = new Set(['amazon', 'home_depot', 'instacart', 'doordash']);
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.destinations.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_destination_read',
+        message: 'Destination inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_destinations',
+        targetType: 'destination_inventory', targetId: 'self', title: 'Read Send to destinations',
+        consequenceSummary: 'The selected device will return the allow-listed retailer destinations and their installation status.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.destinations.get') {
+      const destinationId = typeof call.arguments.destinationId === 'string' ? call.arguments.destinationId : '';
+      if (!supported.has(destinationId) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_destination_read', message: 'Choose one supported retailer destination.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_destination',
+        targetType: 'send_to_destination', targetId: destinationId, title: 'Read Send to destination',
+        consequenceSummary: 'The selected device will return this allow-listed destination and its installation status.',
+        payload: { destinationId },
+      };
+    } else if (call.toolId === 'settings.destinations.create') {
+      const kind = typeof call.arguments.kind === 'string' ? call.arguments.kind : '';
+      if (!supported.has(kind) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_destination_install',
+        message: 'Choose one supported retailer destination. URLs are not accepted.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'install_destination',
+        targetType: 'send_to_destination', targetId: kind, title: 'Install Send to destination',
+        consequenceSummary: 'The selected device will install this exact allow-listed retailer destination without accepting a URL.',
+        payload: { kind },
+      };
+    } else {
+      const destinationId = typeof call.arguments.destinationId === 'string' ? call.arguments.destinationId : '';
+      if (!supported.has(destinationId) || call.arguments.expectedInstalled !== true
+        || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_destination_uninstall',
+        message: 'Choose the exact installed retailer destination to remove.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'uninstall_destination',
+        targetType: 'send_to_destination', targetId: destinationId, title: 'Uninstall Send to destination',
+        consequenceSummary: 'The selected device will remove this exact destination only if it is still installed, then confirm the resulting state.',
+        payload: { destinationId, expectedInstalled: true },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.activity_areas.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.activity_areas.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_activity_area_read',
+        message: 'Activity-area inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_activity_areas',
+        targetType: 'activity_area_inventory', targetId: 'self', title: 'Read Activity areas',
+        consequenceSummary: 'The selected device will return its Activity areas, scheduling defaults, archive status, and affected Activity counts.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.activity_areas.get') {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      if (!areaId || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_activity_area_read', message: 'Choose one Activity area.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: 'Read Activity area',
+        consequenceSummary: 'The selected device will return this Activity area and its affected Activity count.',
+        payload: { areaId },
+      };
+    } else if (call.toolId === 'settings.activity_areas.create') {
+      const label = typeof call.arguments.label === 'string' ? call.arguments.label.trim() : '';
+      if (!label || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_activity_area_create', message: 'Choose one Activity area name.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'create_activity_area',
+        targetType: 'activity_area', targetId: null, title: `Create ${label}`,
+        consequenceSummary: 'The selected device will create this area with the same safe scheduling defaults as the native Settings flow.',
+        payload: { label },
+      };
+    } else if (call.toolId === 'settings.activity_areas.update') {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      const label = typeof call.arguments.label === 'string' ? call.arguments.label.trim() : '';
+      if (!areaId || !expectedFingerprint || !label || Object.keys(call.arguments).length !== 3) return {
+        status: 'failed', code: 'invalid_activity_area_update',
+        message: 'Choose the exact reviewed Activity area and its new name.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'update_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: `Rename Activity area to ${label}`,
+        consequenceSummary: 'The selected device will rename this exact area only if its reviewed state still matches.',
+        payload: { areaId, expectedFingerprint, label },
+      };
+    } else {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      if (!areaId || !expectedFingerprint || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_activity_area_archive',
+        message: 'Choose the exact reviewed Activity area to archive.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'archive_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: 'Archive Activity area',
+        consequenceSummary: 'The selected device will archive this exact area if its reviewed state still matches. Existing Activity assignments are preserved.',
+        payload: { areaId, expectedFingerprint },
+      };
+    }
     await stageDeviceAction(request);
     return { status: 'pending_client_action', provider: 'device', request };
   }

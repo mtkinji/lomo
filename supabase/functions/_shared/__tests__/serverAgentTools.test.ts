@@ -76,6 +76,259 @@ test('reads bounded server-authoritative show-up status', async () => {
   });
   expect(calls).toContainEqual(['eq', 'user_id', 'user-1']);
 });
+
+test('binds the current durable thread to the verified Phone Agent link', async () => {
+  const chain: Record<string, any> = {};
+  for (const method of ['select', 'eq', 'is', 'order', 'limit']) chain[method] = jest.fn(() => chain);
+  chain.maybeSingle = jest.fn(async () => ({ data: { id: 'link-1' }, error: null }));
+  const rpc = jest.fn(async () => ({ data: { id: 'binding-1' }, error: null }));
+  const client = { from: jest.fn(() => chain), rpc };
+
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: 'continue-phone', toolId: 'channel.phone.continue_run', arguments: {} },
+    tool: tool('channel.phone.continue_run'), stageDeviceAction: jest.fn(),
+    writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
+  })).resolves.toMatchObject({
+    status: 'completed', output: { status: 'ready', channel: 'phone_agent', continuation: 'next_message' },
+  });
+  expect(rpc).toHaveBeenCalledWith('bind_kwilt_agent_channel_thread', expect.objectContaining({
+    p_user_id: 'user-1', p_phone_link_id: 'link-1', p_thread_id: 'thread-1',
+  }));
+});
+
+test('stages the same allow-listed capability navigation for an external caller', async () => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: {
+      id: 'open-goal', toolId: 'navigation.open_capability',
+      arguments: { capabilityId: 'goals', objectRef: { objectType: 'goal', objectId: 'goal-1' } },
+    },
+    tool: tool('navigation.open_capability'), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: {
+      capabilityId: 'navigation', actionType: 'open_capability',
+      targetType: 'goal', targetId: 'goal-1',
+    },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
+    payload: { capabilityId: 'goals', objectRef: { objectType: 'goal', objectId: 'goal-1' } },
+  }));
+
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: {
+      id: 'open-games', toolId: 'navigation.open_capability', arguments: { capabilityId: 'games' },
+    },
+    tool: tool('navigation.open_capability'), stageDeviceAction,
+  })).resolves.toMatchObject({ status: 'failed', code: 'invalid_capability_navigation' });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['settings.haptics.read', {}, 'read_haptics_preference'],
+  ['settings.haptics.update', { expectedEnabled: true, enabled: false }, 'apply_haptics_preference'],
+])('stages %s on the target device and waits for its exact result', async (toolId, callArguments, actionType) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType, targetType: 'device_preference', targetId: 'haptics' },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['settings.execution_targets.list', {}, 'read_execution_targets'],
+  ['settings.execution_targets.get', { targetId: 'target-1' }, 'read_execution_target'],
+  ['settings.execution_targets.create', {
+    providerId: 'cursor_mcp_v1', displayName: 'Kwilt Cursor', repoName: 'Kwilt',
+  }, 'create_execution_target'],
+  ['settings.execution_targets.update', {
+    targetId: 'target-1', expectedUpdatedAt: '2026-08-02T00:00:00.000Z', fields: { enabled: false },
+  }, 'update_execution_target'],
+  ['settings.execution_targets.delete', {
+    targetId: 'target-1', expectedUpdatedAt: '2026-08-02T00:00:00.000Z',
+  }, 'delete_execution_target'],
+])('stages %s on the selected device without accepting URLs or commands', async (
+  toolId, callArguments, actionType,
+) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device', request: { actionType },
+  });
+  expect(JSON.stringify(stageDeviceAction.mock.calls)).not.toMatch(/repoUrl|verificationCommands|command/);
+});
+
+test.each([
+  ['settings.destinations.list', {}, 'read_destinations'],
+  ['settings.destinations.get', { destinationId: 'amazon' }, 'read_destination'],
+  ['settings.destinations.create', { kind: 'instacart' }, 'install_destination'],
+  ['settings.destinations.delete', { destinationId: 'amazon', expectedInstalled: true }, 'uninstall_destination'],
+])('stages %s using only an allow-listed retailer identifier', async (toolId, callArguments, actionType) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device', request: { actionType },
+  });
+  expect(JSON.stringify(stageDeviceAction.mock.calls)).not.toContain('http');
+});
+
+test.each([
+  ['settings.activity_areas.list', {}, 'read_activity_areas'],
+  ['settings.activity_areas.get', { areaId: 'area-work' }, 'read_activity_area'],
+  ['settings.activity_areas.create', { label: 'Church' }, 'create_activity_area'],
+  ['settings.activity_areas.update', {
+    areaId: 'area-work', expectedFingerprint: 'area:reviewed', label: 'Deep work',
+  }, 'update_activity_area'],
+  ['settings.activity_areas.delete', {
+    areaId: 'area-work', expectedFingerprint: 'area:reviewed',
+  }, 'archive_activity_area'],
+])('stages %s for exact target-device execution', async (toolId, callArguments, actionType) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device', request: { actionType },
+  });
+});
+
+test.each([
+  ['settings.widgets.read', {}, 'read_widget_status'],
+  ['settings.widgets.configure', { openSetup: true }, 'open_widgets_settings'],
+])('stages %s on the target device without claiming iOS widget placement', async (
+  toolId, callArguments, actionType,
+) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType, targetType: 'device_setting', targetId: 'widgets' },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['settings.appearance.read', {}, 'read_appearance_preference'],
+  ['settings.appearance.update', {
+    expectedUpdatedAt: '2026-08-28T00:00:00.000Z', thumbnailStyles: ['geoMosaic'],
+  }, 'apply_appearance_preference'],
+])('stages %s on the exact target device', async (toolId, callArguments, actionType) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType, targetType: 'device_preference', targetId: 'appearance' },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['settings.connected_tools.list', {}, 'read_connected_tools'],
+  ['settings.connected_tools.get', { connectionId: 'client-1' }, 'read_connected_tool'],
+  ['settings.connected_tools.connect.open', { providerId: 'chatgpt' }, 'open_connected_tool_setup'],
+  ['settings.connected_tools.revoke', {
+    connectionId: 'client-1', expectedConnectedAt: '2026-08-01T00:00:00.000Z',
+  }, 'revoke_connected_tool'],
+])('stages %s without accepting or exposing provider credentials', async (
+  toolId, callArguments, actionType,
+) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device', request: { actionType },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['settings.phone_agent.read', {}, 'read_phone_agent_settings'],
+  ['settings.phone_agent.update', {
+    expectedPromptCapPerDay: 3,
+    expectedPermissions: {
+      create_activities: true, remember_relationships: false, send_followups: true,
+      log_done_replies: false, offer_drafts: false, suggest_arc_alignment: true,
+    },
+    fields: { promptCapPerDay: 4, permissions: { offer_drafts: true } },
+  }, 'apply_phone_agent_settings'],
+])('stages %s for exact device execution without a phone number or verification secret', async (
+  toolId, callArguments, actionType,
+) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType, targetType: 'phone_agent_preferences', targetId: 'self' },
+  });
+  expect(JSON.stringify(stageDeviceAction.mock.calls)).not.toContain('+1');
+});
+
+test.each([
+  ['settings.ai_model.read', {}, 'read_ai_model_preference'],
+  ['settings.ai_model.update', {
+    expectedModelId: 'gpt-4o-mini', modelId: 'gpt-4o',
+  }, 'apply_ai_model_preference'],
+])('stages %s for exact target-device execution', async (toolId, callArguments, actionType) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType, targetType: 'device_preference', targetId: 'ai_model' },
+  });
+});
+
+test.each([
+  ['settings.sharing.list', {}, 'read_sharing_connections'],
+  ['settings.sharing.invitation.prepare', { expiresInDays: 7 }, 'prepare_friend_invitation'],
+  ['settings.sharing.connection.revoke', {
+    connectionId: 'friendship:friendship-1', expectedFingerprint: 'friendship:2026-08-02T00:00:00.000Z',
+  }, 'revoke_sharing_connection'],
+])('stages %s on the selected device with bounded sharing arguments', async (
+  toolId, callArguments, actionType,
+) => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: `call-${toolId}`, toolId, arguments: callArguments },
+    tool: tool(toolId), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device', request: { actionType },
+  });
+});
 test('applies shared consequence policy before a direct server relationship mutation', async () => {
   const rpc = jest.fn(async () => ({ data: null, error: null }));
   const relationshipTool = tool('relationships.remember');

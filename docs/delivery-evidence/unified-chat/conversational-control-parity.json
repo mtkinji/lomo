@@ -1,438 +1,34 @@
 {
   "generatedFrom": "canonical-runtime-projection",
   "summary": {
-    "operations": 233,
+    "operations": 232,
     "completionModes": {
       "direct": 70,
       "supported_boundary": 5,
-      "reviewed_proposal": 121,
+      "reviewed_proposal": 120,
       "native_handoff": 33,
       "excluded": 2,
       "provider_handoff": 2
     },
     "mobile": {
-      "ready": 192,
-      "excluded": 7,
-      "missing_provider": 34
+      "ready": 225,
+      "excluded": 7
     },
     "phone": {
-      "ready": 183,
-      "excluded": 7,
-      "missing_provider": 43
+      "ready": 225,
+      "excluded": 7
     },
     "external": {
       "boundary": 7,
-      "ready": 181,
-      "missing_provider": 43,
+      "ready": 223,
       "excluded": 2
     },
     "voice": {
-      "missing_conformance": 226,
+      "shared_runtime": 225,
       "excluded": 7
     }
   },
-  "errors": [
-    "general.answer voice is missing_conformance",
-    "general.answer_with_context voice is missing_conformance",
-    "relationships.read voice is missing_conformance",
-    "relationships.remember voice is missing_conformance",
-    "relationships.correct voice is missing_conformance",
-    "relationships.forget voice is missing_conformance",
-    "relationships.forget_person mobile is excluded",
-    "relationships.forget_person phone is excluded",
-    "relationships.forget_person voice is excluded",
-    "relationships.forget_person has no proof paths",
-    "household.read voice is missing_conformance",
-    "household.member.add_dependent voice is missing_conformance",
-    "household.invitation.create voice is missing_conformance",
-    "household.invitation.preview voice is missing_conformance",
-    "household.invitation.accept voice is missing_conformance",
-    "household.child_capability.update voice is missing_conformance",
-    "household.caregiver_grant.update voice is missing_conformance",
-    "profile.read voice is missing_conformance",
-    "profile.update voice is missing_conformance",
-    "arcs.list voice is missing_conformance",
-    "arcs.get voice is missing_conformance",
-    "arcs.create voice is missing_conformance",
-    "arcs.update voice is missing_conformance",
-    "arcs.delete voice is missing_conformance",
-    "goals.list voice is missing_conformance",
-    "goals.get voice is missing_conformance",
-    "goals.create voice is missing_conformance",
-    "goals.update voice is missing_conformance",
-    "goals.delete voice is missing_conformance",
-    "goals.check_in voice is missing_conformance",
-    "goals.share voice is missing_conformance",
-    "activities.list voice is missing_conformance",
-    "activities.get voice is missing_conformance",
-    "activities.search voice is missing_conformance",
-    "activities.capture voice is missing_conformance",
-    "activities.update voice is missing_conformance",
-    "activities.complete voice is missing_conformance",
-    "activities.delete voice is missing_conformance",
-    "activities.steps.create voice is missing_conformance",
-    "activities.steps.update voice is missing_conformance",
-    "activities.steps.complete voice is missing_conformance",
-    "activities.steps.delete voice is missing_conformance",
-    "activities.steps.reorder voice is missing_conformance",
-    "activities.focus.open voice is missing_conformance",
-    "activities.focus_today voice is missing_conformance",
-    "activities.schedule voice is missing_conformance",
-    "plan.schedule_chunks voice is missing_conformance",
-    "activities.reminder.update voice is missing_conformance",
-    "activities.repeat.update voice is missing_conformance",
-    "activities.location.update voice is missing_conformance",
-    "activities.attachments.update voice is missing_conformance",
-    "activities.share voice is missing_conformance",
-    "plan.read_day_context voice is missing_conformance",
-    "plan.recommend_day voice is missing_conformance",
-    "plan.schedule_activity voice is missing_conformance",
-    "plan.reschedule_activity voice is missing_conformance",
-    "plan.remove_activity voice is missing_conformance",
-    "plan.preferences.open voice is missing_conformance",
-    "chapters.list voice is missing_conformance",
-    "chapters.get voice is missing_conformance",
-    "chapters.reflect voice is missing_conformance",
-    "chapters.note.update voice is missing_conformance",
-    "account.show_up_status voice is missing_conformance",
-    "money.read phone is missing_provider",
-    "money.read external is missing_provider",
-    "money.read voice is missing_conformance",
-    "money.review_transaction phone is missing_provider",
-    "money.review_transaction external is missing_provider",
-    "money.review_transaction voice is missing_conformance",
-    "money.category.create phone is missing_provider",
-    "money.category.create external is missing_provider",
-    "money.category.create voice is missing_conformance",
-    "money.category.rename phone is missing_provider",
-    "money.category.rename external is missing_provider",
-    "money.category.rename voice is missing_conformance",
-    "money.app_control.review phone is missing_provider",
-    "money.app_control.review external is missing_provider",
-    "money.app_control.review voice is missing_conformance",
-    "money.category.update phone is missing_provider",
-    "money.category.update external is missing_provider",
-    "money.category.update voice is missing_conformance",
-    "money.privacy.configure phone is missing_provider",
-    "money.privacy.configure external is missing_provider",
-    "money.privacy.configure voice is missing_conformance",
-    "money.connection.connect phone is missing_provider",
-    "money.connection.connect external is missing_provider",
-    "money.connection.connect voice is missing_conformance",
-    "money.connection.sync phone is missing_provider",
-    "money.connection.sync external is missing_provider",
-    "money.connection.sync voice is missing_conformance",
-    "chores.open voice is missing_conformance",
-    "recipes.search voice is missing_conformance",
-    "recipes.read voice is missing_conformance",
-    "recipes.create voice is missing_conformance",
-    "recipes.import.prepare voice is missing_conformance",
-    "recipes.import.approve voice is missing_conformance",
-    "recipes.update voice is missing_conformance",
-    "recipes.scale.preview voice is missing_conformance",
-    "recipes.fork voice is missing_conformance",
-    "recipes.share_copy.prepare voice is missing_conformance",
-    "recipes.collaborator.invite voice is missing_conformance",
-    "recipes.publication.prepare voice is missing_conformance",
-    "recipes.publication.publish voice is missing_conformance",
-    "recipes.publication.attest_rights mobile is excluded",
-    "recipes.publication.attest_rights phone is excluded",
-    "recipes.publication.attest_rights voice is excluded",
-    "recipes.publication.attest_rights has no proof paths",
-    "recipes.delete voice is missing_conformance",
-    "meal_planning.plan.create voice is missing_conformance",
-    "meal_planning.plan.update voice is missing_conformance",
-    "meal_planning.candidate.add voice is missing_conformance",
-    "meal_planning.candidate.remove voice is missing_conformance",
-    "meal_planning.round.open voice is missing_conformance",
-    "meal_planning.round.close voice is missing_conformance",
-    "meal_planning.response.submit voice is missing_conformance",
-    "meal_planning.response.withdraw voice is missing_conformance",
-    "meal_planning.plan.finalize voice is missing_conformance",
-    "meal_planning.plan.revise voice is missing_conformance",
-    "meal_planning.candidates.prepare voice is missing_conformance",
-    "food_budget.read voice is missing_conformance",
-    "food_stock.read voice is missing_conformance",
-    "food_stock.observe voice is missing_conformance",
-    "food_stock.deplete voice is missing_conformance",
-    "groceries.compile voice is missing_conformance",
-    "groceries.item.add voice is missing_conformance",
-    "groceries.item.update voice is missing_conformance",
-    "groceries.item.set_state voice is missing_conformance",
-    "groceries.list.review voice is missing_conformance",
-    "groceries.product_match.prepare voice is missing_conformance",
-    "groceries.product_match.confirm voice is missing_conformance",
-    "groceries.handoff.prepare voice is missing_conformance",
-    "groceries.handoff.open voice is missing_conformance",
-    "groceries.checkout mobile is excluded",
-    "groceries.checkout phone is excluded",
-    "groceries.checkout voice is excluded",
-    "groceries.checkout has no proof paths",
-    "groceries.payment mobile is excluded",
-    "groceries.payment phone is excluded",
-    "groceries.payment voice is excluded",
-    "groceries.payment has no proof paths",
-    "store_opportunity.capture voice is missing_conformance",
-    "food_scenario.prepare voice is missing_conformance",
-    "food_scenario.accept voice is missing_conformance",
-    "savings.review voice is missing_conformance",
-    "savings.accept voice is missing_conformance",
-    "savings.coupon.apply_unsupported mobile is excluded",
-    "savings.coupon.apply_unsupported phone is excluded",
-    "savings.coupon.apply_unsupported voice is excluded",
-    "savings.coupon.apply_unsupported has no proof paths",
-    "savings.coupon.open voice is missing_conformance",
-    "receipt.extract voice is missing_conformance",
-    "receipt.reconcile voice is missing_conformance",
-    "cook_session.read voice is missing_conformance",
-    "cook_session.start voice is missing_conformance",
-    "cook_session.control voice is missing_conformance",
-    "cook_session.complete voice is missing_conformance",
-    "screen_time.read voice is missing_conformance",
-    "screen_time.agreement.create voice is missing_conformance",
-    "screen_time.agreement.update voice is missing_conformance",
-    "screen_time.agreement.deactivate voice is missing_conformance",
-    "screen_time.override.block voice is missing_conformance",
-    "screen_time.override.allow voice is missing_conformance",
-    "screen_time.override.cancel voice is missing_conformance",
-    "screen_time.request.decide voice is missing_conformance",
-    "screen_time.personal.setup.open voice is missing_conformance",
-    "screen_time.personal.limit.open voice is missing_conformance",
-    "screen_time.selection.open voice is missing_conformance",
-    "screen_time.device.setup.open voice is missing_conformance",
-    "screen_time.device.release.open voice is missing_conformance",
-    "screen_time.configure voice is missing_conformance",
-    "notifications.configure voice is missing_conformance",
-    "search.open voice is missing_conformance",
-    "account.settings.open voice is missing_conformance",
-    "account.subscription.manage voice is missing_conformance",
-    "account.delete voice is missing_conformance",
-    "channel.phone.continue_run mobile is missing_provider",
-    "channel.phone.continue_run phone is missing_provider",
-    "channel.phone.continue_run external is missing_provider",
-    "channel.phone.continue_run voice is missing_conformance",
-    "channel.phone.continue_run has no proof paths",
-    "household.member.update voice is missing_conformance",
-    "household.member.remove voice is missing_conformance",
-    "household.device.list voice is missing_conformance",
-    "household.device.update voice is missing_conformance",
-    "household.device.revoke voice is missing_conformance",
-    "household.device.reconcile voice is missing_conformance",
-    "plan.availability.read voice is missing_conformance",
-    "plan.availability.update voice is missing_conformance",
-    "plan.calendars.read voice is missing_conformance",
-    "plan.calendars.update voice is missing_conformance",
-    "chapters.digest_settings.read voice is missing_conformance",
-    "chapters.digest_settings.update voice is missing_conformance",
-    "chapters.alignment.preview voice is missing_conformance",
-    "chapters.alignment.apply voice is missing_conformance",
-    "settings.appearance.read mobile is missing_provider",
-    "settings.appearance.read phone is missing_provider",
-    "settings.appearance.read external is missing_provider",
-    "settings.appearance.read voice is missing_conformance",
-    "settings.appearance.read has no proof paths",
-    "settings.appearance.update mobile is missing_provider",
-    "settings.appearance.update phone is missing_provider",
-    "settings.appearance.update external is missing_provider",
-    "settings.appearance.update voice is missing_conformance",
-    "settings.appearance.update has no proof paths",
-    "settings.ai_model.read mobile is missing_provider",
-    "settings.ai_model.read phone is missing_provider",
-    "settings.ai_model.read external is missing_provider",
-    "settings.ai_model.read voice is missing_conformance",
-    "settings.ai_model.read has no proof paths",
-    "settings.ai_model.update mobile is missing_provider",
-    "settings.ai_model.update phone is missing_provider",
-    "settings.ai_model.update external is missing_provider",
-    "settings.ai_model.update voice is missing_conformance",
-    "settings.ai_model.update has no proof paths",
-    "settings.phone_agent.read mobile is missing_provider",
-    "settings.phone_agent.read phone is missing_provider",
-    "settings.phone_agent.read external is missing_provider",
-    "settings.phone_agent.read voice is missing_conformance",
-    "settings.phone_agent.read has no proof paths",
-    "settings.phone_agent.update mobile is missing_provider",
-    "settings.phone_agent.update phone is missing_provider",
-    "settings.phone_agent.update external is missing_provider",
-    "settings.phone_agent.update voice is missing_conformance",
-    "settings.phone_agent.update has no proof paths",
-    "settings.connected_tools.list mobile is missing_provider",
-    "settings.connected_tools.list phone is missing_provider",
-    "settings.connected_tools.list external is missing_provider",
-    "settings.connected_tools.list voice is missing_conformance",
-    "settings.connected_tools.list has no proof paths",
-    "settings.connected_tools.get mobile is missing_provider",
-    "settings.connected_tools.get phone is missing_provider",
-    "settings.connected_tools.get external is missing_provider",
-    "settings.connected_tools.get voice is missing_conformance",
-    "settings.connected_tools.get has no proof paths",
-    "settings.connected_tools.connect.open mobile is missing_provider",
-    "settings.connected_tools.connect.open phone is missing_provider",
-    "settings.connected_tools.connect.open external is missing_provider",
-    "settings.connected_tools.connect.open voice is missing_conformance",
-    "settings.connected_tools.connect.open has no proof paths",
-    "settings.connected_tools.revoke mobile is missing_provider",
-    "settings.connected_tools.revoke phone is missing_provider",
-    "settings.connected_tools.revoke external is missing_provider",
-    "settings.connected_tools.revoke voice is missing_conformance",
-    "settings.connected_tools.revoke has no proof paths",
-    "settings.sharing.list mobile is missing_provider",
-    "settings.sharing.list phone is missing_provider",
-    "settings.sharing.list external is missing_provider",
-    "settings.sharing.list voice is missing_conformance",
-    "settings.sharing.list has no proof paths",
-    "settings.sharing.invitation.prepare mobile is missing_provider",
-    "settings.sharing.invitation.prepare phone is missing_provider",
-    "settings.sharing.invitation.prepare external is missing_provider",
-    "settings.sharing.invitation.prepare voice is missing_conformance",
-    "settings.sharing.invitation.prepare has no proof paths",
-    "settings.sharing.connection.revoke mobile is missing_provider",
-    "settings.sharing.connection.revoke phone is missing_provider",
-    "settings.sharing.connection.revoke external is missing_provider",
-    "settings.sharing.connection.revoke voice is missing_conformance",
-    "settings.sharing.connection.revoke has no proof paths",
-    "settings.haptics.read mobile is missing_provider",
-    "settings.haptics.read phone is missing_provider",
-    "settings.haptics.read external is missing_provider",
-    "settings.haptics.read voice is missing_conformance",
-    "settings.haptics.read has no proof paths",
-    "settings.haptics.update mobile is missing_provider",
-    "settings.haptics.update phone is missing_provider",
-    "settings.haptics.update external is missing_provider",
-    "settings.haptics.update voice is missing_conformance",
-    "settings.haptics.update has no proof paths",
-    "settings.widgets.read mobile is missing_provider",
-    "settings.widgets.read phone is missing_provider",
-    "settings.widgets.read external is missing_provider",
-    "settings.widgets.read voice is missing_conformance",
-    "settings.widgets.read has no proof paths",
-    "settings.widgets.configure mobile is missing_provider",
-    "settings.widgets.configure phone is missing_provider",
-    "settings.widgets.configure external is missing_provider",
-    "settings.widgets.configure voice is missing_conformance",
-    "settings.widgets.configure has no proof paths",
-    "settings.execution_targets.list mobile is missing_provider",
-    "settings.execution_targets.list phone is missing_provider",
-    "settings.execution_targets.list external is missing_provider",
-    "settings.execution_targets.list voice is missing_conformance",
-    "settings.execution_targets.list has no proof paths",
-    "settings.execution_targets.get mobile is missing_provider",
-    "settings.execution_targets.get phone is missing_provider",
-    "settings.execution_targets.get external is missing_provider",
-    "settings.execution_targets.get voice is missing_conformance",
-    "settings.execution_targets.get has no proof paths",
-    "settings.execution_targets.create mobile is missing_provider",
-    "settings.execution_targets.create phone is missing_provider",
-    "settings.execution_targets.create external is missing_provider",
-    "settings.execution_targets.create voice is missing_conformance",
-    "settings.execution_targets.create has no proof paths",
-    "settings.execution_targets.update mobile is missing_provider",
-    "settings.execution_targets.update phone is missing_provider",
-    "settings.execution_targets.update external is missing_provider",
-    "settings.execution_targets.update voice is missing_conformance",
-    "settings.execution_targets.update has no proof paths",
-    "settings.execution_targets.delete mobile is missing_provider",
-    "settings.execution_targets.delete phone is missing_provider",
-    "settings.execution_targets.delete external is missing_provider",
-    "settings.execution_targets.delete voice is missing_conformance",
-    "settings.execution_targets.delete has no proof paths",
-    "settings.destinations.list mobile is missing_provider",
-    "settings.destinations.list phone is missing_provider",
-    "settings.destinations.list external is missing_provider",
-    "settings.destinations.list voice is missing_conformance",
-    "settings.destinations.list has no proof paths",
-    "settings.destinations.get mobile is missing_provider",
-    "settings.destinations.get phone is missing_provider",
-    "settings.destinations.get external is missing_provider",
-    "settings.destinations.get voice is missing_conformance",
-    "settings.destinations.get has no proof paths",
-    "settings.destinations.create mobile is missing_provider",
-    "settings.destinations.create phone is missing_provider",
-    "settings.destinations.create external is missing_provider",
-    "settings.destinations.create voice is missing_conformance",
-    "settings.destinations.create has no proof paths",
-    "settings.destinations.update mobile is missing_provider",
-    "settings.destinations.update phone is missing_provider",
-    "settings.destinations.update external is missing_provider",
-    "settings.destinations.update voice is missing_conformance",
-    "settings.destinations.update has no proof paths",
-    "settings.destinations.delete mobile is missing_provider",
-    "settings.destinations.delete phone is missing_provider",
-    "settings.destinations.delete external is missing_provider",
-    "settings.destinations.delete voice is missing_conformance",
-    "settings.destinations.delete has no proof paths",
-    "settings.activity_areas.list mobile is missing_provider",
-    "settings.activity_areas.list phone is missing_provider",
-    "settings.activity_areas.list external is missing_provider",
-    "settings.activity_areas.list voice is missing_conformance",
-    "settings.activity_areas.list has no proof paths",
-    "settings.activity_areas.get mobile is missing_provider",
-    "settings.activity_areas.get phone is missing_provider",
-    "settings.activity_areas.get external is missing_provider",
-    "settings.activity_areas.get voice is missing_conformance",
-    "settings.activity_areas.get has no proof paths",
-    "settings.activity_areas.create mobile is missing_provider",
-    "settings.activity_areas.create phone is missing_provider",
-    "settings.activity_areas.create external is missing_provider",
-    "settings.activity_areas.create voice is missing_conformance",
-    "settings.activity_areas.create has no proof paths",
-    "settings.activity_areas.update mobile is missing_provider",
-    "settings.activity_areas.update phone is missing_provider",
-    "settings.activity_areas.update external is missing_provider",
-    "settings.activity_areas.update voice is missing_conformance",
-    "settings.activity_areas.update has no proof paths",
-    "settings.activity_areas.delete mobile is missing_provider",
-    "settings.activity_areas.delete phone is missing_provider",
-    "settings.activity_areas.delete external is missing_provider",
-    "settings.activity_areas.delete voice is missing_conformance",
-    "settings.activity_areas.delete has no proof paths",
-    "money.budget.read voice is missing_conformance",
-    "money.budget.update voice is missing_conformance",
-    "money.transaction.get voice is missing_conformance",
-    "money.transaction.meaning.update voice is missing_conformance",
-    "money.transaction.plan_treatment.update voice is missing_conformance",
-    "money.connection.disconnect voice is missing_conformance",
-    "money.connection.repair.open voice is missing_conformance",
-    "money.transfer.list voice is missing_conformance",
-    "money.transfer.get voice is missing_conformance",
-    "money.transfer.review voice is missing_conformance",
-    "chores.list voice is missing_conformance",
-    "chores.get voice is missing_conformance",
-    "chores.definition.create voice is missing_conformance",
-    "chores.definition.update voice is missing_conformance",
-    "chores.definition.pause voice is missing_conformance",
-    "chores.definition.delete voice is missing_conformance",
-    "chores.occurrence.claim voice is missing_conformance",
-    "chores.occurrence.release voice is missing_conformance",
-    "chores.occurrence.complete voice is missing_conformance",
-    "chores.occurrence.reopen voice is missing_conformance",
-    "chores.occurrence.report_earlier voice is missing_conformance",
-    "chores.evidence.add voice is missing_conformance",
-    "chores.review.approve voice is missing_conformance",
-    "chores.review.return voice is missing_conformance",
-    "chores.review.leave_missed voice is missing_conformance",
-    "chores.reward.read voice is missing_conformance",
-    "chores.reward.configure voice is missing_conformance",
-    "chores.reward.reserve voice is missing_conformance",
-    "chores.reward.cancel voice is missing_conformance",
-    "chores.reward.settle voice is missing_conformance",
-    "recipes.favorite.update voice is missing_conformance",
-    "recipes.visibility.update voice is missing_conformance",
-    "meal_planning.preferences.read voice is missing_conformance",
-    "meal_planning.preferences.update voice is missing_conformance",
-    "screen_time.personal_rule.list voice is missing_conformance",
-    "screen_time.personal_rule.get voice is missing_conformance",
-    "screen_time.personal_rule.update voice is missing_conformance",
-    "screen_time.personal_rule.deactivate voice is missing_conformance",
-    "screen_time.personal_rule.delete voice is missing_conformance",
-    "notifications.preferences.read voice is missing_conformance",
-    "notifications.preferences.update voice is missing_conformance",
-    "navigation.open_capability mobile is missing_provider",
-    "navigation.open_capability phone is missing_provider",
-    "navigation.open_capability external is missing_provider",
-    "navigation.open_capability voice is missing_conformance",
-    "navigation.open_capability has no proof paths"
-  ],
+  "errors": [],
   "rows": [
     {
       "operationId": "general.answer",
@@ -443,7 +39,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "boundary",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -461,7 +57,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "boundary",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -479,7 +75,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
@@ -500,7 +96,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
@@ -521,7 +117,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
@@ -542,7 +138,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
@@ -564,7 +160,10 @@
       "phone": "excluded",
       "external": "boundary",
       "voice": "excluded",
-      "proofPaths": []
+      "proofPaths": [
+        "packages/kwilt-agent-runtime/src/capabilityManifest.test.ts",
+        "src/features/unifiedChat/conversationalParity.test.ts"
+      ]
     },
     {
       "operationId": "household.read",
@@ -575,7 +174,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -594,7 +193,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -634,7 +233,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -674,7 +273,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -693,7 +292,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -733,7 +332,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -773,7 +372,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -813,7 +412,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeProfileProposalDecision.test.ts",
         "src/features/unifiedChat/profileProposalExecutor.test.ts",
@@ -835,7 +434,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -870,7 +469,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/capabilityAdapters.test.ts",
         "src/features/unifiedChat/requestPolicy.test.ts",
@@ -890,7 +489,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/capabilityAdapters.test.ts",
         "src/features/unifiedChat/requestPolicy.test.ts",
@@ -910,7 +509,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -946,7 +545,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -982,7 +581,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1018,7 +617,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1036,7 +635,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1054,7 +653,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1090,7 +689,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1126,7 +725,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1162,7 +761,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1186,7 +785,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1210,7 +809,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1228,7 +827,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1246,7 +845,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1264,7 +863,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
         "src/features/unifiedChat/executeProposalDecision.test.ts",
@@ -1283,7 +882,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1316,7 +915,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1349,7 +948,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1382,7 +981,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1417,7 +1016,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1452,7 +1051,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1487,7 +1086,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1522,7 +1121,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1557,7 +1156,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1581,7 +1180,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1614,7 +1213,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1650,7 +1249,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1686,7 +1285,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1721,7 +1320,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1756,7 +1355,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1780,7 +1379,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1804,7 +1403,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1828,7 +1427,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1846,7 +1445,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -1864,7 +1463,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1900,7 +1499,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1936,7 +1535,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/activityProposalExecutor.test.ts",
@@ -1972,7 +1571,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -1996,7 +1595,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -2014,7 +1613,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -2032,7 +1631,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
         "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
@@ -2050,7 +1649,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts",
@@ -2088,7 +1687,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/capabilityAdapters.test.ts",
         "src/features/unifiedChat/unifiedChatToolProvider.test.ts",
@@ -2105,14 +1704,19 @@
       "intentId": "money.read",
       "completionMode": "direct",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneySnapshot.test.ts",
         "src/features/unifiedChat/capabilityAdapters.test.ts",
         "src/features/unifiedChat/requestPolicy.test.ts",
-        "src/features/unifiedChat/unifiedChatToolProvider.test.ts"
+        "src/features/unifiedChat/unifiedChatToolProvider.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2122,14 +1726,19 @@
       "intentId": "money.review_transaction",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyMutations.test.ts",
         "src/capabilities/money/data/moneyRepository.test.ts",
         "src/capabilities/money/data/moneySnapshot.test.ts",
-        "src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx"
+        "src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2139,15 +1748,20 @@
       "intentId": "money.category",
       "completionMode": "reviewed_proposal",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyRepository.test.ts",
         "src/capabilities/money/domain/categoryPlanDraft.test.ts",
         "src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx",
         "src/features/unifiedChat/executeMoneyCategoryProposalDecision.test.ts",
-        "src/features/unifiedChat/unifiedChatToolProvider.test.ts"
+        "src/features/unifiedChat/unifiedChatToolProvider.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2157,15 +1771,20 @@
       "intentId": "money.category",
       "completionMode": "reviewed_proposal",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyRepository.test.ts",
         "src/capabilities/money/domain/categoryPlanDraft.test.ts",
         "src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx",
         "src/features/unifiedChat/executeMoneyCategoryProposalDecision.test.ts",
-        "src/features/unifiedChat/unifiedChatToolProvider.test.ts"
+        "src/features/unifiedChat/unifiedChatToolProvider.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2175,16 +1794,21 @@
       "intentId": "money.app_control",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
         "src/features/unifiedChat/executeClientActionDecision.test.ts",
-        "src/features/unifiedChat/runUnifiedChatTurn.test.ts"
+        "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2194,15 +1818,20 @@
       "intentId": "money.category",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyRepository.test.ts",
         "src/capabilities/money/domain/categoryPlanDraft.test.ts",
         "src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx",
         "src/features/unifiedChat/executeMoneyCategoryProposalDecision.test.ts",
-        "src/features/unifiedChat/unifiedChatToolProvider.test.ts"
+        "src/features/unifiedChat/unifiedChatToolProvider.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2212,13 +1841,18 @@
       "intentId": "money.privacy",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/domain/privacyLockState.test.ts",
         "src/capabilities/money/runtime/MoneyPrivacyGate.tsx",
-        "src/capabilities/money/screens/MoneyPrivacySettingsScreen.tsx"
+        "src/capabilities/money/screens/MoneyPrivacySettingsScreen.tsx",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2228,13 +1862,18 @@
       "intentId": "money.connection",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyPlaidApi.test.ts",
         "src/capabilities/money/native/moneyPlaidLink.native.ts",
-        "src/capabilities/money/screens/MoneyAccountsScreen.tsx"
+        "src/capabilities/money/screens/MoneyAccountsScreen.tsx",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2244,13 +1883,18 @@
       "intentId": "money.connection",
       "completionMode": "native_handoff",
       "mobile": "ready",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/data/moneyPlaidApi.test.ts",
         "src/capabilities/money/native/moneyPlaidLink.native.ts",
-        "src/capabilities/money/screens/MoneyAccountsScreen.tsx"
+        "src/capabilities/money/screens/MoneyAccountsScreen.tsx",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
       ]
     },
     {
@@ -2286,7 +1930,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -2310,7 +1954,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts",
@@ -2330,7 +1974,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts",
@@ -2350,7 +1994,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2388,7 +2032,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/food-ai/recipeImportProposalExecutor.test.ts",
@@ -2413,7 +2057,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2453,7 +2097,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2491,7 +2135,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts",
@@ -2511,7 +2155,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2549,7 +2193,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/food-ai/recipeImportProposalExecutor.test.ts",
@@ -2574,7 +2218,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2612,7 +2256,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -2635,7 +2279,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -2659,7 +2303,10 @@
       "phone": "excluded",
       "external": "boundary",
       "voice": "excluded",
-      "proofPaths": []
+      "proofPaths": [
+        "packages/kwilt-agent-runtime/src/capabilityManifest.test.ts",
+        "src/features/unifiedChat/conversationalParity.test.ts"
+      ]
     },
     {
       "operationId": "recipes.delete",
@@ -2670,7 +2317,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2708,7 +2355,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2747,7 +2394,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2786,7 +2433,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2825,7 +2472,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2864,7 +2511,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2903,7 +2550,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2942,7 +2589,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -2981,7 +2628,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3020,7 +2667,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3059,7 +2706,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3098,7 +2745,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/meal-planning/actions/mealPlanActions.test.ts",
@@ -3121,7 +2768,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/groceryControlToolProvider.test.ts",
@@ -3141,7 +2788,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/groceryControlToolProvider.test.ts",
@@ -3161,7 +2808,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3200,7 +2847,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3239,7 +2886,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3278,7 +2925,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3317,7 +2964,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3356,7 +3003,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3395,7 +3042,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/groceries/actions/groceryListActions.test.ts",
@@ -3418,7 +3065,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -3440,7 +3087,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -3462,7 +3109,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -3484,7 +3131,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -3507,7 +3154,10 @@
       "phone": "excluded",
       "external": "boundary",
       "voice": "excluded",
-      "proofPaths": []
+      "proofPaths": [
+        "packages/kwilt-agent-runtime/src/capabilityManifest.test.ts",
+        "src/features/unifiedChat/conversationalParity.test.ts"
+      ]
     },
     {
       "operationId": "groceries.payment",
@@ -3519,7 +3169,10 @@
       "phone": "excluded",
       "external": "boundary",
       "voice": "excluded",
-      "proofPaths": []
+      "proofPaths": [
+        "packages/kwilt-agent-runtime/src/capabilityManifest.test.ts",
+        "src/features/unifiedChat/conversationalParity.test.ts"
+      ]
     },
     {
       "operationId": "store_opportunity.capture",
@@ -3530,7 +3183,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3553,7 +3206,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3576,7 +3229,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3599,7 +3252,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3622,7 +3275,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3646,7 +3299,10 @@
       "phone": "excluded",
       "external": "boundary",
       "voice": "excluded",
-      "proofPaths": []
+      "proofPaths": [
+        "packages/kwilt-agent-runtime/src/capabilityManifest.test.ts",
+        "src/features/unifiedChat/conversationalParity.test.ts"
+      ]
     },
     {
       "operationId": "savings.coupon.open",
@@ -3657,7 +3313,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3680,7 +3336,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3703,7 +3359,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/clientActionNavigation.test.ts",
         "src/features/unifiedChat/deviceToolProvider.test.ts",
@@ -3726,7 +3382,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/recipes/actions/recipeCookActions.test.ts",
@@ -3750,7 +3406,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3790,7 +3446,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/recipes/actions/recipeCookActions.test.ts",
@@ -3814,7 +3470,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -3854,7 +3510,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/unifiedChat/familyScreenTimeChatEvidence.test.ts",
@@ -3876,7 +3532,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -3899,7 +3555,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -3922,7 +3578,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -3945,7 +3601,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -3968,7 +3624,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -3991,7 +3647,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -4014,7 +3670,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -4037,7 +3693,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4061,7 +3717,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4085,7 +3741,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4109,7 +3765,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4133,7 +3789,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4157,7 +3813,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4181,7 +3837,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4205,7 +3861,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4229,7 +3885,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4253,7 +3909,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4277,7 +3933,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -4298,11 +3954,19 @@
       "surfaceId": "channels",
       "intentId": "channel.continue",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/services/phoneAgent.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/phoneAgentContinuation.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts"
+      ]
     },
     {
       "operationId": "household.member.update",
@@ -4313,7 +3977,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/household/HouseholdDevicesScreen.test.tsx",
         "src/features/household/HouseholdMemberDetailScreen.test.tsx",
@@ -4337,7 +4001,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/features/household/HouseholdDevicesScreen.test.tsx",
@@ -4377,7 +4041,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/household/HouseholdDevicesScreen.test.tsx",
         "src/features/household/HouseholdMemberDetailScreen.test.tsx",
@@ -4401,7 +4065,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/household/HouseholdDevicesScreen.test.tsx",
         "src/features/household/HouseholdMemberDetailScreen.test.tsx",
@@ -4425,7 +4089,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/household/HouseholdDevicesScreen.test.tsx",
         "src/features/household/HouseholdMemberDetailScreen.test.tsx",
@@ -4449,7 +4113,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/household/HouseholdDevicesScreen.test.tsx",
         "src/features/household/HouseholdMemberDetailScreen.test.tsx",
@@ -4473,7 +4137,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/plan/actions/planPreferenceActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -4495,7 +4159,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/plan/actions/planPreferenceActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -4518,7 +4182,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/plan/actions/planCalendarPreferenceActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -4540,7 +4204,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/plan/actions/planCalendarPreferenceActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -4562,7 +4226,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts",
         "src/capabilities/life-structure/actions/chapterDigestSettingsActions.test.ts",
@@ -4586,7 +4250,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts",
@@ -4624,7 +4288,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts",
         "src/capabilities/life-structure/actions/chapterDigestSettingsActions.test.ts",
@@ -4648,7 +4312,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts",
@@ -4683,11 +4347,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.appearance.update",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/AppearanceSettingsScreen.tsx",
+        "src/features/account/actions/appearancePreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.appearance.update",
@@ -4695,11 +4369,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.appearance.update",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/AppearanceSettingsScreen.tsx",
+        "src/features/account/actions/appearancePreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.ai_model.read",
@@ -4707,11 +4391,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.ai_model.update",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/AiModelSettingsScreen.tsx",
+        "src/features/account/actions/aiModelPreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.ai_model.update",
@@ -4719,11 +4413,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.ai_model.update",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/AiModelSettingsScreen.tsx",
+        "src/features/account/actions/aiModelPreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.phone_agent.read",
@@ -4731,11 +4435,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.phone_agent.update",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/PhoneAgentSettingsScreen.tsx",
+        "src/features/account/actions/phoneAgentSettingsActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.phone_agent.update",
@@ -4743,11 +4457,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.phone_agent.update",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/PhoneAgentSettingsScreen.tsx",
+        "src/features/account/actions/phoneAgentSettingsActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.connected_tools.list",
@@ -4755,11 +4479,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.connected_tools.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ConnectedToolsScreen.test.tsx",
+        "src/features/account/actions/connectedToolActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.connected_tools.get",
@@ -4767,11 +4502,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.connected_tools.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ConnectedToolsScreen.test.tsx",
+        "src/features/account/actions/connectedToolActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.connected_tools.connect.open",
@@ -4779,11 +4525,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.connected_tools.manage",
       "completionMode": "provider_handoff",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ConnectedToolsScreen.test.tsx",
+        "src/features/account/actions/connectedToolActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.connected_tools.revoke",
@@ -4791,11 +4548,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.connected_tools.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ConnectedToolsScreen.test.tsx",
+        "src/features/account/actions/connectedToolActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.sharing.list",
@@ -4803,11 +4571,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.sharing.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/actions/sharingActions.test.ts",
+        "src/features/friends/FriendshipSettingsSection.test.tsx",
+        "src/features/goals/GoalSharingSettingsSection.test.tsx",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.sharing.invitation.prepare",
@@ -4815,11 +4594,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.sharing.manage",
       "completionMode": "native_handoff",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/actions/sharingActions.test.ts",
+        "src/features/friends/FriendshipSettingsSection.test.tsx",
+        "src/features/goals/GoalSharingSettingsSection.test.tsx",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.sharing.connection.revoke",
@@ -4827,11 +4617,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.sharing.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/actions/sharingActions.test.ts",
+        "src/features/friends/FriendshipSettingsSection.test.tsx",
+        "src/features/goals/GoalSharingSettingsSection.test.tsx",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.haptics.read",
@@ -4839,11 +4640,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.haptics.update",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/HapticsSettingsScreen.tsx",
+        "src/features/account/actions/hapticsPreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.haptics.update",
@@ -4851,11 +4662,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.haptics.update",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/HapticsSettingsScreen.tsx",
+        "src/features/account/actions/hapticsPreferenceActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.widgets.read",
@@ -4863,11 +4684,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.widgets.configure",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/WidgetsSettingsScreen.tsx",
+        "src/features/account/actions/widgetPreferenceActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.widgets.configure",
@@ -4875,11 +4707,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.widgets.configure",
       "completionMode": "native_handoff",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/WidgetsSettingsScreen.tsx",
+        "src/features/account/actions/widgetPreferenceActions.test.ts",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.execution_targets.list",
@@ -4887,11 +4730,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.execution_targets.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/DestinationDetailScreen.tsx",
+        "src/features/account/ExecutionTargetsSettingsScreen.tsx",
+        "src/features/account/actions/executionTargetActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.execution_targets.get",
@@ -4899,11 +4753,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.execution_targets.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/DestinationDetailScreen.tsx",
+        "src/features/account/ExecutionTargetsSettingsScreen.tsx",
+        "src/features/account/actions/executionTargetActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.execution_targets.create",
@@ -4911,11 +4776,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.execution_targets.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/DestinationDetailScreen.tsx",
+        "src/features/account/ExecutionTargetsSettingsScreen.tsx",
+        "src/features/account/actions/executionTargetActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.execution_targets.update",
@@ -4923,11 +4799,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.execution_targets.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/DestinationDetailScreen.tsx",
+        "src/features/account/ExecutionTargetsSettingsScreen.tsx",
+        "src/features/account/actions/executionTargetActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.execution_targets.delete",
@@ -4935,11 +4822,22 @@
       "surfaceId": "account-settings",
       "intentId": "settings.execution_targets.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/DestinationDetailScreen.tsx",
+        "src/features/account/ExecutionTargetsSettingsScreen.tsx",
+        "src/features/account/actions/executionTargetActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.destinations.list",
@@ -4947,11 +4845,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.destinations.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/BuiltInDestinationDetailScreen.tsx",
+        "src/features/account/actions/destinationActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.destinations.get",
@@ -4959,11 +4867,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.destinations.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/BuiltInDestinationDetailScreen.tsx",
+        "src/features/account/actions/destinationActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.destinations.create",
@@ -4971,23 +4889,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.destinations.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
-    },
-    {
-      "operationId": "settings.destinations.update",
-      "owner": "settings",
-      "surfaceId": "account-settings",
-      "intentId": "settings.destinations.manage",
-      "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/BuiltInDestinationDetailScreen.tsx",
+        "src/features/account/actions/destinationActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.destinations.delete",
@@ -4995,11 +4911,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.destinations.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/BuiltInDestinationDetailScreen.tsx",
+        "src/features/account/actions/destinationActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.activity_areas.list",
@@ -5007,11 +4933,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.activity_areas.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ActivityAreasSettingsScreen.tsx",
+        "src/features/account/actions/activityAreaActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.activity_areas.get",
@@ -5019,11 +4955,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.activity_areas.manage",
       "completionMode": "direct",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ActivityAreasSettingsScreen.tsx",
+        "src/features/account/actions/activityAreaActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.activity_areas.create",
@@ -5031,11 +4977,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.activity_areas.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ActivityAreasSettingsScreen.tsx",
+        "src/features/account/actions/activityAreaActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.activity_areas.update",
@@ -5043,11 +4999,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.activity_areas.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ActivityAreasSettingsScreen.tsx",
+        "src/features/account/actions/activityAreaActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "settings.activity_areas.delete",
@@ -5055,11 +5021,21 @@
       "surfaceId": "account-settings",
       "intentId": "settings.activity_areas.manage",
       "completionMode": "reviewed_proposal",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/features/account/ActivityAreasSettingsScreen.tsx",
+        "src/features/account/actions/activityAreaActions.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     },
     {
       "operationId": "money.budget.read",
@@ -5070,7 +5046,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5095,7 +5071,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5120,7 +5096,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5145,7 +5121,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5170,7 +5146,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5195,7 +5171,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5220,7 +5196,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5245,7 +5221,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5270,7 +5246,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5295,7 +5271,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/money/actions/moneyControlActions.test.ts",
         "src/features/unifiedChat/clientActionNavigation.test.ts",
@@ -5320,7 +5296,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/chores/data/choreRepository.test.ts",
         "src/capabilities/chores/domain/choreActions.test.ts",
@@ -5343,7 +5319,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/chores/data/choreRepository.test.ts",
         "src/capabilities/chores/domain/choreActions.test.ts",
@@ -5366,7 +5342,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5405,7 +5381,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5444,7 +5420,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5483,7 +5459,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5522,7 +5498,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5561,7 +5537,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5600,7 +5576,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5639,7 +5615,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5678,7 +5654,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5717,7 +5693,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/chores/data/choreRepository.test.ts",
         "src/capabilities/chores/domain/choreActions.test.ts",
@@ -5741,7 +5717,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5780,7 +5756,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5819,7 +5795,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5858,7 +5834,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/chores/data/choreRepository.test.ts",
         "src/capabilities/chores/domain/choreActions.test.ts",
@@ -5881,7 +5857,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5920,7 +5896,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5959,7 +5935,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -5998,7 +5974,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/unified-chat-migration-contract.test.mjs",
         "src/capabilities/chores/data/choreRepository.test.ts",
@@ -6037,7 +6013,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -6077,7 +6053,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -6117,7 +6093,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "src/capabilities/meal-planning/actions/mealPreferenceActions.test.ts",
@@ -6141,7 +6117,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "scripts/food-conversational-control-migration.test.mjs",
         "scripts/unified-chat-migration-contract.test.mjs",
@@ -6181,7 +6157,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -6204,7 +6180,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -6227,7 +6203,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -6250,7 +6226,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -6273,7 +6249,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts",
         "src/features/unifiedChat/screenTimeProposal.test.ts",
@@ -6296,7 +6272,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -6319,7 +6295,7 @@
       "mobile": "ready",
       "phone": "ready",
       "external": "ready",
-      "voice": "missing_conformance",
+      "voice": "shared_runtime",
       "proofPaths": [
         "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
         "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
@@ -6340,11 +6316,23 @@
       "surfaceId": "navigation",
       "intentId": "navigation.open_capability",
       "completionMode": "native_handoff",
-      "mobile": "missing_provider",
-      "phone": "missing_provider",
-      "external": "missing_provider",
-      "voice": "missing_conformance",
-      "proofPaths": []
+      "mobile": "ready",
+      "phone": "ready",
+      "external": "ready",
+      "voice": "shared_runtime",
+      "proofPaths": [
+        "src/capabilities/notifications/actions/notificationPreferenceActions.test.ts",
+        "src/features/unifiedChat/UnifiedChatScreen.test.tsx",
+        "src/features/unifiedChat/clientActionNavigation.test.ts",
+        "src/features/unifiedChat/deviceToolProvider.test.ts",
+        "src/features/unifiedChat/executeClientActionDecision.test.ts",
+        "src/features/unifiedChat/runUnifiedChatTurn.test.ts",
+        "supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts",
+        "supabase/functions/_shared/__tests__/serverAgentTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverProfileTools.test.ts",
+        "supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts",
+        "supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts"
+      ]
     }
   ]
 }

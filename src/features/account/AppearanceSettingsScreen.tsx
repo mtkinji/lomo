@@ -11,6 +11,7 @@ import type { ThumbnailStyle } from '../../domain/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { VStack, Text, HStack } from '../../ui/primitives';
+import { createAppearancePreferenceActions } from './actions/appearancePreferenceActions';
 
 type ThumbnailStyleOption = {
   value: ThumbnailStyle;
@@ -161,32 +162,21 @@ export function AppearanceSettingsScreen() {
   }, [userProfile?.visuals]);
 
   const handleToggleThumbnailStyle = (style: ThumbnailStyle) => {
-    updateUserProfile((current) => {
-      const visuals = current.visuals ?? {};
-      const existing: ThumbnailStyle[] =
-        visuals.thumbnailStyles && visuals.thumbnailStyles.length > 0
-          ? visuals.thumbnailStyles
-          : visuals.thumbnailStyle
-          ? [visuals.thumbnailStyle]
-          : ['topographyDots'];
-
-      let next: ThumbnailStyle[];
-      if (existing.includes(style)) {
-        // Prevent unselecting the last remaining style.
-        next = existing.length === 1 ? existing : existing.filter((item) => item !== style);
-      } else {
-        next = [...existing, style];
-      }
-
-      return {
-        ...current,
-        visuals: {
-          ...visuals,
-          thumbnailStyles: next,
-          thumbnailStyle: next[0],
-        },
-      };
-    });
+    const current = useAppStore.getState().userProfile;
+    if (!current) return;
+    const existing = current.visuals.thumbnailStyles?.length
+      ? current.visuals.thumbnailStyles
+      : current.visuals.thumbnailStyle ? [current.visuals.thumbnailStyle] : ['topographyDots'] as ThumbnailStyle[];
+    const next = existing.includes(style)
+      ? existing.length === 1 ? existing : existing.filter((item) => item !== style)
+      : [...existing, style];
+    createAppearancePreferenceActions({
+      read: () => ({ updatedAt: current.updatedAt, thumbnailStyles: existing }),
+      apply: ({ thumbnailStyles }) => updateUserProfile((profile) => ({
+        ...profile,
+        visuals: { ...profile.visuals, thumbnailStyles, thumbnailStyle: thumbnailStyles[0] },
+      })),
+    }).update({ expectedUpdatedAt: current.updatedAt, thumbnailStyles: next });
   };
 
   const summaryLabel =
@@ -375,5 +365,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
 });
-
 

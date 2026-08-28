@@ -8,7 +8,6 @@ import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../../services/scree
 import {
   presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
-  transferScreenTimeActivitySelection,
 } from '../../../services/appleEcosystem/screenTimeProtection';
 import {
   activatePersonalCompositeScreenTimeRule,
@@ -18,7 +17,6 @@ import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBui
 
 const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
-const mockSaveMoney = jest.fn();
 const mockLoadMoneySnapshot = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
@@ -29,7 +27,6 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('../../../services/appleEcosystem/screenTimeProtection', () => ({
   presentScreenTimeActivityPicker: jest.fn(),
   requestScreenTimeAuthorization: jest.fn(),
-  transferScreenTimeActivitySelection: jest.fn(),
 }));
 
 jest.mock('../../../services/screenTimeProtectionRuntime', () => ({
@@ -38,10 +35,6 @@ jest.mock('../../../services/screenTimeProtectionRuntime', () => ({
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
 }));
 
-jest.mock('../../../capabilities/money/runtime/moneyAppControlStorage', () => ({
-  saveMoneyAppControlSettings: (...args: unknown[]) => mockSaveMoney(...args),
-}));
-jest.mock('../../../capabilities/money/runtime/moneyAppControlRuntime', () => ({ reconcileLatestMoneyAppControls: jest.fn(async () => undefined) }));
 jest.mock('../../../capabilities/money/data/moneyRepository', () => ({
   createMoneyRepository: () => ({ loadSnapshot: (...args: unknown[]) => mockLoadMoneySnapshot(...args) }),
 }));
@@ -57,6 +50,30 @@ jest.mock('../../../ui/KwiltSwitch', () => {
   return { KwiltSwitch: ({ accessibilityLabel, onPress, value }: { accessibilityLabel: string; onPress: () => void; value: boolean }) => (
     <Pressable accessibilityRole="switch" accessibilityLabel={accessibilityLabel} accessibilityState={{ checked: value }} onPress={onPress} />
   ) };
+});
+jest.mock('../../../ui/DropdownMenu', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = jest.requireActual('react-native');
+  const MenuContext = React.createContext({ open: false, setOpen: (_open: boolean) => undefined });
+  return {
+    DropdownMenu: ({ children }: { children: ReactNode }) => {
+      const [open, setOpen] = React.useState(false);
+      return <MenuContext.Provider value={{ open, setOpen }}><View>{children}</View></MenuContext.Provider>;
+    },
+    DropdownMenuTrigger: ({ accessibilityLabel, children }: { accessibilityLabel: string; children: ReactNode }) => {
+      const menu = React.useContext(MenuContext);
+      return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={() => menu.setOpen(!menu.open)}>{children}</Pressable>;
+    },
+    DropdownMenuContent: ({ children }: { children: ReactNode }) => {
+      const menu = React.useContext(MenuContext);
+      return menu.open ? <View>{children}</View> : null;
+    },
+    DropdownMenuItem: ({ disabled, label, onPress }: { disabled?: boolean; label: string; onPress: () => void }) => {
+      const menu = React.useContext(MenuContext);
+      return <Pressable accessibilityRole="menuitem" accessibilityLabel={label} disabled={disabled} onPress={() => { menu.setOpen(false); onPress(); }}><Text>{label}</Text></Pressable>;
+    },
+    DropdownMenuSeparator: () => <View />,
+  };
 });
 jest.mock('../../../ui/BottomDrawer', () => {
   const { Pressable, ScrollView, Text, View } = jest.requireActual('react-native');
@@ -84,10 +101,8 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     mockRouteParams = { entry: 'inventory' };
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     (requestScreenTimeAuthorization as jest.Mock).mockReset().mockResolvedValue('approved');
-    (transferScreenTimeActivitySelection as jest.Mock).mockReset().mockResolvedValue(true);
     (activatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     (deactivatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
-    mockSaveMoney.mockReset().mockImplementation(async (updater) => updater({ authorizationStatus: 'approved', policies: {}, lastUpdated: null }));
     mockLoadMoneySnapshot.mockReset().mockResolvedValue({
       categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
     });
@@ -109,17 +124,48 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     });
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
-    expect(await screen.findByText('Build a rule for')).toBeTruthy();
+    expect(await screen.findByText('Rule behavior')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
     expect(screen.getByText('2 of 2')).toBeTruthy();
-    expect(screen.getByText('Rule behavior')).toBeTruthy();
+    expect(screen.getByText('to')).toBeTruthy();
+    expect(screen.getByText('When')).toBeTruthy();
     expect(screen.getByRole('button', { name: '＋ Add condition' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Rule outcome: Allow access' })).toBeTruthy();
+    expect(screen.queryByText('Build a rule for')).toBeNull();
     expect(screen.queryByText('Then')).toBeNull();
     expect(screen.queryByText('Make Social available')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add rule' }).props.accessibilityState.disabled).toBe(true);
     expect(screen.queryByText('What will happen')).toBeNull();
-    expect(screen.queryByText('When')).toBeNull();
+  });
+
+  it('turns Money context into a prefilled budget sentence in the same composer', async () => {
+    mockRouteParams = {
+      entry: 'contextual',
+      suggestedBudgetCondition: {
+        categorySourceId: 'category-shopping', categoryName: 'Shopping', preset: 'when_hot',
+      },
+    };
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'amazon', label: 'Amazon' }], selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+
+    expect(await screen.findByRole('button', { name: 'Change apps and categories. Amazon' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rule outcome: Pause access' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Condition: Shopping' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Value: ahead of month' })).toBeTruthy();
+  });
+
+  it('keeps Apple private selections concrete by showing the picker count instead of a generic target', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'native:categories', label: '13 categories' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    expect(await screen.findByRole('button', { name: 'Change apps and categories. 13 categories' })).toBeTruthy();
+    expect(screen.queryByText('your selected category')).toBeNull();
   });
 
   it('builds and saves Social after 5 PM AND under 15 minutes as one aggregate', async () => {
@@ -133,12 +179,12 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
     expect(screen.getByRole('button', { name: 'Condition: Time' })).toBeTruthy();
-    expect(screen.getByText('5:00 PM')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Value: 5:00 PM' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Daily use' }));
     expect(screen.getByRole('button', { name: 'Change AND connector' })).toBeTruthy();
-    expect(screen.getByText('15 min')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Value: 15 min' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Rule outcome: Allow access' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Pause access' }));
@@ -179,11 +225,21 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     fireEvent.press(screen.getByRole('radio', { name: 'Budget' }));
     fireEvent.press(await screen.findByRole('radio', { name: 'Shopping' }));
     fireEvent.press(screen.getByRole('radio', { name: '95% of this budget is used' }));
-    expect(screen.getByText('Shopping')).toBeTruthy();
-    expect(screen.getByText('95% used')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Condition: Shopping' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Value: 95% used' })).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Condition: Shopping' }));
+    expect(await screen.findByText('Choose a budget')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'Shopping' }));
+    fireEvent.press(screen.getByRole('radio', { name: '95% of this budget is used' }));
+
+    fireEvent.press(screen.getByRole('button', { name: 'Value: 95% used' }));
+    expect(screen.getByText('Budget condition')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'This budget is fully used' }));
+    expect(screen.getByRole('button', { name: 'Value: fully used' })).toBeTruthy();
   });
 
-  it('reconstructs an editable composite, keeps enabled top-level, and deletes without reviving legacy state', async () => {
+  it('keeps lifecycle actions out of the composer and deletes from the object menu', async () => {
     const saved = {
       id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
       selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
@@ -197,16 +253,60 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     mockRouteParams = { entry: 'inventory', ruleId: saved.id };
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
-    expect(screen.getByText('Build a rule for')).toBeTruthy();
+    expect(screen.queryByText('Build a rule for')).toBeNull();
+    expect(screen.getByText('Rule behavior')).toBeTruthy();
+    expect(screen.getByText('When')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Rule enabled' })).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'Rule enabled' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete rule' })).toBeNull();
     expect(screen.queryByText('Rule status')).toBeNull();
     expect(screen.queryByText('Rule management')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Delete rule' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Rule actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Turn off rule' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Delete rule' }));
     const actions = alert.mock.calls.at(-1)?.[2] ?? [];
     await act(async () => { actions.find((action) => action.text === 'Delete rule')?.onPress?.(); });
     await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules).toEqual([]));
     expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([]);
+  });
+
+  it('turns a saved rule off immediately from the object menu', async () => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Rule actions' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Turn off rule' }));
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.enabled).toBe(false));
+    expect(deactivatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  it('edits the real-step operator directly from the sentence', () => {
+    const saved = {
+      id: 'social-real-step', selectionId: 'social-real-step', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'real', type: 'real_step_complete' as const, operator: 'is' as const }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Operator: is' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'is not' }));
+    expect(screen.getByRole('button', { name: 'Operator: is not' })).toBeTruthy();
   });
 
   it('uses the page back button to revisit app selection before leaving the flow', async () => {

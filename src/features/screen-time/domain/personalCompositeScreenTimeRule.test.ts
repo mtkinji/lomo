@@ -19,6 +19,7 @@ describe('personalCompositeScreenTimeRule', () => {
       { id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 17 * 60 },
       { id: 'under-limit', type: 'daily_usage', operator: 'below', minutes: 15 },
     ],
+    temporaryOpenUntilIso: null,
     lastUpdated: '2026-08-27T23:00:00.000Z',
   };
 
@@ -45,6 +46,7 @@ describe('personalCompositeScreenTimeRule', () => {
     [{ ...composite, conditions: [composite.conditions[0], { ...composite.conditions[0], id: 'another-time' }] }, 'condition_type'],
     [{ ...composite, conditions: [{ id: 'late', type: 'time_of_day', operator: 'after', minuteOfDay: 1440 }] }, 'condition_value'],
     [{ ...composite, conditions: [{ id: 'usage', type: 'daily_usage', operator: 'below', minutes: 0 }] }, 'condition_value'],
+    [{ ...composite, conditions: [{ id: 'real', type: 'real_step_complete', operator: 'sometimes' }] }, 'condition_operator'],
     [{ ...composite, conditions: [{ id: 'budget', type: 'budget', categorySourceId: '', categoryName: 'Shopping', preset: 'when_over' }] }, 'condition_value'],
     [{ ...composite, conditions: [{ id: 'budget', type: 'budget', categorySourceId: 'shopping', categoryName: 'Shopping', preset: 'sometimes' }] }, 'condition_operator'],
   ])('rejects invalid saved aggregates (%s)', (candidate, issue) => {
@@ -61,7 +63,7 @@ describe('personalCompositeScreenTimeRule', () => {
 
     expect(migrateLegacyPersonalRule(makeLegacy('real', 'real_step'))).toEqual(
       expect.objectContaining({ outcome: 'available', connector: 'all', conditions: [
-        { id: 'real:condition', type: 'real_step_complete' },
+        { id: 'real:condition', type: 'real_step_complete', operator: 'is' },
       ] }),
     );
     expect(migrateLegacyPersonalRule(makeLegacy('focus', 'focus'))).toEqual(

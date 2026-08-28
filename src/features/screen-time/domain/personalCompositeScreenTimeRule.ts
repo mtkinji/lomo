@@ -8,7 +8,7 @@ export type PersonalRuleConnector = 'all' | 'any';
 export type PersonalRuleOutcome = 'available' | 'pause';
 
 export type PersonalRuleCondition =
-  | { id: string; type: 'real_step_complete' }
+  | { id: string; type: 'real_step_complete'; operator: 'is' | 'is_not' }
   | { id: string; type: 'focus_active'; operator: 'is' | 'is_not'; value: true }
   | { id: string; type: 'daily_usage'; operator: 'below' | 'reaches'; minutes: number }
   | { id: string; type: 'time_of_day'; operator: 'after' | 'before'; minuteOfDay: number }
@@ -24,6 +24,7 @@ export type PersonalCompositeScreenTimeRule = {
   connector: PersonalRuleConnector;
   outcome: PersonalRuleOutcome;
   conditions: PersonalRuleCondition[];
+  temporaryOpenUntilIso?: string | null;
   lastUpdated: string | null;
 };
 
@@ -70,7 +71,11 @@ function normalizeCondition(value: unknown): PersonalRuleCondition | null {
   const id = cleanId(value.id);
   if (!id) return null;
 
-  if (value.type === 'real_step_complete') return { id, type: 'real_step_complete' };
+  if (value.type === 'real_step_complete') {
+    const operator = value.operator ?? 'is';
+    if (operator !== 'is' && operator !== 'is_not') return null;
+    return { id, type: 'real_step_complete', operator };
+  }
   if (value.type === 'focus_active') {
     if ((value.operator !== 'is' && value.operator !== 'is_not') || value.value !== true) return null;
     return { id, type: 'focus_active', operator: value.operator, value: true };
@@ -133,6 +138,8 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
         if (candidate.operator !== 'is' && candidate.operator !== 'is_not') issues.add('condition_operator');
         if (candidate.value !== true) issues.add('condition_value');
       }
+      if (candidate.type === 'real_step_complete' && candidate.operator !== undefined
+        && candidate.operator !== 'is' && candidate.operator !== 'is_not') issues.add('condition_operator');
       if (candidate.type === 'daily_usage') {
         if (candidate.operator !== 'below' && candidate.operator !== 'reaches') issues.add('condition_operator');
         const minutes = Number(candidate.minutes);
@@ -170,13 +177,17 @@ export function normalizePersonalCompositeScreenTimeRule(value: unknown): Person
     connector: value.connector as PersonalRuleConnector,
     outcome: value.outcome as PersonalRuleOutcome,
     conditions: (value.conditions as unknown[]).map(normalizeCondition).filter((condition): condition is PersonalRuleCondition => !!condition),
+    temporaryOpenUntilIso: typeof value.temporaryOpenUntilIso === 'string'
+      && Number.isFinite(Date.parse(value.temporaryOpenUntilIso))
+      ? new Date(value.temporaryOpenUntilIso).toISOString()
+      : null,
     lastUpdated: timestamp,
   };
 }
 
 export function migrateLegacyPersonalRule(rule: PersonalScreenTimeRule): PersonalCompositeScreenTimeRule {
   const condition: PersonalRuleCondition = rule.kind === 'real_step'
-    ? { id: `${rule.id}:condition`, type: 'real_step_complete' }
+    ? { id: `${rule.id}:condition`, type: 'real_step_complete', operator: 'is' }
     : rule.kind === 'focus'
       ? { id: `${rule.id}:condition`, type: 'focus_active', operator: 'is', value: true }
       : { id: `${rule.id}:condition`, type: 'daily_usage', operator: 'reaches', minutes: rule.limitMinutes };
@@ -190,6 +201,7 @@ export function migrateLegacyPersonalRule(rule: PersonalScreenTimeRule): Persona
     connector: 'all',
     outcome: rule.kind === 'real_step' ? 'available' : 'pause',
     conditions: [condition],
+    temporaryOpenUntilIso: rule.currentUnlockUntilIso,
     lastUpdated: rule.lastUpdated,
   };
 }

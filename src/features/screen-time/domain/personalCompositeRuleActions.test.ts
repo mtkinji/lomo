@@ -11,6 +11,7 @@ const prior: PersonalCompositeScreenTimeRule = {
   selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
   setupCompleted: true, connector: 'all', outcome: 'available',
   conditions: [{ id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 }],
+  temporaryOpenUntilIso: null,
   lastUpdated: '2026-08-27T20:00:00.000Z',
 };
 
@@ -69,5 +70,27 @@ describe('personalCompositeRuleActions', () => {
     }, boundary);
     expect(boundary.deactivateRule).toHaveBeenCalledWith(prior);
     expect(boundary.persistSettings).toHaveBeenCalledWith(expect.objectContaining({ personalCompositeRules: [] }));
+  });
+
+  it('can replace an unversioned migrated rule without treating it as a new duplicate', async () => {
+    const unversioned = { ...prior, lastUpdated: null };
+    let settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved', personalRuleSchemaVersion: 2,
+      personalCompositeRules: [unversioned], personalRules: [],
+    });
+    const boundary: jest.Mocked<PersonalCompositeRuleActionBoundary> = {
+      readSettings: jest.fn(() => settings),
+      persistSettings: jest.fn((next) => { settings = next; }),
+      activateRule: jest.fn(async (_rule: PersonalCompositeScreenTimeRule): Promise<boolean> => true),
+      deactivateRule: jest.fn(async (_rule: PersonalCompositeScreenTimeRule): Promise<boolean> => true),
+    };
+    const next = { ...unversioned, enabled: false, lastUpdated: '2026-08-27T21:00:00.000Z' };
+
+    await savePersonalCompositeScreenTimeRule({
+      rule: next, expectedUpdatedAt: 'unversioned', confirmed: true,
+    }, boundary);
+
+    expect(boundary.deactivateRule).toHaveBeenCalledWith(unversioned);
+    expect(boundary.persistSettings).toHaveBeenCalledWith(expect.objectContaining({ personalCompositeRules: [next] }));
   });
 });

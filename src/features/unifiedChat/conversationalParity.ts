@@ -149,6 +149,14 @@ export function validateConversationalParity({
       if (!PROGRAM_EXCLUSIONS.has(row.operationId)) errors.push(`Unsupported program exclusion: ${row.operationId}`);
       continue;
     }
+    if (row.completionMode === 'supported_boundary') {
+      if (row.mobile !== 'excluded') errors.push(`${row.operationId} supported boundary must not claim mobile execution`);
+      if (row.phone !== 'excluded') errors.push(`${row.operationId} supported boundary must not claim Phone execution`);
+      if (row.external !== 'boundary') errors.push(`${row.operationId} supported boundary must remain external boundary`);
+      if (row.voice !== 'excluded') errors.push(`${row.operationId} supported boundary must not claim voice execution`);
+      if (row.proofPaths.length === 0) errors.push(`${row.operationId} supported boundary has no proof paths`);
+      continue;
+    }
     if (row.mobile !== 'ready') errors.push(`${row.operationId} mobile is ${row.mobile}`);
     if (row.phone !== 'ready') errors.push(`${row.operationId} phone is ${row.phone}`);
     if (row.external !== 'ready' && row.external !== 'boundary') {

@@ -7,9 +7,9 @@ personas: [Marcus, Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls]
+related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls, brief-screen-time-rule-system-consolidation]
 owner: andrew
-last_updated: 2026-08-27
+last_updated: 2026-08-28
 ---
 
 # Screen Time Rule Governance
@@ -55,12 +55,13 @@ The scoped add action opens one structured, full-screen builder after the
 established initial Screen Time setup pattern. From Settings, subject is
 already Me, so the first question is which apps the rule should manage. Apple
 selection advances directly into a sentence-shaped rule composer whose visible grammar is
-**Build a rule for [selected apps] / Rule behavior / Allow or Pause access when [condition]**.
-The selected apps are an inline picker in the title instead of a repeated summary row. The
-outcome, condition field, operator, and value appear as independently editable phrases in one
-white statement well. Additional conditions extend the statement with an editable **AND** or
-**OR** connector. **Add condition** remains inside that well. There is no separate **Then**
-section, behavior step, or sentence receipt.
+**Rule behavior / Allow or Pause access to [selected apps] / When / [condition]**.
+The selected apps belong to the behavior statement instead of a page title or repeated summary
+row. Selectable outcome, target, condition field, operator, and value phrases use compact picker
+fields rather than underlined text. Conditions live in their own white well beneath **When**.
+Additional conditions extend that well with an editable **AND** or **OR** connector. **Add
+condition** remains inside that well. There is no separate **Then** section, behavior step, or
+sentence receipt.
 From a contextual Focus, real-step, or daily-use offer, the known condition is
 prepopulated but remains editable.
 When authorization already exists, these workflow offers present the same
@@ -119,8 +120,9 @@ Delivery is sliced. The first slice replaces the inline personal prototype with
 the shared builder semantics and proves both modes using Focus and real-step
 rules. The second applies the same builder anatomy to typed Household access
 agreements. The third adds Household pause triggers and temporary actions.
-Standalone Money app-control rules remain editable from Money. New composed
-rules may instead reference a Money-owned budget condition from this builder.
+The accepted Screen Time rule-system consolidation supersedes standalone Money
+app-control editing. Money supplies budget choices and current truth to this
+composer; Screen Time owns every rule's identity, lifecycle, and enforcement.
 
 ## UI contract
 
@@ -195,14 +197,18 @@ state.
   same builder screen with a Household adapter. Typed V2 Household agreement JSON
   is introduced behind normalization and legacy reading; IDs, selections, and
   desired/applied version behavior remain stable.
-- Standalone Money rules are projected individually. A composed rule stores a
-  stable budget source ID, display name, and Money-defined predicate; Money
-  supplies current truth to Screen Time without owning or separately enforcing
-  that aggregate.
+- A composed rule stores a stable budget source ID, display name, and
+  Money-defined predicate. Money supplies current truth to Screen Time without
+  owning or separately enforcing any rule. The consolidation phase clears and
+  retires standalone Money policies rather than preserving a permanent
+  projection path.
 - Changing a condition field replaces only that condition and its incompatible
-  operator/value. Rule enabled remains a top-level edit affordance; deletion is
-  a standalone destructive action at the bottom, without a Rule management
-  section.
+  operator/value. The composer contains no lifecycle controls. A saved rule's
+  header overflow reveals **Turn on/off rule** and **Delete rule**, with deletion
+  visually destructive and confirmed before native enforcement is removed. The
+  My rules list owns the frequent direct enabled switch and exposes deletion by
+  swipe; tapping the rest of the row opens the rule detail. There is no Rule
+  management or danger-zone section.
 - Temporary Allow/Pause actions are overrides, not builder modes.
 - Logic projections and personal rule mutations require tests first; UI composition may be implemented directly with component tests for key states.
 - A Chat handoff is not a saved rule or enforcement receipt. It reports only

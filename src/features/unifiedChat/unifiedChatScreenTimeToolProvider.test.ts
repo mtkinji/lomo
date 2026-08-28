@@ -8,8 +8,8 @@ const snapshots = {
   screenTime: { self: {
     kind: 'self' as const, deviceScope: 'current_device' as const, authorizationStatus: 'approved' as const,
     personalRules: [{
-      id: 'personal-rule-1', kind: 'daily_limit' as const, targetLabels: ['Instagram'],
-      appCount: 1, categoryCount: 0, enabled: true, limitMinutes: 30,
+      id: 'personal-rule-1', kind: 'composite' as const, targetLabels: ['Instagram'],
+      conditionCount: 2, connector: 'all' as const, outcome: 'pause' as const, enabled: true,
       updatedAt: '2026-08-27T10:00:00.000Z',
     }],
   }, children: [{
@@ -66,7 +66,7 @@ describe('Unified Chat family Screen Time provider', () => {
     await expect(provider.execute({
       id: 'personal-update', toolId: 'screen_time.personal_rule.update', arguments: {
         ruleId: 'personal-rule-1', expectedUpdatedAt: '2026-08-27T10:00:00.000Z',
-        fields: { limitMinutes: 20 },
+        fields: { enabled: false },
       },
     }, tool('screen_time.personal_rule.update'))).resolves.toMatchObject({ status: 'proposed' });
     expect(provider.proposals()[0]).toMatchObject({

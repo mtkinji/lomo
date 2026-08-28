@@ -41,7 +41,6 @@ import {
 import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 import { resolveUnifiedChatObjectReturn } from './capabilityAdapters';
 import { useAppStore } from '../../store/useAppStore';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { canUseProTools } from '../../store/proToolsAccess';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { inspectUnifiedChatAttachments } from '../../services/ai';
@@ -77,6 +76,11 @@ import {
 } from './unifiedChatAttachmentPolicy';
 import { applyUnifiedChatAttachmentInspection } from './unifiedChatAttachmentInspection';
 import { HapticsService } from '../../services/HapticsService';
+import { createWidgetPreferenceActions } from '../account/actions/widgetPreferenceActions';
+import { readGlanceableState } from '../../services/appleEcosystem/glanceableState';
+import { createAppearancePreferenceActions } from '../account/actions/appearancePreferenceActions';
+import { createConnectedToolActions } from '../account/actions/connectedToolActions';
+import { fetchExternalConnections, revokeExternalConnection } from '../../services/externalConnections';
 import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
@@ -95,6 +99,8 @@ import { recoverProfileMutations } from './recoverProfileMutations';
 import { executeChapterProposalDecision } from './executeChapterProposalDecision';
 import { recoverChapterMutations } from './recoverChapterMutations';
 import { executeClientActionDecision } from './executeClientActionDecision';
+import { executeDeviceOwnedClientAction } from './executeDeviceOwnedClientAction';
+import { createHapticsPreferenceActions } from '../account/actions/hapticsPreferenceActions';
 import { resolveClientActionOpenInstruction } from './clientActionNavigation';
 import { prepareClientActionNativeReview } from './prepareClientActionNativeReview';
 import { useCheckinDraftStore } from '../../store/useCheckinDraftStore';
@@ -865,12 +871,94 @@ export function UnifiedChatScreen({
   );
 
   const openNativeClientAction = useCallback((clientAction: UnifiedChatClientAction) => {
+    const deviceOwned = executeDeviceOwnedClientAction(clientAction, aggregate?.thread.id);
+    if (deviceOwned.handled) return deviceOwned.result;
+    if (clientAction.actionType === 'read_connected_tools'
+      || clientAction.actionType === 'read_connected_tool'
+      || clientAction.actionType === 'revoke_connected_tool') {
+      const actions = createConnectedToolActions({
+        load: fetchExternalConnections,
+        revoke: revokeExternalConnection,
+      });
+      if (clientAction.actionType === 'read_connected_tools') {
+        return actions.list().then((result) => ({ outcome: 'read_device_connections', ...result }));
+      }
+      const connectionId = clientAction.payload.connectionId;
+      if (typeof connectionId !== 'string' || !connectionId.trim()) {
+        throw new Error('This connected-tool request is invalid.');
+      }
+      if (clientAction.actionType === 'read_connected_tool') {
+        return actions.get({ connectionId }).then((result) => ({ outcome: 'read_device_connection', ...result }));
+      }
+      const expectedConnectedAt = clientAction.payload.expectedConnectedAt;
+      if (expectedConnectedAt !== null && typeof expectedConnectedAt !== 'string') {
+        throw new Error('This connected-tool revocation is invalid.');
+      }
+      return actions.revoke({ connectionId, expectedConnectedAt })
+        .then((result) => ({ outcome: 'revoked_device_connection', ...result }));
+    }
+    if (clientAction.actionType === 'read_appearance_preference'
+      || clientAction.actionType === 'apply_appearance_preference') {
+      const actions = createAppearancePreferenceActions({
+        read: () => {
+          const profile = useAppStore.getState().userProfile;
+          const thumbnailStyles = profile?.visuals.thumbnailStyles?.length
+            ? profile.visuals.thumbnailStyles
+            : profile?.visuals.thumbnailStyle ? [profile.visuals.thumbnailStyle] : ['topographyDots'] as const;
+          return { updatedAt: profile?.updatedAt ?? new Date(0).toISOString(), thumbnailStyles };
+        },
+        apply: ({ thumbnailStyles }) => useAppStore.getState().updateUserProfile((profile) => ({
+          ...profile,
+          visuals: { ...profile.visuals, thumbnailStyles, thumbnailStyle: thumbnailStyles[0] },
+        })),
+      });
+      if (clientAction.actionType === 'read_appearance_preference') {
+        return { outcome: 'read_device_preference', ...actions.read() };
+      }
+      const expectedUpdatedAt = clientAction.payload.expectedUpdatedAt;
+      const thumbnailStyles = clientAction.payload.thumbnailStyles;
+      if (typeof expectedUpdatedAt !== 'string' || !Array.isArray(thumbnailStyles)
+        || thumbnailStyles.some((value) => typeof value !== 'string')) {
+        throw new Error('This appearance request is invalid.');
+      }
+      return {
+        outcome: 'applied_device_preference',
+        ...actions.update({ expectedUpdatedAt, thumbnailStyles: thumbnailStyles as string[] }),
+      };
+    }
+    if (clientAction.actionType === 'read_widget_status') {
+      return createWidgetPreferenceActions({
+        readLastSyncMs: async () => (await readGlanceableState())?.updatedAtMs ?? null,
+      }).read().then((result) => ({ outcome: 'read_device_preference', ...result }));
+    }
+    if (clientAction.actionType === 'read_haptics_preference'
+      || clientAction.actionType === 'apply_haptics_preference') {
+      const actions = createHapticsPreferenceActions({
+        read: () => ({ enabled: useAppStore.getState().hapticsEnabled }),
+        apply: ({ enabled }) => {
+          useAppStore.getState().setHapticsEnabled(enabled);
+          HapticsService.setEnabled(enabled);
+        },
+      });
+      if (clientAction.actionType === 'read_haptics_preference') {
+        return { outcome: 'read_device_preference', ...actions.read() };
+      }
+      const expectedEnabled = clientAction.payload.expectedEnabled;
+      const enabled = clientAction.payload.enabled;
+      if (typeof expectedEnabled !== 'boolean' || typeof enabled !== 'boolean') {
+        throw new Error('This haptics request is invalid.');
+      }
+      return {
+        outcome: 'applied_device_preference',
+        ...actions.update({ expectedEnabled, enabled }),
+      };
+    }
     const instruction = resolveClientActionOpenInstruction(clientAction);
     if (!instruction) throw new Error('This native review surface is unavailable.');
     prepareClientActionNativeReview(clientAction, useCheckinDraftStore.getState());
     if (instruction.kind === 'search') useAppStore.getState().openGlobalSearch();
     else navigateWhenReady(instruction.name, instruction.params);
-  }, []);
+  }, [aggregate?.thread.id]);
 
   const decideClientAction = useCallback(async (
     clientAction: UnifiedChatClientAction,

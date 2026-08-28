@@ -141,7 +141,7 @@ describe('Grocery control tool provider', () => {
       handoffs: { resolve: async (handoffId) => handoffId === 'handoff-1' ? {
         id: handoffId, groceryListId: 'list-1', provider: 'instacart', state: 'provider_link_created',
         expiresAt: '2026-08-28T20:00:00.000Z',
-      } : null } });
+      } : null }, now: () => '2026-08-28T19:00:00.000Z' });
 
     await expect(provider.execute({ id: 'open', toolId: 'groceries.handoff.open', arguments: {
       retailerHandoffId: 'handoff-1',

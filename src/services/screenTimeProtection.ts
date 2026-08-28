@@ -97,6 +97,9 @@ export type PersonalScreenTimeRule =
 
 export type ScreenTimeProtectionSettings = {
   authorizationStatus: ScreenTimeAuthorizationStatus;
+  /** Version 1 is the single sentence-composer rule system. Version 0 must run the clean reset. */
+  ruleSystemVersion: 0 | 1;
+  ruleSystemCleanupStatus: 'ready' | 'needs_attention';
   personalRuleSchemaVersion: 2;
   personalCompositeRules: PersonalCompositeScreenTimeRule[];
   /** @deprecated V1 compatibility storage while installed rules migrate. */
@@ -192,6 +195,8 @@ export const DEFAULT_SCREEN_TIME_SETUP_OFFER_STATE: ScreenTimeSetupOfferState = 
 
 export const DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS: ScreenTimeProtectionSettings = {
   authorizationStatus: 'notDetermined',
+  ruleSystemVersion: 1,
+  ruleSystemCleanupStatus: 'ready',
   personalRuleSchemaVersion: 2,
   personalCompositeRules: [],
   personalRules: [],
@@ -445,7 +450,7 @@ function migrateLegacyPersonalRules(raw: any): PersonalScreenTimeRule[] {
 }
 
 function normalizePersonalRules(raw: any): PersonalScreenTimeRule[] {
-  if (!Array.isArray(raw.personalRules) || raw.personalRules.length === 0) {
+  if (!Array.isArray(raw.personalRules)) {
     return migrateLegacyPersonalRules(raw);
   }
   const seen = new Set<string>();
@@ -483,20 +488,23 @@ export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTim
   const realStepRule = personalRules.find((rule): rule is PersonalRealStepScreenTimeRule => rule.kind === 'real_step');
   const legacyFocus = normalizeFocusProtection(raw.focusProtection);
   const legacyMeaningful = normalizeMeaningfulFirst(raw.meaningfulFirst);
+  const isCurrentRuleSystem = raw.ruleSystemVersion === 1;
   return {
     authorizationStatus: normalizeAuthorizationStatus(raw.authorizationStatus),
+    ruleSystemVersion: raw.ruleSystemVersion === 1 ? 1 : 0,
+    ruleSystemCleanupStatus: raw.ruleSystemCleanupStatus === 'needs_attention' ? 'needs_attention' : 'ready',
     personalRuleSchemaVersion: 2,
     personalCompositeRules,
     personalRules,
     selectedApps: unionRuleTokens(personalRules, 'selectedApps', legacyApps),
     selectedCategories: unionRuleTokens(personalRules, 'selectedCategories', legacyCategories),
-    focusProtection: focusRule ? {
+    focusProtection: !isCurrentRuleSystem && focusRule ? {
       enabled: focusRule.enabled,
       setupCompleted: focusRule.setupCompleted,
       lastAppliedSessionId: focusRule.lastAppliedSessionId,
       lastUpdated: focusRule.lastUpdated,
     } : legacyFocus,
-    meaningfulFirst: realStepRule ? {
+    meaningfulFirst: !isCurrentRuleSystem && realStepRule ? {
       enabled: realStepRule.enabled,
       qualifyingActions: realStepRule.qualifyingActions,
       minFocusMinutes: realStepRule.minFocusMinutes,
@@ -782,23 +790,19 @@ export function recordMeaningfulFirstQualification(
   settings: ScreenTimeProtectionSettings,
   qualification: MeaningfulFirstQualification,
 ): ScreenTimeProtectionSettings {
-  let changed = false;
-  const occurredAtIso = qualification.occurredAt.toISOString();
-  const personalRules = settings.personalRules.map((rule) => {
-    if (rule.kind !== 'real_step' || !qualifiesRealStepRule(rule, qualification)) return rule;
-    changed = true;
-    return {
-      ...rule,
-      currentUnlockUntilIso: realStepUnlockUntil(rule, qualification.occurredAt).toISOString(),
-      lastQualifiedAtIso: occurredAtIso,
-      lastUpdated: occurredAtIso,
-    };
-  });
-  if (!changed) return settings;
+  const meaningfulFirst = settings.meaningfulFirst;
+  if (!meaningfulFirst.qualifyingActions.includes(qualification.action)) return settings;
+  if (qualification.action === 'focus_session_completed') {
+    const minutes = Number(qualification.focusMinutes);
+    if (!Number.isFinite(minutes) || minutes < meaningfulFirst.minFocusMinutes) return settings;
+  }
   return normalizeScreenTimeProtectionSettings({
     ...settings,
-    personalRules,
-    lastUpdated: occurredAtIso,
+    meaningfulFirst: buildMeaningfulFirstUnlock(settings, {
+      now: qualification.occurredAt,
+      reason: 'qualified',
+    }),
+    lastUpdated: qualification.occurredAt.toISOString(),
   });
 }
 
@@ -806,19 +810,11 @@ export function recordMeaningfulFirstBypass(
   settings: ScreenTimeProtectionSettings,
   now: Date,
 ): ScreenTimeProtectionSettings {
-  let changed = false;
-  const nowIso = now.toISOString();
-  const personalRules = settings.personalRules.map((rule) => {
-    if (rule.kind !== 'real_step' || !rule.enabled || !rule.temporaryOpenAllowed) return rule;
-    changed = true;
-    return {
-      ...rule,
-      currentUnlockUntilIso: new Date(now.getTime() + DEFAULT_TEMPORARY_OPEN_MINUTES * 60_000).toISOString(),
-      lastUpdated: nowIso,
-    };
+  return normalizeScreenTimeProtectionSettings({
+    ...settings,
+    meaningfulFirst: buildMeaningfulFirstUnlock(settings, { now, reason: 'bypass' }),
+    lastUpdated: now.toISOString(),
   });
-  if (!changed) return settings;
-  return normalizeScreenTimeProtectionSettings({ ...settings, personalRules, lastUpdated: nowIso });
 }
 
 export type ActivePersonalScreenTimeRestriction = {
@@ -889,21 +885,28 @@ export function getScreenTimeSetupRecoveryStep(settings: ScreenTimeProtectionSet
     return 'permission_denied';
   }
   if (normalized.authorizationStatus !== 'approved') return 'permission';
-  if (!hasSelectedScreenTimeTargets(normalized)) return 'apps';
-  if (!normalized.personalRules.some((rule) => rule.enabled)) return 'rules';
+  const hasCanonicalTargets = normalized.personalCompositeRules.some((rule) => (
+    rule.selectedApps.length + rule.selectedCategories.length > 0
+  ));
+  if (!hasCanonicalTargets) return 'apps';
+  if (!normalized.personalCompositeRules.some((rule) => rule.setupCompleted)) return 'rules';
   return 'ready';
 }
 
 function isSetupIntentAlreadyEnabled(settings: ScreenTimeProtectionSettings, intent: ScreenTimeSetupIntent): boolean {
-  if (intent === 'focus_sessions') return settings.personalRules.some((rule) => rule.kind === 'focus' && rule.enabled);
-  if (intent === 'settings_discovery') {
-    return settings.personalRules.some((rule) => rule.enabled);
+  const enabledRules = settings.personalCompositeRules.filter((rule) => rule.enabled);
+  if (intent === 'focus_sessions') {
+    return enabledRules.some((rule) => rule.conditions.some((condition) => condition.type === 'focus_active'));
   }
-  return settings.personalRules.some((rule) => rule.kind === 'real_step' && rule.enabled);
+  if (intent === 'settings_discovery') {
+    return enabledRules.length > 0;
+  }
+  return enabledRules.some((rule) => rule.conditions.some((condition) => condition.type === 'real_step_complete'));
 }
 
 function hasCompletedSharedScreenTimeSetup(settings: ScreenTimeProtectionSettings): boolean {
-  return settings.authorizationStatus === 'approved' && hasSelectedScreenTimeTargets(settings);
+  return settings.authorizationStatus === 'approved'
+    && settings.personalCompositeRules.some((rule) => rule.setupCompleted);
 }
 
 function isSnoozed(iso: string | null | undefined, now: Date, durationMs: number): boolean {

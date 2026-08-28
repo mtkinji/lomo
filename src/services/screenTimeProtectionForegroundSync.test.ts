@@ -16,8 +16,8 @@ jest.mock('./screenTimeProtectionRuntime', () => ({
   reconcileScreenTimeRestrictions: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock('../capabilities/money/runtime/moneyAppControlRuntime', () => ({
-  reconcileLatestMoneyAppControls: jest.fn().mockResolvedValue(undefined),
+jest.mock('../features/screen-time/runtime/screenTimeRuleSystemCleanupRuntime', () => ({
+  ensureCurrentScreenTimeRuleSystem: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('../features/activities/focusSessionStore', () => ({
@@ -44,7 +44,7 @@ import { AppState } from 'react-native';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 import { useAppStore } from '../store/useAppStore';
 import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
-import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
+import { ensureCurrentScreenTimeRuleSystem } from '../features/screen-time/runtime/screenTimeRuleSystemCleanupRuntime';
 import {
   startScreenTimeProtectionForegroundSync,
   stopScreenTimeProtectionForegroundSyncForTests,
@@ -64,31 +64,33 @@ describe('screenTimeProtectionForegroundSync', () => {
     stopScreenTimeProtectionForegroundSyncForTests();
   });
 
-  it('fully reconciles once on start and on foreground return so a persisted unlock clears a stale native shield', () => {
+  it('cleans up the old rule system before reconciling on start and foreground return', async () => {
     startScreenTimeProtectionForegroundSync();
+    await Promise.resolve();
 
+    expect(ensureCurrentScreenTimeRuleSystem).toHaveBeenCalledTimes(1);
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: false });
-    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(1);
 
     (AppState as any).__emit('active');
+    await Promise.resolve();
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);
-    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(2);
 
     (AppState as any).__emit('active');
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);
   });
 
-  it('preserves an active Focus restriction during foreground reconciliation', () => {
+  it('preserves an active Focus restriction during foreground reconciliation', async () => {
     (useFocusSessionStore.getState as jest.Mock).mockReturnValue({
       activeSession: { sessionId: 'focus-1', mode: 'running' },
     });
 
     startScreenTimeProtectionForegroundSync();
+    await Promise.resolve();
 
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: true });
   });
 
-  it('waits for persisted Screen Time state before reconciling on cold launch', () => {
+  it('waits for persisted Screen Time state before reconciling on cold launch', async () => {
     let finishAppHydration: Parameters<typeof useAppStore.persist.onFinishHydration>[0] | undefined;
     jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(false);
     jest.spyOn(useAppStore.persist, 'onFinishHydration').mockImplementation((
@@ -103,7 +105,15 @@ describe('screenTimeProtectionForegroundSync', () => {
     expect(reconcileScreenTimeRestrictions).not.toHaveBeenCalled();
     jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(true);
     finishAppHydration?.(useAppStore.getState());
+    await Promise.resolve();
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: false });
+  });
+
+  it('does not reconcile when physical-device cleanup is not confirmed', async () => {
+    (ensureCurrentScreenTimeRuleSystem as jest.Mock).mockResolvedValueOnce(false);
+    startScreenTimeProtectionForegroundSync();
+    await Promise.resolve();
+    expect(reconcileScreenTimeRestrictions).not.toHaveBeenCalled();
   });
 
   it('does not register duplicate app state listeners', () => {

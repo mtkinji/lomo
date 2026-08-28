@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import type { UnifiedChatThreadAggregate } from './types';
-import { createPersonalScreenTimeRule, normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
+import { normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
 
 const aggregate: UnifiedChatThreadAggregate = {
   thread: { id: 'thread-1', title: 'Chat', titleSource: 'default', status: 'active', archivedAt: null, createdAt: 'created', updatedAt: 'updated' },
@@ -77,7 +77,7 @@ test('finalizes an already-applied personal rule after reload without enforcing 
       operation: {
         ...aggregate.proposals![0].operation, id: 'operation-personal', proposalId: 'proposal-personal',
         type: 'update_personal_screen_time_rule', targetId: 'rule-1',
-        payload: { expectedUpdatedAt: '2026-08-27T14:00:00.000Z', fields: { limitMinutes: 20 } },
+        payload: { expectedUpdatedAt: '2026-08-27T14:00:00.000Z', fields: { enabled: false } },
       },
     }],
     receipts: [{
@@ -86,16 +86,18 @@ test('finalizes an already-applied personal rule after reload without enforcing 
       resultingObjectId: 'rule-1', appliedAt,
       undoOperation: {
         type: 'screen_time.personal_rule.update', ruleId: 'rule-1', expectedUpdatedAt: appliedAt,
-        fields: { enabled: true, kind: 'daily_limit', limitMinutes: 30 },
+        fields: { enabled: true },
       },
     }],
   } as UnifiedChatThreadAggregate;
   const settings = normalizeScreenTimeProtectionSettings({
-    authorizationStatus: 'approved', personalRules: [createPersonalScreenTimeRule({
-      id: 'rule-1', selectionId: 'private-selection', kind: 'daily_limit',
+    authorizationStatus: 'approved', personalRuleSchemaVersion: 2, personalCompositeRules: [{
+      id: 'rule-1', selectionId: 'private-selection',
       selectedApps: [{ token: 'private-token', label: 'Instagram' }], selectedCategories: [],
-      enabled: true, setupCompleted: true, limitMinutes: 20, nowIso: appliedAt,
-    })],
+      enabled: false, setupCompleted: true, connector: 'all', outcome: 'pause',
+      conditions: [{ id: 'usage', type: 'daily_usage', operator: 'reaches', minutes: 20 }],
+      lastUpdated: appliedAt,
+    }],
   });
   const loaded = { ...personalAggregate, proposals: [] } as UnifiedChatThreadAggregate;
   const repository = {
@@ -117,7 +119,7 @@ test('finalizes an already-applied personal rule after reload without enforcing 
   expect(activateRule).not.toHaveBeenCalled();
   expect(deactivateRule).not.toHaveBeenCalled();
   expect(repository.finalizeMutationReceipt).toHaveBeenCalledWith('receipt-personal', expect.objectContaining({
-    resultState: { enforcementState: 'applied', rule: expect.objectContaining({ limitMinutes: 20 }) },
+    resultState: { enforcementState: 'applied', rule: expect.objectContaining({ kind: 'composite', enabled: false }) },
     undoOperation: expect.objectContaining({ ruleId: 'rule-1' }),
   }));
   expect(JSON.stringify(repository.finalizeMutationReceipt.mock.calls)).not.toMatch(/private-token|private-selection/);

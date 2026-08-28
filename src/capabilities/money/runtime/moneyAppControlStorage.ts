@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
 import {
   DEFAULT_MONEY_APP_CONTROL_SETTINGS,
   normalizeMoneyAppControlSettings,
@@ -7,15 +6,11 @@ import {
 } from '../domain/moneyAppControl';
 
 const STORAGE_KEY = 'kwilt:money:app-control:v1';
-type Listener = (settings: MoneyAppControlSettings) => void;
-
 let currentSettings = DEFAULT_MONEY_APP_CONTROL_SETTINGS;
 let loaded = false;
-const listeners = new Set<Listener>();
 
 function emit(settings: MoneyAppControlSettings) {
   currentSettings = settings;
-  listeners.forEach((listener) => listener(settings));
 }
 
 export async function loadMoneyAppControlSettings(): Promise<MoneyAppControlSettings> {
@@ -31,25 +26,17 @@ export async function loadMoneyAppControlSettings(): Promise<MoneyAppControlSett
   return currentSettings;
 }
 
-export async function saveMoneyAppControlSettings(
-  updater: MoneyAppControlSettings | ((settings: MoneyAppControlSettings) => MoneyAppControlSettings),
-): Promise<MoneyAppControlSettings> {
-  const base = await loadMoneyAppControlSettings();
-  const next = normalizeMoneyAppControlSettings(typeof updater === 'function' ? updater(base) : updater);
-  const withTimestamp = { ...next, lastUpdated: new Date().toISOString() };
-  emit(withTimestamp);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(withTimestamp));
-  return withTimestamp;
+/**
+ * Removes the pre-consolidation Money-owned Screen Time policy store.
+ * The caller must clear each native selection before invoking this operation.
+ */
+export async function retireMoneyAppControlSettings(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  loaded = true;
+  emit(DEFAULT_MONEY_APP_CONTROL_SETTINGS);
 }
 
-export function useMoneyAppControlSettings() {
-  const [settings, setSettings] = useState(currentSettings);
-  const [hasLoaded, setHasLoaded] = useState(loaded);
-  useEffect(() => {
-    listeners.add(setSettings);
-    void loadMoneyAppControlSettings().finally(() => setHasLoaded(true));
-    return () => { listeners.delete(setSettings); };
-  }, []);
-  const save = useCallback((updater: Parameters<typeof saveMoneyAppControlSettings>[0]) => saveMoneyAppControlSettings(updater), []);
-  return { settings, loaded: hasLoaded, save };
+export function resetMoneyAppControlStorageForTests(): void {
+  loaded = false;
+  currentSettings = DEFAULT_MONEY_APP_CONTROL_SETTINGS;
 }

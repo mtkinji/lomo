@@ -1,6 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert, StyleSheet } from 'react-native';
-import type { MoneyAppControlSettings } from '../../capabilities/money/domain/moneyAppControl';
 import { presentScreenTimeActivityPicker } from '../../services/appleEcosystem/screenTimeProtection';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTimeProtection';
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -10,12 +9,22 @@ import { colors } from '../../theme';
 import type { HouseholdSnapshot } from '../household/data/household';
 import { ScreenTimeProtectionSettingsScreen } from './ScreenTimeProtectionSettingsScreen';
 
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ children, renderRightActions }: { children: React.ReactNode; renderRightActions?: (...args: unknown[]) => React.ReactNode }) => (
+      <View>{children}{renderRightActions?.(undefined, undefined, { close: jest.fn() })}</View>
+    ),
+  };
+});
+
 const mockSettingsNavigate = jest.fn();
-const mockRootNavigate = jest.fn();
 const mockGetHouseholdSnapshot = jest.fn();
-const mockMoneySettings = jest.fn<MoneyAppControlSettings, []>();
 const mockGetScreenTimeAuthorizationStatus = jest.fn();
 const mockRequestScreenTimeAuthorization = jest.fn();
+const mockEnsureCurrentRuleSystem = jest.fn();
 let mockRouteParams: Record<string, unknown> | undefined;
 
 jest.mock('@react-navigation/native', () => {
@@ -27,7 +36,7 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({
       goBack: jest.fn(),
       navigate: mockSettingsNavigate,
-      getParent: () => ({ navigate: mockRootNavigate }),
+      getParent: () => ({ navigate: jest.fn() }),
     }),
     useRoute: () => ({ params: mockRouteParams }),
   };
@@ -41,13 +50,6 @@ jest.mock('../household/data/household', () => ({
   getHouseholdSnapshot: (...args: unknown[]) => mockGetHouseholdSnapshot(...args),
 }));
 
-jest.mock('../../capabilities/money/runtime/moneyAppControlStorage', () => ({
-  useMoneyAppControlSettings: () => ({
-    settings: mockMoneySettings(),
-    loaded: true,
-    save: jest.fn(),
-  }),
-}));
 
 jest.mock('../../services/appleEcosystem/screenTimeProtection', () => ({
   getScreenTimeAuthorizationStatus: (...args: unknown[]) => mockGetScreenTimeAuthorizationStatus(...args),
@@ -56,7 +58,15 @@ jest.mock('../../services/appleEcosystem/screenTimeProtection', () => ({
 }));
 
 jest.mock('../../services/screenTimeProtectionRuntime', () => ({
+  activatePersonalCompositeScreenTimeRule: jest.fn(async () => true),
+  deactivatePersonalCompositeScreenTimeRule: jest.fn(async () => true),
+  activatePersonalScreenTimeRule: jest.fn(async () => true),
+  deactivatePersonalScreenTimeRule: jest.fn(async () => true),
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
+}));
+
+jest.mock('../screen-time/runtime/screenTimeRuleSystemCleanupRuntime', () => ({
+  ensureCurrentScreenTimeRuleSystem: (...args: unknown[]) => mockEnsureCurrentRuleSystem(...args),
 }));
 
 jest.mock('../../services/analytics/useAnalytics', () => ({
@@ -76,30 +86,21 @@ const household: HouseholdSnapshot = {
   grants: [],
 };
 
-const money: MoneyAppControlSettings = {
-  authorizationStatus: 'approved',
-  policies: {
-    shopping: {
-      enabled: true,
-      preset: 'always_review',
-      unlockWindowMinutes: 20,
-      selectedApps: [{ token: 'amazon', label: 'Amazon' }],
-      selectedCategories: [],
-      lastReview: null,
-    },
-  },
-  lastUpdated: null,
-};
+const focusRule = (id: string, label: string) => ({
+  id, selectionId: id, selectedApps: [{ token: id, label }], selectedCategories: [],
+  enabled: true, setupCompleted: true, connector: 'all' as const, outcome: 'pause' as const,
+  conditions: [{ id: `${id}:focus`, type: 'focus_active' as const, operator: 'is' as const, value: true as const }],
+  temporaryOpenUntilIso: null, lastUpdated: null,
+});
 
 describe('ScreenTimeProtectionSettingsScreen overview', () => {
   beforeEach(() => {
     resetAllStores();
     mockSettingsNavigate.mockReset();
-    mockRootNavigate.mockReset();
     mockGetHouseholdSnapshot.mockReset().mockResolvedValue(household);
-    mockMoneySettings.mockReset().mockReturnValue(money);
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
     mockRequestScreenTimeAuthorization.mockReset().mockResolvedValue('approved');
+    mockEnsureCurrentRuleSystem.mockReset().mockResolvedValue(true);
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     mockRouteParams = undefined;
     useAppStore.getState().setAuthIdentity({
@@ -111,17 +112,12 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
         authorizationStatus: 'approved',
-        selectedApps: [{ token: 'social', label: 'Social' }],
-        focusProtection: {
-          ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS.focusProtection,
-          enabled: true,
-          setupCompleted: true,
-        },
+        personalCompositeRules: [focusRule('focus-social', 'Social')],
       },
     });
   });
 
-  it('shows scoped rule counts, individual Money rules, and Household setup', async () => {
+  it('shows canonical rule counts and Household setup without a separate Money inventory', async () => {
     const { getByRole, getByTestId, getByText, queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
     expect(getByText('Screen Time')).toBeTruthy();
@@ -129,18 +125,17 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(StyleSheet.flatten(getByTestId('app-shell-container').props.style)).toMatchObject({
       backgroundColor: colors.shellAlt,
     });
-    expect(getByText('My rules · 2')).toBeTruthy();
+    expect(getByText('My rules · 1')).toBeTruthy();
     expect(getByText('Household rules · 0')).toBeTruthy();
     expect(await waitFor(() => getByText('Charlie'))).toBeTruthy();
     expect(getByText('Set up')).toBeTruthy();
-    expect(getByText('Amazon')).toBeTruthy();
-    expect(getByText('Pause until Shopping is reviewed.')).toBeTruthy();
+    expect(getByText('Social')).toBeTruthy();
     expect(getByText('Household setup')).toBeTruthy();
     expect(queryByText('Family')).toBeNull();
     expect(queryByText('Shopping policy')).toBeNull();
   });
 
-  it('routes Household setup and an individual Money rule to their canonical owners', async () => {
+  it('routes Household setup and a personal rule to their canonical editors', async () => {
     const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     await waitFor(() => expect(getByText('Charlie')).toBeTruthy());
 
@@ -151,10 +146,9 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       childDisplayName: 'Charlie',
     });
 
-    fireEvent.press(getByText('Amazon'));
-    expect(mockRootNavigate).toHaveBeenCalledWith('Money', {
-      screen: 'MoneyAppControl',
-      params: { categoryId: 'shopping' },
+    fireEvent.press(getByText('Social'));
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+      entry: 'inventory', ruleId: 'focus-social',
     });
   });
 
@@ -171,7 +165,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
   });
 
-  it('does not show empty Family or Money groups', async () => {
+  it('does not show an empty Household setup group', async () => {
     mockGetHouseholdSnapshot.mockResolvedValue({
       household: null,
       currentMembershipId: null,
@@ -179,7 +173,6 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       activations: [],
       grants: [],
     });
-    mockMoneySettings.mockReturnValue({ ...money, policies: {} });
 
     const { queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalled());
@@ -197,6 +190,18 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     fireEvent.press(getByText('Household'));
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsHousehold');
+  });
+
+  it('shows one calm retry row when old native controls could not be cleared', () => {
+    useAppStore.setState((state) => ({
+      screenTimeProtection: { ...state.screenTimeProtection, ruleSystemCleanupStatus: 'needs_attention' },
+    }));
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    expect(screen.getByText('Finish updating Screen Time rules')).toBeTruthy();
+    expect(screen.getByText("Kwilt couldn't finish removing older Screen Time controls on this iPhone. Keep Kwilt installed and try again.")).toBeTruthy();
+    fireEvent.press(screen.getByText('Finish updating Screen Time rules'));
+    expect(mockEnsureCurrentRuleSystem).toHaveBeenCalledTimes(1);
   });
 
   it('returns to setup when native authorization invalidates persisted completion', async () => {
@@ -269,7 +274,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     await act(async () => {
       useAppStore.getState().setScreenTimeProtection((current) => ({
         ...current,
-        focusProtection: { ...current.focusProtection, enabled: false },
+        personalCompositeRules: current.personalCompositeRules.map((rule) => ({ ...rule, enabled: false })),
       }));
     });
 
@@ -285,6 +290,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     useAppStore.setState((state) => ({
       screenTimeProtection: {
         ...state.screenTimeProtection,
+        personalCompositeRules: [],
         focusProtection: {
           ...state.screenTimeProtection.focusProtection,
           enabled: false,
@@ -344,56 +350,47 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
   });
 
-  it('keeps repeated rules as uniform disclosure rows and opens detail by identity', () => {
+  it('keeps repeated rules as uniform detail rows with direct enabled controls', async () => {
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
         authorizationStatus: 'approved',
-        personalRules: [
-          {
-            id: 'focus-social',
-            kind: 'focus',
-            selectionId: 'focus-social',
-            selectedApps: [{ token: 'social', label: 'Social' }],
-            selectedCategories: [],
-            enabled: true,
-            setupCompleted: true,
-            temporaryOpenAllowed: true,
-            temporaryOpenMinutes: 20,
-            currentUnlockUntilIso: null,
-            needsSelectionReview: false,
-            lastUpdated: null,
-            lastAppliedSessionId: null,
-          },
-          {
-            id: 'focus-video',
-            kind: 'focus',
-            selectionId: 'focus-video',
-            selectedApps: [{ token: 'video', label: 'YouTube' }],
-            selectedCategories: [],
-            enabled: true,
-            setupCompleted: true,
-            temporaryOpenAllowed: true,
-            temporaryOpenMinutes: 20,
-            currentUnlockUntilIso: null,
-            needsSelectionReview: false,
-            lastUpdated: null,
-            lastAppliedSessionId: null,
-          },
-        ],
+        personalCompositeRules: [focusRule('focus-social', 'Social'), focusRule('focus-video', 'YouTube')],
       },
     });
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     expect(screen.getByLabelText('Add My rule').props.accessibilityState.disabled).toBe(false);
-    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+    expect(screen.queryAllByRole('switch')).toHaveLength(2);
 
-    fireEvent.press(screen.getByLabelText('YouTube. Pause while Focus is running. On'));
+    fireEvent.press(screen.getByRole('switch', { name: 'YouTube rule enabled' }));
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules
+      .find((rule) => rule.id === 'focus-video')?.enabled).toBe(false));
+
+    fireEvent.press(screen.getByLabelText('YouTube. Pause while Focus is active. Off'));
 
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
       entry: 'inventory',
       ruleId: 'focus-video',
     });
     expect(presentScreenTimeActivityPicker).not.toHaveBeenCalled();
+  });
+
+  it('confirms a personal-rule deletion exposed by the list swipe action', async () => {
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'approved',
+        personalCompositeRules: [focusRule('focus-social', 'Social')],
+      },
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Delete Social rule' }));
+    const actions = alert.mock.calls.at(-1)?.[2] ?? [];
+    await act(async () => { actions.find((action) => action.text === 'Delete rule')?.onPress?.(); });
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules).toEqual([]));
   });
 });

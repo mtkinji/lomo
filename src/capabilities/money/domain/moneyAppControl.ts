@@ -1,9 +1,8 @@
 import type { ScreenTimeAuthorizationStatus, ScreenTimeToken } from '../../../services/screenTimeProtection';
 import {
   DEFAULT_TEMPORARY_OPEN_MINUTES,
-  type ScreenTimeRule,
 } from '../../../features/screen-time/domain/screenTimeRule';
-import type { MoneyCategory, MoneySnapshot } from '../data/moneySnapshot';
+import type { MoneySnapshot } from '../data/moneySnapshot';
 
 export type MoneyAppControlPreset =
   | 'always_review'
@@ -12,15 +11,13 @@ export type MoneyAppControlPreset =
   | 'when_over'
   | 'needs_review';
 
-export type MoneyAppControlReviewOutcome = 'opened_for_now' | 'left_blocked';
-
 export type MoneyAppControlPolicy = {
   enabled: boolean;
   preset: MoneyAppControlPreset;
   unlockWindowMinutes: number;
   selectedApps: ScreenTimeToken[];
   selectedCategories: ScreenTimeToken[];
-  lastReview?: { outcome: MoneyAppControlReviewOutcome; reviewedAtIso: string } | null;
+  lastReview?: { outcome: 'opened_for_now' | 'left_blocked'; reviewedAtIso: string } | null;
 };
 
 export type MoneyAppControlSettings = {
@@ -29,26 +26,11 @@ export type MoneyAppControlSettings = {
   lastUpdated: string | null;
 };
 
-export type MoneyAppControlReason =
-  | 'money_review_required'
-  | 'money_over_limit'
-  | 'money_ahead_of_pace'
-  | 'money_usage_threshold'
-  | 'money_transactions_need_review';
-
 export const DEFAULT_MONEY_APP_CONTROL_SETTINGS: MoneyAppControlSettings = {
   authorizationStatus: 'notDetermined',
   policies: {},
   lastUpdated: null,
 };
-
-export const MONEY_REVIEW_HANDOFF_MAX_AGE_MS = 2 * 60_000;
-
-export function isFreshMoneyReviewHandoff(requestedAtMs: number, nowMs: number): boolean {
-  if (!Number.isFinite(requestedAtMs) || !Number.isFinite(nowMs)) return false;
-  const ageMs = nowMs - requestedAtMs;
-  return ageMs >= 0 && ageMs <= MONEY_REVIEW_HANDOFF_MAX_AGE_MS;
-}
 
 function normalizeStatus(value: unknown): ScreenTimeAuthorizationStatus {
   return value === 'approved' || value === 'denied' || value === 'revoked' || value === 'unavailable' || value === 'notDetermined'
@@ -108,76 +90,12 @@ export function normalizeMoneyAppControlSettings(value: unknown): MoneyAppContro
   };
 }
 
-export function hasMoneyAppControlTargets(policy: MoneyAppControlPolicy | undefined): boolean {
-  return Boolean(policy && (policy.selectedApps.length > 0 || policy.selectedCategories.length > 0));
-}
-
 export function moneyAppControlSelectionId(categorySourceId: string): string {
   const safe = categorySourceId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 54);
   return `money_${safe || 'category'}`;
 }
 
-export function projectMoneyScreenTimeRule(params: {
-  categorySourceId: string;
-  categoryName: string;
-  policy: MoneyAppControlPolicy | undefined;
-}): ScreenTimeRule | null {
-  if (!params.policy || !hasMoneyAppControlTargets(params.policy)) return null;
-  const categorySourceId = params.categorySourceId.trim();
-  const categoryName = params.categoryName.trim();
-  if (!categorySourceId || !categoryName) return null;
-  const selectionId = moneyAppControlSelectionId(categorySourceId);
-  return {
-    id: selectionId,
-    domain: 'money',
-    subject: { kind: 'self' },
-    selectionId,
-    title: `Review ${categoryName}`,
-    trigger: { type: 'money_review', categorySourceId },
-    temporaryOpen: {
-      allowed: true,
-      durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
-    },
-    active: params.policy.enabled,
-    desiredVersion: 1,
-    appliedVersion: null,
-  };
-}
-
-function hasFreshOpenReview(policy: MoneyAppControlPolicy, now: Date): boolean {
-  if (policy.lastReview?.outcome !== 'opened_for_now') return false;
-  const reviewedAtMs = Date.parse(policy.lastReview.reviewedAtIso);
-  return Number.isFinite(reviewedAtMs) && now.getTime() - reviewedAtMs < policy.unlockWindowMinutes * 60_000;
-}
-
-export function evaluateMoneyAppControlPolicy(params: {
-  settings: MoneyAppControlSettings;
-  snapshot: MoneySnapshot;
-  category: MoneyCategory;
-  now: Date;
-}): { restricted: boolean; reason: MoneyAppControlReason | null } {
-  const policy = params.settings.policies[params.category.sourceId];
-  if (params.settings.authorizationStatus !== 'approved' || !policy?.enabled || !hasMoneyAppControlTargets(policy)) {
-    return { restricted: false, reason: null };
-  }
-  if (hasFreshOpenReview(policy, params.now)) return { restricted: false, reason: null };
-
-  if (policy.preset === 'always_review') return { restricted: true, reason: 'money_review_required' };
-  if (policy.preset === 'at_95_percent' && params.category.percentUsed >= 95) return { restricted: true, reason: 'money_usage_threshold' };
-  if (policy.preset === 'when_over' && params.category.percentUsed >= 100) return { restricted: true, reason: 'money_over_limit' };
-  if (policy.preset === 'needs_review' && params.snapshot.totals.needsReviewCount > 0) {
-    return { restricted: true, reason: 'money_transactions_need_review' };
-  }
-  if (policy.preset === 'when_hot') {
-    const daysInMonth = new Date(params.now.getFullYear(), params.now.getMonth() + 1, 0).getDate();
-    const elapsedPercent = (params.now.getDate() / daysInMonth) * 100;
-    if (params.category.percentUsed > elapsedPercent + 10) return { restricted: true, reason: 'money_ahead_of_pace' };
-  }
-  return { restricted: false, reason: null };
-}
-
 export function evaluateMoneyBudgetCondition(params: {
-  settings: MoneyAppControlSettings;
   snapshot: MoneySnapshot;
   categorySourceId: string;
   preset: MoneyAppControlPreset;
@@ -185,8 +103,6 @@ export function evaluateMoneyBudgetCondition(params: {
 }): boolean | null {
   const category = params.snapshot.categories.find((candidate) => candidate.sourceId === params.categorySourceId);
   if (!category) return null;
-  const policy = params.settings.policies[params.categorySourceId];
-  if (policy && hasFreshOpenReview(policy, params.now)) return false;
   if (params.preset === 'always_review') return true;
   if (params.preset === 'at_95_percent') return category.percentUsed >= 95;
   if (params.preset === 'when_over') return category.percentUsed >= 100;
@@ -194,24 +110,6 @@ export function evaluateMoneyBudgetCondition(params: {
   const daysInMonth = new Date(params.now.getFullYear(), params.now.getMonth() + 1, 0).getDate();
   const elapsedPercent = (params.now.getDate() / daysInMonth) * 100;
   return category.percentUsed > elapsedPercent + 10;
-}
-
-export function recordMoneyAppControlReview(
-  settings: MoneyAppControlSettings,
-  categorySourceId: string,
-  outcome: MoneyAppControlReviewOutcome,
-  now = new Date(),
-): MoneyAppControlSettings {
-  const policy = settings.policies[categorySourceId];
-  if (!policy) return settings;
-  return {
-    ...settings,
-    policies: {
-      ...settings.policies,
-      [categorySourceId]: { ...policy, lastReview: { outcome, reviewedAtIso: now.toISOString() } },
-    },
-    lastUpdated: now.toISOString(),
-  };
 }
 
 export function getMoneyAppControlPresetCopy(preset: MoneyAppControlPreset): { title: string; detail: string } {

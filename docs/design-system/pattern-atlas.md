@@ -21,9 +21,9 @@ Job: When a person opens a pushed management page within a top-level capability 
 
 Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-27.
 
-Approved routes: Pushed second-level management pages, including Screen Time inventory and rule detail, Money app-control rule detail, and equivalent Settings destinations. Top-level capability landing pages are excluded.
+Approved routes: Pushed second-level management pages, including Screen Time inventory and rule detail, Money category detail, and equivalent Settings destinations. Top-level capability landing pages are excluded.
 
-Rendered references: Screen Time inventory and Shopping app-controls Simulator references reviewed 2026-08-27. The Screen Time reference establishes the correction target; Shopping app controls establishes the accepted compact-header and gray-canvas precedent.
+Rendered references: Screen Time inventory and Shopping category-detail Simulator references reviewed 2026-08-27. The Screen Time reference establishes the correction target; Shopping establishes the accepted compact-header and gray-canvas precedent.
 
 Three-second read: A compact centered destination title, a back path, and grouped white management cards on the gray application shell.
 

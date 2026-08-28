@@ -26,7 +26,31 @@ function base(overrides: Partial<ScreenTimeProtectionSettings> = {}): ScreenTime
   });
 }
 
+function compositeRule(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'canonical-rule', selectionId: 'canonical-selection',
+    selectedApps: [{ token: 'youtube', label: 'YouTube' }], selectedCategories: [],
+    enabled: true, setupCompleted: true, connector: 'all' as const, outcome: 'pause' as const,
+    conditions: [{ id: 'real-step', type: 'real_step_complete' as const, operator: 'is' as const }],
+    lastUpdated: dayStart.toISOString(),
+    ...overrides,
+  };
+}
+
 describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
+  it('marks pre-consolidation persisted rule state for the one-time clean reset', () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRuleSchemaVersion: 2,
+      personalCompositeRules: [],
+      personalRules: [],
+    });
+
+    expect(settings.ruleSystemVersion).toBe(0);
+    expect(DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS.ruleSystemVersion).toBe(1);
+    expect(normalizeScreenTimeProtectionSettings(DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS).ruleSystemVersion).toBe(1);
+  });
+
   it('migrates V1 personal rules into V2 composite aggregates without rewriting their behavior', () => {
     const settings = normalizeScreenTimeProtectionSettings({
       authorizationStatus: 'approved',
@@ -238,41 +262,21 @@ describe('screenTimeProtection setup defaults and recovery', () => {
           selectedApps: [{ token: 'youtube', label: 'YouTube' }],
         }),
       ),
-    ).toBe('rules');
+    ).toBe('apps');
     expect(
       getScreenTimeSetupRecoveryStep(
         base({
           authorizationStatus: 'approved',
-          selectedApps: [{ token: 'youtube', label: 'YouTube' }],
-          meaningfulFirst: { enabled: true },
-        } as any),
+          personalCompositeRules: [compositeRule()],
+        }),
       ),
     ).toBe('ready');
   });
 
-  it('treats setup as ready when any repeated personal rule is enabled', () => {
+  it('treats setup as ready when a canonical rule is saved', () => {
     expect(getScreenTimeSetupRecoveryStep(base({
       authorizationStatus: 'approved',
-      personalRules: [
-        createPersonalScreenTimeRule({
-          id: 'focus-social',
-          selectionId: 'focus-social',
-          kind: 'focus',
-          selectedApps: [{ token: 'social', label: 'Social' }],
-          selectedCategories: [],
-          enabled: false,
-          setupCompleted: true,
-        }),
-        createPersonalScreenTimeRule({
-          id: 'focus-youtube',
-          selectionId: 'focus-youtube',
-          kind: 'focus',
-          selectedApps: [{ token: 'youtube', label: 'YouTube' }],
-          selectedCategories: [],
-          enabled: true,
-          setupCompleted: true,
-        }),
-      ],
+      personalCompositeRules: [compositeRule({ enabled: false })],
     }))).toBe('ready');
   });
 });
@@ -295,7 +299,7 @@ describe('screenTimeProtection setup offers', () => {
   it('suppresses contextual offers after shared Screen Time setup is complete', () => {
     const configured = base({
       authorizationStatus: 'approved',
-      selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+      personalCompositeRules: [compositeRule()],
     });
 
     expect(
@@ -409,7 +413,7 @@ describe('screenTimeProtection setup offers', () => {
 
     expect(
       shouldShowScreenTimeSetupOffer({
-        settings: base({ meaningfulFirst: { enabled: true } } as any),
+        settings: base({ personalCompositeRules: [compositeRule()] }),
         setupIntent: 'meaningful_first_pattern_building',
         surface: 'today',
         completedFocusSessions: 0,
@@ -529,7 +533,7 @@ describe('screenTimeProtection meaningful-first unlocks', () => {
     expect(afterShortFocus).toBe(settings);
   });
 
-  it('unlocks every applicable same-kind rule without changing independent identities', () => {
+  it('records real-step truth once without mutating retired personal rules', () => {
     const first = createPersonalScreenTimeRule({
       id: 'real-step-social',
       selectionId: 'real-step-social',
@@ -555,10 +559,8 @@ describe('screenTimeProtection meaningful-first unlocks', () => {
       occurredAt: dayStart,
     });
 
-    expect(next.personalRules).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'real-step-games', lastQualifiedAtIso: dayStart.toISOString() }),
-      expect.objectContaining({ id: 'real-step-social', lastQualifiedAtIso: dayStart.toISOString() }),
-    ]));
+    expect(next.meaningfulFirst.lastQualifiedAtIso).toBe(dayStart.toISOString());
+    expect(next.personalRules).toEqual(settings.personalRules);
   });
 
   it('supports temporary bypass without marking the day qualified', () => {

@@ -62,4 +62,10 @@ describe('evaluatePersonalCompositeRule', () => {
       budgetConditionTruth: {},
     })).toBe('unknown');
   });
+
+  it('supports a real-step condition that matches completion or non-completion', () => {
+    const context = { minuteOfDay: 0, dailyUsageMinutes: null, focusActive: null, realStepComplete: true };
+    expect(resolvePersonalRuleCondition({ id: 'real', type: 'real_step_complete', operator: 'is' }, context)).toBe(true);
+    expect(resolvePersonalRuleCondition({ id: 'real', type: 'real_step_complete', operator: 'is_not' }, context)).toBe(false);
+  });
 });

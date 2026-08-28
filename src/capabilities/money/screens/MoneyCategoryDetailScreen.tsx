@@ -1,6 +1,6 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, type NavigationProp } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
@@ -56,6 +56,7 @@ import { projectMoneyRebalanceAnswer, type MoneyRebalanceAnswer } from '../domai
 import type { MoneyForecastMode } from '../domain/moneyForecast';
 import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import type { MoneyStackParamList } from '../navigation/types';
+import type { RootDrawerParamList } from '../../../navigation/RootNavigator';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
 import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
@@ -68,6 +69,7 @@ const CATEGORY_HEADER_BAR_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT + 8;
 const CATEGORY_MEDIA_GEOMETRY = resolveObjectDetailMediaGeometry('compact');
 
 export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyCategoryDetail'>) {
+  const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -582,10 +584,22 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               disabled={savingCategory}
               onPress={() => {
                 setSettingsOpen(false);
-                navigation.navigate('MoneyAppControl', { categoryId: category.id });
+                rootNavigation?.navigate('Settings', {
+                  screen: 'SettingsScreenTimeRuleBuilder',
+                  params: {
+                    entry: 'contextual',
+                    suggestedBudgetCondition: {
+                      categorySourceId: category.sourceId,
+                      categoryName: category.name,
+                      preset: 'when_over',
+                    },
+                    setupIntent: 'settings_discovery',
+                    entrySurface: 'settings',
+                  },
+                });
               }}
-              title="App controls"
-              value="Manage"
+              title="Screen Time rule"
+              value="Create"
             />
           </SettingsGroup>
           {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}

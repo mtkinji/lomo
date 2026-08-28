@@ -8,9 +8,9 @@ hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-review-budget-reality-before-spending
 job_step: choose-intentional-access
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending]
-related_briefs: [brief-budget-reality-gate, brief-lane-gate-onboarding, brief-ios-budget-widgets, brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls]
+related_briefs: [brief-budget-reality-gate, brief-lane-gate-onboarding, brief-ios-budget-widgets, brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-rule-system-consolidation]
 owner: andrew
-last_updated: 2026-07-30
+last_updated: 2026-08-28
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -19,7 +19,7 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 
 # Screen Time Controls
 
-> **System ownership:** This imported brief defines Money-owned Screen Time agreements. The Money category remains the canonical policy editor; shared authorization, selection, enforcement, receipt, conflict, and overview rules are governed by the canonical [Screen Time Control Plane](../architecture/screen-time-control-plane.md).
+> **System ownership:** This imported brief now supplies the Money condition semantics only. The accepted [Screen Time rule-system consolidation](screen-time-rule-system-consolidation.md) supersedes its former Money-owned editor, policy store, and enforcement lifecycle. Screen Time owns the canonical sentence composer, rule persistence, lifecycle, explanation, and enforcement; Money supplies budget identity and current condition truth.
 
 ## Context
 
@@ -48,13 +48,13 @@ Supporting jobs:
 
 ## Product Behavior
 
-Money Screen Time controls live with the category whose budget evidence powers the restriction. **Settings > Screen Time** may summarize active Money policies and route to their categories, but it does not duplicate the category editor.
+Budget-based controls are canonical Screen Time rules. A Money category may open the shared composer with that budget condition prefilled, while **Settings > Screen Time** remains the only rule inventory and editor.
 
 The user can:
 
 1. Grant Screen Time access.
 2. Choose apps or categories in the native FamilyControls picker.
-3. Turn individual app-control policies on or off.
+3. Turn individual Screen Time rules on or off.
 4. Choose which budget conditions make the selected apps wait.
 
 Supported conditions:

@@ -131,7 +131,6 @@ settings.execution_targets.delete
 settings.destinations.list
 settings.destinations.get
 settings.destinations.create
-settings.destinations.update
 settings.destinations.delete
 settings.activity_areas.list
 settings.activity_areas.get
@@ -581,16 +580,16 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `scripts/food-provider-feasibility.mjs`
 - Modify: `scripts/food-feasibility.test.mjs`
 
-- [ ] Add native capability actions for favorite/unfavorite, hide/restore, meal-preference read, and exact household meal-preference update.
-- [ ] Complete server providers for recipe search/read/create/import/update/scale/fork/share/publish/delete and Cook Mode read/start/control/complete.
-- [ ] Complete server providers for meal-plan create/update/candidates/round/response/finalize/revise.
-- [ ] Complete server providers for stock, grocery compile/item/review/product match/handoff, opportunity/scenario, receipt, savings, and food-budget operations.
-- [ ] Keep image/file selection, collaborator delivery, retailer cart opening, publication attestation, checkout, payment, and coupon application as reviewed or provider/native handoffs.
-- [ ] Use stable household/recipe/plan/list/item IDs and expected versions for writes. Require the actor’s household role for shared-food mutations.
-- [ ] Preserve retailer adapter truth: cart prepared/opened is not checkout; savings identified is not coupon applied; receipt extracted is not reconciled.
-- [ ] Add per-family tests for authorization, idempotency, stale versions, imported-source provenance, publication rights boundary, retailer outage, partial product matches, and receipt corrections.
-- [ ] Run focused food Jest tests, `npm run test:food-feasibility`, relevant Deno food tests, and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(food): complete conversational food providers`.
+- [x] Add native capability actions for favorite/unfavorite, hide/restore, meal-preference read, and exact household meal-preference update.
+- [x] Complete server providers for recipe search/read/create/import/update/scale/fork/share/publish/delete and Cook Mode read/start/control/complete.
+- [x] Complete server providers for meal-plan create/update/candidates/round/response/finalize/revise.
+- [x] Complete server providers for stock, grocery compile/item/review/product match/handoff, opportunity/scenario, receipt, savings, and food-budget operations.
+- [x] Keep image/file selection, collaborator delivery, retailer cart opening, publication attestation, checkout, payment, and coupon application as reviewed or provider/native handoffs.
+- [x] Use stable household/recipe/plan/list/item IDs and expected versions for writes. Require the actor’s household role for shared-food mutations.
+- [x] Preserve retailer adapter truth: cart prepared/opened is not checkout; savings identified is not coupon applied; receipt extracted is not reconciled.
+- [x] Add per-family tests for authorization, idempotency, stale versions, imported-source provenance, publication rights boundary, retailer outage, partial product matches, and receipt corrections.
+- [x] Run focused food Jest tests, `npm run test:food-feasibility`, relevant Deno food tests, and `npm run verify:changed -- --run`. The current parity ledger reports all 57 Food operations ready or intentionally bounded across mobile, Phone, and external providers. The closeout gate passed three feasibility tests, 38 focused Jest tests, and 29 Deno server-provider tests; the implementation was also covered by the green repository completion gate recorded for commit `28e08128`.
+- [x] Commit with message `feat(food): complete conversational food providers`. Landed as part of `28e08128` (`feat(chat): expand conversational parity controls`).
 
 ### Task 9: Complete Plan, Chapters, and notification settings
 
@@ -643,12 +642,13 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `src/features/unifiedChat/deviceToolProvider.ts`
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 
-- [ ] Move appearance, AI model, Phone Agent, haptics, widget preferences, connected tools, sharing, execution targets, destinations, and Activity areas behind typed capability actions used by native UI.
+- [x] Move appearance, AI model, Phone Agent, haptics, widget preferences, connected tools, sharing, execution targets, destinations, and Activity areas behind typed capability actions used by native UI.
+  - Completed: all listed settings groups now use typed capability actions and are ready across local Chat, Phone, and external ChatGPT. Device-local reads and writes return exact device/provider-confirmed results; widget placement remains honestly iOS-owned, OAuth approval stays provider-owned, Phone Agent verification/link/revoke stay native/provider-owned, sharing omits private identifiers and keeps recipient delivery native, execution-target Chat fields exclude repository URLs and executable instructions, Send to destinations accept only the four native retailer identifiers, and Activity-area archive preserves existing assignments. The phantom generic destination-update operation was removed because the native UI has only list, inspect, install, and uninstall. The Agent model selector is reachable from Settings and was operated in the current Simulator.
 - [ ] Treat device-local preferences as local direct operations after an explicit request. External requests create a device handoff and become complete only after the target device applies them.
 - [ ] Treat OAuth connect as `connect.open`; credentials never enter model arguments. Revocation is consequential, lists affected behavior, and returns a provider-confirmed receipt.
 - [ ] Treat sharing invitations as prepared drafts until the user confirms the exact person/audience and delivery. Revocation is an explicit write.
 - [ ] Validate execution targets and destinations against provider ownership and deny arbitrary URL/command injection.
-- [ ] Implement `navigation.open_capability` with an enum of included capability destinations and optional stable object reference. Reject arbitrary routes.
+- [x] Implement `navigation.open_capability` with an enum of included capability destinations and optional stable object reference. Reject arbitrary routes. Local Chat, Phone, and external ChatGPT now share the same strict validator; focused navigation, provider, server, external-catalog, and parity tests pass, and the generated ledger reports mobile/Phone/external ready (voice proof remains Task 12).
 - [ ] Add tests for every settings operation, wrong-device handoff, OAuth cancellation, revoke retry, sharing audience mismatch, unsafe destination, unknown navigation target, and resume.
 - [ ] Run focused tests and `npm run verify:changed -- --run`.
 - [ ] Commit with message `feat(settings): complete conversational settings control`.

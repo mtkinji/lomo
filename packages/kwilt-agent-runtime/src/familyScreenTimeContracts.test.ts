@@ -72,7 +72,7 @@ describe('family Screen Time agent contracts', () => {
   it('models Money app control as a typed self subject, Money condition, and Screen Time effect', () => {
     const contract = tool('money.app_control.review');
     expect(contract).toMatchObject({
-      capabilityId: 'money', providers: ['device'], effect: 'write', confirmation: 'explicit',
+      capabilityId: 'money', providers: ['device', 'server'], effect: 'write', confirmation: 'explicit',
     });
     const serialized = JSON.stringify(contract?.inputSchema);
     expect(serialized).toContain('"subject"');
