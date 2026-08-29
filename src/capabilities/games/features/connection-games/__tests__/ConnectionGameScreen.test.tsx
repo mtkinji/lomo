@@ -393,6 +393,18 @@ describe('ConnectionGameScreen', () => {
     expect(canvas.props.onResponderTerminationRequest()).toBe(false);
   });
 
+  it('claims a Doodle Bridge touch before the surrounding scroll view can start swiping', () => {
+    mockGameId = 'doodle-bridge';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+
+    const canvas = screen.getByLabelText('Shared doodle canvas');
+    expect(canvas.props.onStartShouldSetResponderCapture({
+      nativeEvent: { touches: [{}] },
+      touchHistory: { numberActiveTouches: 1 },
+    })).toBe(true);
+  });
+
   it('runs rapid timed Clue Circle turns entirely through motion', async () => {
     jest.useFakeTimers();
     mockMotionAvailable = true;
