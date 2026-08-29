@@ -30,6 +30,13 @@ import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
 import { executeServerAgentTool } from '../_shared/serverAgentTools.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
 import type { ServerAgentToolCall, ServerAgentToolResult } from '../_shared/agentRuntime.ts';
+import { serverResponsesToolCatalogHash } from '../_shared/serverAgentResponses.ts';
+import {
+  conversationalControlEventForResult,
+  conversationalControlHouseholdId,
+  conversationalControlRateClass,
+  createConversationalControlTelemetry,
+} from '../_shared/conversationalControlTelemetry.ts';
 import {
   buildAuthorizationServerMetadata,
   buildClientRegistrationResponse,
@@ -563,6 +570,36 @@ async function executeCanonicalExternalTool(
 ): Promise<ServerAgentToolResult> {
   const tool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === call.toolId);
   if (!tool) throw new Error('canonical_server_tool_unavailable');
+  const telemetry = createConversationalControlTelemetry({ admin });
+  const provider = tool.providers.includes('server') ? 'server' : tool.providers[0] ?? 'server';
+  const catalogHash = serverResponsesToolCatalogHash(SERVER_AGENT_TOOL_CATALOG);
+  const startedAt = Date.now();
+  const audit = async (input: {
+    event: Parameters<typeof telemetry.record>[0]['event']; resultStatus: string | null;
+    receiptId?: string | null; errorCode?: string | null;
+  }) => {
+    try {
+      await telemetry.record({
+        event: input.event, operationId: externalTool.operationId, toolVersion: tool.version,
+        catalogHash, actorId: context.userId, householdId: conversationalControlHouseholdId(call.arguments), oauthClientId: context.clientId,
+        channel: 'mcp', provider, requestId: call.id, arguments: call.arguments,
+        resultStatus: input.resultStatus, receiptId: input.receiptId ?? null,
+        errorCode: input.errorCode ?? null, latencyMs: Math.max(0, Date.now() - startedAt),
+      });
+    } catch (error) {
+      console.warn('[mcp] Conversational control audit write failed', error instanceof Error ? error.message : 'unknown');
+    }
+  };
+  const authorization = await telemetry.authorize({
+    operationId: externalTool.operationId, actorId: context.userId, oauthClientId: context.clientId,
+    channel: 'mcp', provider, requestId: call.id,
+    consequence: conversationalControlRateClass(tool.consequence),
+  });
+  if (!authorization.allowed) {
+    await audit({ event: 'authorization_refused', resultStatus: 'refused', errorCode: authorization.reason });
+    return { status: 'refused', reason: authorization.reason ?? 'conversational_control_refused' };
+  }
+  await audit({ event: authorization.replayed ? 'replayed' : 'requested', resultStatus: null });
   const persistence = createServiceAgentRunPersistence({ admin, userId: context.userId });
   const request = {
     channel: 'external' as const,
@@ -599,9 +636,16 @@ async function executeCanonicalExternalTool(
       participatingCapabilities: [tool.capabilityId],
       requestClass: 'capability_question',
     });
+    const receipt = result.status === 'completed' && result.receipt ? result.receipt : null;
+    await audit({
+      event: conversationalControlEventForResult(result), resultStatus: result.status,
+      receiptId: receipt && typeof receipt.receiptId === 'string' ? receipt.receiptId : null,
+      errorCode: result.status === 'failed' ? result.code : null,
+    });
     return result;
   } catch (error) {
     await persistence.fail({ run, expectedVersion: activeVersion, code: 'external_action_failed', request });
+    await audit({ event: 'failed', resultStatus: 'failed', errorCode: 'external_action_failed' });
     throw error;
   }
 }
@@ -964,6 +1008,23 @@ async function handleMcp(req: Request) {
   const toolScope = externalTool?.scope ?? null;
   if (!externalTool || !toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
   if (!hasRequiredScopes(auth.context, externalTool.requiredScopes)) {
+    const canonicalTool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === externalTool.toolId);
+    if (canonicalTool) {
+      try {
+        await createConversationalControlTelemetry({ admin: auth.admin }).record({
+          event: 'authorization_refused', operationId: externalTool.operationId,
+          toolVersion: canonicalTool.version, catalogHash: serverResponsesToolCatalogHash(SERVER_AGENT_TOOL_CATALOG),
+          actorId: auth.context.userId, householdId: conversationalControlHouseholdId(args),
+          oauthClientId: auth.context.clientId, channel: 'mcp',
+          provider: canonicalTool.providers.includes('server') ? 'server' : canonicalTool.providers[0] ?? 'server',
+          requestId: typeof id === 'string' || typeof id === 'number' ? String(id).slice(0, 200) : `scope:${name}`.slice(0, 200),
+          arguments: args, resultStatus: 'refused', receiptId: null,
+          errorCode: 'oauth_scope_mismatch', latencyMs: null,
+        });
+      } catch (error) {
+        console.warn('[mcp] OAuth scope refusal audit failed', error instanceof Error ? error.message : 'unknown');
+      }
+    }
     return json(200, rpcError(id, -32000, `${externalTool.requiredScopes.join(' and ')} scope required`));
   }
 

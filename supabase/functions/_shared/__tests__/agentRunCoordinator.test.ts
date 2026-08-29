@@ -431,6 +431,33 @@ test('answers an ordinary cross-domain question from multiple authoritative Kwil
   }));
 });
 
+test('enforces and records the shared operational gate before executing a channel tool', async () => {
+  const order: string[] = [];
+  const store = persistence(order);
+  store.authorizeControl = jest.fn(async () => ({ allowed: false, replayed: false, reason: 'operation_disabled' }));
+  store.recordControl = jest.fn(async () => undefined);
+  const dataClient = { from: jest.fn() };
+  const modelStep = jest.fn()
+    .mockResolvedValueOnce({
+      content: null,
+      toolCalls: [{ id: 'call-goals', toolId: 'goals.read', arguments: {} }],
+    })
+    .mockResolvedValueOnce({ content: 'That operation is temporarily unavailable.', toolCalls: [] });
+
+  await executeCanonicalAgentRun({
+    request: { ...request, prompt: 'Read my goals.' },
+    userId: 'user-1', persistence: store, dataClient, modelStep,
+  });
+
+  expect(store.authorizeControl).toHaveBeenCalledWith(expect.objectContaining({
+    operationId: 'goals.read', requestId: 'call-goals', channel: 'phone', provider: 'server',
+  }));
+  expect(store.recordControl).toHaveBeenCalledWith(expect.objectContaining({
+    event: 'authorization_refused', operationId: 'goals.read', errorCode: 'operation_disabled',
+  }));
+  expect(dataClient.from).not.toHaveBeenCalled();
+});
+
 test('interprets a relationship message into the explicit receipt-safe memory tool', async () => {
   const order: string[] = [];
   const store = persistence(order);

@@ -9,7 +9,7 @@ type Query = {
 };
 
 type ContinuationClient = {
-  from(table: string): Query;
+  from(table: string): unknown;
   rpc(name: string, args: Record<string, unknown>): PromiseLike<ReadResult>;
 };
 
@@ -22,8 +22,8 @@ export async function continueThreadOnPhoneAgent(input: {
   const threadId = input.threadId.trim();
   if (!userId || !threadId || threadId.length > 200) throw new Error('invalid_phone_continuation');
 
-  const { data, error } = await input.client
-    .from('kwilt_phone_agent_links')
+  const { data, error } = await (input.client
+    .from('kwilt_phone_agent_links') as Query)
     .select('id')
     .eq('user_id', userId)
     .eq('status', 'verified')

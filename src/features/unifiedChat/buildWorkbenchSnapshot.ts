@@ -127,6 +127,30 @@ export function formatProposalReceiptSummary(
   return `Updated ${title}`;
 }
 
+function humanizeDevicePreference(value: string): string {
+  const words = value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words ? `${words[0].toUpperCase()}${words.slice(1)}` : '';
+}
+
+function clientActionConsequenceSummary(
+  action: NonNullable<UnifiedChatThreadAggregate['clientActions']>[number],
+): string {
+  if (action.status !== 'completed' || action.actionType !== 'read_appearance_preference') {
+    return action.consequenceSummary;
+  }
+  const styles = Array.isArray(action.result?.thumbnailStyles)
+    ? action.result.thumbnailStyles
+      .filter((style): style is string => typeof style === 'string' && style.length > 0 && style.length <= 80)
+      .map(humanizeDevicePreference)
+      .filter(Boolean)
+    : [];
+  return styles.length > 0 ? `Appearance: ${styles.join(', ')}.` : action.consequenceSummary;
+}
+
 function projectRun(
   run: UnifiedChatRun,
   persistedEvents: readonly UnifiedChatRunEvent[],
@@ -700,7 +724,7 @@ export function buildWorkbenchSnapshot(
     clientActions: (aggregate.clientActions ?? []).map((action) => ({
       id: action.id, runId: action.runId, capabilityId: action.capabilityId,
       actionType: action.actionType, title: action.title,
-      consequenceSummary: action.consequenceSummary, status: action.status,
+      consequenceSummary: clientActionConsequenceSummary(action), status: action.status,
       version: action.version,
       canContinue: action.status === 'pending_client_action' || action.status === 'presenting',
     })),

@@ -2,6 +2,7 @@ import type { ServerAgentLoopMessage, ServerAgentToolDefinition } from '../agent
 import {
   parseServerAgentResponse,
   requestServerAgentResponse,
+  toServerProviderToolName,
   toServerResponsesInput,
   toServerResponsesTools,
 } from '../serverAgentResponses';
@@ -45,7 +46,7 @@ describe('serverAgentResponses', () => {
   test('derives exact strict Responses function tools', () => {
     expect(toServerResponsesTools(tools)).toEqual([{
       type: 'function',
-      name: 'goals.update',
+      name: 'goals_d_update',
       description: 'Update one goal.',
       parameters: {
         type: 'object',
@@ -63,7 +64,7 @@ describe('serverAgentResponses', () => {
   test('translates bounded conversation and preserves call_id only as correlation', () => {
     expect(toServerResponsesInput(messages)).toEqual([
       { role: 'user', content: 'Rename my goal.' },
-      { type: 'function_call', call_id: 'call-1', name: 'goals.update', arguments: '{"goalId":"g1","title":"Fitness"}' },
+      { type: 'function_call', call_id: 'call-1', name: 'goals_d_update', arguments: '{"goalId":"g1","title":"Fitness"}' },
       { type: 'function_call_output', call_id: 'call-1', output: '{"status":"proposed"}' },
     ]);
   });
@@ -73,7 +74,7 @@ describe('serverAgentResponses', () => {
       ...completedResponse,
       output: [
         completedResponse.output[0],
-        { type: 'function_call', call_id: 'call-2', name: 'goals.update', arguments: '{"goalId":"g2","title":null}' },
+        { type: 'function_call', call_id: 'call-2', name: 'goals_d_update', arguments: '{"goalId":"g2","title":null}' },
       ],
     }, tools, { latencyMs: 42, toolCatalogHash: 'fnv1a:test' })).toEqual({
       content: 'I prepared that change.',
@@ -92,7 +93,7 @@ describe('serverAgentResponses', () => {
   test('rejects malformed arguments, refusals, and incomplete responses', () => {
     expect(() => parseServerAgentResponse({
       ...completedResponse,
-      output: [{ type: 'function_call', call_id: 'call-2', name: 'goals.update', arguments: '{' }],
+      output: [{ type: 'function_call', call_id: 'call-2', name: 'goals_d_update', arguments: '{' }],
     }, tools, { latencyMs: 1, toolCatalogHash: 'h' })).toThrow('model_tool_arguments_malformed');
     expect(() => parseServerAgentResponse({
       ...completedResponse,
@@ -117,7 +118,7 @@ describe('serverAgentResponses', () => {
     });
 
     await expect(requestServerAgentResponse({
-      supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+      supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
       quotaIdentity: 'user-1', isPro: true, messages, tools,
       policyContext: { currentDate: '2026-08-26', timeZone: 'America/Denver' }, fetcher,
     })).resolves.toMatchObject({ content: 'I prepared that change.', metadata: { responseId: 'resp-1' } });
@@ -125,17 +126,18 @@ describe('serverAgentResponses', () => {
     expect(fetcher.mock.calls[0][1]?.headers).toEqual(expect.objectContaining({
       Authorization: 'Bearer service', 'x-kwilt-ai-job': 'unified_chat_agent',
     }));
+    expect(fetcher.mock.calls[0][1]?.headers).not.toHaveProperty('apikey');
   });
 
   test('normalizes proxy failures and retryable timeouts', async () => {
     await expect(requestServerAgentResponse({
-      supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+      supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
       quotaIdentity: 'user-1', isPro: false, messages, tools,
       policyContext: { currentDate: '2026-08-26', timeZone: 'UTC' },
       fetcher: async () => new Response('upstream down', { status: 503 }),
     })).rejects.toThrow('model_request_failed:503');
     await expect(requestServerAgentResponse({
-      supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+      supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
       quotaIdentity: 'user-1', isPro: false, messages, tools,
       policyContext: { currentDate: '2026-08-26', timeZone: 'UTC' },
       fetcher: async () => { throw new DOMException('timed out', 'TimeoutError'); },
@@ -147,22 +149,30 @@ describe('serverAgentResponses', () => {
     const fetcher = jest.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body.tools).toEqual([
-        expect.objectContaining({ type: 'function', name: 'goals.update' }),
-        expect.objectContaining({ type: 'function', name: 'goals.delete', defer_loading: true }),
+        expect.objectContaining({ type: 'function', name: 'goals_d_update' }),
+        expect.objectContaining({ type: 'function', name: 'goals_d_delete', defer_loading: true }),
         { type: 'tool_search', execution: 'server' },
       ]);
       return new Response(JSON.stringify({
         ...completedResponse,
-        output: [{ type: 'function_call', call_id: 'provider-deferred', name: 'goals.delete', arguments: '{"goalId":"g2"}' }],
+        output: [{ type: 'function_call', call_id: 'provider-deferred', name: 'goals_d_delete', arguments: '{"goalId":"g2"}' }],
       }), { status: 200 });
     });
     await expect(requestServerAgentResponse({
-      supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+      supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
       quotaIdentity: 'user-1', isPro: true, messages, tools,
       resolvedTools: [...tools, deferred], toolSearchNamespaces: ['life_structure'],
       policyContext: { currentDate: '2026-08-26', timeZone: 'America/Denver' }, fetcher,
     })).resolves.toMatchObject({
       toolCalls: [{ id: 'resp-1:tool:1', providerCallId: 'provider-deferred', toolId: 'goals.delete' }],
     });
+  });
+
+  test('encodes canonical IDs into provider-safe, collision-resistant function names', () => {
+    expect(toServerProviderToolName('screen_time.personal_rule.update'))
+      .toBe('screen_u_time_d_personal_u_rule_d_update');
+    expect(toServerProviderToolName('screen.time_personal.rule'))
+      .toBe('screen_d_time_u_personal_d_rule');
+    expect(() => toServerProviderToolName('invalid tool')).toThrow('provider_tool_name_invalid');
   });
 });

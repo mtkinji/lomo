@@ -4,13 +4,16 @@ import {
   requestServerAgentModel,
   requestServerTurnJudgment,
   serverResponsesToolCatalogHash,
+  toServerProviderToolName,
   toServerResponsesTools,
 } from '../serverAgentModel';
 
 test('keeps the compatibility entrypoint on strict Responses tools', () => {
   const projected = toServerResponsesTools(SERVER_AGENT_TOOL_CATALOG);
   expect(projected).toHaveLength(SERVER_AGENT_TOOL_CATALOG.length);
-  expect(projected.every((tool) => tool.strict === true && tool.name.includes('.'))).toBe(true);
+  expect(projected.every((tool) => tool.strict === true && /^[A-Za-z0-9_-]{1,64}$/.test(tool.name))).toBe(true);
+  const providerNames = SERVER_AGENT_TOOL_CATALOG.map((tool) => toServerProviderToolName(tool.id));
+  expect(new Set(providerNames).size).toBe(SERVER_AGENT_TOOL_CATALOG.length);
   expect(serverResponsesToolCatalogHash(SERVER_AGENT_TOOL_CATALOG)).toMatch(/^fnv1a:[0-9a-f]{8}$/);
   expect(requestServerAgentModel).toEqual(expect.any(Function));
 });
@@ -41,6 +44,8 @@ test('the proxy accepts the bounded turn catalog and rejects an unplanned full c
 test('requests bounded namespace judgment without publishing tool schemas or ids', async () => {
   const fetcher = jest.fn(async (_url: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
+    expect(init?.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer service' }));
+    expect(init?.headers).not.toHaveProperty('apikey');
     expect(body.input[0].content).toContain('tasks_plan');
     expect(JSON.stringify(body)).not.toContain('goals.update');
     expect(body).not.toHaveProperty('tools');
@@ -54,7 +59,7 @@ test('requests bounded namespace judgment without publishing tool schemas or ids
     }), { status: 200 });
   });
   await expect(requestServerTurnJudgment({
-    supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+    supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
     quotaIdentity: 'user-1', isPro: true, prompt: 'What is on my plan?',
     namespaces: [{ id: 'tasks_plan', description: 'Activities and planning.' }], fetcher,
   })).resolves.toEqual({ selectedNamespaces: ['tasks_plan'], confidence: 0.9, reason: 'Plan request.' });

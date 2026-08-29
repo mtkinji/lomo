@@ -298,7 +298,13 @@ export async function runUnifiedChatTurn(
       signal: input.signal,
     });
     input.onLatencyMilestone?.('planning_complete');
-  } catch {
+  } catch (planningError) {
+    if (__DEV__) {
+      console.warn('[unified-chat] planning failed', {
+        name: planningError instanceof Error ? planningError.name : 'UnknownError',
+        message: planningError instanceof Error ? planningError.message.slice(0, 240) : 'Unknown planning failure',
+      });
+    }
     const failedPlanningRun = await repository.createRun({
       threadId: aggregate.thread.id,
       userMessageId: userMessage.id,
@@ -554,7 +560,14 @@ export async function runUnifiedChatTurn(
       ),
     );
     return repository.loadThread(aggregate.thread.id);
-  } catch {
+  } catch (executionError) {
+    if (__DEV__) {
+      console.warn('[unified-chat] execution failed', {
+        failureCode,
+        name: executionError instanceof Error ? executionError.name : 'UnknownError',
+        message: executionError instanceof Error ? executionError.message.slice(0, 240) : 'Unknown execution failure',
+      });
+    }
     if (!input.signal?.aborted) {
       captureTelemetry(
         AnalyticsEvent.UnifiedChatAgentPlanOutcome,

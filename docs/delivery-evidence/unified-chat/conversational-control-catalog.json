@@ -1,0 +1,2017 @@
+{
+  "generatedFrom": "canonical-capability-manifest",
+  "operations": [
+    {
+      "id": "general.answer",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "general.answer_with_context",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "relationships.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "relationships.remember",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "relationships.correct",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "relationships.forget",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "relationships.forget_person",
+      "completionMode": "supported_boundary",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "household.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "household.member.add_dependent",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.invitation.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.invitation.preview",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "household.invitation.accept",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.child_capability.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.caregiver_grant.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "profile.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "profile.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "arcs.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "arcs.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "arcs.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "arcs.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "arcs.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "goals.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "goals.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "goals.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "goals.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "goals.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "goals.check_in",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "goals.share",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "activities.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "activities.search",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "activities.capture",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.complete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.steps.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.steps.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.steps.complete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.steps.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.steps.reorder",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.focus.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.focus_today",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.schedule",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.schedule_chunks",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.reminder.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.repeat.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.location.update",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.attachments.update",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "activities.share",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.read_day_context",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "plan.recommend_day",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "plan.schedule_activity",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.reschedule_activity",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.remove_activity",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.preferences.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "chapters.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chapters.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chapters.reflect",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chapters.note.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "account.show_up_status",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "money.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "money.read"
+      ]
+    },
+    {
+      "id": "money.review_transaction",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.category.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.category.rename",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.app_control.review",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.category.update",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.privacy.configure",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.connection.connect",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.connection.sync",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "explore.open",
+      "completionMode": "excluded",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "games.open",
+      "completionMode": "excluded",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chores.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "recipes.search",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "recipes.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "recipes.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.import.prepare",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.import.approve",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.scale.preview",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "recipes.fork",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.share_copy.prepare",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.collaborator.invite",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.publication.prepare",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.publication.publish",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.publication.attest_rights",
+      "completionMode": "supported_boundary",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "recipes.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.plan.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.plan.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.candidate.add",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.candidate.remove",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.round.open",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.round.close",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.response.submit",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.response.withdraw",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.plan.finalize",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.plan.revise",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.candidates.prepare",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "food_budget.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "food_stock.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "food_stock.observe",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "food_stock.deplete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.compile",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.item.add",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.item.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.item.set_state",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.list.review",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "groceries.product_match.prepare",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "groceries.product_match.confirm",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.handoff.prepare",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.handoff.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "groceries.checkout",
+      "completionMode": "supported_boundary",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "groceries.payment",
+      "completionMode": "supported_boundary",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "store_opportunity.capture",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "food_scenario.prepare",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "food_scenario.accept",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "savings.review",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "savings.accept",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "savings.coupon.apply_unsupported",
+      "completionMode": "supported_boundary",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "savings.coupon.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "receipt.extract",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "receipt.reconcile",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "cook_session.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "cook_session.start",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "cook_session.control",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "cook_session.complete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "screen_time.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "screen_time.agreement.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.agreement.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.agreement.deactivate",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.override.block",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.override.allow",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.override.cancel",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.request.decide",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.personal.setup.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.personal.limit.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.selection.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.device.setup.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.device.release.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.configure",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "notifications.configure",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "search.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "account.settings.open",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "account.subscription.manage",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "account.delete",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "channel.phone.continue_run",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "household.member.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.member.remove",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.device.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "household.device.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.device.revoke",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "household.device.reconcile",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "plan.availability.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "plan.availability.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "plan.calendars.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "plan.calendars.update",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "chapters.digest_settings.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chapters.digest_settings.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "chapters.alignment.preview",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "chapters.alignment.apply",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.appearance.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.appearance.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.ai_model.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.ai_model.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.phone_agent.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.phone_agent.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.connected_tools.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.connected_tools.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.connected_tools.connect.open",
+      "completionMode": "provider_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.connected_tools.revoke",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.sharing.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.sharing.invitation.prepare",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.sharing.connection.revoke",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.haptics.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.haptics.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.widgets.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.widgets.configure",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.execution_targets.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.execution_targets.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.execution_targets.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.execution_targets.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.execution_targets.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.destinations.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.destinations.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.destinations.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.destinations.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.activity_areas.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.activity_areas.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "settings.activity_areas.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.activity_areas.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "settings.activity_areas.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "money.budget.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "money.read"
+      ]
+    },
+    {
+      "id": "money.budget.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.transaction.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "money.read"
+      ]
+    },
+    {
+      "id": "money.transaction.meaning.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.transaction.plan_treatment.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.connection.disconnect",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.connection.repair.open",
+      "completionMode": "provider_handoff",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "money.transfer.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "money.read"
+      ]
+    },
+    {
+      "id": "money.transfer.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "money.read"
+      ]
+    },
+    {
+      "id": "money.transfer.review",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "money.read",
+        "money.write"
+      ]
+    },
+    {
+      "id": "chores.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "chores.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "chores.definition.create",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.definition.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.definition.pause",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.definition.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.occurrence.claim",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.occurrence.release",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.occurrence.complete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.occurrence.reopen",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.occurrence.report_earlier",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.evidence.add",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.review.approve",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.review.return",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.review.leave_missed",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.reward.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "chores.reward.configure",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.reward.reserve",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.reward.cancel",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "chores.reward.settle",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "recipes.favorite.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "recipes.visibility.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.preferences.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
+      "id": "meal_planning.preferences.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "screen_time.personal_rule.list",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "screen_time.personal_rule.get",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "household.read"
+      ]
+    },
+    {
+      "id": "screen_time.personal_rule.update",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.personal_rule.deactivate",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "screen_time.personal_rule.delete",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "household.read",
+        "household.write"
+      ]
+    },
+    {
+      "id": "notifications.preferences.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "life.read"
+      ]
+    },
+    {
+      "id": "notifications.preferences.update",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    },
+    {
+      "id": "navigation.open_capability",
+      "completionMode": "native_handoff",
+      "requiredScopes": [
+        "life.read",
+        "life.write"
+      ]
+    }
+  ],
+  "externalCanonicalTools": [
+    "kwilt_account_delete_open",
+    "kwilt_account_settings_open",
+    "kwilt_account_show_up_status",
+    "kwilt_account_subscription_open",
+    "kwilt_activities_attachments_open",
+    "kwilt_activities_capture",
+    "kwilt_activities_complete",
+    "kwilt_activities_delete",
+    "kwilt_activities_focus_open",
+    "kwilt_activities_focus_today",
+    "kwilt_activities_get",
+    "kwilt_activities_list",
+    "kwilt_activities_location_update",
+    "kwilt_activities_reminder_update",
+    "kwilt_activities_repeat_update",
+    "kwilt_activities_schedule",
+    "kwilt_activities_search",
+    "kwilt_activities_share_open",
+    "kwilt_activities_update",
+    "kwilt_activity_steps_complete",
+    "kwilt_activity_steps_create",
+    "kwilt_activity_steps_delete",
+    "kwilt_activity_steps_reorder",
+    "kwilt_activity_steps_update",
+    "kwilt_arcs_create",
+    "kwilt_arcs_delete",
+    "kwilt_arcs_get",
+    "kwilt_arcs_list",
+    "kwilt_arcs_update",
+    "kwilt_chapters_alignment_apply",
+    "kwilt_chapters_alignment_preview",
+    "kwilt_chapters_digest_settings_read",
+    "kwilt_chapters_digest_settings_update",
+    "kwilt_chapters_get_current",
+    "kwilt_chapters_list",
+    "kwilt_chapters_note_update",
+    "kwilt_chapters_reflect",
+    "kwilt_chores_definition_create",
+    "kwilt_chores_definition_delete",
+    "kwilt_chores_definition_pause",
+    "kwilt_chores_definition_update",
+    "kwilt_chores_evidence_add",
+    "kwilt_chores_get",
+    "kwilt_chores_list",
+    "kwilt_chores_occurrence_claim",
+    "kwilt_chores_occurrence_complete",
+    "kwilt_chores_occurrence_release",
+    "kwilt_chores_occurrence_reopen",
+    "kwilt_chores_occurrence_report_earlier",
+    "kwilt_chores_open",
+    "kwilt_chores_review_approve",
+    "kwilt_chores_review_leave_missed",
+    "kwilt_chores_review_return",
+    "kwilt_chores_reward_cancel",
+    "kwilt_chores_reward_configure",
+    "kwilt_chores_reward_read",
+    "kwilt_chores_reward_reserve",
+    "kwilt_chores_reward_settle",
+    "kwilt_cook_session_complete",
+    "kwilt_cook_session_control",
+    "kwilt_cook_session_read",
+    "kwilt_cook_session_start",
+    "kwilt_food_budget_read",
+    "kwilt_food_scenario_accept",
+    "kwilt_food_scenario_prepare",
+    "kwilt_food_stock_deplete",
+    "kwilt_food_stock_observe",
+    "kwilt_food_stock_read",
+    "kwilt_goals_check_in",
+    "kwilt_goals_create",
+    "kwilt_goals_delete",
+    "kwilt_goals_get",
+    "kwilt_goals_list",
+    "kwilt_goals_share_open",
+    "kwilt_goals_update",
+    "kwilt_groceries_compile",
+    "kwilt_groceries_handoff_open",
+    "kwilt_groceries_handoff_prepare",
+    "kwilt_groceries_item_add",
+    "kwilt_groceries_item_set_state",
+    "kwilt_groceries_item_update",
+    "kwilt_groceries_list_review",
+    "kwilt_groceries_product_match_confirm",
+    "kwilt_groceries_product_match_prepare",
+    "kwilt_household_caregiver_grant_update",
+    "kwilt_household_child_capability_update",
+    "kwilt_household_device_reconcile",
+    "kwilt_household_device_revoke",
+    "kwilt_household_device_update",
+    "kwilt_household_devices_list",
+    "kwilt_household_invitation_accept",
+    "kwilt_household_invitation_create",
+    "kwilt_household_invitation_preview",
+    "kwilt_household_member_add_dependent",
+    "kwilt_household_member_remove",
+    "kwilt_household_member_update",
+    "kwilt_household_read",
+    "kwilt_meal_candidates_prepare",
+    "kwilt_meal_choice_response_submit",
+    "kwilt_meal_choice_response_withdraw",
+    "kwilt_meal_choice_round_close",
+    "kwilt_meal_choice_round_open",
+    "kwilt_meal_plan_candidate_add",
+    "kwilt_meal_plan_candidate_remove",
+    "kwilt_meal_plan_create",
+    "kwilt_meal_plan_finalize",
+    "kwilt_meal_plan_revise",
+    "kwilt_meal_plan_update",
+    "kwilt_meal_preferences_read",
+    "kwilt_meal_preferences_update",
+    "kwilt_money_app_control_review",
+    "kwilt_money_budget_read",
+    "kwilt_money_budget_update",
+    "kwilt_money_category_create",
+    "kwilt_money_category_rename",
+    "kwilt_money_category_update",
+    "kwilt_money_connection_connect",
+    "kwilt_money_connection_disconnect",
+    "kwilt_money_connection_repair_open",
+    "kwilt_money_connection_sync",
+    "kwilt_money_privacy_configure",
+    "kwilt_money_read",
+    "kwilt_money_review_transaction",
+    "kwilt_money_transaction_get",
+    "kwilt_money_transaction_meaning_update",
+    "kwilt_money_transaction_plan_treatment_update",
+    "kwilt_money_transfer_get",
+    "kwilt_money_transfer_list",
+    "kwilt_money_transfer_review",
+    "kwilt_navigation_open_capability",
+    "kwilt_notifications_configure",
+    "kwilt_notifications_preferences_read",
+    "kwilt_notifications_preferences_update",
+    "kwilt_phone_continue_conversation",
+    "kwilt_plan_availability_read",
+    "kwilt_plan_availability_update",
+    "kwilt_plan_calendars_read",
+    "kwilt_plan_calendars_update",
+    "kwilt_plan_preferences_open",
+    "kwilt_plan_read_day_context",
+    "kwilt_plan_recommend_day",
+    "kwilt_plan_remove_activity",
+    "kwilt_plan_reschedule_activity",
+    "kwilt_plan_schedule_activity",
+    "kwilt_plan_schedule_chunks",
+    "kwilt_profile_read",
+    "kwilt_profile_update",
+    "kwilt_receipt_extract",
+    "kwilt_receipt_reconcile",
+    "kwilt_recipes_collaborator_invite",
+    "kwilt_recipes_create",
+    "kwilt_recipes_delete",
+    "kwilt_recipes_favorite_update",
+    "kwilt_recipes_fork",
+    "kwilt_recipes_import_approve",
+    "kwilt_recipes_import_prepare",
+    "kwilt_recipes_publication_prepare",
+    "kwilt_recipes_publication_publish",
+    "kwilt_recipes_read",
+    "kwilt_recipes_scale_preview",
+    "kwilt_recipes_search",
+    "kwilt_recipes_share_copy_prepare",
+    "kwilt_recipes_update",
+    "kwilt_recipes_visibility_update",
+    "kwilt_relationships_correct",
+    "kwilt_relationships_forget",
+    "kwilt_relationships_read",
+    "kwilt_relationships_remember",
+    "kwilt_savings_accept",
+    "kwilt_savings_coupon_open",
+    "kwilt_savings_review",
+    "kwilt_screen_time_allow",
+    "kwilt_screen_time_block",
+    "kwilt_screen_time_cancel_override",
+    "kwilt_screen_time_configure",
+    "kwilt_screen_time_create_prerequisite_agreement",
+    "kwilt_screen_time_deactivate_agreement",
+    "kwilt_screen_time_decide_request",
+    "kwilt_screen_time_device_release_open",
+    "kwilt_screen_time_device_setup_open",
+    "kwilt_screen_time_personal_limit_open",
+    "kwilt_screen_time_personal_rule_deactivate",
+    "kwilt_screen_time_personal_rule_delete",
+    "kwilt_screen_time_personal_rule_get",
+    "kwilt_screen_time_personal_rule_update",
+    "kwilt_screen_time_personal_rules_list",
+    "kwilt_screen_time_personal_setup_open",
+    "kwilt_screen_time_read",
+    "kwilt_screen_time_selection_open",
+    "kwilt_screen_time_update_agreement",
+    "kwilt_search_open",
+    "kwilt_settings_activity_areas_create",
+    "kwilt_settings_activity_areas_delete",
+    "kwilt_settings_activity_areas_get",
+    "kwilt_settings_activity_areas_list",
+    "kwilt_settings_activity_areas_update",
+    "kwilt_settings_ai_model_read",
+    "kwilt_settings_ai_model_update",
+    "kwilt_settings_appearance_read",
+    "kwilt_settings_appearance_update",
+    "kwilt_settings_connected_tools_connect_open",
+    "kwilt_settings_connected_tools_get",
+    "kwilt_settings_connected_tools_list",
+    "kwilt_settings_connected_tools_revoke",
+    "kwilt_settings_destinations_create",
+    "kwilt_settings_destinations_delete",
+    "kwilt_settings_destinations_get",
+    "kwilt_settings_destinations_list",
+    "kwilt_settings_execution_targets_create",
+    "kwilt_settings_execution_targets_delete",
+    "kwilt_settings_execution_targets_get",
+    "kwilt_settings_execution_targets_list",
+    "kwilt_settings_execution_targets_update",
+    "kwilt_settings_haptics_read",
+    "kwilt_settings_haptics_update",
+    "kwilt_settings_phone_agent_read",
+    "kwilt_settings_phone_agent_update",
+    "kwilt_settings_sharing_connection_revoke",
+    "kwilt_settings_sharing_invitation_prepare",
+    "kwilt_settings_sharing_list",
+    "kwilt_settings_widgets_configure",
+    "kwilt_settings_widgets_read",
+    "kwilt_store_opportunity_capture"
+  ]
+}

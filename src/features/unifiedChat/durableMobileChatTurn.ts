@@ -103,7 +103,16 @@ export async function runDurableMobileChatTurn({
     const aggregate = await loadThread(threadId);
     onProgress?.(aggregate, runId);
     const run = aggregate.runs.find((candidate) => candidate.id === runId);
-    if (run && TERMINAL_RUN_STATUSES.has(run.status)) return aggregate;
+    if (run && TERMINAL_RUN_STATUSES.has(run.status)) {
+      if (__DEV__ && run.status === 'failed') {
+        console.warn('[unified-chat] durable run failed', {
+          runId: run.id,
+          errorCode: run.errorCode,
+          errorMessage: run.errorMessage?.slice(0, 240) ?? null,
+        });
+      }
+      return aggregate;
+    }
     if (signal?.aborted) throw abortError();
     await wait(pollIntervalMs, signal);
   }

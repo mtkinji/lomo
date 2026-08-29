@@ -10,7 +10,6 @@
 // or locally:
 //   http://localhost:54321/functions/v1/ai-chat/v1/chat/completions
 
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
 import { validateKwiltAiRequestShape } from '../_shared/aiRequestValidation.ts';
@@ -280,7 +279,7 @@ function safeJsonParse(text: string): any | null {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

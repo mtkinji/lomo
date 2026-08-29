@@ -6,6 +6,13 @@ import type { ActionExecutionReceiptStore } from '../../../packages/kwilt-agent-
 import type { KwiltActionReceipt } from '../../../packages/kwilt-agent-runtime/src/types.ts';
 import type { DeviceActionHandoff } from '../../../packages/kwilt-agent-runtime/src/deviceHandoffs.ts';
 import { redactActionArguments } from '../../../packages/kwilt-agent-runtime/src/deviceHandoffs.ts';
+import { serverResponsesToolCatalogHash } from './serverAgentResponses.ts';
+import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
+import {
+  conversationalControlHouseholdId,
+  conversationalControlRateClass,
+  createConversationalControlTelemetry,
+} from './conversationalControlTelemetry.ts';
 
 type RpcResult = { data: unknown; error: unknown };
 type HistoryResult = { data: unknown; error: unknown };
@@ -166,7 +173,22 @@ export function createServiceAgentRunPersistence({
   admin: ServiceClient;
   userId: string;
 }): AgentRunPersistence {
+  const controlTelemetry = createConversationalControlTelemetry({ admin });
+  const catalogHash = serverResponsesToolCatalogHash(SERVER_AGENT_TOOL_CATALOG);
   return {
+    authorizeControl: async (input) => controlTelemetry.authorize({
+      operationId: input.operationId, actorId: input.actorId, oauthClientId: null,
+      channel: input.channel, provider: input.provider, requestId: input.requestId,
+      consequence: conversationalControlRateClass(input.consequence),
+    }),
+    recordControl: async (input) => controlTelemetry.record({
+      event: input.event, operationId: input.operationId, toolVersion: input.toolVersion,
+      catalogHash, actorId: input.actorId, householdId: conversationalControlHouseholdId(input.arguments), oauthClientId: null,
+      channel: input.channel, provider: input.provider, requestId: input.requestId,
+      arguments: input.arguments, resultStatus: input.resultStatus,
+      receiptId: input.receiptId ?? null, errorCode: input.errorCode ?? null,
+      latencyMs: Math.max(0, Date.now() - input.startedAtMs),
+    }),
     enqueue: async (request) => {
       const { data, error } = await admin.rpc('enqueue_kwilt_agent_run_with_provenance', {
         p_thread_id: request.threadId,

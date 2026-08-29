@@ -74,6 +74,35 @@ target:
     - explore.open
     - games.open
 verification:
+  generated_behavior_matrix:
+    status: source_tested
+    generated_at: 2026-08-28
+    canonical_operations: 232
+    cases_per_operation: 9
+    deterministic_cases: 2088
+    capability_adversarial_cases: 9
+    fixture_policy: synthetic_only
+    artifacts:
+      - docs/delivery-evidence/unified-chat/conversational-control-matrix.md
+      - docs/delivery-evidence/unified-chat/conversational-control-catalog.json
+    focused_command: npm test -- --runInBand scripts/conversational-control-corpus.test.ts
+    result: 1_suite_4_tests_passed
+    live_model_evaluation:
+      status: not_run
+      reason: Requires intended-model credentials and an explicitly identified backend environment; source proof is not presented as live proof.
+      required_acceptance:
+        deterministic_contract_pass_rate: 1
+        false_completion_claims: 0
+        provenance_fields:
+          - model
+          - prompt_hash
+          - catalog_hash
+          - branch
+          - commit
+          - backend_environment
+          - account_fixture
+          - timestamp
+          - result_artifact
   ui_parity_inventory:
     command: npx jest src/capabilities/uiParityInventory.test.ts --runInBand
     result: passed

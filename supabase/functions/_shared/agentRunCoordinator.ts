@@ -18,6 +18,7 @@ import {
 } from './serverTurnPlanning.ts';
 import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
 import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+import { conversationalControlEventForResult } from './conversationalControlTelemetry.ts';
 
 function actionSourceForRequest(request: CanonicalAgentRunRequest): KwiltActionSource {
   if (request.initiator === 'system' || (request.triggerKind && request.triggerKind !== 'user_message')) {
@@ -93,7 +94,25 @@ export type AgentRunPersistence = {
     code: string;
     request: CanonicalAgentRunRequest;
   }) => Promise<void>;
+  authorizeControl?: (input: {
+    operationId: string; toolVersion: number; actorId: string; channel: 'mobile' | 'phone' | 'mcp' | 'scheduled';
+    provider: string; requestId: string; consequence: 'low' | 'consequential'; arguments: Record<string, unknown>;
+  }) => Promise<{ allowed: boolean; replayed: boolean; reason: string | null }>;
+  recordControl?: (input: {
+    event: 'requested' | 'authorization_refused' | 'proposed' | 'handoff' | 'completed'
+      | 'failed' | 'replayed' | 'stale_version_conflict';
+    operationId: string; toolVersion: number; actorId: string; channel: 'mobile' | 'phone' | 'mcp' | 'scheduled';
+    provider: string; requestId: string; arguments: Record<string, unknown>; resultStatus: string | null;
+    receiptId?: string | null; errorCode?: string | null; startedAtMs: number;
+  }) => Promise<void>;
 };
+
+function controlChannelForRequest(request: CanonicalAgentRunRequest): 'mobile' | 'phone' | 'mcp' | 'scheduled' {
+  if (request.initiator === 'system' || (request.triggerKind && request.triggerKind !== 'user_message')) return 'scheduled';
+  if (request.channel === 'phone' || request.channel === 'sms') return 'phone';
+  if (request.channel === 'mobile') return 'mobile';
+  return 'mcp';
+}
 
 export type AgentRunCoordinatorResult =
   | { state: 'complete' | 'partial'; replayed: true; run: EnqueuedAgentRun; answer: string }
@@ -272,18 +291,68 @@ export async function executeEnqueuedCanonicalAgentRun({
             retryable: false,
           });
         }
-        return executeServerAgentTool({
-          client: dataClient,
-          userId,
-          call,
-          tool,
-          writeContext: { threadId: enqueued.threadId, runId: enqueued.runId, messageId: enqueued.messageId },
-          actionSource: actionSourceForRequest(request),
-          stageDeviceAction: (action) => persistence.stageClientAction({ run: enqueued, callId: call.id, action }),
-          stageProposal: (proposal) => persistence.stageProposal({ run: enqueued, callId: call.id, proposal }),
-          stageProposals: (proposals) => persistence.stageProposals({ run: enqueued, callId: call.id, proposals }),
-          timeZone: request.channelContext.timeZone,
-        });
+        const execute = async () => {
+          const channel = controlChannelForRequest(request);
+          const provider = tool.providers.includes('server') ? 'server' : tool.providers[0] ?? 'server';
+          const startedAtMs = Date.now();
+          const recordControl = async (input: Parameters<NonNullable<AgentRunPersistence['recordControl']>>[0]) => {
+            try { await persistence.recordControl?.(input); } catch (error) {
+              console.warn('[agent-run] Conversational control audit write failed', error instanceof Error ? error.message : 'unknown');
+            }
+          };
+          if (persistence.authorizeControl) {
+            const decision = await persistence.authorizeControl({
+              operationId: tool.id, toolVersion: tool.version, actorId: userId, channel, provider,
+              requestId: call.id, consequence: tool.consequence, arguments: call.arguments,
+            });
+            if (!decision.allowed) {
+              await recordControl({
+                event: 'authorization_refused', operationId: tool.id, toolVersion: tool.version,
+                actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+                resultStatus: 'refused', errorCode: decision.reason, startedAtMs,
+              });
+              return { status: 'refused' as const, reason: decision.reason ?? 'conversational_control_refused' };
+            }
+            await recordControl({
+              event: decision.replayed ? 'replayed' : 'requested', operationId: tool.id, toolVersion: tool.version,
+              actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+              resultStatus: null, startedAtMs,
+            });
+          }
+          try {
+            const result = await executeServerAgentTool({
+              client: dataClient,
+              userId,
+              call,
+              tool,
+              writeContext: { threadId: enqueued.threadId, runId: enqueued.runId, messageId: enqueued.messageId },
+              actionSource: actionSourceForRequest(request),
+              stageDeviceAction: (action) => persistence.stageClientAction({ run: enqueued, callId: call.id, action }),
+              stageProposal: (proposal) => persistence.stageProposal({ run: enqueued, callId: call.id, proposal }),
+              stageProposals: (proposals) => persistence.stageProposals({ run: enqueued, callId: call.id, proposals }),
+              timeZone: request.channelContext.timeZone,
+            });
+            if (persistence.authorizeControl) {
+              const receipt = result.status === 'completed' ? result.receipt : null;
+              await recordControl({
+                event: conversationalControlEventForResult(result), operationId: tool.id, toolVersion: tool.version,
+                actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+                resultStatus: result.status,
+                receiptId: receipt && typeof receipt.receiptId === 'string' ? receipt.receiptId : null,
+                errorCode: result.status === 'failed' ? result.code : null, startedAtMs,
+              });
+            }
+            return result;
+          } catch (error) {
+            if (persistence.authorizeControl) await recordControl({
+              event: 'failed', operationId: tool.id, toolVersion: tool.version,
+              actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+              resultStatus: 'failed', errorCode: 'server_tool_execution_failed', startedAtMs,
+            });
+            throw error;
+          }
+        };
+        return execute();
       },
     });
     const modelContent = loop.content?.trim();

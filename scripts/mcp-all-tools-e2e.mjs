@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs';
+import path from 'node:path';
+
+const CONTROL_CATALOG_PATH = path.resolve(
+  process.cwd(),
+  'docs/delivery-evidence/unified-chat/conversational-control-catalog.json',
+);
+const CONTROL_CATALOG = JSON.parse(fs.readFileSync(CONTROL_CATALOG_PATH, 'utf8'));
+
 const ALL_TOOLS = [
   'get_current_account',
   'list_arcs',
@@ -125,7 +134,10 @@ async function run() {
   const tools = await mcpCall(baseUrl, token, 'tools/list');
   const names = tools.tools?.map((item) => item.name) ?? [];
   for (const name of ALL_TOOLS) expect(names.includes(name), `tools/list missing ${name}`);
-  console.log(`tools/list ok (${names.length} tools)`);
+  for (const name of CONTROL_CATALOG.externalCanonicalTools) {
+    expect(names.includes(name), `tools/list missing canonical conversational-control tool ${name}`);
+  }
+  console.log(`tools/list ok (${names.length} tools; ${CONTROL_CATALOG.externalCanonicalTools.length} canonical controls)`);
 
   try {
     const arc = await tool(baseUrl, token, 'create_arc', {

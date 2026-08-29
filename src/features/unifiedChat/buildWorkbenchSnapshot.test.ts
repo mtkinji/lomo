@@ -406,6 +406,26 @@ describe('buildWorkbenchSnapshot', () => {
     });
   });
 
+  test('projects a completed device read with the value returned by the device', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      clientActions: [{
+        id: 'client-action-appearance', threadId: 'thread-1', runId: 'run-device', messageId: null,
+        capabilityId: 'account', actionType: 'read_appearance_preference', targetType: null, targetId: null,
+        title: 'Read appearance on this device', consequenceSummary: 'The selected device will return its appearance preference.',
+        payload: {}, idempotencyKey: 'client-appearance', status: 'completed',
+        result: { outcome: 'read_device_preference', thumbnailStyles: ['topographyDots'] },
+        errorCode: null, errorMessage: null, version: 3, presentedAt: '2026-07-22T12:00:01.000Z',
+        completedAt: '2026-07-22T12:00:02.000Z', createdAt: '2026-07-22T12:00:00.000Z',
+        updatedAt: '2026-07-22T12:00:02.000Z',
+      }],
+    });
+
+    expect(snapshot.clientActions).toEqual([expect.objectContaining({
+      status: 'completed', consequenceSummary: 'Appearance: Topography dots.', canContinue: false,
+    })]);
+  });
+
   test('projects outcome order and resolves prerequisites to proposal ids', () => {
     const baseProposal = {
       threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'todos' as const,

@@ -33,7 +33,13 @@ The app sends:
 - `x-kwilt-install-id` (stable per install)
 - `x-kwilt-is-pro` (best-effort; server-verified entitlements can be added later)
 
-If your deployed Edge Function has **JWT verification enabled**, the client must include a **real Supabase user JWT** in `Authorization`.\n\nFor the MVP “no forced auth” posture, we recommend turning **Verify JWT OFF** on the `ai-chat` function.\n\nWhen Verify JWT is OFF, you may still include the project publishable/anon key as `apikey` (safe to embed).
+The `ai-chat` Edge Function has gateway JWT verification disabled in
+`supabase/config.toml`. The handler still enforces its own route-specific
+authorization, quotas, and request validation. In particular, Unified Chat
+agent requests require the exact backend service-role bearer, while ordinary
+install-scoped requests remain available without forcing account sign-in.
+
+Clients may include the project publishable/anon key as `apikey` (safe to embed).
 Set one of:
 - `SUPABASE_PUBLISHABLE_KEY` (recommended) or `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - (fallback) `SUPABASE_ANON_KEY` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
@@ -84,7 +90,7 @@ AI_PROXY_BASE_URL=http://localhost:54321/functions/v1/ai-chat
 ```bash
 npx supabase link
 npx supabase db push
-npx supabase functions deploy ai-chat
+npx supabase functions deploy ai-chat --no-verify-jwt
 ```
 
 ### Recommended MVP quota posture (matches product strategy)
@@ -108,4 +114,3 @@ After 3–7 days of internal use:
 - If Free users consistently hit the monthly cap too early, consider:
   - increasing Free actions slightly (e.g. 35/mo), or
   - reducing per-action “heaviness” by clamping outputs for Free tiers.
-

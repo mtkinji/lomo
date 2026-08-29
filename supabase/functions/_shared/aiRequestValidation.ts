@@ -89,7 +89,7 @@ function validUnifiedChatInputItem(value: unknown): boolean {
   if (value.type === 'function_call') {
     return Object.keys(value).every((key) => ['type', 'call_id', 'name', 'arguments'].includes(key)) &&
       typeof value.call_id === 'string' && value.call_id.length > 0 && value.call_id.length <= 160 &&
-      typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+      typeof value.name === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value.name) &&
       typeof value.arguments === 'string' && value.arguments.length <= 40_000;
   }
   if (value.type === 'function_call_output') {
@@ -109,7 +109,7 @@ function validUnifiedChatTool(value: unknown): boolean {
   return value.type === 'function' &&
     Object.keys(value).every((key) =>
       ['type', 'name', 'description', 'parameters', 'strict', 'defer_loading'].includes(key)) &&
-    typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+    typeof value.name === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value.name) &&
     typeof value.description === 'string' && value.description.length > 0 && value.description.length <= 1_000 &&
     value.strict === true && (value.defer_loading === undefined || value.defer_loading === true) &&
     isStrictSchema(value.parameters, true);
