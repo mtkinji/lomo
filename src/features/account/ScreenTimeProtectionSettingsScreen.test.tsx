@@ -206,19 +206,30 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(mockEnsureCurrentRuleSystem).toHaveBeenCalledTimes(1);
   });
 
-  it('returns to setup when native authorization invalidates persisted completion', async () => {
+  it('keeps prior approval and management when a foreground refresh is transiently not determined', async () => {
     mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'approved',
+        personalCompositeRules: [],
+      },
+    });
 
-    const { getByTestId, getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    const { getByText, queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('approved'));
+    expect(queryByText('Set rules that fit real life.')).toBeNull();
+    expect(getByText('Allowed')).toBeTruthy();
+  });
+
+  it('returns to setup when native authorization is explicitly denied', async () => {
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('denied');
+
+    const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
     expect(await waitFor(() => getByText('Set rules that fit real life.'))).toBeTruthy();
-    expect(
-      StyleSheet.flatten(getByTestId(
-        'bottom-drawer.handle-layout-spacer',
-        { includeHiddenElements: true },
-      ).props.style),
-    ).not.toHaveProperty('backgroundColor');
-    expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('notDetermined');
+    expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('denied');
   });
 
   it('introduces the full rule model and names Apple approval before rule setup', async () => {
@@ -232,7 +243,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
-    expect(screen.getByText('Set rules that fit real life.')).toBeTruthy();
+    expect(await screen.findByText('Set rules that fit real life.')).toBeTruthy();
     expect(screen.getByText(
       'Pause or allow apps based on daily use, time of day, a budget, Focus, or a completed to-do. You’ll approve Screen Time before creating a rule.',
     )).toBeTruthy();
@@ -248,6 +259,25 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     await waitFor(() => expect(mockRequestScreenTimeAuthorization).toHaveBeenCalledTimes(1));
   });
 
+  it('waits for Apple status before deciding that an existing installation needs onboarding', async () => {
+    let resolveStatus!: (status: string) => void;
+    mockGetScreenTimeAuthorizationStatus.mockReturnValue(new Promise((resolve) => { resolveStatus = resolve; }));
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    expect(screen.queryByText('Set rules that fit real life.')).toBeNull();
+    expect(screen.queryByText('Not set up')).toBeNull();
+    await act(async () => { resolveStatus('approved'); });
+    expect(await screen.findByText('Allowed')).toBeTruthy();
+    expect(screen.queryByText('Set rules that fit real life.')).toBeNull();
+  });
+
   it('reopens guided setup when an incomplete user deliberately enters from Focus', async () => {
     mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
     useAppStore.setState({
@@ -258,9 +288,9 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
-    expect(screen.getByText('Set rules that fit real life.')).toBeTruthy();
+    expect(await screen.findByText('Set rules that fit real life.')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Close Screen Time Controls setup'));
+    fireEvent.press(await screen.findByLabelText('Close Screen Time Controls setup'));
     expect(screen.queryByText('Set rules that fit real life.')).toBeNull();
     expect(screen.getByText('Screen Time access')).toBeTruthy();
     expect(screen.getByText('Not set up')).toBeTruthy();
@@ -285,7 +315,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
-    fireEvent.press(screen.getByLabelText('Close Screen Time Controls setup'));
+    fireEvent.press(await screen.findByLabelText('Close Screen Time Controls setup'));
     expect(screen.queryByText('Set rules that fit real life.')).toBeNull();
 
     mockFocusEpoch += 1;
@@ -307,7 +337,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
-    fireEvent.press(screen.getByText('Continue'));
+    fireEvent.press(await screen.findByText('Continue'));
     fireEvent.press(screen.getByText('Allow Screen Time'));
 
     expect(await screen.findByText(
@@ -376,7 +406,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
-    fireEvent.press(screen.getByText('Continue'));
+    fireEvent.press(await screen.findByText('Continue'));
     fireEvent.press(screen.getByText('Allow Screen Time'));
 
     await waitFor(() => expect(mockSettingsNavigate).toHaveBeenCalledWith(

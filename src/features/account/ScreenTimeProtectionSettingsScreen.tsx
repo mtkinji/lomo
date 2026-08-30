@@ -164,16 +164,15 @@ export function ScreenTimeProtectionSettingsScreen() {
     [entrySurface, setupIntent],
   );
   const recoveryStep = getScreenTimeSetupRecoveryStep(normalized);
-  const canonicalTargetCount = normalized.personalCompositeRules.reduce(
-    (count, rule) => count + rule.selectedApps.length + rule.selectedCategories.length,
-    0,
-  );
-  const targetCount = canonicalTargetCount || normalized.selectedApps.length + normalized.selectedCategories.length;
-  const hasTargets = targetCount > 0;
   const isApproved = normalized.authorizationStatus === 'approved';
+  // Apple approval completes the one-time setup. Creating a first rule is a
+  // separate job and a failed save must not send Settings through onboarding
+  // again. Contextual offers may still introduce their specific rule outcome.
   const hasCompletedRulesSetup = normalized.personalCompositeRules.some((rule) => rule.setupCompleted);
-  const setupCompleted = isApproved && hasTargets && hasCompletedRulesSetup;
+  const setupCompleted = isApproved
+    && (setupIntent === 'settings_discovery' || hasCompletedRulesSetup);
   const [setupPhase, setSetupPhase] = useState<SetupPhase>(() => (setupCompleted ? 'manage' : 'intro'));
+  const [authorizationChecked, setAuthorizationChecked] = useState(isApproved);
   const previousAuthorizationApprovedRef = useRef(isApproved);
 
   useEffect(() => {
@@ -204,17 +203,25 @@ export function ScreenTimeProtectionSettingsScreen() {
     void getScreenTimeAuthorizationStatus().then((authorizationStatus) => {
       setSettings((current) => ({
         ...current,
-        authorizationStatus,
+        // iOS can transiently report notDetermined after a previously
+        // successful individual authorization. Keep the successful receipt;
+        // explicit denial or revocation still replaces it.
+        authorizationStatus: current.authorizationStatus === 'approved'
+          && authorizationStatus === 'notDetermined'
+          ? 'approved'
+          : authorizationStatus,
       }));
       reconcileAfterSettingsChange();
-    });
+    }).finally(() => setAuthorizationChecked(true));
   }, [reconcileAfterSettingsChange, setSettings]);
 
   useEffect(() => {
-    if (!setupCompleted) {
+    if (setupCompleted) {
+      setSetupPhase('manage');
+    } else if (authorizationChecked) {
       setSetupPhase('intro');
     }
-  }, [entrySurface, returnToActivityId, setupCompleted, setupIntent]);
+  }, [authorizationChecked, entrySurface, returnToActivityId, setupCompleted, setupIntent]);
 
   useFocusEffect(
     useCallback(() => {
@@ -487,7 +494,7 @@ export function ScreenTimeProtectionSettingsScreen() {
     </>
   );
 
-  const setupDrawer = setupPhase !== 'manage' ? (
+  const setupDrawer = authorizationChecked && setupPhase !== 'manage' ? (
     <BottomDrawer
       visible
       onClose={handleCloseSetupDrawer}
@@ -557,7 +564,7 @@ export function ScreenTimeProtectionSettingsScreen() {
   return (
     <>
       <SettingsPage title="Screen Time" onBack={() => navigation.goBack()}>
-        {managementContent}
+        {authorizationChecked ? managementContent : null}
       </SettingsPage>
       {setupDrawer}
     </>
