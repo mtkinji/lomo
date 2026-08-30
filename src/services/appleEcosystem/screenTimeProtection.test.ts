@@ -21,6 +21,7 @@ import {
   applyPersonalScreenTimeUsageLimit,
   clearPersonalScreenTimeUsageLimit,
   applyPersonalCompositeScreenTimeRule,
+  consumeLastPersonalCompositeActivationFailure,
   clearPersonalCompositeScreenTimeRule,
   transferScreenTimeActivitySelection,
 } from './screenTimeProtection';
@@ -105,15 +106,41 @@ describe('Screen Time shield handoff bridge', () => {
       ], lastUpdated: '2026-08-27T20:00:00.000Z',
     };
 
-    await expect(applyPersonalCompositeScreenTimeRule(rule)).resolves.toBe(true);
+    await expect(applyPersonalCompositeScreenTimeRule(rule, {
+      activeCompositeRuleIds: ['existing-rule', 'social-rule'],
+    })).resolves.toBe(true);
     expect(JSON.parse(mockApplyPersonalCompositeRule.mock.calls[0][0])).toEqual({
       version: 2,
       ruleId: 'social-rule', selectionId: 'social-selection', connector: 'all', outcome: 'available',
       conditions: [
         { id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 },
         { id: 'under-limit', type: 'daily_usage', operator: 'below', minutes: 15 },
-      ], restrictionLabel: 'Social',
+      ], restrictionLabel: 'Social', activeRuleIds: ['existing-rule', 'social-rule'],
     });
+  });
+
+  it('preserves the exact native activation failure instead of collapsing it to false', async () => {
+    mockApplyPersonalCompositeRule.mockResolvedValue({
+      ok: false,
+      code: 'monitoring_excessive_activities',
+      message: 'The calling process is monitoring too many activities.',
+      monitoredActivityCount: 20,
+    });
+    const rule = {
+      id: 'social-rule', selectionId: 'social-selection', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-30T20:00:00.000Z',
+    };
+
+    await expect(applyPersonalCompositeScreenTimeRule(rule)).resolves.toBe(false);
+    expect(consumeLastPersonalCompositeActivationFailure()).toEqual({
+      code: 'monitoring_excessive_activities',
+      message: 'The calling process is monitoring too many activities.',
+      monitoredActivityCount: 20,
+    });
+    expect(consumeLastPersonalCompositeActivationFailure()).toBeNull();
   });
 
   it('passes Money-owned budget truth with its condition metadata to the native aggregate', async () => {

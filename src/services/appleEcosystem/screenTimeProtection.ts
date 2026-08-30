@@ -55,10 +55,31 @@ type KwiltScreenTimeProtectionNativeModule = {
   clearPrerequisiteRule?: (json: string) => Promise<boolean>;
   applyPersonalUsageLimit?: (json: string) => Promise<boolean>;
   clearPersonalUsageLimit?: (json: string) => Promise<boolean>;
-  applyPersonalCompositeRule?: (json: string) => Promise<boolean>;
+  applyPersonalCompositeRule?: (json: string) => Promise<boolean | PersonalCompositeActivationNativeResult>;
   clearPersonalCompositeRule?: (json: string) => Promise<boolean>;
   consumePrerequisiteRuleEvent?: () => Promise<unknown>;
 };
+
+type PersonalCompositeActivationNativeResult = {
+  ok?: boolean;
+  code?: string;
+  message?: string;
+  monitoredActivityCount?: number;
+};
+
+export type PersonalCompositeActivationFailure = {
+  code: string;
+  message: string | null;
+  monitoredActivityCount: number | null;
+};
+
+let lastPersonalCompositeActivationFailure: PersonalCompositeActivationFailure | null = null;
+
+export function consumeLastPersonalCompositeActivationFailure(): PersonalCompositeActivationFailure | null {
+  const failure = lastPersonalCompositeActivationFailure;
+  lastPersonalCompositeActivationFailure = null;
+  return failure;
+}
 
 const native: KwiltScreenTimeProtectionNativeModule | undefined = (NativeModules as any)?.KwiltScreenTimeProtection;
 
@@ -265,7 +286,12 @@ export async function clearPersonalScreenTimeUsageLimit(ruleId: string): Promise
 
 export async function applyPersonalCompositeScreenTimeRule(
   candidate: PersonalCompositeScreenTimeRule,
-  context?: { focusActive?: boolean; realStepComplete?: boolean; budgetConditionTruth?: Record<string, boolean> },
+  context?: {
+    focusActive?: boolean;
+    realStepComplete?: boolean;
+    budgetConditionTruth?: Record<string, boolean>;
+    activeCompositeRuleIds?: string[];
+  },
 ): Promise<boolean> {
   if (Platform.OS !== 'ios' || !native?.applyPersonalCompositeRule) return false;
   const rule = normalizePersonalCompositeScreenTimeRule(candidate);
@@ -287,17 +313,41 @@ export async function applyPersonalCompositeScreenTimeRule(
       }
       return [];
     }));
-    return Boolean(await native.applyPersonalCompositeRule(JSON.stringify({
+    const result = await native.applyPersonalCompositeRule(JSON.stringify({
       version: 2,
       ruleId: rule.id,
       selectionId: rule.selectionId,
+      activeRuleIds: [...new Set([...(context?.activeCompositeRuleIds ?? []), rule.id])],
       connector: rule.connector,
       outcome: rule.outcome,
       conditions: rule.conditions,
       restrictionLabel: restrictionLabel.slice(0, 80),
       ...(Object.keys(hostTruth).length > 0 ? { hostTruth } : {}),
-    })));
-  } catch {
+    }));
+    if (result === true || (result && typeof result === 'object' && result.ok === true)) {
+      lastPersonalCompositeActivationFailure = null;
+      return true;
+    }
+    if (result && typeof result === 'object') {
+      lastPersonalCompositeActivationFailure = {
+        code: typeof result.code === 'string' && result.code ? result.code : 'native_activation_failed',
+        message: typeof result.message === 'string' && result.message ? result.message : null,
+        monitoredActivityCount: Number.isInteger(result.monitoredActivityCount)
+          ? Number(result.monitoredActivityCount)
+          : null,
+      };
+    } else {
+      lastPersonalCompositeActivationFailure = {
+        code: 'native_activation_failed', message: null, monitoredActivityCount: null,
+      };
+    }
+    return false;
+  } catch (error) {
+    lastPersonalCompositeActivationFailure = {
+      code: 'native_bridge_error',
+      message: error instanceof Error ? error.message : null,
+      monitoredActivityCount: null,
+    };
     return false;
   }
 }

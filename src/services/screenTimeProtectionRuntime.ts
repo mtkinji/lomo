@@ -38,6 +38,9 @@ export async function activatePersonalCompositeScreenTimeRule(params: {
     focusActive: params.focusSessionActive ?? false,
     realStepComplete: params.realStepComplete ?? false,
     budgetConditionTruth,
+    activeCompositeRuleIds: normalizeScreenTimeProtectionSettings(
+      useAppStore.getState().screenTimeProtection,
+    ).personalCompositeRules.map((rule) => rule.id),
   }).catch(() => false);
 }
 
@@ -109,7 +112,10 @@ export async function reconcileScreenTimeRestrictions(params: {
     budgetConditionTruthByRule,
     bridge: {
       clear: clearScreenTimeRestrictions,
-      applyComposite: (rule, context) => applyPersonalCompositeScreenTimeRule(rule, context),
+      applyComposite: (rule, context) => applyPersonalCompositeScreenTimeRule(rule, {
+        ...context,
+        activeCompositeRuleIds: normalized.personalCompositeRules.map((candidate) => candidate.id),
+      }),
       clearComposite: clearPersonalCompositeScreenTimeRule,
     },
   });
