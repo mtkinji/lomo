@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const sql = readFileSync(new URL('../supabase/migrations/20260827_activity_backed_chore_profiles.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/20260829054800_activity_backed_chore_profiles.sql', import.meta.url), 'utf8');
+
+test('occurrence reconciliation uses a valid typed-row loop target', () => {
+  assert.doesNotMatch(sql, /for\s+v_profile\s*,\s*v_series\s+in/i);
+  assert.match(sql, /for\s+v_profile\s+in\s+select\s+cp\.\*/i);
+});
+
+test('snapshot aggregates are staged before the final JSON constructor', () => {
+  assert.match(sql, /v_members jsonb;\s*v_definitions jsonb;/i);
+  assert.doesNotMatch(sql, /'definitions'\s*,\s*coalesce\(\(select/i);
+});
 
 test('Chores keeps Activity identity and stores only policy, occurrence, evidence, and reward authority', () => {
   assert.match(sql, /activity_series_id text not null/);
@@ -36,4 +46,11 @@ test('all mutations cross Household actor, exact-version, and idempotency bounda
   assert.match(sql, /kwilt_chore_actor/);
   assert.match(sql, /kwilt_household_device_member_access/);
   assert.match(sql, /invalid_household_mode_chore_actor/);
+});
+
+test('public Chores RPC wrappers are executable only by authenticated users', () => {
+  assert.match(sql, /revoke all on function public\.get_kwilt_chore_snapshot\(uuid,text\) from public,anon,authenticated;/);
+  assert.match(sql, /revoke all on function public\.execute_kwilt_chore_action\(jsonb,uuid,text\) from public,anon,authenticated;/);
+  assert.match(sql, /grant execute on function public\.get_kwilt_chore_snapshot\(uuid,text\) to authenticated;/);
+  assert.match(sql, /grant execute on function public\.execute_kwilt_chore_action\(jsonb,uuid,text\) to authenticated;/);
 });

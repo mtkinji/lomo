@@ -88,8 +88,8 @@ export async function executeServerMoneyTool({ call, stageDeviceAction }: {
     targetType: target.targetType, targetId: target.targetId,
     title: repair ? 'Repair Money connection' : 'Review private Money action',
     consequenceSummary: repair
-      ? 'Kwilt will open the provider-owned repair flow on your authenticated device. Credentials remain with the provider.'
-      : 'Kwilt will open this request on your device. Private Money data stays hidden until native authentication, and no change occurs without the required review.',
+      ? 'Kwilt will open the provider’s repair screen on your authenticated device. Your sign-in information stays with the provider.'
+      : 'Kwilt will open this Money request on your device. Financial details stay hidden until you authenticate, and nothing changes without your review.',
     payload: appControl ? {
       subject: call.arguments.subject,
       preset: condition.preset,

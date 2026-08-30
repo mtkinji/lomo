@@ -319,5 +319,25 @@ export async function runBoundedServerAgentToolLoop({
       messages.push({ role: 'tool', toolCallId: call.id, toolId: call.toolId, content: JSON.stringify(result) });
     }
   }
-  return { status: 'partial' as const, content: null, errorCode: 'max_rounds_reached', messages, events };
+  const synthesisRound = maxRounds + 1;
+  if (signal?.aborted) return stopped(synthesisRound);
+  const synthesis = await modelStep({
+    messages,
+    tools: [],
+    round: synthesisRound,
+    ...(signal ? { signal } : {}),
+  });
+  events.push({
+    sequence: ++eventSequence, type: 'model_step', round: synthesisRound,
+    ...(synthesis.metadata ? { metadata: synthesis.metadata } : {}),
+  });
+  if (synthesis.toolCalls.length > 0) {
+    return { status: 'partial' as const, content: null, errorCode: 'max_rounds_reached', messages, events };
+  }
+  const content = synthesis.content?.trim();
+  if (!content) {
+    return { status: 'failed' as const, content: null, errorCode: 'missing_final_content', messages, events };
+  }
+  messages.push({ role: 'assistant', content });
+  return { status: 'completed' as const, content, messages, events };
 }

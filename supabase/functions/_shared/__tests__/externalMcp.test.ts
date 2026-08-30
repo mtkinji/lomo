@@ -57,6 +57,22 @@ describe('externalMcp helpers', () => {
     expect(resolveExternalMcpTool('kwilt_household_device_revoke')?.annotations.destructiveHint).toBe(true);
   });
 
+  test('advertises canonical tool names while continuing to resolve compatibility aliases', () => {
+    expect(EXTERNAL_MCP_ACTION_CATALOG.every((tool) => (
+      tool.name === tool.canonicalName && tool.compatibilityAlias === null
+    ))).toBe(true);
+
+    expect(resolveExternalMcpTool('create_arc')).toMatchObject({
+      canonicalName: 'kwilt_arcs_create',
+      compatibilityAlias: { name: 'create_arc', version: 1 },
+    });
+    expect(resolveExternalMcpTool('kwilt_arcs_create')).toMatchObject({
+      name: 'kwilt_arcs_create',
+      canonicalName: 'kwilt_arcs_create',
+      compatibilityAlias: null,
+    });
+  });
+
   test('keeps every manifest operation in an explicit external-control state', () => {
     expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(232);
     expect(EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'excluded')
@@ -106,11 +122,11 @@ describe('externalMcp helpers', () => {
   describe('EXTERNAL_MCP_READ_TOOLS', () => {
     test('advertises the Sprint A read-only tool set', () => {
       expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual(expect.arrayContaining([
-        'get_current_account',
-        'list_arcs',
-        'list_goals',
-        'list_recent_activities',
-        'get_current_chapter',
+        'kwilt_profile_read',
+        'kwilt_arcs_list',
+        'kwilt_goals_list',
+        'kwilt_activities_list',
+        'kwilt_chapters_get_current',
         'kwilt_plan_read_day_context',
         'kwilt_screen_time_read',
         'kwilt_plan_recommend_day',
@@ -134,10 +150,10 @@ describe('externalMcp helpers', () => {
   describe('EXTERNAL_MCP_WRITE_TOOLS', () => {
     test('advertises the write tool set for Arcs, Goals, Activities, check-ins, and chapter notes', () => {
       expect(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => tool.name)).toEqual(expect.arrayContaining([
-        'create_arc',
-        'create_goal',
-        'capture_activity',
-        'update_chapter_user_note',
+        'kwilt_arcs_create',
+        'kwilt_goals_create',
+        'kwilt_activities_capture',
+        'kwilt_chapters_note_update',
         'kwilt_plan_schedule_activity',
         'kwilt_plan_reschedule_activity',
         'kwilt_plan_remove_activity',

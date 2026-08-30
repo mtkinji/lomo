@@ -40,8 +40,8 @@ export async function executeChapterAndNotificationTool({ call, snapshots, stage
         actionType: 'review_notification_preferences', targetType: 'notification_preferences', targetId: 'self',
         title: 'Review notification changes',
         consequenceSummary: review.requiresNativePermission
-          ? 'Reviews these settings and asks iOS for notification permission only after you continue.'
-          : 'Reviews these exact notification settings before applying them.',
+          ? 'Kwilt will show these settings and ask for iPhone notification permission only after you continue.'
+          : 'Kwilt will show these notification settings before applying them.',
         payload: { fields, changedFields: review.changedFields, requiresNativePermission: review.requiresNativePermission },
       } };
     } catch (error) {

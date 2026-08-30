@@ -140,6 +140,14 @@ describe('serverAgentResponses', () => {
       supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
       quotaIdentity: 'user-1', isPro: false, messages, tools,
       policyContext: { currentDate: '2026-08-26', timeZone: 'UTC' },
+      fetcher: async () => new Response(JSON.stringify({
+        error: { code: 'quota_exceeded', message: 'private account detail' },
+      }), { status: 429 }),
+    })).rejects.toThrow(/^quota_exceeded$/);
+    await expect(requestServerAgentResponse({
+      supabaseUrl: 'https://example.supabase.co', serviceRoleToken: 'service',
+      quotaIdentity: 'user-1', isPro: false, messages, tools,
+      policyContext: { currentDate: '2026-08-26', timeZone: 'UTC' },
       fetcher: async () => { throw new DOMException('timed out', 'TimeoutError'); },
     })).rejects.toThrow('model_request_timeout:retryable');
   });

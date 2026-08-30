@@ -1,6 +1,7 @@
 export const CHAT_NAVIGABLE_CAPABILITY_IDS = [
   'goals', 'todos', 'plan', 'arcs', 'chapters', 'money',
-  'recipes', 'meal-planning', 'groceries', 'chores',
+  'recipes', 'meal-planning', 'groceries', 'chores', 'focus',
+  'household', 'savings', 'screen-time', 'notifications', 'account-settings',
 ] as const;
 
 export type ChatNavigableCapabilityId = typeof CHAT_NAVIGABLE_CAPABILITY_IDS[number];
@@ -9,6 +10,29 @@ export type CapabilityNavigationRequest = {
   capabilityId: ChatNavigableCapabilityId;
   objectRef: { objectType: ChatNavigableObjectType; objectId: string } | null;
 };
+
+const CHAT_NAVIGABLE_CAPABILITY_LABELS: Record<ChatNavigableCapabilityId, string> = {
+  goals: 'Goals',
+  todos: 'To-dos',
+  plan: 'Plan',
+  arcs: 'Arcs',
+  chapters: 'Chapters',
+  money: 'Money',
+  recipes: 'Recipes',
+  'meal-planning': 'Meal Plan',
+  groceries: 'Groceries',
+  chores: 'Chores',
+  focus: 'Focus',
+  household: 'Household',
+  savings: 'Savings',
+  'screen-time': 'Screen Time',
+  notifications: 'Notifications',
+  'account-settings': 'Settings',
+};
+
+export function capabilityNavigationLabel(capabilityId: ChatNavigableCapabilityId): string {
+  return CHAT_NAVIGABLE_CAPABILITY_LABELS[capabilityId];
+}
 
 const objectTypeByCapability: Partial<Record<ChatNavigableCapabilityId, ChatNavigableObjectType>> = {
   goals: 'goal', todos: 'activity', chapters: 'chapter', recipes: 'recipe',

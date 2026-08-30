@@ -21,17 +21,17 @@ const ACTIVITY_HANDOFFS: Record<string, (title: string) => Omit<ServerDeviceActi
   }),
   'activities.location.update': (title) => ({
     actionType: 'open_activity_location', title: `Review location for ${title}`,
-    consequenceSummary: 'Kwilt will open this To-do. Location access and any trigger remain under native permission and review.',
+    consequenceSummary: 'Kwilt will open this To-do. You still choose the location and approve any iPhone permission.',
     payload: { route: 'activity' },
   }),
   'activities.attachments.open': (title) => ({
     actionType: 'open_activity_attachments', title: `Add an attachment to ${title}`,
-    consequenceSummary: 'Kwilt will open this To-do. You choose the file or photo in the native picker.',
+    consequenceSummary: 'Kwilt will open this To-do. You still choose the file or photo.',
     payload: { route: 'activity' },
   }),
   'activities.share.open': (title) => ({
     actionType: 'open_activity_share', title: `Review sharing for ${title}`,
-    consequenceSummary: 'Kwilt will open this To-do. Nothing is shared until you choose the audience and confirm natively.',
+    consequenceSummary: 'Kwilt will open this To-do. Nothing is shared until you choose who can see it and confirm.',
     payload: { route: 'activity' },
   }),
 };
@@ -72,12 +72,12 @@ export async function executeServerDeviceHandoff({ client, userId, call, stageDe
   const request: ServerDeviceActionRequest = checkIn ? {
     capabilityId: 'goals', actionType: 'open_goal_checkin', targetType: 'goal', targetId: goalId,
     title: `Review check-in for ${title}`,
-    consequenceSummary: 'Kwilt will prepare this draft and open the native audience review. Nothing is sent until you confirm there.',
+    consequenceSummary: 'Kwilt will prepare the check-in and show who can see it. Nothing is sent until you confirm.',
     payload: { text },
   } : {
     capabilityId: 'goals', actionType: 'open_goal_share', targetType: 'goal', targetId: goalId,
     title: `Review sharing for ${title}`,
-    consequenceSummary: 'Kwilt will open this Goal. Nothing is shared until you choose visibility, audience, and confirm natively.',
+    consequenceSummary: 'Kwilt will open this Goal. Nothing is shared until you choose who can see it and confirm.',
     payload: { route: 'goal' },
   };
   await stageDeviceAction(request);

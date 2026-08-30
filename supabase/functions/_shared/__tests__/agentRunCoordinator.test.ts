@@ -6,7 +6,7 @@ import {
   executeEnqueuedCanonicalAgentRun,
   type AgentRunPersistence,
 } from '../agentRunCoordinator';
-import type { CanonicalAgentRunRequest, ServerAgentModelStep } from '../agentRuntime';
+import type { CanonicalAgentRunRequest, ServerAgentLoopMessage, ServerAgentModelStep } from '../agentRuntime';
 
 const request: CanonicalAgentRunRequest = {
   channel: 'sms', requestId: 'SM123', prompt: 'Open Screen Time settings', threadId: null,
@@ -95,22 +95,30 @@ test('persists causal run state around the shared bounded loop', async () => {
   }] }, error: null }));
   const steps: ServerAgentModelStep[] = [
     { content: null, toolCalls: [{
-      id: 'call-1', toolId: 'screen_time.configure',
-      arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
+      id: 'call-1', toolId: 'navigation.open_capability',
+      arguments: { capabilityId: 'screen-time', objectRef: null },
     }] },
     { content: 'I opened the exact Screen Time setup for review on your device.', toolCalls: [] },
   ];
-  await expect(executeCanonicalAgentRun({
+  const observedMessages: (readonly ServerAgentLoopMessage[])[] = [];
+  const result = await executeCanonicalAgentRun({
     request, userId: 'user-1', persistence: store,
     dataClient: { rpc, from: jest.fn(() => membershipQuery) },
-    modelStep: async () => steps.shift()!,
-  })).resolves.toMatchObject({
+    modelStep: async ({ messages }) => {
+      observedMessages.push(messages);
+      return steps.shift()!;
+    },
+  });
+  expect(observedMessages[1]).toEqual(expect.arrayContaining([
+    expect.objectContaining({ role: 'tool', content: expect.stringContaining('pending_client_action') }),
+  ]));
+  expect(result).toMatchObject({
     state: 'complete',
-    answer: 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.',
+    answer: 'Ready when you are. You still need to take the next step.',
   });
   expect(order).toEqual(['enqueue', 'start', 'history', 'stage', 'complete']);
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
-    expectedVersion: 2, participatingCapabilities: ['screenTime'], requestClass: 'capability_question',
+    expectedVersion: 2, participatingCapabilities: ['navigation'], requestClass: 'capability_question',
   }));
 });
 
@@ -126,6 +134,54 @@ test('persists bounded Responses metadata for every model step', async () => {
     modelStep: async () => ({ content: 'Done.', toolCalls: [], metadata }),
   });
   expect(store.recordModelStep).toHaveBeenCalledWith({ run, round: 1, metadata });
+});
+
+test('removes every tool from the reserved synthesis request', async () => {
+  const store = persistence([]);
+  const capabilities = ['screen-time', 'goals', 'todos', 'plan'];
+  const modelStep = jest.fn(async ({ round }: { round: number }) => round <= capabilities.length
+    ? {
+      content: null,
+      toolCalls: [{
+        id: `call-${round}`,
+        toolId: 'navigation.open_capability',
+        arguments: { capabilityId: capabilities[round - 1], objectRef: null },
+      }],
+    }
+    : { content: 'The four destinations are ready for review.', toolCalls: [] });
+
+  await expect(executeCanonicalAgentRun({
+    request,
+    userId: 'user-1',
+    persistence: store,
+    dataClient: { from: jest.fn() },
+    modelStep,
+  })).resolves.toMatchObject({ state: 'complete' });
+
+  expect(modelStep).toHaveBeenCalledTimes(5);
+  expect(modelStep.mock.calls[4][0]).toMatchObject({
+    tools: [], resolvedTools: [], toolSearchNamespaces: [], round: 5,
+  });
+});
+
+test('answers unsupported coupon application deterministically without inventing review work', async () => {
+  const store = persistence([]);
+  const modelStep = jest.fn(async () => ({
+    content: 'I prepared the coupon step for review in Kwilt.', toolCalls: [],
+  }));
+
+  await expect(executeCanonicalAgentRun({
+    request: { ...request, channel: 'mobile', prompt: 'Apply a coupon to my grocery order.' },
+    userId: 'user-1', persistence: store, dataClient: { from: jest.fn() }, modelStep,
+  })).resolves.toMatchObject({
+    state: 'complete',
+    answer: 'Kwilt can’t apply coupons to a retailer order. I can help you review eligible offers or open the retailer’s coupon activation step.',
+  });
+  expect(modelStep).not.toHaveBeenCalled();
+  expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
+    requestClass: 'better_served_elsewhere',
+    participatingCapabilities: ['savings'],
+  }));
 });
 
 test('returns an idempotent replay without invoking the model', async () => {
@@ -156,6 +212,7 @@ test('executes an already-enqueued run without inserting the user turn twice', a
     state: 'complete', replayed: false, answer: 'Persisted after acceptance.',
   });
   expect(store.enqueue).toHaveBeenCalledTimes(1);
+  expect(store.loadHistory).toHaveBeenCalledWith(run.threadId, run.messageId);
   expect(order).toEqual(['enqueue', 'start', 'history', 'complete']);
 });
 
@@ -227,14 +284,14 @@ test('persists a server-discovered Goal update as a mobile-review proposal', asy
     userId: 'user-1', persistence: store,
     dataClient: { from: jest.fn(() => goalQuery) }, modelStep: async () => steps.shift()!,
   })).resolves.toMatchObject({
-    answer: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    answer: 'That change is ready for review. Nothing has changed yet.',
   });
   expect(order).toEqual(['enqueue', 'start', 'history', 'proposal', 'complete']);
   expect(store.stageProposal).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-goal', proposal: expect.objectContaining({ capabilityId: 'goals' }),
   }));
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
-    body: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    body: 'That change is ready for review. Nothing has changed yet.',
   }));
 });
 
@@ -265,7 +322,7 @@ test('keeps a Phone-authored Profile edit on the versioned native Profile review
     userId: 'user-1', persistence: store,
     dataClient: { from: jest.fn(() => profileQuery) }, modelStep: async () => steps.shift()!,
   })).resolves.toMatchObject({
-    answer: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    answer: 'That change is ready for review. Nothing has changed yet.',
   });
   expect(store.stageProposal).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-profile',
@@ -278,7 +335,7 @@ test('keeps a Phone-authored Profile edit on the versioned native Profile review
     }),
   }));
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
-    body: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    body: 'That change is ready for review. Nothing has changed yet.',
     participatingCapabilities: ['profile'],
   }));
 });
@@ -314,7 +371,7 @@ test('keeps a Phone-authored Activity step change on the existing mobile review 
     userId: 'user-1', persistence: store,
     dataClient: { from: jest.fn(() => activityQuery) }, modelStep: async () => steps.shift()!,
   })).resolves.toMatchObject({
-    answer: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    answer: 'That change is ready for review. Nothing has changed yet.',
   });
   expect(store.stageProposal).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-step',
@@ -587,7 +644,7 @@ test('turns a Phone Plan placement into the existing mobile-reviewed proposal ra
     userId: 'user-1', persistence: store, dataClient, modelStep,
   })).resolves.toMatchObject({
     state: 'complete',
-    answer: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    answer: 'That change is ready for review. Nothing has changed yet.',
   });
   expect(store.stageProposal).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-plan-schedule',
@@ -634,7 +691,7 @@ test('stages a Phone Plan chunk group atomically and reports every review item a
     userId: 'user-1', persistence: store, dataClient, modelStep,
   })).resolves.toMatchObject({
     state: 'complete',
-    answer: 'I prepared 2 changes for review in Kwilt. They have not been applied yet.',
+    answer: '2 changes are ready for review. Nothing has changed yet.',
   });
   expect(store.stageProposals).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-chunks', proposals: expect.arrayContaining([
@@ -676,7 +733,7 @@ test('turns a Phone reminder request into the existing Activity review without c
     userId: 'user-1', persistence: store, dataClient, modelStep,
   })).resolves.toMatchObject({
     state: 'complete',
-    answer: 'I prepared that change for review in Kwilt. It has not been applied yet.',
+    answer: 'That change is ready for review. Nothing has changed yet.',
   });
   expect(store.stageProposal).toHaveBeenCalledWith(expect.objectContaining({
     run, callId: 'call-reminder',

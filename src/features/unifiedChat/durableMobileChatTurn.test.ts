@@ -1,4 +1,5 @@
 import {
+  didDurableSteerTransition,
   isDurableMobileChatEligible,
   runDurableMobileChatTurn,
   transitionDurableMobileChatRun,
@@ -30,6 +31,14 @@ test('routes an established plain-text follow-up through durable mobile executio
     interactionMode: 'text',
     isRetry: false,
   })).toBe(true);
+});
+
+test.each([
+  ['active run became steered', 'active', 'steered', true],
+  ['queued run was stopped before work began', 'queued', 'stopped', true],
+  ['active run completed before the steer landed', 'active', 'complete', false],
+] as const)('%s', (_label, sourceStatus, resultingStatus, expected) => {
+  expect(didDurableSteerTransition(sourceStatus, resultingStatus)).toBe(expected);
 });
 
 test.each([
@@ -170,4 +179,27 @@ test('records a steering instruction against an active durable run', async () =>
     toStatus: 'steered', steerCount: 2,
     event: expect.objectContaining({ payload: { prompt: 'Use apples instead.' } }),
   }));
+});
+
+test('refreshes a run that completed while a server-owned steer was being recorded', async () => {
+  const active = aggregate({
+    runs: [{ id: 'run-1', status: 'active', version: 4, steerCount: 0 } as never],
+  });
+  const completed = aggregate({
+    runs: [{ id: 'run-1', status: 'complete', version: 5, steerCount: 0 } as never],
+  });
+  const loadThread = jest.fn().mockResolvedValueOnce(active).mockResolvedValueOnce(completed);
+  const transitionRunStatus = jest.fn(async () => {
+    throw new Error('invalid_run_source_status');
+  });
+
+  await expect(transitionDurableMobileChatRun({
+    threadId: active.thread.id,
+    runId: 'run-1',
+    disposition: { type: 'steer', prompt: 'Goals only.' },
+    loadThread,
+    transitionRunStatus,
+  })).resolves.toBe(completed);
+
+  expect(loadThread).toHaveBeenCalledTimes(2);
 });

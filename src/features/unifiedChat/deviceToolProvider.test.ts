@@ -57,6 +57,8 @@ test('stages universal navigation only for an allow-listed capability destinatio
     request: {
       capabilityId: 'navigation', actionType: 'open_capability',
       targetType: 'recipe', targetId: 'recipe-1',
+      title: 'Open Recipes',
+      consequenceSummary: 'This only opens Recipes. Nothing changes.',
       payload: { capabilityId: 'recipes', objectRef: { objectType: 'recipe', objectId: 'recipe-1' } },
     },
   });
@@ -586,10 +588,10 @@ test('names missing Screen Time intent fields instead of staging a generic setup
 });
 
 test.each([
-  ['screen_time.selection.open', { childMembershipId: 'child-charlie', suggestedLabel: 'YouTube' }, 'selection'],
-  ['screen_time.device.setup.open', { childMembershipId: 'child-charlie' }, 'device'],
-  ['screen_time.device.release.open', { childMembershipId: 'child-charlie' }, 'release'],
-])('stages %s for the exact authorized child without claiming completion', async (toolId, args, setupStep) => {
+  ['screen_time.selection.open', { childMembershipId: 'child-charlie', suggestedLabel: 'YouTube' }, 'selection', 'still finish'],
+  ['screen_time.device.setup.open', { childMembershipId: 'child-charlie' }, 'device', 'still finish'],
+  ['screen_time.device.release.open', { childMembershipId: 'child-charlie' }, 'release', 'stays on until'],
+])('stages %s for the exact authorized child without claiming completion', async (toolId, args, setupStep, pendingCopy) => {
   const provider = createDeviceToolProvider({ snapshots });
   await expect(provider.execute({ id: toolId, toolId, arguments: args }, tool(toolId)))
     .resolves.toMatchObject({
@@ -601,7 +603,7 @@ test.each([
         }),
       }),
     });
-  expect(provider.actions()[0].consequenceSummary).toContain('still happens');
+  expect(provider.actions()[0].consequenceSummary).toContain(pendingCopy);
 });
 
 test('rejects a Screen Time handoff outside the authorized child snapshot', async () => {
@@ -680,5 +682,5 @@ test.each([
       status: 'pending_client_action', provider: 'device',
       request: expect.objectContaining({ actionType, targetId }),
     });
-  expect(provider.actions()[0].consequenceSummary).toMatch(/review|Nothing|does not/i);
+  expect(provider.actions()[0].consequenceSummary).toMatch(/Nothing|not |yet|still|until|only after/i);
 });

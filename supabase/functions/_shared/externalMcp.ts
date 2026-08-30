@@ -584,12 +584,12 @@ for (const action of projectedActions) {
   }
 }
 
-export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] = projectedActions.map((action) => {
-  const compatibilityAlias = action.compatibilityAliases[0];
-  return compatibilityAlias
-    ? compatibilityToolByName.get(compatibilityAlias.name)!
-    : canonicalToolByName.get(action.canonicalName)!;
-});
+// Advertise only the stable canonical operation names. Existing v1 clients can
+// continue calling compatibility aliases through resolveExternalMcpTool, but
+// new clients should never learn the legacy names from tools/list.
+export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] = projectedActions.map(
+  (action) => canonicalToolByName.get(action.canonicalName)!,
+);
 
 export function resolveExternalMcpTool(name: string): ExternalMcpToolDefinition | null {
   return canonicalToolByName.get(name) ?? compatibilityToolByName.get(name) ?? null;

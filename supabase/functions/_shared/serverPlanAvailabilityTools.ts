@@ -110,7 +110,7 @@ export async function executeServerPlanAvailabilityTool({ client, userId, call, 
   const request: ServerDeviceActionRequest = {
     capabilityId: 'plan', actionType: 'review_plan_availability', targetType: 'plan_availability', targetId: null,
     title: 'Review Plan availability',
-    consequenceSummary: 'Kwilt will open the exact weekly availability and time zone for native review. Nothing changes until you apply it there.',
+    consequenceSummary: 'Kwilt will show the weekly availability and time zone. Nothing changes until you apply it.',
     payload: {
       expectedVersion, timeZone: call.arguments.timeZone.trim(), windows: nextWindows,
       affectedWeekdays: affectedWeekdays(windows, nextWindows),

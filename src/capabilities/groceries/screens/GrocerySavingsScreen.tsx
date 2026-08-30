@@ -16,15 +16,20 @@ import type { SavingsOption } from "../domain/savingsContracts";
 type Props = NativeStackScreenProps<FoodStackParamList, "GrocerySavings">;
 export function GrocerySavingsScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
+  const requestedListId = route.params?.listId;
   const [options, setOptions] = useState<SavingsOption[] | null>(null);
   const [coverage, setCoverage] = useState(0);
   useEffect(() => {
     void (async () => {
       try {
-        const list = (await createGroceryRepository().list()).find(
-          (entry) => entry.id === route.params.listId,
-        );
-        if (!list) throw new Error("List unavailable");
+        const lists = await createGroceryRepository().list();
+        const list = requestedListId
+          ? lists.find((entry) => entry.id === requestedListId)
+          : lists[0];
+        if (!list) {
+          setOptions([]);
+          return;
+        }
         const result = await createGrocerySavingsRepository().prepare(
           list.id,
           list.revision,
@@ -40,7 +45,7 @@ export function GrocerySavingsScreen({ navigation, route }: Props) {
         setOptions([]);
       }
     })();
-  }, [capture, route.params.listId]);
+  }, [capture, requestedListId]);
   return (
     <AppShell>
       <PageHeader

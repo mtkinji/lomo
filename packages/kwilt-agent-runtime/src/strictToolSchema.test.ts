@@ -35,9 +35,9 @@ describe('strict tool schemas', () => {
       type: 'object',
       additionalProperties: false,
       properties: {
-        query: { type: 'string', minLength: 1 },
+        query: { type: 'string' },
         mode: { type: ['string', 'null'], enum: ['quick', 'deep', null] },
-        note: { type: ['string', 'null'], maxLength: 100 },
+        note: { type: ['string', 'null'] },
         context: {
           type: ['object', 'null'],
           additionalProperties: false,
@@ -61,6 +61,37 @@ describe('strict tool schemas', () => {
         },
       },
       required: ['query', 'mode', 'note', 'context', 'candidates'],
+    });
+  });
+
+  test('omits semantic constraints that the provider rejects in strict tool schemas', () => {
+    expect(toStrictToolInputSchema({
+      type: 'object',
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        tags: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+        fields: {
+          type: 'object',
+          properties: { name: { type: 'string' } },
+          minProperties: 1,
+          maxProperties: 1,
+        },
+      },
+      required: ['title'],
+    })).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        title: { type: 'string' },
+        tags: { type: ['array', 'null'], items: { type: 'string' } },
+        fields: {
+          type: ['object', 'null'],
+          additionalProperties: false,
+          properties: { name: { type: ['string', 'null'] } },
+          required: ['name'],
+        },
+      },
+      required: ['title', 'tags', 'fields'],
     });
   });
 

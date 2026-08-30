@@ -1,4 +1,5 @@
 import { directScreenTimeControl } from './directAppControl';
+import { resolveUnsupportedEffectBoundary } from '../../../packages/kwilt-agent-runtime/src/unsupportedEffectBoundary';
 
 export type UnifiedChatRequestClass =
   | 'general'
@@ -225,6 +226,16 @@ export function classifyUnifiedChatRequest({
       usePrivateContext: false,
       clarification: null,
       policyReason: 'specialist-or-high-stakes-boundary',
+    };
+  }
+
+  if (resolveUnsupportedEffectBoundary(normalizedPrompt)) {
+    return {
+      requestClass: 'better_served_elsewhere',
+      participatingCapabilities: [],
+      usePrivateContext: false,
+      clarification: null,
+      policyReason: 'unsupported-consequential-effect',
     };
   }
 

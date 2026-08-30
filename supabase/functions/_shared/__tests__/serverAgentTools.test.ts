@@ -111,6 +111,8 @@ test('stages the same allow-listed capability navigation for an external caller'
     request: {
       capabilityId: 'navigation', actionType: 'open_capability',
       targetType: 'goal', targetId: 'goal-1',
+      title: 'Open Goals',
+      consequenceSummary: 'This only opens Goals. Nothing changes.',
     },
   });
   expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
@@ -390,7 +392,7 @@ test('stages native Plan preferences without claiming availability or calendars 
     request: expect.objectContaining({ actionType: 'open_plan_preferences' }),
   });
   expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
-    consequenceSummary: expect.stringContaining('native availability and calendar preference settings'),
+    consequenceSummary: expect.stringContaining('availability and calendar settings'),
   }));
 });
 

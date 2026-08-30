@@ -6,7 +6,8 @@ import {
 describe('parseCapabilityNavigationRequest', () => {
   it.each([
     'goals', 'todos', 'plan', 'arcs', 'chapters', 'money',
-    'recipes', 'meal-planning', 'groceries', 'chores',
+    'recipes', 'meal-planning', 'groceries', 'chores', 'focus',
+    'household', 'savings', 'screen-time', 'notifications', 'account-settings',
   ])('allows the included %s capability', (capabilityId) => {
     expect(parseCapabilityNavigationRequest({ capabilityId })).toEqual({
       capabilityId,
@@ -65,6 +66,19 @@ describe('resolveChatCapabilityNavigation', () => {
         params: { entryPoint: 'capability-menu' },
       },
     });
+  });
+
+  it.each([
+    ['focus', { name: 'StandaloneFocus', params: { source: 'chat' } }],
+    ['household', { name: 'Settings', params: { screen: 'SettingsHousehold' } }],
+    ['savings', { name: 'Food', params: { screen: 'GrocerySavings' } }],
+    ['screen-time', { name: 'Settings', params: { screen: 'SettingsScreenTimeProtection' } }],
+    ['notifications', { name: 'Settings', params: { screen: 'SettingsNotifications' } }],
+    ['account-settings', { name: 'Settings', params: { screen: 'SettingsHome' } }],
+  ])('opens the included %s destination', (capabilityId, expected) => {
+    expect(resolveChatCapabilityNavigation({
+      capabilityId: capabilityId as never, objectRef: null,
+    })).toEqual(expected);
   });
 
   it.each([

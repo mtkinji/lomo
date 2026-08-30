@@ -19,6 +19,7 @@ type HistoryResult = { data: unknown; error: unknown };
 type HistoryQuery = {
   select: (...args: unknown[]) => HistoryQuery;
   eq: (...args: unknown[]) => HistoryQuery;
+  lte: (...args: unknown[]) => HistoryQuery;
   order: (...args: unknown[]) => HistoryQuery;
   limit: (...args: unknown[]) => PromiseLike<HistoryResult>;
   insert: (values: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
@@ -236,10 +237,15 @@ export function createServiceAgentRunPersistence({
       if (error || typeof version !== 'number') throw new Error('run_start_failed');
       return version;
     },
-    loadHistory: async (threadId) => {
+    loadHistory: async (threadId, throughMessageId) => {
+      const { data: target, error: targetError } = await (admin.from('kwilt_agent_messages') as HistoryQuery)
+        .select('created_at').eq('user_id', userId).eq('thread_id', threadId)
+        .eq('id', throughMessageId).maybeSingle();
+      const throughCreatedAt = record(target).created_at;
+      if (targetError || typeof throughCreatedAt !== 'string') throw new Error('run_history_boundary_failed');
       const { data, error } = await (admin.from('kwilt_agent_messages') as HistoryQuery)
         .select('role,body,created_at').eq('user_id', userId).eq('thread_id', threadId)
-        .order('created_at', { ascending: false }).limit(40);
+        .lte('created_at', throughCreatedAt).order('created_at', { ascending: false }).limit(40);
       if (error) throw new Error('run_history_failed');
       return (Array.isArray(data) ? data : []).reverse().flatMap((value) => {
         const row = record(value);

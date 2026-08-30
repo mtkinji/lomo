@@ -11,9 +11,9 @@ function clientWith(table: string, data: Record<string, unknown>) {
 }
 
 test.each([
-  ['activities.location.update', 'open_activity_location', 'permission and review'],
-  ['activities.attachments.open', 'open_activity_attachments', 'native picker'],
-  ['activities.share.open', 'open_activity_share', 'choose the audience and confirm natively'],
+  ['activities.location.update', 'open_activity_location', 'approve any iPhone permission'],
+  ['activities.attachments.open', 'open_activity_attachments', 'choose the file or photo'],
+  ['activities.share.open', 'open_activity_share', 'choose who can see it and confirm'],
 ])('stages owned %s work in its existing native Activity surface', async (toolId, actionType, consequence) => {
   const stageDeviceAction = jest.fn(async () => undefined);
   const { client, calls } = clientWith('kwilt_activities', {
@@ -45,7 +45,7 @@ test('stages owned Goal sharing in the existing native audience review', async (
   });
   expect(calls).toContainEqual(['eq', 'user_id', 'user-1']);
   expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
-    consequenceSummary: expect.stringContaining('visibility, audience, and confirm natively'),
+    consequenceSummary: expect.stringContaining('choose who can see it and confirm'),
   }));
 });
 

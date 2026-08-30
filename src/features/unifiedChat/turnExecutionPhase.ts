@@ -533,10 +533,10 @@ export async function executeUnifiedChatTurnPhase(
       );
     } else {
       directResponse = directCompoundTitles
-        ? `I prepared ${directCompoundTitles.length} To-dos for review.`
+        ? `${directCompoundTitles.length} To-dos are ready for review.`
         : directReminder
-          ? `I prepared a recurring “${directReminder.title}” reminder for review.`
-          : 'I prepared that change for review.';
+          ? `Your recurring “${directReminder.title}” reminder is ready for review.`
+          : 'That change is ready for review.';
     }
   }
   const localRoute = directResponse === null

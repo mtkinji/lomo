@@ -10,6 +10,13 @@ const SUPPORTED_SCHEMA_KEYWORDS = new Set([
 
 const SUPPORTED_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']);
 
+// Keep these constraints in the semantic contract, but omit them from the
+// provider wire schema. OpenAI strict tool schemas reject these keywords even
+// though Kwilt's capability executors still enforce them before any effect.
+const PROVIDER_UNSUPPORTED_STRICT_CONSTRAINTS = new Set([
+  'minLength', 'maxLength', 'uniqueItems', 'minProperties', 'maxProperties',
+]);
+
 function isRecord(value: unknown): value is JsonSchema {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -62,7 +69,8 @@ function convertSchema(schema: JsonSchema, path: string, wireOptional: boolean):
   const types = schemaTypes(schema, path);
   let converted: JsonSchema = Object.fromEntries(
     Object.entries(schema)
-      .filter(([key]) => !['properties', 'required', 'additionalProperties', 'items'].includes(key))
+      .filter(([key]) => !['properties', 'required', 'additionalProperties', 'items'].includes(key)
+        && !PROVIDER_UNSUPPORTED_STRICT_CONSTRAINTS.has(key))
       .map(([key, value]) => [key, cloneJsonValue(value)]),
   );
 

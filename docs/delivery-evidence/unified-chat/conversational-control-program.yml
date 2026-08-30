@@ -1,12 +1,12 @@
 program: full-conversational-control-parity
 plan: docs/superpowers/plans/2026-08-27-full-conversational-control-parity.md
-captured_at: 2026-08-27T11:32:06-06:00
+captured_at: 2026-08-29T18:26:00-06:00
 checkout:
   path: /Users/andrewwatanabe/Kwilt
-  branch: codex/chat-enhancements-next
-  head: c72551c51c8d8b18b9fedf0d5541aeb37dd45939
-  state: dirty
-  provenance: Counts were projected from the working tree, including the uncommitted UI parity inventory and canonical manifest corrections listed below.
+  branch: codex/chat-parity-next
+  head: badda52856a7c4b817321d9c974e2462907380e3
+  state: dirty_active_program_continuation
+  provenance: The Simulator matrix began from committed source. Subsequent connector, runtime, and evidence changes remain in the active working tree at this checkpoint.
 working_tree_ownership:
   conversational_control_program:
     - docs/delivery-evidence/unified-chat/2026-08-27-ui-parity-inventory.md
@@ -65,7 +65,8 @@ baseline:
     not_applicable: 2
     excluded: 2
 target:
-  planned_canonical_operations: 233
+  planned_canonical_operations: 232
+  count_reconciliation: The earlier 233 target included a generic destination-update action with no corresponding native UI intent; removing that phantom operation reconciled the canonical total to 232 without reducing UI coverage.
   unresolved_ui_gaps: 0
   mobile_pending_provider: 0
   phone_pending_provider: 0
@@ -74,6 +75,17 @@ target:
     - explore.open
     - games.open
 verification:
+  current_parity_gate:
+    captured_at: 2026-08-28T22:08:00-06:00
+    command: npm run chat:control-parity -- --no-write
+    result: passed
+    canonical_operations: 232
+    final_parity_errors: 0
+    channels:
+      mobile: 225_ready_7_excluded
+      phone: 225_ready_7_excluded
+      external: 223_ready_7_boundary_2_excluded
+      voice: 225_shared_runtime_7_excluded
   generated_behavior_matrix:
     status: source_tested
     generated_at: 2026-08-28
@@ -86,10 +98,23 @@ verification:
       - docs/delivery-evidence/unified-chat/conversational-control-matrix.md
       - docs/delivery-evidence/unified-chat/conversational-control-catalog.json
     focused_command: npm test -- --runInBand scripts/conversational-control-corpus.test.ts
-    result: 1_suite_4_tests_passed
+    result: 1_suite_5_tests_passed
     live_model_evaluation:
-      status: not_run
-      reason: Requires intended-model credentials and an explicitly identified backend environment; source proof is not presented as live proof.
+      status: passed
+      command: npm run chat:live-eval
+      model: gpt-4o-mini
+      backend_environment: sqxwjtorodqjdfnuvprf.functions.supabase.co
+      account_fixture: synthetic-household-v1
+      result_artifact: docs/delivery-evidence/unified-chat/phase4-live-model-eval.json
+      result:
+        cases: 40
+        passed: 40
+        deterministic_contract_pass_rate: 1
+        false_completion_claims: 0
+        model_understanding_misses: 0
+        provider_runtime_failures: 0
+        evidence_validation: passed
+      limitation: Current-information runtime was not scored because the hosted Responses route is not deployed; this does not count as current-information runtime proof.
       required_acceptance:
         deterministic_contract_pass_rate: 1
         false_completion_claims: 0
@@ -125,11 +150,13 @@ verification:
       app_typecheck: passed
       test_typecheck: passed
     strict_final_gate:
+      historical_checkpoint: true
       command: npm run chat:control-parity -- --no-write
       result: expected_failure
       parity_errors: 454
       meaning: The command now fails until all UI gaps, providers, proof, and voice conformance are complete.
   operation_catalog_expansion:
+    historical_checkpoint: true
     status: source_tested
     canonical_operations: 233
     ordinary_language_intents: 122
@@ -154,9 +181,91 @@ verification:
       test_typecheck: passed
       generated_parity_errors: 836
 proof_boundaries:
-  source_and_tests: task_2_catalog_complete
-  backend_deployment: not_run
-  simulator: not_run
-  physical_device: not_run
-  testflight: not_run
+  source_and_tests: complete_at_bd850e3c
+  backend_deployment:
+    status: partial_runtime_proven
+    project: sqxwjtorodqjdfnuvprf
+    migrations:
+      - 20260829013332_conversational_control_audit
+      - 20260829054837_household_conversational_control
+      - 20260829055129_activity_backed_chore_profiles
+      - 20260829061035_harden_chore_rpc_execute_grants
+      - 20260829174829_unified_chat_retry_message_reuse
+    functions:
+      ai-chat: 69
+      agent-run: 23
+      agent-channel-tick: 13
+      mcp: 44
+    observed: Authentication and provider-safe OpenAI function names passed live mobile requests. The deployed retry path reuses its parent user message. Unsupported coupon application is intercepted deterministically without a false action claim. Explicit to-do language augments model routing, and terse domain-only scope commands retain read authorization. Known quota exhaustion survives the proxy boundary as quota_exceeded.
+  simulator:
+    status: representative_matrix_complete
+    evidence: docs/delivery-evidence/unified-chat/simulator-control-matrix.md
+    fixture: confirmed_permanent_synthetic_user_in_isolated_simulator
+    proven:
+      - settings.appearance.read completed from typed Chat through deployed planning, authorization, native device execution, durable action completion, and visible result rendering.
+      - goals.read returned the permanent synthetic fixture goal through the server-owned path.
+      - goals.create with missing information asked for the required title without claiming completion.
+      - goals.create with complete information rendered a reviewed proposal and stated it had not been applied.
+      - goals.create proposal defer, later approval, durable receipt, and exact undo completed against the permanent synthetic fixture.
+      - actionable proposal state refreshes after foregrounding and the workbench hides transitions invalid for deferred and failed states.
+      - Goals, Arcs, To-dos, Plan, Chapters, and Money navigation opened the intended native surface and returned to the same Chat thread.
+      - Chores navigation reached its intended native screen and exposed missing production migrations rather than falsely passing; the Household prerequisite and corrected Chores RPC migration are now applied.
+      - The repaired authenticated Chores surface loaded visibly for Matrix Tester with its empty state, Add a chore, settings, and contextual Chat.
+      - activities.create added the synthetic Matrix direct capture to-do once and returned a durable applied outcome.
+      - Coupon application returned a deterministic better-served-elsewhere boundary with no model call, proposal, client action, or false completion claim.
+      - Stop produced a durable stopped run with no assistant answer; true steer produced a steered parent, steer_count 1, and a linked run.steer child.
+      - A stale activities.update approval was rejected after defer without applying the rename, and the UI now presents user-facing stale-review copy.
+      - Visible retry reused the parent's exact user message and parent_run_id without adding another user record.
+      - Two rapid approvals of one synthetic activities.update proposal produced one decision, one mutation receipt, and a stale-review refusal for the duplicate.
+      - The duplicate-approval fixture cleanup passed visibly and durably: one Undo moved both the proposal and receipt to undone, and a fresh Chat read returned the restored Matrix direct capture title.
+      - Cross-domain reads now reserve a tool-free synthesis turn; live run 2503401a-4919-4327-b933-fdb946a15d52 completed five model steps and visibly combined Goals, To-dos, Plan, and Chores.
+      - Retry history is bounded through the exact reused user message. Historical failed Goal run ab459bca-ae1a-47be-bc1e-24126726b4eb recovered as complete child 35cc08f8-ff25-4dfb-861b-4951034c922a with the correct original review card; its synthetic proposal was deferred.
+    observed_failures:
+      - A Chores run and its one-click retry were both interrupted when the synthetic fixture crossed the configured free daily safety rail after 27 agent actions. ai-chat returned HTTP 429 quota_exceeded, but the UI showed only Response interrupted and retry duplicated the user message. A seven-day test-only Pro entitlement now isolates the matrix fixture. The quota classification and one-message retry fixes are deployed; a later historical failure-to-success retry passed visibly with exact message reuse and causal history.
+      - The first-use Chapters coachmark leaked into Money until dismissed.
+    not_yet_proven: Exhaustive per-operation runtime coverage beyond the representative interaction families, and physical-device-only behavior.
+  chatgpt_connector:
+    status: live_catalog_read_direct_write_and_physical_handoff_arrival_passed_presentation_fix_deployed_awaiting_testflight_install
+    evidence: docs/delivery-evidence/unified-chat/chatgpt-control-matrix.md
+    endpoint: https://auth.kwilt.app/functions/v1/mcp
+    deployed_function_version_observed: 44
+    deployed_function_sha256: 5116a5c8883c4833659e75cfc7df0444080ac65ffa23fa6c3db5a4b14bc8f9db
+    canonical_catalog:
+      count: 223
+      sha256: e17fa013eab46b784b9b59023cb445e012b4e07eb513a488bad834ac880dc4dc
+      advertised_legacy_aliases: 0
+      source_match: exact
+    chatgpt_app:
+      name: Kwilt
+      version_name: dev mode
+      review_status: development
+      authorization: oauth
+    proven:
+      - OAuth protected-resource and authorization-server discovery expose the canonical resource, eight capability scopes, S256 PKCE, dynamic registration, revocation, and resource indicators.
+      - Unauthenticated MCP initialize returns HTTP 401 with the protected-resource metadata challenge.
+      - ChatGPT is connected to the canonical hosted endpoint using OAuth.
+      - After MCP version 43 deployment and ChatGPT refresh, the visible 223-tool catalog matches the canonical source catalog exactly by count and hash, with no advertised compatibility aliases.
+      - A fresh authorized ChatGPT conversation completed profile and Household reads against the intended connected Kwilt account and Household, returned the requested count-and-role summary, and made no changes.
+      - Production Edge logs recorded successful authenticated MCP version 43 requests for the read at 2026-08-29T20:41Z.
+      - An authorized direct write created exactly one temporary To-do, returned a mutation receipt and item identifier, and a separate read confirmed the exact stored title and incomplete state.
+      - Deleting the temporary item staged exactly one reviewed proposal with no receipt or false completion claim.
+      - ChatGPT truthfully reported that external proposal approval is not exposed and that authoritative approval and apply remain in Kwilt.
+      - A native To-dos handoff was persisted for the exact temporary item in pending_client_action state.
+      - The different-account Matrix Simulator did not surface the production-account handoff, preserving account isolation.
+      - A fresh navigation-only To-dos handoff reached the signed-in physical iPhone and rendered the exact action title and consequence.
+      - Administrative exact-target cleanup soft-deleted the temporary item, rejected its pending proposal, and declined its pending handoff; a final ChatGPT read confirmed it was no longer active. This is not counted as product-path proof.
+    observed_failures:
+      - The installed physical build duplicated the inline handoff card in an automatic bottom sheet and exposed synthetic external connector request and response copy in the timeline. Source regression tests now enforce one inline card and human fallback copy. Backend version 44 is active and TestFlight build 112 was accepted for Apple processing; post-install proof remains pending.
+    not_yet_proven: Post-fix same-account native handoff completion and final receipt observation, negative wrong-Household refusal, token rotation and revocation, duplicate safety, provider failure, and retry.
+  physical_device: account_bound_handoff_arrival_proven_installed_build_stale_and_developer_mode_disabled
+  testflight:
+    status: build_finished_upload_accepted_apple_processing
+    version: 1.0.112
+    build_number: 112
+    eas_build_id: 4e7e3603-757a-4a98-b964-e8eccc2fb867
+    eas_submission_id: ea2038bd-5d64-4014-bddb-8adc3b61f98a
+    fingerprint: d3c0bf5eef8f32ef07bee376f3742ab9d90f4e35
+    source_head: badda52856a7c4b817321d9c974e2462907380e3
+    source_state: dirty_active_program_archive
+    apple_processing: pending
   production: not_run

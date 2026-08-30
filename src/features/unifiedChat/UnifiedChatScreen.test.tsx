@@ -165,14 +165,13 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('executeReceiptUndo');
   });
 
-  test('shows pending device actions in a native review sheet and shares the durable decision path', () => {
-    expect(screenSource).toContain("item.status === 'pending_client_action'");
-    expect(screenSource).toContain('Review in Kwilt');
-    expect(screenSource).toContain("decideClientAction(pendingClientAction, 'continue')");
-    expect(screenSource).toContain("decideClientAction(pendingClientAction, 'decline')");
+  test('keeps pending device actions in the Chat timeline without a duplicate native review sheet', () => {
+    expect(screenSource).not.toContain('visible={Boolean(pendingClientAction)}');
+    expect(screenSource).not.toContain('Review in Kwilt');
+    expect(screenSource).toContain("command.type === 'client_action.decide'");
+    expect(screenSource).toContain('decideClientAction(clientAction, command.action)');
     expect(screenSource).toContain('executeClientActionDecision');
     expect(screenSource).toContain('resolveClientActionOpenInstruction');
-    expect(screenSource).toContain("item.status === 'pending_client_action' || item.status === 'presenting'");
     expect(screenSource).toContain("AppState.addEventListener('change'");
   });
 
@@ -235,7 +234,8 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain("command.type === 'run.steer'");
     expect(screenSource).toContain("disposition = { type: 'steer'");
     expect(screenSource).toContain('abortDisposition: () =>');
-    expect(screenSource).toContain("command.type === 'run.retry'");
+    expect(screenSource).toContain("turnCommand.type === 'run.retry'");
+    expect(screenSource).toContain('lateSteerPrompt = command.prompt.trim()');
     expect(screenSource).toContain('retryRunId');
   });
 

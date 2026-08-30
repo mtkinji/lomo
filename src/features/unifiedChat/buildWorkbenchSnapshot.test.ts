@@ -406,6 +406,48 @@ describe('buildWorkbenchSnapshot', () => {
     });
   });
 
+  test('shows an external device handoff as one timeline card without connector bookkeeping', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      messages: [
+        {
+          ...aggregate.messages[0],
+          id: 'external-request',
+          body: 'External connector requested navigation.open_capability.',
+        },
+        {
+          ...aggregate.messages[0],
+          id: 'external-response',
+          role: 'assistant',
+          body: 'Open Kwilt Capability is ready for you in Kwilt.',
+        },
+      ],
+      runs: [{
+        id: 'external-run', threadId: 'thread-1', userMessageId: 'external-request',
+        assistantMessageId: 'external-response', status: 'complete', errorCode: null,
+        errorMessage: null, requestClass: 'native_control', participatingCapabilities: ['navigation'],
+        contextPolicy: { usePrivateContext: false, reason: 'native', clarification: null },
+        version: 2, stopRequestedAt: null, steerCount: 0, originChannel: 'external',
+        createdAt: '2026-07-22T12:00:00.000Z', updatedAt: '2026-07-22T12:00:01.000Z',
+        completedAt: '2026-07-22T12:00:01.000Z',
+      }],
+      clientActions: [{
+        id: 'external-action', threadId: 'thread-1', runId: 'external-run', messageId: 'external-request',
+        capabilityId: 'navigation', actionType: 'open_capability', targetType: 'capability', targetId: 'todos',
+        title: 'Open To-dos', consequenceSummary: 'This only opens To-dos. Nothing changes.',
+        payload: { capabilityId: 'todos', objectRef: null }, idempotencyKey: 'external-action',
+        status: 'pending_client_action', result: null, errorCode: null, errorMessage: null, version: 1,
+        presentedAt: null, completedAt: null, createdAt: '2026-07-22T12:00:01.000Z',
+        updatedAt: '2026-07-22T12:00:01.000Z',
+      }],
+    });
+
+    expect(snapshot.messages).toEqual([]);
+    expect(snapshot.timeline).toEqual([expect.objectContaining({
+      items: [{ kind: 'client_action', id: 'external-action' }],
+    })]);
+  });
+
   test('projects a completed device read with the value returned by the device', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,
@@ -767,6 +809,15 @@ describe('buildWorkbenchSnapshot', () => {
           feedback: null, createdAt: '2026-07-22T12:00:00.000Z', updatedAt: '2026-07-22T12:00:00.000Z', attachments: [],
         },
       ],
+      runs: [{
+        id: 'run-create', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: 'message-2',
+        status: 'complete', errorCode: null, errorMessage: null, requestClass: 'capability_action',
+        participatingCapabilities: ['todos'],
+        contextPolicy: { usePrivateContext: true, reason: 'to-do create', clarification: null },
+        version: 2, stopRequestedAt: null, steerCount: 0,
+        createdAt: '2026-07-22T11:59:59.000Z', updatedAt: '2026-07-22T12:00:01.000Z',
+        completedAt: '2026-07-22T12:00:01.000Z',
+      }],
       proposals: [{
         id: 'proposal-create', threadId: 'thread-1', runId: 'run-create', messageId: 'message-2',
         capabilityId: 'todos', title: 'Create school call', body: 'Creates a To-do.', status: 'applied', version: 4,
@@ -792,9 +843,11 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.messages.map((message) => message.id)).not.toContain('message-2');
     expect(snapshot.proposals).toEqual([]);
     expect(snapshot.receipts).toEqual([expect.objectContaining({
+      runId: 'run-create',
       object: { id: 'activity-school', type: 'activity', label: 'Call the school' },
       inventoryItem: expect.objectContaining({ title: 'Call the school', meta: 'Jul 24', estimateMeta: '~30 min' }),
     })]);
+    expect(snapshot.timeline?.at(-1)?.items).toContainEqual({ kind: 'receipt', id: 'receipt-create' });
   });
 
   test('removes a deleted create row from the Chat timeline', () => {

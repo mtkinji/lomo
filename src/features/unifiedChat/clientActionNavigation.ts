@@ -7,7 +7,7 @@ import { parseConnectedToolConnectRequest } from '../account/actions/connectedTo
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
-  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores' | 'Food'; params: Record<string, unknown> };
+  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores' | 'Food' | 'StandaloneFocus'; params: Record<string, unknown> };
 
 export function resolveClientActionOpenInstruction(
   action: UnifiedChatClientAction,

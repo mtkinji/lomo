@@ -203,11 +203,12 @@ declare
   v_series jsonb; v_anchor date; v_next date; v_activity_id text; v_guard integer;
 begin
   v_actor:=public.kwilt_agent_household_actor(p_user_id);
-  for v_profile,v_series in
-    select cp,a.data from public.kwilt_chore_profiles cp
+  for v_profile in select cp.* from public.kwilt_chore_profiles cp
     join public.kwilt_activities a on a.user_id=cp.activity_owner_user_id and a.id=cp.activity_series_id
     where cp.household_id=v_actor.household_id and cp.status='active' and a.data->>'repeatRule' is not null
   loop
+    select a.data into v_series from public.kwilt_activities a
+      where a.user_id=v_profile.activity_owner_user_id and a.id=v_profile.activity_series_id;
     select max(scheduled_date) into v_anchor from public.kwilt_chore_occurrences where profile_id=v_profile.id;
     v_anchor:=coalesce(v_anchor,nullif(v_series->>'scheduledDate','')::date,current_date);
     if coalesce(v_series->>'repeatBasis','scheduled')='scheduled' then
@@ -254,44 +255,93 @@ revoke all on function public.kwilt_chore_actor(uuid,uuid,text) from public,anon
 
 create or replace function public.get_kwilt_agent_chore_snapshot(p_user_id uuid,p_actor_membership_id uuid default null,p_install_id text default null)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
-declare v_actor public.kwilt_household_memberships; v_household public.kwilt_households;
+declare
+  v_actor public.kwilt_household_memberships;
+  v_household public.kwilt_households;
+  v_members jsonb;
+  v_definitions jsonb;
+  v_occurrences jsonb;
+  v_balances jsonb;
+  v_reservations jsonb;
 begin
   v_actor := public.kwilt_chore_actor(p_user_id,p_actor_membership_id,p_install_id);
   perform public.reconcile_kwilt_agent_chore_occurrences(p_user_id);
   select * into v_household from public.kwilt_households where id=v_actor.household_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'membershipId',m.id,'displayName',p.display_name,'role',m.role
+  ) order by m.joined_at),'[]'::jsonb) into v_members
+  from public.kwilt_household_memberships m
+  join public.kwilt_people p on p.id=m.person_id
+  where m.household_id=v_actor.household_id and m.status='active';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',cp.id,'activitySeriesId',cp.activity_series_id,'title',coalesce(a.data->>'title','Chore'),
+    'definitionOfDone',cp.definition_of_done,'status',cp.status,'participation',cp.participation,
+    'assignedMembershipId',cp.assigned_membership_id,'repeatRule',a.data->>'repeatRule',
+    'repeatCustom',coalesce(a.data->'repeatCustom','null'::jsonb),
+    'repeatBasis',coalesce(a.data->>'repeatBasis','scheduled'),
+    'photoPolicy',cp.photo_policy,'reviewPolicy',cp.review_policy,
+    'tokenValue',cp.token_value,'updatedAt',cp.updated_at
+  ) order by cp.created_at),'[]'::jsonb) into v_definitions
+  from public.kwilt_chore_profiles cp
+  left join public.kwilt_activities a
+    on a.user_id=cp.activity_owner_user_id and a.id=cp.activity_series_id
+  where cp.household_id=v_actor.household_id and cp.status<>'deleted'
+    and (v_actor.role in ('owner','caregiver') or cp.assigned_membership_id is null
+      or cp.assigned_membership_id=v_actor.id);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',o.id,'definitionId',o.profile_id,'activityId',o.activity_id,
+    'scheduledDate',o.scheduled_date,'title',coalesce(a.data->>'title','Chore'),
+    'status',o.state,'assignedMembershipId',o.assigned_membership_id,
+    'performedByMembershipId',o.performed_by_membership_id,'performedAt',o.performed_at,
+    'completionSource',o.completion_source,'reportedAt',o.reported_at,
+    'evidenceRefs',coalesce((select jsonb_agg(e.storage_ref)
+      from public.kwilt_chore_evidence_refs e where e.occurrence_id=o.id),'[]'::jsonb),
+    'reviewNote',o.review_note,'policyOverrides',o.policy_overrides,
+    'tokenCredited',o.token_credited,'updatedAt',o.updated_at
+  ) order by o.scheduled_date nulls first,o.created_at),'[]'::jsonb) into v_occurrences
+  from public.kwilt_chore_occurrences o
+  join public.kwilt_chore_profiles cp on cp.id=o.profile_id
+  left join public.kwilt_activities a
+    on a.user_id=cp.activity_owner_user_id and a.id=o.activity_id
+  where cp.household_id=v_actor.household_id and cp.status<>'deleted'
+    and (v_actor.role in ('owner','caregiver') or o.assigned_membership_id is null
+      or o.assigned_membership_id=v_actor.id);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'membershipId',m.id,
+    'availableTokens',coalesce((select sum(l.token_delta)
+      from public.kwilt_chore_reward_ledger l where l.membership_id=m.id),0),
+    'reservedTokens',coalesce((select sum(r.token_count)
+      from public.kwilt_chore_reward_reservations r
+      where r.membership_id=m.id and r.status='reserved'),0)
+  )),'[]'::jsonb) into v_balances
+  from public.kwilt_household_memberships m
+  where m.household_id=v_actor.household_id and m.status='active' and m.role='child';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',r.id,'membershipId',r.membership_id,'tokenCount',r.token_count,
+    'centsPerToken',r.cents_per_token,'moneyAmountCents',r.money_amount_cents,
+    'status',r.status,'updatedAt',r.updated_at
+  ) order by r.created_at desc),'[]'::jsonb) into v_reservations
+  from public.kwilt_chore_reward_reservations r
+  where r.household_id=v_actor.household_id
+    and (v_actor.role in ('owner','caregiver') or r.membership_id=v_actor.id);
+
   return jsonb_build_object(
     'household', jsonb_build_object('id',v_household.id,'name',v_household.name),
     'actor', (select jsonb_build_object('membershipId',m.id,'displayName',p.display_name,'role',m.role) from public.kwilt_household_memberships m join public.kwilt_people p on p.id=m.person_id where m.id=v_actor.id),
-    'members', coalesce((select jsonb_agg(jsonb_build_object('membershipId',m.id,'displayName',p.display_name,'role',m.role) order by m.joined_at) from public.kwilt_household_memberships m join public.kwilt_people p on p.id=m.person_id where m.household_id=v_actor.household_id and m.status='active'),'[]'::jsonb),
-    'definitions', coalesce((select jsonb_agg(jsonb_build_object(
-      'id',cp.id,'activitySeriesId',cp.activity_series_id,'title',coalesce(a.data->>'title','Chore'),
-      'definitionOfDone',cp.definition_of_done,'status',cp.status,'participation',cp.participation,
-      'assignedMembershipId',cp.assigned_membership_id,'repeatRule',a.data->>'repeatRule',
-      'repeatCustom',coalesce(a.data->'repeatCustom','null'::jsonb),'repeatBasis',coalesce(a.data->>'repeatBasis','scheduled'),
-      'photoPolicy',cp.photo_policy,'reviewPolicy',cp.review_policy,'tokenValue',cp.token_value,'updatedAt',cp.updated_at)
-      order by cp.created_at from public.kwilt_chore_profiles cp
-      left join public.kwilt_activities a on a.user_id=cp.activity_owner_user_id and a.id=cp.activity_series_id
-      where cp.household_id=v_actor.household_id and cp.status<>'deleted' and (v_actor.role in ('owner','caregiver') or cp.assigned_membership_id is null or cp.assigned_membership_id=v_actor.id)),'[]'::jsonb),
-    'occurrences', coalesce((select jsonb_agg(jsonb_build_object(
-      'id',o.id,'definitionId',o.profile_id,'activityId',o.activity_id,'scheduledDate',o.scheduled_date,
-      'title',coalesce(a.data->>'title','Chore'),'status',o.state,'assignedMembershipId',o.assigned_membership_id,
-      'performedByMembershipId',o.performed_by_membership_id,'performedAt',o.performed_at,
-      'completionSource',o.completion_source,'reportedAt',o.reported_at,
-      'evidenceRefs',coalesce((select jsonb_agg(e.storage_ref) from public.kwilt_chore_evidence_refs e where e.occurrence_id=o.id),'[]'::jsonb),
-      'reviewNote',o.review_note,'policyOverrides',o.policy_overrides,'tokenCredited',o.token_credited,'updatedAt',o.updated_at) order by o.scheduled_date nulls first,o.created_at
-      from public.kwilt_chore_occurrences o join public.kwilt_chore_profiles cp on cp.id=o.profile_id
-      left join public.kwilt_activities a on a.user_id=cp.activity_owner_user_id and a.id=o.activity_id
-      where cp.household_id=v_actor.household_id and cp.status<>'deleted' and (v_actor.role in ('owner','caregiver') or o.assigned_membership_id is null or o.assigned_membership_id=v_actor.id)),'[]'::jsonb),
+    'members',v_members,
+    'definitions',v_definitions,
+    'occurrences',v_occurrences,
     'reward', jsonb_build_object(
       'enabled',coalesce((select enabled from public.kwilt_chore_reward_settings where household_id=v_actor.household_id),false),
       'centsPerToken',coalesce((select cents_per_token from public.kwilt_chore_reward_settings where household_id=v_actor.household_id),50),
       'version',coalesce((select updated_at::text from public.kwilt_chore_reward_settings where household_id=v_actor.household_id),'0'),
-      'balances',coalesce((select jsonb_agg(jsonb_build_object('membershipId',m.id,
-        'availableTokens',coalesce((select sum(l.token_delta) from public.kwilt_chore_reward_ledger l where l.membership_id=m.id),0),
-        'reservedTokens',coalesce((select sum(r.token_count) from public.kwilt_chore_reward_reservations r where r.membership_id=m.id and r.status='reserved'),0)))
-        from public.kwilt_household_memberships m where m.household_id=v_actor.household_id and m.status='active' and m.role='child'),'[]'::jsonb),
-      'reservations',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'membershipId',r.membership_id,'tokenCount',r.token_count,'centsPerToken',r.cents_per_token,'moneyAmountCents',r.money_amount_cents,'status',r.status,'updatedAt',r.updated_at) order by r.created_at desc)
-        from public.kwilt_chore_reward_reservations r where r.household_id=v_actor.household_id and (v_actor.role in ('owner','caregiver') or r.membership_id=v_actor.id)),'[]'::jsonb)),
+      'balances',v_balances,
+      'reservations',v_reservations),
     'observedAt',now());
 exception when others then
   if sqlerrm in ('authentication_required','household_membership_required') then return null; end if; raise;
@@ -505,6 +555,8 @@ returns jsonb language sql security definer set search_path = '' as $$
   select public.execute_kwilt_agent_chore_action(public.kwilt_require_permanent_user(),p_operation,p_actor_membership_id,p_install_id)
 $$;
 
+revoke all on function public.get_kwilt_chore_snapshot(uuid,text) from public,anon,authenticated;
+revoke all on function public.execute_kwilt_chore_action(jsonb,uuid,text) from public,anon,authenticated;
 grant execute on function public.get_kwilt_chore_snapshot(uuid,text) to authenticated;
 grant execute on function public.execute_kwilt_chore_action(jsonb,uuid,text) to authenticated;
 revoke all on function public.get_kwilt_agent_chore_snapshot(uuid,uuid,text) from public,anon,authenticated;

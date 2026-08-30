@@ -26,13 +26,14 @@ const mockGetScreenTimeAuthorizationStatus = jest.fn();
 const mockRequestScreenTimeAuthorization = jest.fn();
 const mockEnsureCurrentRuleSystem = jest.fn();
 let mockRouteParams: Record<string, unknown> | undefined;
+let mockFocusEpoch = 0;
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   const React = require('react');
   return {
     ...actual,
-    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback]),
+    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback, mockFocusEpoch]),
     useNavigation: () => ({
       goBack: jest.fn(),
       navigate: mockSettingsNavigate,
@@ -101,6 +102,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
     mockRequestScreenTimeAuthorization.mockReset().mockResolvedValue('approved');
     mockEnsureCurrentRuleSystem.mockReset().mockResolvedValue(true);
+    mockFocusEpoch = 0;
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     mockRouteParams = undefined;
     useAppStore.getState().setAuthIdentity({
@@ -244,6 +246,26 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     screen.rerender(<ScreenTimeProtectionSettingsScreen />);
 
     expect(await screen.findByText('Fewer distractions during Focus.')).toBeTruthy();
+  });
+
+  it('keeps a dismissed setup drawer closed when the same route regains focus', async () => {
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    fireEvent.press(screen.getByLabelText('Close Screen Time Controls setup'));
+    expect(screen.queryByText('Do what matters first.')).toBeNull();
+
+    mockFocusEpoch += 1;
+    screen.rerender(<ScreenTimeProtectionSettingsScreen />);
+
+    await waitFor(() => expect(screen.queryByText('Do what matters first.')).toBeNull());
+    expect(screen.getByText('Screen Time access')).toBeTruthy();
   });
 
   it('explains a missing Screen Time capability inline without showing a duplicate alert', async () => {

@@ -740,7 +740,7 @@ export function createUnifiedChatToolProvider({
       return { status: 'pending_client_action', provider: 'device', request: {
         actionType: 'open_recipe_share_copy', targetType: 'recipe', targetId: source.recipe.id,
         title: `Review a copy of ${source.currentVersion.title}`,
-        consequenceSummary: 'Kwilt will open the exact Recipe and native share review. No copy is delivered until you confirm the recipient there.',
+        consequenceSummary: 'Kwilt will open this Recipe and show the sharing details. No copy is sent until you choose the recipient and confirm.',
         payload: { recipeVersionId, recipientPersonId },
       } };
     }
@@ -865,7 +865,7 @@ export function createUnifiedChatToolProvider({
           if (current.session.revision !== expectedRevision) return { status: 'failed', code: 'cook_session_revision_stale', message: 'Cooking progress changed. Read it again before controlling a timer.', retryable: true };
           return { status: 'pending_client_action', provider: 'device', request: {
             actionType: 'open_cook_session_timer', targetType: 'cook_session', targetId: sessionId,
-            title: 'Review Cook timer', consequenceSummary: 'Kwilt will open Cook Mode so native timer and notification state remain visible.',
+            title: 'Review Cook timer', consequenceSummary: 'Kwilt will open Cook Mode so you can see the timer and notification status.',
             payload: { expectedRevision, command, recipeId: current.session.recipeId,
               recipeScaleMultiplier: current.session.recipeScaleMultiplier },
           } };

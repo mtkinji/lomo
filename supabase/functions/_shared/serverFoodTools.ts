@@ -284,7 +284,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
       title: call.toolId === 'recipes.publication.prepare'
         ? `Review publication for ${text(version.title) ?? 'Recipe'}`
         : `Confirm publication for ${text(version.title) ?? 'Recipe'}`,
-      consequenceSummary: 'Kwilt will open the exact Recipe version for native identity, rights, media, destination, and final publication review. Nothing is published by ChatGPT.',
+      consequenceSummary: 'Kwilt will show the Recipe, author details, rights, photos, and destination for one final check. Nothing is published yet.',
       payload: { operationId: call.toolId, recipeVersionId: versionId, arguments: call.arguments },
     };
     await stageDeviceAction(request);
@@ -299,7 +299,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
     const request: ServerDeviceActionRequest = {
       capabilityId: 'groceries', actionType: 'open_food_scenario_review', targetType: 'food_scenario', targetId: scenarioId,
       title: 'Review Food Scenario',
-      consequenceSummary: 'Kwilt will open the version-bound native scenario and partial-recovery details. Nothing changes until native review applies it.',
+      consequenceSummary: 'Kwilt will show this Food Scenario, including what changed and what still needs attention. Nothing changes until you apply it.',
       payload: { operationId: call.toolId, expectedVersion },
     };
     await stageDeviceAction(request);
@@ -313,7 +313,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
     const request: ServerDeviceActionRequest = {
       capabilityId: 'savings', actionType: 'open_grocery_savings', targetType: 'grocery_list', targetId: listId,
       title: 'Review current Grocery savings',
-      consequenceSummary: 'Kwilt will refresh current price and offer evidence in native review. Estimated savings are not realized savings, and no coupon is activated by ChatGPT.',
+      consequenceSummary: 'Kwilt will refresh the current prices and offers. Savings are still estimates, and no coupon is activated yet.',
       payload: { operationId: call.toolId, arguments: call.arguments },
     };
     await stageDeviceAction(request);
@@ -334,7 +334,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
       capabilityId: 'groceries', actionType: 'open_grocery_receipt_review', targetType: 'grocery_receipt',
       targetId: receiptDraftId,
       title: call.toolId === 'receipt.extract' ? 'Review receipt extraction' : 'Review receipt reconciliation',
-      consequenceSummary: 'Kwilt will open native receipt evidence review. Extraction is only a draft; realized savings require reviewed line matches and are not claimed by ChatGPT.',
+      consequenceSummary: 'Kwilt will show the receipt draft and line matches. Savings count only after you review the matches.',
       payload: { operationId: call.toolId, ...call.arguments, sourceArtifactRefs },
     };
     await stageDeviceAction(request);
@@ -355,8 +355,8 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
         : call.toolId === 'food_scenario.prepare' ? 'Review Food Scenario inputs'
           : call.toolId === 'savings.accept' ? 'Review Savings Plan' : 'Open retailer coupon review',
       consequenceSummary: call.toolId === 'savings.coupon.open'
-        ? 'Kwilt will open native Grocery review. The retailer owns eligibility and activation; ChatGPT does not claim the coupon was applied.'
-        : 'Kwilt will open native Food review with the supplied evidence. No plan, Grocery list, purchase, or savings state changes in ChatGPT.',
+        ? 'Kwilt will open the Grocery review. The retailer still decides eligibility and activation; the coupon is not applied yet.'
+        : 'Kwilt will open the Food review with this information. Your plan, Grocery list, purchases, and savings do not change yet.',
       payload: { operationId: call.toolId, arguments: call.arguments },
     };
     await stageDeviceAction(request);
@@ -433,7 +433,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
     }
     const request: ServerDeviceActionRequest = { capabilityId: 'recipes', actionType: 'open_recipe_share_copy',
       targetType: 'recipe', targetId: text(recipe.recipeId), title: `Review a copy of ${String(version.title)}`,
-      consequenceSummary: 'Kwilt will open the exact Recipe and native share review. No copy is delivered until you confirm the recipient there.',
+      consequenceSummary: 'Kwilt will open this Recipe and show the sharing details. No copy is sent until you choose the recipient and confirm.',
       payload: { recipeVersionId, recipientPersonId } };
     await stageDeviceAction(request);
     return { status: 'pending_client_action', provider: 'device', request };
@@ -557,7 +557,7 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
       if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
       const request: ServerDeviceActionRequest = { capabilityId: 'recipes', actionType: 'open_cook_session_timer',
         targetType: 'cook_session', targetId: sessionId, title: 'Review Cook timer',
-        consequenceSummary: 'Kwilt will open Cook Mode so native timer and notification state remain visible.',
+        consequenceSummary: 'Kwilt will open Cook Mode so you can see the timer and notification status.',
         payload: { expectedRevision, command, recipeId: session.recipeId, recipeScaleMultiplier: session.recipeScaleMultiplier } };
       await stageDeviceAction(request);
       return { status: 'pending_client_action', provider: 'device', request };

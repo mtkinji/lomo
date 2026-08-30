@@ -14,6 +14,7 @@ import { Text } from '../../ui/Typography';
 import { colors, spacing } from '../../theme';
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
 import { createFreshEntryThreadGate } from './freshEntryThread';
+import { shouldLoadRequestedChatThread } from './requestedChatThreadLoadPolicy';
 import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import { prewarmOnDeviceChatModel } from './onDeviceChatProvider';
@@ -24,6 +25,7 @@ import type {
   UnifiedChatThreadAggregate,
 } from './types';
 import {
+  didDurableSteerTransition,
   isDurableMobileChatEligible,
   runDurableMobileChatTurn,
   transitionDurableMobileChatRun,
@@ -33,6 +35,7 @@ import {
   type FinalizedConversationUtterance,
 } from './channelContext';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
+import { getUnifiedChatActionFailureMessage } from './chatFailure';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
 import {
   useCapabilityMenuActions,
@@ -84,6 +87,7 @@ import { fetchExternalConnections, revokeExternalConnection } from '../../servic
 import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
+import { unifiedChatResumeRefreshReason } from './resumeRefreshPolicy';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
 import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
@@ -187,6 +191,7 @@ export function UnifiedChatScreen({
   const routeParams = routeParamsOverride ?? route.params;
   const isDrawer = presentation === 'drawer';
   const requestedThreadId = routeParams?.threadId;
+  const previousRequestedThreadIdRef = useRef(requestedThreadId);
   const freshEntry = routeParams?.entry === 'fresh' && !requestedThreadId;
   const freshEntrySource = routeParams?.source;
   const widgetLaunchId = routeParams?.widgetLaunchId;
@@ -504,7 +509,14 @@ export function UnifiedChatScreen({
   }, [config.enabled]);
 
   useEffect(() => {
-    if (!requestedThreadId || !aggregate || aggregate.thread.id === requestedThreadId) return;
+    const previousRequestedThreadId = previousRequestedThreadIdRef.current;
+    previousRequestedThreadIdRef.current = requestedThreadId;
+    if (!shouldLoadRequestedChatThread({
+      requestedThreadId,
+      aggregateThreadId: aggregate?.thread.id,
+      previousRequestedThreadId,
+    })) return;
+    if (!requestedThreadId) return;
     void (async () => {
       setLoading(true);
       try {
@@ -514,7 +526,7 @@ export function UnifiedChatScreen({
         setLoading(false);
       }
     })();
-  }, [aggregate, openThread, repository, requestedThreadId]);
+  }, [aggregate?.thread.id, openThread, repository, requestedThreadId]);
 
   useEffect(() => {
     if (requestedThreadId !== null) return;
@@ -725,18 +737,16 @@ export function UnifiedChatScreen({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active' || !aggregate) return;
-      const hasResumableAction = (aggregate.clientActions ?? []).some(
-        (item) => item.status === 'pending_client_action' || item.status === 'presenting',
-      );
-      const hasServerOwnedRun = aggregate.runs.some((run) =>
-        run.originChannel === 'mobile' && (run.status === 'queued' || run.status === 'active'));
-      if (!hasResumableAction && !hasServerOwnedRun) return;
+      const refreshReason = unifiedChatResumeRefreshReason(aggregate);
+      if (!refreshReason) return;
       const threadId = aggregate.thread.id;
       void loadThreadWithRecovery(threadId).then((next) => {
         setAggregate((current) => current?.thread.id === threadId ? next : current);
-      }).catch(() => setError(hasServerOwnedRun
+      }).catch(() => setError(refreshReason === 'server_run'
         ? 'Kwilt could not refresh the response yet.'
-        : 'Kwilt could not refresh the pending device review.'));
+        : refreshReason === 'proposal'
+          ? 'Kwilt could not refresh the pending change.'
+          : 'Kwilt could not refresh the pending device review.'));
     });
     return () => subscription.remove();
   }, [aggregate, loadThreadWithRecovery]);
@@ -1014,6 +1024,7 @@ export function UnifiedChatScreen({
         if (typeof oldest === 'string') handledRequestIds.current.delete(oldest);
       }
       const command = message.command;
+      let lateSteerPrompt: string | null = null;
       if (command.type === 'composer.focus.change') {
         onComposerFocusChange?.(command.focused);
         if (!menuOpen || command.focused) {
@@ -1305,7 +1316,7 @@ export function UnifiedChatScreen({
           }
         } catch (decisionError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that outcome.');
+          setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that outcome.'));
         }
         return;
       }
@@ -1325,7 +1336,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Recipe.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update that Recipe.'));
           }
           return;
         }
@@ -1346,7 +1357,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Meal Plan change.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that Meal Plan change.'));
           }
           return;
         }
@@ -1361,7 +1372,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Food Stock change.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that Food Stock change.'));
           }
           return;
         }
@@ -1382,7 +1393,7 @@ export function UnifiedChatScreen({
             }
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Household change.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that Household change.'));
           }
           return;
         }
@@ -1406,7 +1417,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Money category.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update that Money category.'));
           }
           return;
         }
@@ -1422,7 +1433,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Chore change.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that Chore change.'));
           }
           return;
         }
@@ -1448,9 +1459,10 @@ export function UnifiedChatScreen({
             track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
               buildFamilyScreenTimeDecisionTelemetry(proposal, command.action, 'failed'));
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error
-              ? decisionError.message
-              : 'Kwilt could not save that Screen Time change.');
+            setError(getUnifiedChatActionFailureMessage(
+              decisionError,
+              'Kwilt could not save that Screen Time change.',
+            ));
           }
           return;
         }
@@ -1473,7 +1485,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not add that Plan item.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not add that Plan item.'));
           }
           return;
         }
@@ -1490,7 +1502,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Arc.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update that Arc.'));
           }
           return;
         }
@@ -1507,7 +1519,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Goal.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update that Goal.'));
           }
           return;
         }
@@ -1524,7 +1536,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update your Profile.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update your Profile.'));
           }
           return;
         }
@@ -1541,7 +1553,7 @@ export function UnifiedChatScreen({
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Chapter.');
+            setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not update that Chapter.'));
           }
           return;
         }
@@ -1564,7 +1576,7 @@ export function UnifiedChatScreen({
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
         } catch (decisionError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that decision.');
+          setError(getUnifiedChatActionFailureMessage(decisionError, 'Kwilt could not apply that decision.'));
         }
         return;
       }
@@ -1675,27 +1687,40 @@ export function UnifiedChatScreen({
         const run = aggregate.runs.find((item) => item.id === command.runId);
         const current = activeTurn.current;
         if (!run || (run.status !== 'active' && run.status !== 'queued') || current?.runId !== run.id) return;
-        current.disposition = { type: 'steer', prompt: command.prompt.trim(), requestId: message.requestId };
         if (current.owner === 'server') {
           try {
             const next = await transitionServerOwnedRun(run.id, { type: 'steer', prompt: command.prompt.trim() });
             if (next) setAggregate(next);
-            current.controller.abort();
+            const resultingStatus = next?.runs.find((candidate) => candidate.id === run.id)?.status;
+            if (!didDurableSteerTransition(run.status, resultingStatus)) {
+              current.disposition = { type: 'stop' };
+              current.controller.abort();
+              lateSteerPrompt = command.prompt.trim();
+            } else {
+              current.disposition = { type: 'steer', prompt: command.prompt.trim(), requestId: message.requestId };
+              current.controller.abort();
+              setPrompt('');
+              return;
+            }
           } catch (steerError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
             setError(steerError instanceof Error ? steerError.message : 'Kwilt could not update that response.');
             return;
           }
         } else {
+          current.disposition = { type: 'steer', prompt: command.prompt.trim(), requestId: message.requestId };
           current.controller.abort();
+          setPrompt('');
+          return;
         }
-        setPrompt('');
-        return;
       }
-      if (command.type !== 'run.send' && command.type !== 'run.retry') return;
+      const turnCommand = lateSteerPrompt
+        ? { type: 'run.send' as const, prompt: lateSteerPrompt }
+        : command;
+      if (turnCommand.type !== 'run.send' && turnCommand.type !== 'run.retry') return;
 
-      if (command.type === 'run.send' && !command.prompt.trim()) return;
-      if (command.type === 'run.send' && !isUnifiedChatAttachmentSetSendable(attachments)) {
+      if (turnCommand.type === 'run.send' && !turnCommand.prompt.trim()) return;
+      if (turnCommand.type === 'run.send' && !isUnifiedChatAttachmentSetSendable(attachments)) {
         setError(attachments.some((item) => item.status === 'inspecting')
           ? 'Wait for Kwilt to finish inspecting the attachment.'
           : 'Remove or retry the attachment Kwilt could not inspect.');
@@ -1703,7 +1728,7 @@ export function UnifiedChatScreen({
       }
 
       let turnAggregate = freshEntry ? null : aggregate;
-      if (command.type === 'run.send' && !turnAggregate && freshEntry) {
+      if (turnCommand.type === 'run.send' && !turnAggregate && freshEntry) {
         if (freshFirstSendRequestIdRef.current && freshFirstSendRequestIdRef.current !== message.requestId) return;
         freshFirstSendRequestIdRef.current = message.requestId;
         try {
@@ -1736,7 +1761,7 @@ export function UnifiedChatScreen({
             AnalyticsEvent.UnifiedChatFreshEntryOutcome,
             buildUnifiedChatFreshEntryTelemetry(freshEntrySource, 'thread_creation_failed'),
           );
-          setPrompt(command.prompt);
+          setPrompt(turnCommand.prompt);
           setError(creationError instanceof Error
             ? creationError.message
             : 'Kwilt could not create a new chat.');
@@ -1745,21 +1770,21 @@ export function UnifiedChatScreen({
       }
       if (!turnAggregate) return;
 
-      const retryRun = command.type === 'run.retry'
-        ? turnAggregate.runs.find((run) => run.id === command.runId && run.status === 'failed')
+      const retryRun = turnCommand.type === 'run.retry'
+        ? turnAggregate.runs.find((run) => run.id === turnCommand.runId && run.status === 'failed')
         : undefined;
-      if (command.type === 'run.retry' && (!retryRun || (turnAggregate.proposals ?? []).some((proposal) => proposal.runId === retryRun.id))) return;
+      if (turnCommand.type === 'run.retry' && (!retryRun || (turnAggregate.proposals ?? []).some((proposal) => proposal.runId === retryRun.id))) return;
       const retryMessage = retryRun?.userMessageId
         ? turnAggregate.messages.find((item) => item.id === retryRun.userMessageId && item.role === 'user')
         : undefined;
-      if (command.type === 'run.retry' && !retryMessage) return;
+      if (turnCommand.type === 'run.retry' && !retryMessage) return;
 
-      if (command.type === 'run.send') setPrompt('');
+      if (turnCommand.type === 'run.send') setPrompt('');
       setError(null);
-      let turnPrompt = command.type === 'run.send' ? command.prompt : retryMessage?.body ?? '';
+      let turnPrompt = turnCommand.type === 'run.send' ? turnCommand.prompt : retryMessage?.body ?? '';
       let turnRequestId = message.requestId;
       let retryRunId = retryRun?.id;
-      let turnAttachments = command.type === 'run.send' ? attachments : retryMessage?.attachments ?? [];
+      let turnAttachments = turnCommand.type === 'run.send' ? attachments : retryMessage?.attachments ?? [];
       let parentRunId: string | null = retryRunId ?? null;
       while (turnPrompt.trim()) {
         setStreamingResponse(null);
@@ -1965,13 +1990,6 @@ export function UnifiedChatScreen({
     });
   };
 
-  const pendingClientAction = useMemo(
-    () => (aggregate?.clientActions ?? []).find(
-      (item) => item.status === 'pending_client_action' || item.status === 'presenting',
-    ) ?? null,
-    [aggregate?.clientActions],
-  );
-
   const allowedOrigin = useMemo(() => {
     if (!config.workbenchUrl) return null;
     try {
@@ -2156,46 +2174,6 @@ export function UnifiedChatScreen({
         </SafeAreaView>
       </Modal>
 
-      <Modal
-        visible={Boolean(pendingClientAction)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (pendingClientAction) void decideClientAction(pendingClientAction, 'decline');
-        }}
-      >
-        <View style={styles.clientActionScrim}>
-          <View style={styles.clientActionSheet} accessibilityViewIsModal>
-            <Text style={styles.clientActionEyebrow}>Review in Kwilt</Text>
-            <Text style={styles.clientActionTitle}>{pendingClientAction?.title}</Text>
-            <Text style={styles.clientActionSummary}>{pendingClientAction?.consequenceSummary}</Text>
-            <View style={styles.clientActionButtons}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Not now"
-                disabled={clientActionInFlight}
-                onPress={() => {
-                  if (pendingClientAction) void decideClientAction(pendingClientAction, 'decline');
-                }}
-                style={({ pressed }) => [styles.clientActionSecondaryButton, pressed && styles.buttonPressed]}
-              >
-                <Text style={styles.clientActionSecondaryLabel}>Not now</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Continue to ${pendingClientAction?.title ?? 'native review'}`}
-                disabled={clientActionInFlight}
-                onPress={() => {
-                  if (pendingClientAction) void decideClientAction(pendingClientAction, 'continue');
-                }}
-                style={({ pressed }) => [styles.clientActionPrimaryButton, pressed && styles.buttonPressed]}
-              >
-                <Text style={styles.clientActionPrimaryLabel}>{clientActionInFlight ? 'Opening…' : 'Continue'}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 

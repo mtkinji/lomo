@@ -66,7 +66,7 @@ export type FoodStackParamList = {
   OnlineOrder: { listId: string; fulfillmentOverride?: 'pickup' | 'delivery' };
   RetailerLinkShopping: { listId: string; retailerId: 'amazon' | 'walmart' };
   KrogerCart: { listId: string; fulfillmentMode: 'pickup' | 'delivery' };
-  GrocerySavings: { listId: string };
+  GrocerySavings: { listId?: string } | undefined;
   FoodStockReview: { concepts?: string[] } | undefined;
   FoodScenarioReview: { scenarioId: string };
 };

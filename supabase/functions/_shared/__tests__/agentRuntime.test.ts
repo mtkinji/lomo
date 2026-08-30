@@ -155,6 +155,39 @@ describe('server agent runtime channel contract', () => {
     expect(serverResult).toEqual(mobileResult);
   });
 
+  test('reserves a synthesis round after four sequential cross-domain reads', async () => {
+    const mod = loadModule();
+    const tools = ['goals.read', 'activities.read', 'plan.read_day_context', 'chores.list'].map((id) => ({
+      id, version: 1, capabilityId: id.split('.')[0], purpose: `Read ${id}.`,
+      providers: ['server'] as const, effect: 'read' as const, consequence: 'low' as const,
+      reversible: true, confirmation: 'none' as const, canDeferToClient: false,
+      inputSchema: {}, outputSchema: {},
+    }));
+    const makeModelStep = () => jest.fn()
+      .mockResolvedValueOnce({ content: null, toolCalls: [{ id: 'call-1', toolId: tools[0].id, arguments: {} }] })
+      .mockResolvedValueOnce({ content: null, toolCalls: [{ id: 'call-2', toolId: tools[1].id, arguments: {} }] })
+      .mockResolvedValueOnce({ content: null, toolCalls: [{ id: 'call-3', toolId: tools[2].id, arguments: {} }] })
+      .mockResolvedValueOnce({ content: null, toolCalls: [{ id: 'call-4', toolId: tools[3].id, arguments: {} }] })
+      .mockResolvedValueOnce({ content: 'Here is the combined review.', toolCalls: [] });
+    const executeTool = jest.fn(async () => ({ status: 'completed' as const, output: {}, receipt: null }));
+    const input = {
+      tools, initialMessages: [{ role: 'user' as const, content: 'Review my goals, to-dos, plan, and chores.' }],
+      executeTool,
+    };
+
+    const mobileModelStep = makeModelStep();
+    const mobileResult = await runBoundedAgentToolLoop({ ...input, modelStep: mobileModelStep, maxRounds: 4 });
+    const serverModelStep = makeModelStep();
+    const serverResult = await mod.runBoundedServerAgentToolLoop({ ...input, modelStep: serverModelStep, maxRounds: 4 });
+
+    expect(mobileResult).toMatchObject({ status: 'completed', content: 'Here is the combined review.' });
+    expect(serverResult).toEqual(mobileResult);
+    expect(mobileModelStep).toHaveBeenCalledTimes(5);
+    expect(serverModelStep).toHaveBeenCalledTimes(5);
+    expect(mobileModelStep.mock.calls[4][0].tools).toEqual([]);
+    expect(serverModelStep.mock.calls[4][0].tools).toEqual([]);
+  });
+
   test('keeps every deployed server tool version and policy aligned with the mobile catalog', () => {
     expect(SERVER_AGENT_TOOL_CATALOG).toEqual(projectAgentToolCatalog(
       KWILT_CAPABILITY_MANIFEST,

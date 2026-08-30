@@ -22,7 +22,7 @@ export async function executeServerPlanCalendarTool({ call, stageDeviceAction }:
   const request: ServerDeviceActionRequest = {
     capabilityId: 'plan', actionType: 'review_plan_calendars', targetType: 'plan_calendars', targetId: null,
     title: call.toolId.endsWith('.read') ? 'Review Plan calendars' : 'Apply Plan calendar selection',
-    consequenceSummary: 'Kwilt will open native Calendar settings. Calendar names and authorization are loaded on the device; no event contents enter ChatGPT.',
+    consequenceSummary: 'Kwilt will open Calendar settings. Calendar names stay on your device, and event details are not sent to ChatGPT.',
     payload,
   };
   await stageDeviceAction(request);

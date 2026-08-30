@@ -38,6 +38,10 @@ import {
   createConversationalControlTelemetry,
 } from '../_shared/conversationalControlTelemetry.ts';
 import {
+  externalMcpRunPrompt,
+  externalMcpRunSummary,
+} from '../_shared/externalMcpPresentation.ts';
+import {
   buildAuthorizationServerMetadata,
   buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
@@ -552,16 +556,6 @@ async function findIdempotentWrite(
   };
 }
 
-function serverResultSummary(toolTitle: string, result: ServerAgentToolResult): string {
-  if (result.status === 'completed') return `${toolTitle} completed.`;
-  if (result.status === 'proposed') return `${toolTitle} is ready for review in Kwilt.`;
-  if (result.status === 'pending_client_action') return `${toolTitle} is ready to continue in Kwilt.`;
-  if (result.status === 'needs_input') return result.prompt;
-  if (result.status === 'unavailable') return result.reason;
-  if (result.status === 'refused') return result.reason;
-  return result.message;
-}
-
 async function executeCanonicalExternalTool(
   admin: ExternalServiceClient,
   context: ExternalTokenContext,
@@ -604,7 +598,7 @@ async function executeCanonicalExternalTool(
   const request = {
     channel: 'external' as const,
     requestId: call.id,
-    prompt: `External connector requested ${externalTool.operationId}.`,
+    prompt: externalMcpRunPrompt(externalTool.annotations.title),
     threadId: null,
     initiator: 'user' as const,
     triggerKind: 'user_message' as const,
@@ -630,7 +624,7 @@ async function executeCanonicalExternalTool(
     await persistence.complete({
       run,
       expectedVersion: activeVersion,
-      body: serverResultSummary(externalTool.annotations.title, result),
+      body: externalMcpRunSummary(externalTool.annotations.title, result),
       status: result.status === 'failed' || result.status === 'unavailable' || result.status === 'refused'
         ? 'partial' : 'complete',
       participatingCapabilities: [tool.capabilityId],

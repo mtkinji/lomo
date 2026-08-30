@@ -4,6 +4,13 @@ import type { KwiltChannelContextPacket } from './channelContext';
 
 const TERMINAL_RUN_STATUSES = new Set(['complete', 'partial', 'stopped', 'steered', 'failed']);
 
+export function didDurableSteerTransition(
+  sourceStatus: UnifiedChatRun['status'],
+  resultingStatus: UnifiedChatRun['status'] | undefined,
+): boolean {
+  return resultingStatus === 'steered' || (sourceStatus === 'queued' && resultingStatus === 'stopped');
+}
+
 type InvokeAgentRun = (
   functionName: string,
   options: { body: Record<string, unknown> },
@@ -140,25 +147,29 @@ export async function transitionDurableMobileChatRun({
   const completedAt = now().toISOString();
   const steeringActiveRun = disposition.type === 'steer' && run.status === 'active';
   const toStatus: UnifiedChatRun['status'] = steeringActiveRun ? 'steered' : 'stopped';
-  await transitionRunStatus({
-    runId: run.id,
-    fromStatus: run.status,
-    toStatus,
-    expectedVersion: run.version,
-    errorCode: null,
-    errorMessage: null,
-    completedAt,
-    ...(toStatus === 'stopped' ? { stopRequestedAt: completedAt } : {}),
-    ...(steeringActiveRun ? { steerCount: run.steerCount + 1 } : {}),
-    event: disposition.type === 'steer'
-      ? {
-          type: 'instruction', status: 'warning', visibility: 'user',
-          label: 'Direction updated', detail: 'Continuing with your new instruction.',
-          payload: { prompt: disposition.prompt },
-        }
-      : {
-          type: 'response', status: 'warning', visibility: 'user', label: 'Response stopped',
-        },
-  });
+  try {
+    await transitionRunStatus({
+      runId: run.id,
+      fromStatus: run.status,
+      toStatus,
+      expectedVersion: run.version,
+      errorCode: null,
+      errorMessage: null,
+      completedAt,
+      ...(toStatus === 'stopped' ? { stopRequestedAt: completedAt } : {}),
+      ...(steeringActiveRun ? { steerCount: run.steerCount + 1 } : {}),
+      event: disposition.type === 'steer'
+        ? {
+            type: 'instruction', status: 'warning', visibility: 'user',
+            label: 'Direction updated', detail: 'Continuing with your new instruction.',
+            payload: { prompt: disposition.prompt },
+          }
+        : {
+            type: 'response', status: 'warning', visibility: 'user', label: 'Response stopped',
+          },
+    });
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== 'invalid_run_source_status') throw error;
+  }
   return loadThread(threadId);
 }

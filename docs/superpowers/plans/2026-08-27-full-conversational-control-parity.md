@@ -804,12 +804,12 @@ Expected: all safe operations are exposed or have an explicit tested boundary; n
 - Modify: `docs/delivery-evidence/unified-chat/conversational-control-program.yml`
 - Create: `docs/delivery-evidence/unified-chat/chatgpt-control-matrix.md`
 
-- [ ] Deploy migrations and Edge Functions only after explicit deployment authorization for that execution turn.
+- [x] Deploy migrations and Edge Functions only after explicit deployment authorization for that execution turn. MCP version 43 was deployed after Andrew's explicit confirmation on 2026-08-29.
 - [ ] Confirm OAuth discovery, authorization, refresh, revocation, `tools/list`, tool schema version, and account/household binding against the deployed connector.
 - [ ] From ChatGPT developer mode, run the generated full-catalog matrix using disposable data.
 - [ ] Complete native handoffs in Kwilt and verify ChatGPT observes the final receipt without claiming completion early.
 - [ ] Test read-only token, missing write scope, revoked connector, wrong household, expired handoff, duplicate request, provider outage, and retry.
-- [ ] Record the deployed function versions, catalog hash, OAuth client, target environment, and evidence timestamps.
+- [x] Record the deployed function versions, catalog hash, OAuth client, target environment, and evidence timestamps.
 - [ ] Do not label successful OAuth or `tools/list` as action coverage.
 - [ ] Commit evidence with message `test(mcp): record live ChatGPT control parity`.
 

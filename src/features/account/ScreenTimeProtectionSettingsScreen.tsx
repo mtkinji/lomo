@@ -210,13 +210,11 @@ export function ScreenTimeProtectionSettingsScreen() {
     });
   }, [reconcileAfterSettingsChange, setSettings]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!setupCompleted) {
-        setSetupPhase('intro');
-      }
-    }, [entrySurface, returnToActivityId, setupCompleted, setupIntent]),
-  );
+  useEffect(() => {
+    if (!setupCompleted) {
+      setSetupPhase('intro');
+    }
+  }, [entrySurface, returnToActivityId, setupCompleted, setupIntent]);
 
   useFocusEffect(
     useCallback(() => {

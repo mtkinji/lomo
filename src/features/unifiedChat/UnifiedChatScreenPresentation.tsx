@@ -71,37 +71,4 @@ export const unifiedChatScreenStyles = StyleSheet.create({
   threadTitle: { ...typography.body, color: colors.textPrimary },
   threadDate: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   emptyListText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', paddingTop: spacing['2xl'] },
-  clientActionScrim: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.scrimStrong,
-  },
-  clientActionSheet: {
-    backgroundColor: colors.canvas,
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  clientActionEyebrow: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs },
-  clientActionTitle: { ...typography.titleMd, color: colors.textPrimary },
-  clientActionSummary: { ...typography.body, color: colors.textSecondary, marginTop: spacing.sm },
-  clientActionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.lg },
-  clientActionSecondaryButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-  },
-  clientActionPrimaryButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent, // @kwilt-brand-moment: confirms the reviewed native handoff
-  },
-  clientActionSecondaryLabel: { ...typography.label, color: colors.textSecondary },
-  clientActionPrimaryLabel: { ...typography.label, color: colors.primaryForeground },
-  buttonPressed: { opacity: 0.72 },
 });

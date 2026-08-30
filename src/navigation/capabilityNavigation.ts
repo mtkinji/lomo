@@ -30,7 +30,9 @@ export type CapabilityNavigationTarget =
       name: 'MainTabs';
       params: {
         screen: 'MoreTab';
-        params: { screen: 'MoreArcs' | 'MoreChapters' };
+        params:
+          | { screen: 'MoreArcs'; params: { screen: 'ArcsList' } }
+          | { screen: 'MoreChapters' };
       };
     }
   | {
@@ -147,6 +149,15 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
     case 'PlanTab':
       return { name: 'MainTabs', params: { screen: 'PlanTab' } };
     case 'MoreTab':
+      if (rootRoute.screen === 'MoreArcs') {
+        return {
+          name: 'MainTabs',
+          params: {
+            screen: 'MoreTab',
+            params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+          },
+        };
+      }
       return {
         name: 'MainTabs',
         params: { screen: 'MoreTab', params: { screen: rootRoute.screen } },

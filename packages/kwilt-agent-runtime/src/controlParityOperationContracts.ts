@@ -379,7 +379,7 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     },
   } }), sourceRefs: notificationRefs }),
   write({ id: 'navigation.open_capability', owner: 'navigation', purpose: 'Open one allow-listed Kwilt capability or stable object destination.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({
-    capabilityId: { type: 'string', enum: ['goals', 'todos', 'plan', 'arcs', 'chapters', 'money', 'recipes', 'meal-planning', 'groceries', 'chores'] },
+    capabilityId: { type: 'string', enum: ['goals', 'todos', 'plan', 'arcs', 'chapters', 'money', 'recipes', 'meal-planning', 'groceries', 'chores', 'focus', 'household', 'savings', 'screen-time', 'notifications', 'account-settings'] },
     objectRef: { type: ['object', 'null'], properties: { objectType: { type: 'string', enum: ['goal', 'activity', 'chapter', 'recipe'] }, objectId: STRING_ID }, required: ['objectType', 'objectId'], additionalProperties: false },
   }, ['capabilityId']), sourceRefs: navigationRefs }),
 ] as const satisfies readonly ControlParityOperationContract[];

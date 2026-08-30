@@ -210,5 +210,22 @@ export async function runBoundedAgentToolLoop({
     }
   }
 
-  return { status: 'partial', content: null, errorCode: 'max_rounds_reached', messages, events };
+  const synthesisRound = maxRounds + 1;
+  if (signal?.aborted) return stopped(synthesisRound);
+  const synthesis = await modelStep({
+    messages,
+    tools: [],
+    round: synthesisRound,
+    ...(signal ? { signal } : {}),
+  });
+  events.push({ sequence: ++eventSequence, type: 'model_step', round: synthesisRound });
+  if (synthesis.toolCalls.length > 0) {
+    return { status: 'partial', content: null, errorCode: 'max_rounds_reached', messages, events };
+  }
+  const content = synthesis.content?.trim();
+  if (!content) {
+    return { status: 'failed', content: null, errorCode: 'missing_final_content', messages, events };
+  }
+  messages.push({ role: 'assistant', content });
+  return { status: 'completed', content, messages, events };
 }

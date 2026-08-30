@@ -11,6 +11,7 @@ import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import { executeServerAgentTool } from './serverAgentTools.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { buildUnifiedChatAgentInstructions } from './unifiedChatAgentPolicy.ts';
+import { resolveUnsupportedEffectBoundary } from '../../../packages/kwilt-agent-runtime/src/unsupportedEffectBoundary.ts';
 import {
   planServerTurn,
   type ServerTurnJudgment,
@@ -51,7 +52,10 @@ type ClientActionRequest = {
 export type AgentRunPersistence = {
   enqueue: (request: CanonicalAgentRunRequest) => Promise<EnqueuedAgentRun>;
   start: (run: EnqueuedAgentRun, request: CanonicalAgentRunRequest) => Promise<number>;
-  loadHistory: (threadId: string) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>;
+  loadHistory: (
+    threadId: string,
+    throughMessageId: string,
+  ) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>;
   loadReplay: (run: EnqueuedAgentRun) => Promise<{
     answer: string;
     status: 'complete' | 'partial';
@@ -86,7 +90,7 @@ export type AgentRunPersistence = {
     body: string;
     status: 'complete' | 'partial';
     participatingCapabilities: string[];
-    requestClass: 'general' | 'capability_question';
+    requestClass: 'general' | 'capability_question' | 'better_served_elsewhere';
   }) => Promise<Record<string, unknown>>;
   fail: (input: {
     run: EnqueuedAgentRun;
@@ -162,10 +166,10 @@ function projectAuthoritativeServerAnswer({
     }
   }, 0);
   if (proposedCount === 1) {
-    return 'I prepared that change for review in Kwilt. It has not been applied yet.';
+    return 'That change is ready for review. Nothing has changed yet.';
   }
   if (proposedCount > 1) {
-    return `I prepared ${proposedCount} changes for review in Kwilt. They have not been applied yet.`;
+    return `${proposedCount} changes are ready for review. Nothing has changed yet.`;
   }
   const unavailableReason = messages.reduce<string | null>((reason, message) => {
     if (reason || message.role !== 'tool') return reason;
@@ -179,9 +183,17 @@ function projectAuthoritativeServerAnswer({
     }
   }, null);
   if (unavailableReason) return unavailableReason;
-  const pendingClientActionCount = events.filter((event) => event.resultStatus === 'pending_client_action').length;
-  if (pendingClientActionCount > 0) {
-    return 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.';
+  const hasPendingClientAction = events.some((event) => event.resultStatus === 'pending_client_action')
+    || messages.some((message) => {
+      if (message.role !== 'tool') return false;
+      try {
+        return (JSON.parse(message.content) as { status?: string }).status === 'pending_client_action';
+      } catch {
+        return false;
+      }
+    });
+  if (hasPendingClientAction) {
+    return 'Ready when you are. You still need to take the next step.';
   }
   return modelContent;
 }
@@ -244,7 +256,24 @@ export async function executeEnqueuedCanonicalAgentRun({
   let activeVersion = enqueued.version;
   try {
     activeVersion = await persistence.start(enqueued, request);
-    const history = await persistence.loadHistory(enqueued.threadId);
+    const unsupportedBoundary = resolveUnsupportedEffectBoundary(request.prompt);
+    if (unsupportedBoundary) {
+      const completed = await persistence.complete({
+        run: enqueued,
+        expectedVersion: activeVersion,
+        body: unsupportedBoundary.response,
+        status: 'complete',
+        participatingCapabilities: unsupportedBoundary.participatingCapabilities,
+        requestClass: 'better_served_elsewhere',
+      });
+      return {
+        state: 'complete',
+        replayed: false,
+        run: completed,
+        answer: unsupportedBoundary.response,
+      };
+    }
+    const history = await persistence.loadHistory(enqueued.threadId, enqueued.messageId);
     const actorAllowedTools = SERVER_AGENT_TOOL_CATALOG.filter((tool) => !authorizeTool || authorizeTool(tool));
     const plan = await planServerTurn({
       prompt: request.prompt,
@@ -269,13 +298,14 @@ export async function executeEnqueuedCanonicalAgentRun({
       tools: executableTools,
       modelTools: plan.visibleTools,
       initialMessages,
-      modelStep: async ({ messages, round }) => {
+      modelStep: async ({ messages, tools, round }) => {
+        const synthesisOnly = tools.length === 0;
         const step = await modelStep({
           messages,
           round,
-          tools: plan.visibleTools,
-          resolvedTools: executableTools,
-          toolSearchNamespaces: plan.toolSearchNamespaces,
+          tools,
+          resolvedTools: synthesisOnly ? [] : executableTools,
+          toolSearchNamespaces: synthesisOnly ? [] : plan.toolSearchNamespaces,
         });
         if (step.metadata) {
           await persistence.recordModelStep({ run: enqueued, round, metadata: step.metadata });

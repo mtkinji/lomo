@@ -151,6 +151,7 @@ export type AgentWorkbenchProposal = {
 export type AgentWorkbenchReceipt = {
   id: string;
   proposalId: string;
+  runId?: string;
   status: 'applied' | 'failed' | 'undone';
   summary: string;
   object?: AgentWorkbenchObjectRef;

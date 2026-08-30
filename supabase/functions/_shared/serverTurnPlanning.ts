@@ -33,6 +33,16 @@ export type ServerTurnPlan = {
 
 const MAX_SELECTED_NAMESPACES = 3;
 const MAX_VISIBLE_TOOLS_PER_NAMESPACE = 10;
+const NATIVE_NAVIGATION_REQUEST_PATTERN = /^\s*(?:open|go\s+to|navigate\s+to|take\s+me\s+to)\b/i;
+const NAMESPACE_KEYWORD_PATTERNS: Array<[KwiltToolNamespaceId, RegExp]> = [
+  ['life_structure', /\b(?:arc|birthday|chapter|correct|forget|goal|profile|relationship|remember)\b/],
+  ['tasks_plan', /\b(?:activity|block|calendar|check off|focus|plan|remind|reminder|schedule|step|task|to[- ]?do|todo|tomorrow)\b/],
+  ['household', /\b(?:child|chore|family|game|household|member)\b/],
+  ['money', /\b(?:account balance|budget|money|spending|transaction)\b/],
+  ['food', /\b(?:cook|food|grocer|meal|recipe)\b/],
+  ['device_wellbeing', /\b(?:device|notification|screen\s*time)\b/],
+  ['account_navigation', /\b(?:account|navigation|search|settings|subscription)\b/],
+];
 
 function uniqueNamespaces(values: readonly unknown[]): KwiltToolNamespaceId[] {
   return [...new Set(values.filter(isKwiltToolNamespaceId))].slice(0, MAX_SELECTED_NAMESPACES);
@@ -40,16 +50,9 @@ function uniqueNamespaces(values: readonly unknown[]): KwiltToolNamespaceId[] {
 
 function fallbackNamespaces(prompt: string): KwiltToolNamespaceId[] {
   const normalized = prompt.toLowerCase();
-  const keywordMatches: Array<[KwiltToolNamespaceId, RegExp]> = [
-    ['life_structure', /\b(?:arc|birthday|chapter|correct|forget|goal|profile|relationship|remember)\b/],
-    ['tasks_plan', /\b(?:activity|block|calendar|check off|focus|plan|remind|reminder|schedule|step|task|todo|tomorrow)\b/],
-    ['household', /\b(?:child|chore|family|game|household|member)\b/],
-    ['money', /\b(?:account balance|budget|money|spending|transaction)\b/],
-    ['food', /\b(?:cook|food|grocer|meal|recipe)\b/],
-    ['device_wellbeing', /\b(?:device|notification|screen\s*time)\b/],
-    ['account_navigation', /\b(?:account|navigation|search|settings|subscription)\b/],
-  ];
-  const explicitMatches = keywordMatches.filter(([, pattern]) => pattern.test(normalized)).map(([id]) => id);
+  const explicitMatches = NAMESPACE_KEYWORD_PATTERNS
+    .filter(([, pattern]) => pattern.test(normalized))
+    .map(([id]) => id);
   if (explicitMatches.length > 0) return uniqueNamespaces(explicitMatches);
   const scored = KWILT_TOOL_NAMESPACES.map((namespace, index) => {
     const terms = [namespace.id, ...namespace.capabilityIds]
@@ -65,6 +68,14 @@ function fallbackNamespaces(prompt: string): KwiltToolNamespaceId[] {
 
 function normalizeJudgment(raw: ServerTurnJudgment | null, prompt: string): ServerTurnJudgment {
   const selectedNamespaces = uniqueNamespaces(raw?.selectedNamespaces ?? []);
+  const explicitNamespaces = NAMESPACE_KEYWORD_PATTERNS
+    .filter(([, pattern]) => pattern.test(prompt.toLowerCase()))
+    .map(([id]) => id);
+  const routedNamespaces = uniqueNamespaces([
+    ...selectedNamespaces,
+    ...explicitNamespaces,
+    ...(NATIVE_NAVIGATION_REQUEST_PATTERN.test(prompt) ? ['account_navigation' as const] : []),
+  ]);
   const confidence = typeof raw?.confidence === 'number' && Number.isFinite(raw.confidence)
     ? Math.max(0, Math.min(1, raw.confidence))
     : 0;
@@ -72,7 +83,7 @@ function normalizeJudgment(raw: ServerTurnJudgment | null, prompt: string): Serv
     ? raw.reason.trim().slice(0, 240)
     : 'Deterministic namespace fallback.';
   return {
-    selectedNamespaces: selectedNamespaces.length > 0 ? selectedNamespaces : fallbackNamespaces(prompt),
+    selectedNamespaces: routedNamespaces.length > 0 ? routedNamespaces : fallbackNamespaces(prompt),
     confidence,
     reason,
   };

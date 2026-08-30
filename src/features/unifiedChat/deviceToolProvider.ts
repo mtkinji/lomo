@@ -2,6 +2,7 @@ import type { AgentToolCall, AgentToolDefinition, AgentToolExecutionResult } fro
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type { UnifiedChatCapabilityId } from './requestPolicy';
 import { parseCapabilityNavigationRequest } from '../../navigation/capabilityNavigationAction';
+import { capabilityNavigationLabel } from '../../../packages/kwilt-agent-runtime/src/capabilityNavigationContract';
 import { useAppStore } from '../../store/useAppStore';
 import { HapticsService } from '../../services/HapticsService';
 import {
@@ -233,7 +234,7 @@ export function createDeviceToolProvider({
         capabilityId: 'account', actionType: 'continue_thread_on_phone',
         targetType: 'phone_agent_thread', targetId: null,
         title: 'Continue on Phone Agent',
-        consequenceSummary: 'Kwilt will connect this conversation to your already verified Phone Agent. Your phone number is never exposed to Chat.',
+        consequenceSummary: 'Kwilt will continue this conversation with your verified Phone Agent. Your phone number stays private.',
         payload: {},
       });
     }
@@ -265,7 +266,7 @@ export function createDeviceToolProvider({
       return stage({
         capabilityId: 'money', actionType: 'open_money_control', targetType, targetId,
         title: 'Review private Money action',
-        consequenceSummary: 'Kwilt will open the matching authenticated Money surface. Private financial details and provider credentials remain outside Chat.',
+        consequenceSummary: 'Kwilt will open the matching Money screen after you authenticate. Financial details and sign-in information stay private.',
         payload: { toolId: call.toolId, arguments: call.arguments },
       });
     }
@@ -308,12 +309,13 @@ export function createDeviceToolProvider({
           message: 'Choose an included Kwilt capability or one supported stable object.', retryable: false,
         };
       }
+      const capabilityLabel = capabilityNavigationLabel(request.capabilityId);
       return stage({
         capabilityId: 'navigation', actionType: 'open_capability',
         targetType: request.objectRef?.objectType ?? 'capability',
         targetId: request.objectRef?.objectId ?? request.capabilityId,
-        title: `Open ${request.capabilityId}`,
-        consequenceSummary: 'Kwilt will open this native destination without changing its contents.',
+        title: `Open ${capabilityLabel}`,
+        consequenceSummary: `This only opens ${capabilityLabel}. Nothing changes.`,
         payload: request,
       });
     }
@@ -363,7 +365,7 @@ export function createDeviceToolProvider({
       return stage({
         capabilityId: 'account', actionType: 'open_widgets_settings',
         targetType: 'device_setting', targetId: 'widgets', title: 'Open widget setup',
-        consequenceSummary: 'Kwilt will open native widget guidance. iOS still owns Home Screen placement and widget editing.',
+        consequenceSummary: 'Kwilt will show you how to add a widget. You still place and edit it from the Home Screen.',
         payload: request,
       });
     }
@@ -419,7 +421,7 @@ export function createDeviceToolProvider({
         capabilityId: 'account', actionType: 'open_connected_tool_setup',
         targetType: 'connection_provider', targetId: request.providerId,
         title: `Connect ${request.providerId}`,
-        consequenceSummary: 'Kwilt will open provider-owned connector setup. OAuth approval stays outside Chat.',
+        consequenceSummary: 'Kwilt will open this app’s connection screen. You still sign in and approve access there.',
         payload: request,
       });
     }
@@ -504,7 +506,7 @@ export function createDeviceToolProvider({
       return stage({
         capabilityId: 'account', actionType: 'prepare_friend_invitation',
         targetType: 'sharing_invitation', targetId: null, title: 'Invite a friend',
-        consequenceSummary: 'Kwilt will prepare a one-use friendship invitation, then you choose the exact recipient and delivery in the native share sheet. Friendship grants no content access.',
+        consequenceSummary: 'Kwilt will prepare a one-use invitation. You still choose who receives it. Friendship alone does not share your content.',
         payload: { expiresInDays: call.arguments.expiresInDays },
       });
     }
@@ -682,7 +684,7 @@ export function createDeviceToolProvider({
           capabilityId: 'plan', actionType: 'review_plan_availability',
           targetType: 'plan_availability', targetId: profile.id,
           title: 'Review weekly Plan availability',
-          consequenceSummary: `Kwilt will open the exact version ${current.version} weekly diff for ${reviewed.receipt.affectedWeekdays.length} affected day${reviewed.receipt.affectedWeekdays.length === 1 ? '' : 's'}. Nothing changes until you apply it in native review.`,
+          consequenceSummary: `Kwilt will show the availability changes for ${reviewed.receipt.affectedWeekdays.length} day${reviewed.receipt.affectedWeekdays.length === 1 ? '' : 's'}. Nothing changes until you apply them.`,
           payload: {
             expectedVersion: current.version,
             timeZone: next.timeZone,
@@ -709,7 +711,7 @@ export function createDeviceToolProvider({
             return stage({
               capabilityId: 'plan', actionType: 'review_plan_calendars',
               targetType: 'plan_calendars', targetId: null, title: 'Connect Plan calendars',
-              consequenceSummary: 'Kwilt will open native Calendar settings. Provider authorization stays outside Chat and no calendar is selected automatically.',
+              consequenceSummary: 'Kwilt will open Calendar settings. You still connect the calendar and choose which ones to use.',
               payload: { reason: snapshot.authorization },
             });
           }
@@ -725,7 +727,7 @@ export function createDeviceToolProvider({
         return stage({
           capabilityId: 'plan', actionType: 'review_plan_calendars',
           targetType: 'plan_calendars', targetId: null, title: 'Review Plan calendars',
-          consequenceSummary: `Kwilt will open the exact calendar selection: ${review.addedReadCalendarIds.length} added, ${review.removedReadCalendarIds.length} removed${review.writeCalendarChanged ? ', commitment calendar changed' : ''}. Nothing changes until native review.`,
+          consequenceSummary: `Kwilt will show this calendar change: ${review.addedReadCalendarIds.length} added, ${review.removedReadCalendarIds.length} removed${review.writeCalendarChanged ? ', commitment calendar changed' : ''}. Nothing changes until you apply it.`,
           payload: review,
         });
       } catch (error) {
@@ -760,7 +762,7 @@ export function createDeviceToolProvider({
         title: call.toolId === 'recipes.publication.prepare'
           ? `Review publication for ${recipe.currentVersion.title}`
           : `Confirm publication for ${recipe.currentVersion.title}`,
-        consequenceSummary: 'Kwilt will open the exact Recipe version for native identity, rights, media, destination, and final publication review. Nothing is published by Chat.',
+        consequenceSummary: 'Kwilt will show the Recipe, author details, rights, photos, and destination for one final check. Nothing is published yet.',
         payload: { operationId: call.toolId, recipeVersionId: versionId, arguments: call.arguments },
       });
     }
@@ -775,7 +777,7 @@ export function createDeviceToolProvider({
         capabilityId: 'groceries', actionType: 'open_food_scenario_review',
         targetType: 'food_scenario', targetId: scenarioId,
         title: 'Review Food Scenario',
-        consequenceSummary: 'Kwilt will open the version-bound scenario and its partial-recovery details. Nothing changes until native review applies it.',
+        consequenceSummary: 'Kwilt will show this Food Scenario, including what changed and what still needs attention. Nothing changes until you apply it.',
         payload: { operationId: call.toolId, expectedVersion },
       });
     }
@@ -785,7 +787,7 @@ export function createDeviceToolProvider({
       return stage({
         capabilityId: 'savings', actionType: 'open_grocery_savings', targetType: 'grocery_list', targetId: listId,
         title: 'Review current Grocery savings',
-        consequenceSummary: 'Kwilt will refresh current price and offer evidence in native review. Estimated savings are not realized savings, and no coupon is activated by Chat.',
+        consequenceSummary: 'Kwilt will refresh the current prices and offers. Savings are still estimates, and no coupon is activated yet.',
         payload: { operationId: call.toolId, arguments: call.arguments },
       });
     }
@@ -804,7 +806,7 @@ export function createDeviceToolProvider({
         capabilityId: 'groceries', actionType: 'open_grocery_receipt_review',
         targetType: 'grocery_receipt', targetId: receiptDraftId || null,
         title: call.toolId === 'receipt.extract' ? 'Review receipt extraction' : 'Review receipt reconciliation',
-        consequenceSummary: 'Kwilt will open native receipt evidence review. Extraction is only a draft; realized savings require reviewed line matches and are not claimed by Chat.',
+        consequenceSummary: 'Kwilt will show the receipt draft and line matches. Savings count only after you review the matches.',
         payload: { operationId: call.toolId, ...call.arguments, sourceArtifactRefs },
       });
     }
@@ -827,8 +829,8 @@ export function createDeviceToolProvider({
             : call.toolId === 'savings.accept' ? 'Review Savings Plan'
               : 'Open retailer coupon review',
         consequenceSummary: call.toolId === 'savings.coupon.open'
-          ? 'Kwilt will open the native Grocery review. The retailer owns eligibility and activation; Chat does not claim the coupon was applied.'
-          : 'Kwilt will open the exact Food review with the supplied evidence. No plan, Grocery list, purchase, or savings state changes in Chat.',
+          ? 'Kwilt will open the Grocery review. The retailer still decides eligibility and activation; the coupon is not applied yet.'
+          : 'Kwilt will open the Food review with this information. Your plan, Grocery list, purchases, and savings do not change yet.',
         payload: { operationId: call.toolId, arguments: call.arguments },
       });
     }
@@ -863,7 +865,7 @@ export function createDeviceToolProvider({
         capabilityId: 'screenTime', actionType: 'open_personal_screen_time_limit',
         targetType: 'personal_screen_time_device', targetId: 'self',
         title: `Review ${limitMinutes}-minute app limit`,
-        consequenceSummary: 'Kwilt will open native rule review on this device. You still choose the apps and save the rule there.',
+        consequenceSummary: 'Kwilt will open the rule on this device. You still choose the apps and save it there.',
         payload: {
           subject: { kind: 'self' }, limitMinutes, reset: 'daily',
           ...(suggestedAppLabel ? { suggestedAppLabel } : {}),
@@ -877,10 +879,10 @@ export function createDeviceToolProvider({
       const definition = call.toolId === 'activities.open_focus'
         ? { actionType: 'open_activity_focus', title: `Open Focus for ${activity.title}`, consequenceSummary: 'Kwilt will open the Focus sheet. You still choose whether and how long to start the timer.', payload: { route: 'activity', openFocus: true } }
         : call.toolId === 'activities.location.update'
-          ? { actionType: 'open_activity_location', title: `Review location for ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. Location access and any trigger remain under native permission and review.', payload: { route: 'activity' } }
+          ? { actionType: 'open_activity_location', title: `Review location for ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. You still choose the location and approve any iPhone permission.', payload: { route: 'activity' } }
           : call.toolId === 'activities.attachments.open'
-            ? { actionType: 'open_activity_attachments', title: `Add an attachment to ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. You choose the file or photo in the native picker.', payload: { route: 'activity' } }
-            : { actionType: 'open_activity_share', title: `Review sharing for ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. Nothing is shared until you choose the audience and confirm natively.', payload: { route: 'activity' } };
+            ? { actionType: 'open_activity_attachments', title: `Add an attachment to ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. You still choose the file or photo.', payload: { route: 'activity' } }
+            : { actionType: 'open_activity_share', title: `Review sharing for ${activity.title}`, consequenceSummary: 'Kwilt will open this To-do. Nothing is shared until you choose who can see it and confirm.', payload: { route: 'activity' } };
       return stage({ capabilityId: 'todos', targetType: 'activity', targetId: activity.id, ...definition });
     }
     if (call.toolId === 'goals.share.open' || call.toolId === 'goals.check_in') {
@@ -895,14 +897,14 @@ export function createDeviceToolProvider({
         return stage({
           capabilityId: 'goals', actionType: 'open_goal_checkin', targetType: 'goal', targetId: goal.id,
           title: `Review check-in for ${goal.title}`,
-          consequenceSummary: 'Kwilt will prepare this draft and open the native audience review. Nothing is sent until you confirm there.',
+          consequenceSummary: 'Kwilt will prepare the check-in and show who can see it. Nothing is sent until you confirm.',
           payload: { text },
         });
       }
       return stage({
         capabilityId: 'goals', actionType: 'open_goal_share', targetType: 'goal', targetId: goal.id,
         title: `Review sharing for ${goal.title}`,
-        consequenceSummary: 'Kwilt will open this Goal. Nothing is shared until you choose visibility, audience, and confirm natively.',
+        consequenceSummary: 'Kwilt will open this Goal. Nothing is shared until you choose who can see it and confirm.',
         payload: { route: 'goal' },
       });
     }
@@ -937,7 +939,7 @@ export function createDeviceToolProvider({
         capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
         targetType: 'family_screen_time_child', targetId: child.membershipId,
         title: `Review ${desiredAccess} for ${appName}`,
-        consequenceSummary: `Kwilt will open ${child.displayName}'s native app-selection review. Nothing changes until Apple authorization, selection, and device confirmation complete there.`,
+        consequenceSummary: `Kwilt will open ${child.displayName}'s app selection. Nothing changes until you finish Apple authorization, choose the apps, and confirm on the device.`,
         payload: {
           householdId: child.householdId, childDisplayName: child.displayName,
           setupStep: 'selection', suggestedLabel: appName, desiredAccess,
@@ -972,8 +974,8 @@ export function createDeviceToolProvider({
           ? `Review ${child.displayName}'s device release`
           : `Continue Screen Time setup for ${child.displayName}`,
         consequenceSummary: setupStep === 'release'
-          ? 'Kwilt will open native release review. Removing protection still happens only after you confirm there.'
-          : 'Kwilt will open the exact native setup step. Apple authorization or app selection still happens there.',
+          ? 'Kwilt will show the release details. Protection stays on until you confirm.'
+          : 'Kwilt will open the next setup step. You still finish Apple authorization or app selection there.',
         payload: {
           householdId: child.householdId,
           childDisplayName: child.displayName,
@@ -986,34 +988,34 @@ export function createDeviceToolProvider({
       'notifications.configure': {
         capabilityId: 'notifications', actionType: 'configure_notifications', targetType: null, targetId: null,
         title: 'Review notification settings',
-        consequenceSummary: 'Kwilt will open notification settings. System permission and reminder choices remain under native review.', payload: {},
+        consequenceSummary: 'Kwilt will open notification settings. You still choose the reminders and any iPhone permission.', payload: {},
       },
       'navigation.search.open': {
         capabilityId: 'navigation', actionType: 'open_search', targetType: null, targetId: null,
-        title: 'Open Search', consequenceSummary: 'Kwilt will open native search.', payload: {},
+        title: 'Open Search', consequenceSummary: 'This only opens Search. Nothing changes.', payload: {},
       },
       'navigation.account_settings.open': {
         capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
-        title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
+        title: 'Open Settings', consequenceSummary: 'This only opens Settings. Nothing changes.', payload: {},
       },
       'chores.open': {
         capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
-        title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
+        title: 'Open Chores', consequenceSummary: 'This only opens Chores. Nothing changes.', payload: {},
       },
       'account.subscription.open': {
         capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,
         title: 'Review subscription',
-        consequenceSummary: 'Kwilt will open subscription management. No billing or plan change is made by Chat.', payload: {},
+        consequenceSummary: 'Kwilt will open your subscription. Nothing changes until you confirm it there.', payload: {},
       },
       'account.delete.open': {
         capabilityId: 'account', actionType: 'open_account_deletion', targetType: null, targetId: null,
         title: 'Review account deletion',
-        consequenceSummary: 'Account deletion is destructive. Kwilt will open the native consequence and confirmation flow; Chat will not delete the account.', payload: {},
+        consequenceSummary: 'Deleting your account is permanent. Kwilt will show the details and ask you to confirm before anything is deleted.', payload: {},
       },
       'plan.preferences.open': {
         capabilityId: 'plan', actionType: 'open_plan_preferences', targetType: null, targetId: null,
         title: 'Review Plan preferences',
-        consequenceSummary: 'Kwilt will open native availability and calendar preference settings.', payload: {},
+        consequenceSummary: 'Kwilt will open your availability and calendar settings. Nothing changes until you save it there.', payload: {},
       },
     };
     return stage(definitions[call.toolId]);

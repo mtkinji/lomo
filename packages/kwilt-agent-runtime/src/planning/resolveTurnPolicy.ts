@@ -8,7 +8,7 @@ import type {
 const EXPLICIT_WRITE_PATTERN =
   /\b(?:add|allow|archive|block|cancel|change|complete|configure|correct|create|delete|disable|enable|forget|make|mark|move|open|put|remember|remind|remove|rename|reschedule|save|schedule|set(?:\s+up)?|share|split|start|stop|turn\s+(?:on|off)|update)\b/i;
 const READ_REQUEST_PATTERN =
-  /^(?:can|could|do|does|how|list|read|review|show|tell|what|when|where|which|who|why)\b|\b(?:show me|tell me|what(?:'s| is)|list my|read my|current|status)\b/i;
+  /^(?:can|could|do|does|how|list|read|review|show|tell|what|when|where|which|who|why)\b|^focus only on\b|^(?:goals?|to[- ]?dos?|tasks?|plan|chores?|groceries|budget|money|recipes?|meals?|screen time|notifications?|household)(?:\s+only)?[.!?]?$|\b(?:show me|tell me|what(?:'s| is)|list my|read my|current|status)\b/i;
 const AFFIRMATIVE_PATTERN = /^(?:yes\b|yep\b|yeah\b|sure\b|okay\b|ok\b|do\s+(?:it|that)\b|go\s+ahead\b)/i;
 
 function uniqueNonEmpty(values: readonly string[]): string[] {

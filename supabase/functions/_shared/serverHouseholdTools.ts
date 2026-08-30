@@ -334,7 +334,7 @@ export async function executeServerHouseholdTool({
       const request: DeviceActionRequest = {
         capabilityId: 'household', actionType: 'household.device.cleanup', targetType: 'household_device', targetId: deviceId,
         title: `Finish cleanup for ${String(device.label)}`,
-        consequenceSummary: 'Complete device-local Household and Screen Time cleanup without changing the reviewed Household record.',
+        consequenceSummary: 'Kwilt will finish Household and Screen Time cleanup on this device. The Household change you already reviewed will stay the same.',
         payload: { householdId, deviceId, expectedUpdatedAt: device.updatedAt },
         idempotencyKey: `${call.id}:household-device-cleanup`,
       };

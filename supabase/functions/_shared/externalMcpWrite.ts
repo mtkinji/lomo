@@ -155,14 +155,14 @@ export function projectExternalMcpWriteResult(input: {
   if (result.status === 'proposed') {
     const proposal = record(result.proposal);
     const proposalId = typeof proposal.id === 'string' ? proposal.id : requestId;
-    const summary = `${tool.annotations.title} is ready for review in Kwilt.`;
+    const summary = `${tool.annotations.title} is ready for your review in Kwilt.`;
     return {
       object_type: 'proposal', object_id: proposalId, result_summary: summary,
       structured: { ...base, confirmation: { required: true, state: 'pending', proposal_id: proposalId }, summary },
     };
   }
   if (result.status === 'pending_client_action') {
-    const summary = `${tool.annotations.title} is ready to continue in Kwilt.`;
+    const summary = `${tool.annotations.title} is ready for you in Kwilt.`;
     return {
       object_type: 'client_action', object_id: requestId, result_summary: summary,
       structured: {

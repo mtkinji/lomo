@@ -175,6 +175,7 @@ describe('classifyUnifiedChatRequest', () => {
   test.each([
     'Transfer $500 from checking to savings.',
     'File my taxes for me.',
+    'Apply a coupon to my grocery order.',
   ])('keeps an unsupported consequential effect behind an honest boundary: %s', (prompt) => {
     expect(classifyUnifiedChatRequest({ prompt, context: [] })).toMatchObject({
       requestClass: 'better_served_elsewhere', participatingCapabilities: [], usePrivateContext: false,

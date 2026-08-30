@@ -24,6 +24,15 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function knownProxyFailureCode(responseText: string): string | null {
+  try {
+    const code = record(record(JSON.parse(responseText)).error).code;
+    return code === 'quota_exceeded' ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === 'object') {
@@ -253,7 +262,11 @@ export async function requestServerAgentResponse({
     throw error;
   }
   const responseText = await response.text();
-  if (!response.ok) throw new Error(`model_request_failed:${response.status}:${responseText.slice(0, 300)}`);
+  if (!response.ok) {
+    const knownCode = knownProxyFailureCode(responseText);
+    if (knownCode) throw new Error(knownCode);
+    throw new Error(`model_request_failed:${response.status}:${responseText.slice(0, 300)}`);
+  }
   let data: unknown;
   try { data = JSON.parse(responseText); } catch { throw new Error('model_response_malformed'); }
   return parseServerAgentResponse(data, resolvedTools, {
