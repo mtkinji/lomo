@@ -68,7 +68,9 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
         ? await householdActions.listDevices(snapshot.household.id).catch(() => [])
         : [];
       setPersonalDevices(devices.filter((device) => (
-        device.kind === 'personal_child' && device.childMembershipId === selected.id
+        device.kind === 'personal_child'
+        && device.childMembershipId === selected.id
+        && device.status !== 'revoked'
       )));
     } catch (error) {
       Alert.alert('Unable to load this person', error instanceof Error ? error.message : 'Please try again.');
@@ -94,9 +96,7 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
             void revokeHouseholdDeviceReviewed({
               householdId, deviceId: device.id, expectedUpdatedAt: device.updatedAt, confirmed: true,
             }, householdActions)
-              .then((receipt) => setPersonalDevices((devices) => devices.map((row) => (
-                row.id === device.id ? receipt.result : row
-              ))))
+              .then(() => setPersonalDevices((devices) => devices.filter((row) => row.id !== device.id)))
               .catch((error) => Alert.alert(
                 'Unable to remove device', error instanceof Error ? error.message : 'Please try again.',
               ))

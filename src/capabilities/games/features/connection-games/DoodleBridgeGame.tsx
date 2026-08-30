@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
@@ -23,7 +23,7 @@ type Phase = 'drawing' | 'handoff' | 'finished';
 
 const colors = [gamesTheme.colors.coral, gamesTheme.colors.turmericDark, gamesTheme.colors.feltLight, '#528BC4', '#A45AA8', gamesTheme.colors.wood];
 
-export function DoodleBridgeGame({ players }: { players: string[] }) {
+export function DoodleBridgeGame({ players, onGestureActiveChange }: { players: string[]; onGestureActiveChange?: (active: boolean) => void }) {
   const [doodleIndex, setDoodleIndex] = useState(0);
   const [turnIndex, setTurnIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('drawing');
@@ -34,6 +34,8 @@ export function DoodleBridgeGame({ players }: { players: string[] }) {
   const seed = getDoodleSeed(doodleIndex);
   const activeColor = colors[turn.playerIndex % colors.length];
   const hasCurrentTurnStroke = strokes.some((stroke) => stroke.turn === turnIndex);
+
+  useEffect(() => () => onGestureActiveChange?.(false), [onGestureActiveChange]);
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: (event) => phase === 'drawing' && event.nativeEvent.touches.length === 1,
@@ -120,6 +122,9 @@ export function DoodleBridgeGame({ players }: { players: string[] }) {
       accessibilityLabel="Shared doodle canvas"
       style={styles.canvas}
       onLayout={(event) => setCanvasBounds(event.nativeEvent.layout)}
+      onTouchStart={(event) => onGestureActiveChange?.(phase === 'drawing' && event.nativeEvent.touches.length === 1)}
+      onTouchEnd={() => onGestureActiveChange?.(false)}
+      onTouchCancel={() => onGestureActiveChange?.(false)}
       {...responder.panHandlers}
     >
       <DoodleSvg seedId={seed.id} strokes={strokes} current={current} activeColor={activeColor} />

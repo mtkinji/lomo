@@ -405,6 +405,22 @@ describe('ConnectionGameScreen', () => {
     })).toBe(true);
   });
 
+  it('disables the surrounding scroll view for the duration of a Doodle Bridge stroke', () => {
+    mockGameId = 'doodle-bridge';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+
+    const canvas = screen.getByLabelText('Shared doodle canvas');
+    const surroundingScroll = () => screen.UNSAFE_getAllByType(ScrollView)
+      .find((view) => view.props.automaticallyAdjustKeyboardInsets);
+
+    act(() => canvas.props.onTouchStart({ nativeEvent: { touches: [{}] } }));
+    expect(surroundingScroll()?.props.scrollEnabled).toBe(false);
+
+    act(() => canvas.props.onTouchEnd({ nativeEvent: { touches: [] } }));
+    expect(surroundingScroll()?.props.scrollEnabled).toBe(true);
+  });
+
   it('runs rapid timed Clue Circle turns entirely through motion', async () => {
     jest.useFakeTimers();
     mockMotionAvailable = true;

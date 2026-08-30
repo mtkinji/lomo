@@ -10,7 +10,7 @@ import { KwiltGamesLockup } from '@/src/capabilities/games/ui/KwiltGamesLockup';
 import { KeyboardSafeScrollView } from '@/src/capabilities/games/ui/KeyboardSafeScrollView';
 import { backToGames } from '@/src/capabilities/games/navigation/backToGames';
 
-export function ConnectionGameFrame({ title, promise, children, onRestart, soundEnabled, onToggleSound, playing = false, compactPlayChrome = false, showHeading = true, gameHeader = false, gameMark }: { title: string; promise: string; children: ReactNode; onRestart?: () => void; soundEnabled?: boolean; onToggleSound?: () => void; playing?: boolean; compactPlayChrome?: boolean; showHeading?: boolean; gameHeader?: boolean; gameMark?: string }) {
+export function ConnectionGameFrame({ title, promise, children, onRestart, soundEnabled, onToggleSound, playing = false, compactPlayChrome = false, showHeading = true, gameHeader = false, gameMark, scrollEnabled = true }: { title: string; promise: string; children: ReactNode; onRestart?: () => void; soundEnabled?: boolean; onToggleSound?: () => void; playing?: boolean; compactPlayChrome?: boolean; showHeading?: boolean; gameHeader?: boolean; gameMark?: string; scrollEnabled?: boolean }) {
   const { width, height } = useWindowDimensions();
   const presenting = playing && width > height;
   const compact = presenting || compactPlayChrome;
@@ -26,7 +26,7 @@ export function ConnectionGameFrame({ title, promise, children, onRestart, sound
         </View>
       </View>
       {!compact && showHeading ? <View style={styles.heading}><Text style={styles.title}>{title}</Text><Text style={styles.promise}>{promise}</Text></View> : null}
-      <KeyboardSafeScrollView style={styles.scroll} contentContainerStyle={[styles.content, compact ? styles.contentPresenting : null]}>{children}</KeyboardSafeScrollView>
+      <KeyboardSafeScrollView scrollEnabled={scrollEnabled} style={styles.scroll} contentContainerStyle={[styles.content, compact ? styles.contentPresenting : null]}>{children}</KeyboardSafeScrollView>
     </SafeAreaView>
   </GameBackdrop>;
 }

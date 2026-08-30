@@ -46,6 +46,7 @@ export function ConnectionGameScreen() {
       : [{ key: 'seat-1', displayName: '' }, { key: 'seat-2', displayName: '' }]);
   const [started, setStarted] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const [gameGestureActive, setGameGestureActive] = useState(false);
   useActiveGameOrientation(started);
 
   if (!game) return <ConnectionGameFrame title="Game not found" promise="This table is not available."><PlayCard tone="paper"><Text style={{ fontFamily: gamesTheme.type.body, color: gamesTheme.colors.ink }}>Return to the game shelf and choose another table.</Text></PlayCard></ConnectionGameFrame>;
@@ -88,6 +89,7 @@ export function ConnectionGameScreen() {
     gameMark={game.mark}
     showHeading={false}
     onRestart={started ? () => setSessionKey((value) => value + 1) : undefined}
+    scrollEnabled={!gameGestureActive}
     soundEnabled={started && (game.id === 'clue-circle' || game.id === 'story-relay' || game.id === 'pass-pattern' || oddball) ? soundOn : undefined}
     onToggleSound={started && (game.id === 'clue-circle' || game.id === 'story-relay' || game.id === 'pass-pattern' || oddball) ? () => setSoundOverride(!soundOn) : undefined}
   >
@@ -126,15 +128,16 @@ export function ConnectionGameScreen() {
         soundEnabled={soundOn}
         onClueCorrect={() => { void feedback.success('sparkle'); }}
         onCluePass={() => { void feedback.skip(); }}
+        onGestureActiveChange={setGameGestureActive}
       />}
     {started && !oddball && game.id !== 'clue-circle' ? <GameButton tone="ghost" onPress={() => setStarted(false)}>Change players</GameButton> : null}
   </ConnectionGameFrame>;
 }
 
-function GameBody({ gameId, players, soundEnabled, onClueCorrect, onCluePass }: { gameId: NonNullable<ReturnType<typeof findConnectionGame>>['id']; players: string[]; soundEnabled: boolean; onClueCorrect: () => void; onCluePass: () => void }) {
+function GameBody({ gameId, players, soundEnabled, onClueCorrect, onCluePass, onGestureActiveChange }: { gameId: NonNullable<ReturnType<typeof findConnectionGame>>['id']; players: string[]; soundEnabled: boolean; onClueCorrect: () => void; onCluePass: () => void; onGestureActiveChange: (active: boolean) => void }) {
   if (gameId === 'same-page') return <ShowOfHandsGame players={players} soundEnabled={soundEnabled} />;
   if (gameId === 'pass-pattern') return <PassPatternGame players={players} soundEnabled={soundEnabled} />;
-  if (gameId === 'doodle-bridge') return <DoodleBridgeGame players={players} />;
+  if (gameId === 'doodle-bridge') return <DoodleBridgeGame players={players} onGestureActiveChange={onGestureActiveChange} />;
   if (gameId === 'clue-circle') return <ClueCircleGame players={players} soundEnabled={soundEnabled} onCorrectFeedback={onClueCorrect} onPassFeedback={onCluePass} />;
   return <PromptConnectionGame gameId={gameId} players={players} soundEnabled={soundEnabled} />;
 }

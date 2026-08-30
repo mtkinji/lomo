@@ -149,6 +149,7 @@ import {
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from '../../ui/layout/restingComposerMetrics';
 import { useFloatingControlElevation } from './useFloatingControlElevation';
+import { findNewRecurringOccurrencesForList } from './recurringOccurrenceVisibility';
 import { StandaloneFocusExperience } from './StandaloneFocusExperience';
 import { useStandaloneFocusController } from './useStandaloneFocusController';
 import { isSoundscapeId } from '../../services/soundscape';
@@ -434,6 +435,8 @@ export function ActivitiesScreen() {
     () => ({}),
   );
   const lastCreatedActivityRef = React.useRef<Activity | null>(null);
+  const previousActivityIdsRef = React.useRef<Set<string> | null>(null);
+  const previousListActivityIdsRef = React.useRef<Set<string> | null>(null);
 
 
   const [widgetModalVisible, setWidgetModalVisible] = React.useState(false);
@@ -1012,6 +1015,33 @@ export function ActivitiesScreen() {
     }
     return QueryService.applyActivitySorts(filteredActivities, sortConditions);
   }, [filteredActivities, goals, sortConditions]);
+
+  React.useEffect(() => {
+    const currentActivityIds = new Set(activities.map((activity) => activity.id));
+    const currentListActivityIds = new Set(visibleActivities.map((activity) => activity.id));
+    const previousActivityIds = previousActivityIdsRef.current;
+    const previousListActivityIds = previousListActivityIdsRef.current;
+
+    if (previousActivityIds && previousListActivityIds) {
+      const nextOccurrenceIds = findNewRecurringOccurrencesForList({
+        previousActivityIds,
+        previousListActivityIds,
+        activities,
+      });
+      if (nextOccurrenceIds.length > 0) {
+        setSessionCreatedContextById((previous) => {
+          const next = { ...previous };
+          nextOccurrenceIds.forEach((id) => {
+            next[id] = ghostContextKey;
+          });
+          return next;
+        });
+      }
+    }
+
+    previousActivityIdsRef.current = currentActivityIds;
+    previousListActivityIdsRef.current = currentListActivityIds;
+  }, [activities, ghostContextKey, visibleActivities]);
 
   const activeActivities = React.useMemo(
     () =>

@@ -84,7 +84,7 @@ describe('HouseholdMemberDetailScreen', () => {
       platform: 'ios', status: 'ready', memberIds: [], updatedAt: '2026-08-27T18:00:00.000Z',
     }]);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    const { getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
     await waitFor(() => expect(getByText("Riley's iPhone")).toBeTruthy());
 
     fireEvent.press(getByText("Riley's iPhone"));
@@ -94,7 +94,22 @@ describe('HouseholdMemberDetailScreen', () => {
     await waitFor(() => expect(mockRevokeDevice).toHaveBeenCalledWith(expect.objectContaining({
       householdId: 'household-1', deviceId: 'device-1', expectedUpdatedAt: '2026-08-27T18:00:00.000Z', confirmed: true,
     }), expect.anything()));
+    await waitFor(() => expect(queryByText("Riley's iPhone")).toBeNull());
+    expect(getByText('No device connected')).toBeTruthy();
     alert.mockRestore();
+  });
+
+  it('does not show devices that were already revoked', async () => {
+    mockListDevices.mockResolvedValue([{
+      id: 'device-1', householdId: 'household-1', kind: 'personal_child', childMembershipId: 'child-1',
+      assignedCaregiverMembershipId: null, installId: 'install-123', label: "Riley's old iPhone",
+      platform: 'ios', status: 'revoked', memberIds: [], updatedAt: '2026-08-27T18:01:00.000Z',
+    }]);
+
+    const { getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+
+    await waitFor(() => expect(getByText('No device connected')).toBeTruthy());
+    expect(queryByText("Riley's old iPhone")).toBeNull();
   });
 
   it('lets the owner add a photo to an accountless child', async () => {
