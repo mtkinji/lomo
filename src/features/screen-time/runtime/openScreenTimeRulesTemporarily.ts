@@ -1,9 +1,5 @@
 import {
-  recordMoneyAppControlReview,
-  type MoneyAppControlSettings,
-} from '../../../capabilities/money/domain/moneyAppControl';
-import {
-  replacePersonalScreenTimeRule,
+  replacePersonalCompositeScreenTimeRule,
   type ScreenTimeProtectionSettings,
 } from '../../../services/screenTimeProtection';
 import {
@@ -25,10 +21,9 @@ export async function openScreenTimeRulesTemporarily(params: {
   actor: ScreenTimeActor;
   rules: ScreenTimeRule[];
   personalSettings: ScreenTimeProtectionSettings;
-  moneySettings: MoneyAppControlSettings;
   clearSelection: (selectionId: string) => Promise<boolean>;
+  clearComposite: (ruleId: string) => Promise<boolean>;
   savePersonalSettings: (settings: ScreenTimeProtectionSettings) => void | Promise<void>;
-  saveMoneySettings: (settings: MoneyAppControlSettings) => void | Promise<void>;
   openFamilyRules?: (rules: ScreenTimeRule[], expiresAtIso: string) => Promise<'applied' | 'applying'>;
   restoreRestrictions?: () => void | Promise<void>;
   now?: Date;
@@ -42,10 +37,13 @@ export async function openScreenTimeRulesTemporarily(params: {
   ).toISOString();
   const localRules = params.rules.filter((rule) => rule.domain !== 'family');
   const familyRules = params.rules.filter((rule) => rule.domain === 'family');
-  const selections = [...new Set(localRules.map((rule) => rule.selectionId))];
 
   try {
-    const clearResults = await Promise.all(selections.map(params.clearSelection));
+    const clearResults = await Promise.all(localRules.map((rule) => (
+      rule.domain === 'personal' && rule.trigger.type === 'composite'
+        ? params.clearComposite(rule.id)
+        : params.clearSelection(rule.selectionId)
+    )));
     if (clearResults.some((cleared) => !cleared)) {
       await params.restoreRestrictions?.();
       return { status: 'failed' };
@@ -62,27 +60,15 @@ export async function openScreenTimeRulesTemporarily(params: {
 
     let personalSettings = params.personalSettings;
     params.rules.filter((rule) => rule.domain === 'personal').forEach((rule) => {
-      const stored = personalSettings.personalRules.find((candidate) => candidate.id === rule.id);
+      const stored = personalSettings.personalCompositeRules.find((candidate) => candidate.id === rule.id);
       if (!stored) return;
-      personalSettings = replacePersonalScreenTimeRule(personalSettings, {
+      personalSettings = replacePersonalCompositeScreenTimeRule(personalSettings, {
         ...stored,
-        currentUnlockUntilIso: expiresAtIso,
+        temporaryOpenUntilIso: expiresAtIso,
         lastUpdated: now.toISOString(),
       });
     });
-
-    let moneySettings = params.moneySettings;
-    params.rules.filter((rule) => rule.trigger.type === 'money_review').forEach((rule) => {
-      if (rule.trigger.type !== 'money_review') return;
-      moneySettings = recordMoneyAppControlReview(
-        moneySettings,
-        rule.trigger.categorySourceId,
-        'opened_for_now',
-        now,
-      );
-    });
     await params.savePersonalSettings(personalSettings);
-    await params.saveMoneySettings(moneySettings);
     return { status: familyState === 'applying' ? 'applying' : 'opened', expiresAtIso };
   } catch {
     await params.restoreRestrictions?.();

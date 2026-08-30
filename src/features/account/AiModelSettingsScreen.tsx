@@ -11,6 +11,12 @@ import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack, Textarea, Button, KeyboardAwareScrollView } from '../../ui/primitives';
 import { buildUserProfileSummary } from '../../services/ai';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { SettingsChoiceRow } from '../../ui/SettingsSurface';
+import {
+  createAiModelPreferenceActions,
+  type AiModelPreferenceBoundary,
+} from './actions/aiModelPreferenceActions';
 
 type AiModelSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -22,12 +28,22 @@ const IDENTITY_PROMPT_TEMPLATE =
   "In 4–6 sentences, summarize who I am, the roles I carry, what matters most to me right now, and any constraints or boundaries I’m living within. " +
   "Write it in the first person so I can paste it directly into the app.";
 
+const MODEL_OPTIONS = {
+  'gpt-4o-mini': { title: 'Quick', description: 'Fast, efficient help for everyday coaching.' },
+  'gpt-4o': { title: 'Balanced', description: 'More depth for planning and reflection.' },
+  'gpt-5.1': { title: 'Deep', description: 'Stronger reasoning for complex decisions.' },
+  'gpt-5.2': { title: 'Deepest', description: 'The most capable available Kwilt model.' },
+} as const;
+
 export function AiModelSettingsScreen() {
   const navigation = useNavigation<AiModelSettingsNavigationProp>();
   const identitySummary = useAppStore(
     (state) => state.userProfile?.identitySummary ?? '',
   );
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const llmModel = useAppStore((state) => state.llmModel);
+  const setLlmModel = useAppStore((state) => state.setLlmModel);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const [identityDraft, setIdentityDraft] = useState(identitySummary);
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
 
@@ -38,6 +54,23 @@ export function AiModelSettingsScreen() {
     }
     return 'We don’t have much to go on yet. As you add more context and use arcs and goals, the coach will keep this summary up to date.';
   }, [identitySummary]);
+
+  const modelActions = useMemo(() => createAiModelPreferenceActions({
+    read: () => ({
+      modelId: useAppStore.getState().llmModel,
+      isPro: useEntitlementsStore.getState().isPro,
+    }),
+    apply: ({ modelId }) => setLlmModel(modelId),
+  } satisfies AiModelPreferenceBoundary), [setLlmModel]);
+  const modelPreference = modelActions.read();
+
+  const handleModelChange = (modelId: string) => {
+    try {
+      modelActions.update({ expectedModelId: modelPreference.modelId, modelId });
+    } catch (error) {
+      Alert.alert('Could not change model', error instanceof Error ? error.message : 'Try again in a moment.');
+    }
+  };
 
   const commitIdentitySummary = () => {
     const trimmed = identityDraft.trim();
@@ -78,9 +111,27 @@ export function AiModelSettingsScreen() {
         >
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
-              Tell the Agent about you. We combine these into a single private context
-              that travels with your arcs, goals, and chats.
+              Choose how the Agent thinks, then give it the private context that travels
+              with your arcs, goals, and chats.
             </Text>
+          </View>
+
+          <View style={styles.contextCard}>
+            <VStack space="xs">
+              <Text style={styles.contextTitle}>Model</Text>
+              {modelPreference.availableModelIds.map((modelId) => (
+                <SettingsChoiceRow
+                  key={modelId}
+                  title={MODEL_OPTIONS[modelId].title}
+                  description={MODEL_OPTIONS[modelId].description}
+                  selected={modelPreference.modelId === modelId}
+                  onPress={() => handleModelChange(modelId)}
+                />
+              ))}
+              {!isPro ? (
+                <Text style={styles.promptHelper}>Kwilt Pro also includes deeper reasoning models.</Text>
+              ) : null}
+            </VStack>
           </View>
 
           <View style={styles.contextCard}>

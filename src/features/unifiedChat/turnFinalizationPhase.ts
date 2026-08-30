@@ -40,7 +40,7 @@ export async function finalizeUnifiedChatTurnPhase({
         : outcome.type === 'applied'
           ? 'Change applied'
           : outcome.type === 'native_handoff'
-            ? 'Ready to continue in Kwilt'
+            ? 'Ready for you'
             : 'Prepared a change for review',
       payload: { outcomeType: outcome.type },
     },

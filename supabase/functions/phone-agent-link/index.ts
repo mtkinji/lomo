@@ -3,6 +3,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { normalizeE164 } from '../_shared/phoneAgent.ts';
+import { continueThreadOnPhoneAgent } from '../_shared/phoneAgentContinuation.ts';
 import { normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -12,6 +13,7 @@ type LinkAction =
   | { action: 'verify_code'; phone: string; code: string }
   | { action: 'update_settings'; phone: string; permissions: Record<string, boolean>; promptCapPerDay: number }
   | { action: 'revoke'; phone: string }
+  | { action: 'continue_thread'; threadId: string }
   | { action: 'status' };
 
 type PhoneAgentLinkRow = {
@@ -192,6 +194,22 @@ serve(async (req) => {
 
   if (action === 'status') {
     return json(200, await getStatus(admin, userId));
+  }
+
+  if (action === 'continue_thread') {
+    const threadId = typeof (body as { threadId?: unknown } | null)?.threadId === 'string'
+      ? (body as { threadId: string }).threadId.trim() : '';
+    try {
+      return json(200, {
+        ok: true,
+        ...await continueThreadOnPhoneAgent({ client: admin, userId, threadId }),
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'phone_agent_continuation_failed';
+      if (code === 'invalid_phone_continuation') return json(400, { ok: false, error: code });
+      if (code === 'phone_agent_not_linked') return json(409, { ok: false, error: code });
+      return json(500, { ok: false, error: code });
+    }
   }
 
   const phone = normalizeE164((body as { phone?: unknown } | null)?.phone);

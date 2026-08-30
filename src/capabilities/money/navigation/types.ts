@@ -1,6 +1,5 @@
 import type { MoneyEntryMode, MoneyEntrySource, MoneyPlaceRouteName } from '../domain/moneyOnboarding';
 import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHandoff';
-import type { ScreenTimeToken } from '../../../services/screenTimeProtection';
 
 export type MoneyPlaceEntryParams = {
   entryTransition?: 'none';
@@ -37,19 +36,6 @@ export type MoneyStackParamList = {
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
   MoneySetup: { requestedPlace?: MoneyPlaceRouteName; demoScenario?: 'connected-household' } | undefined;
-  MoneyAppControl: {
-    categoryId: string;
-    suggestedPreset?: 'always_review' | 'when_hot' | 'at_95_percent' | 'when_over' | 'needs_review';
-    suggestedAppLabels?: string[];
-    source?: 'capability-onboarding' | 'screen-time-rule-builder';
-  };
-  MoneyAppControlBudgetPicker: {
-    sourceSelectionId: string;
-    selectedApps: ScreenTimeToken[];
-    selectedCategories: ScreenTimeToken[];
-    replacingPersonalRuleId?: string;
-    replacingMoneyCategoryId?: string;
-  };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };
   MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean; coverageReview?: boolean };

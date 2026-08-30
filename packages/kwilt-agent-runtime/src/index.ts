@@ -52,6 +52,15 @@ export type {
 } from './providerRegistry';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
 export {
+  CHAT_NAVIGABLE_CAPABILITY_IDS,
+  parseCapabilityNavigationRequest,
+} from './capabilityNavigationContract';
+export type {
+  CapabilityNavigationRequest,
+  ChatNavigableCapabilityId,
+  ChatNavigableObjectType,
+} from './capabilityNavigationContract';
+export {
   buildKwiltChannelContext,
   KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION,
   normalizeKwiltChannelContext,

@@ -69,6 +69,52 @@ describe('server turn planning', () => {
     expect(plan.visibleTools.every((tool) => tool.effect === 'read')).toBe(true);
   });
 
+  test('treats a scope-narrowing follow-up as read-only instead of withholding tools', async () => {
+    const plan = await planServerTurn({
+      prompt: 'Focus only on goals and to-dos.', tools: SERVER_AGENT_TOOL_CATALOG,
+      actorPermissions: { canRead: true, canWrite: true, allowedToolIds: allToolIds },
+      executionProvider: 'server',
+      requestJudgment: async () => ({
+        selectedNamespaces: ['life_structure', 'tasks_plan'], confidence: 0.99,
+        reason: 'The user narrowed the requested review.',
+      }),
+    });
+
+    expect(plan.policy.authorization.kind).toBe('read');
+    expect(plan.policy.allowedToolIds).toEqual(expect.arrayContaining(['goals.read', 'activities.read']));
+    expect(plan.visibleTools.every((tool) => tool.effect === 'read')).toBe(true);
+  });
+
+  test('keeps a terse goals-only steer authorized as a read', async () => {
+    const plan = await planServerTurn({
+      prompt: 'Goals only.', tools: SERVER_AGENT_TOOL_CATALOG,
+      actorPermissions: { canRead: true, canWrite: true, allowedToolIds: allToolIds },
+      executionProvider: 'server',
+      requestJudgment: async () => ({
+        selectedNamespaces: ['life_structure'], confidence: 0.99,
+        reason: 'The user narrowed the active review to goals.',
+      }),
+    });
+
+    expect(plan.policy.authorization.kind).toBe('read');
+    expect(plan.policy.allowedToolIds).toContain('goals.read');
+  });
+
+  test('keeps to-do tools available when the model mistakes an item title for another domain', async () => {
+    const plan = await planServerTurn({
+      prompt: 'Rename the to-do Matrix direct capture to Matrix renamed.', tools: SERVER_AGENT_TOOL_CATALOG,
+      actorPermissions: { canRead: true, canWrite: true, allowedToolIds: allToolIds },
+      executionProvider: 'server',
+      requestJudgment: async () => ({
+        selectedNamespaces: ['account_navigation'], confidence: 0.99,
+        reason: 'Matrix was mistaken for an account integration.',
+      }),
+    });
+
+    expect(plan.selectedNamespaces).toContain('tasks_plan');
+    expect(plan.policy.allowedToolIds).toEqual(expect.arrayContaining(['activities.read', 'activities.update']));
+  });
+
   test('defers at least one function when the registry fits inside one namespace', async () => {
     const deviceTools = SERVER_AGENT_TOOL_CATALOG.filter((tool) =>
       ['screen_time.configure', 'notifications.configure'].includes(tool.id));
@@ -83,5 +129,22 @@ describe('server turn planning', () => {
     expect(plan.visibleTools.length).toBeLessThan(deviceTools.length);
     expect(plan.deferredToolIds).toHaveLength(1);
     expect(plan.toolSearchNamespaces).toEqual(['device_wellbeing']);
+  });
+
+  test('keeps native navigation available when the model classifies the destination by domain', async () => {
+    const plan = await planServerTurn({
+      prompt: 'Open Arcs.', tools: SERVER_AGENT_TOOL_CATALOG,
+      actorPermissions: { canRead: true, canWrite: true, allowedToolIds: allToolIds },
+      executionProvider: 'server',
+      requestJudgment: async () => ({
+        selectedNamespaces: ['life_structure'], confidence: 0.99, reason: 'Arcs are life structure.',
+      }),
+    });
+    expect(plan.selectedNamespaces).toEqual(['life_structure', 'account_navigation']);
+    expect(plan.policy.allowedToolIds).toContain('navigation.open_capability');
+    expect([
+      ...plan.visibleTools.map((tool) => tool.id),
+      ...plan.deferredToolIds,
+    ]).toContain('navigation.open_capability');
   });
 });

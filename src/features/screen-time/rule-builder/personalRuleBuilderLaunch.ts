@@ -5,14 +5,18 @@ import type {
   ScreenTimeSetupIntent,
   ScreenTimeSetupOfferSurface,
 } from '../../../services/screenTimeProtection';
+import type { MoneyAppControlPreset } from '../../../capabilities/money/domain/moneyAppControl';
 
 export type PersonalScreenTimeRuleBuilderParams = {
   entry: 'inventory' | 'contextual';
   ruleId?: string;
-  sourceSelectionId?: string;
   selectedApps?: ScreenTimeToken[];
   selectedCategories?: ScreenTimeToken[];
-  replacingMoneyCategoryId?: string;
+  suggestedBudgetCondition?: {
+    categorySourceId: string;
+    categoryName: string;
+    preset?: MoneyAppControlPreset;
+  };
   suggestedKind?: PersonalScreenTimeRuleKind;
   suggestedLimitMinutes?: number;
   suggestedAppLabel?: string;

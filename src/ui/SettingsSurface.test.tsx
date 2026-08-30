@@ -4,6 +4,7 @@ import {
   SettingsDivider,
   SettingsChoiceRow,
   SettingsCopyField,
+  SettingsDetailToggleRow,
   SettingsDetailRow,
   SettingsGroup,
   SettingsInstructionSection,
@@ -104,6 +105,28 @@ describe('SettingsSurface', () => {
 
     expect(getByText('On')).toBeTruthy();
     expect(getByRole('switch').props.accessibilityValue).toEqual({ text: 'On' });
+  });
+
+  it('separates a detail disclosure action from its enabled switch', () => {
+    const onOpen = jest.fn();
+    const onToggle = jest.fn();
+    const { getByRole } = render(
+      <SettingsDetailToggleRow
+        description="Available after 5:00 PM."
+        enabled
+        onPress={onOpen}
+        onToggle={onToggle}
+        title="Social"
+      />,
+    );
+
+    fireEvent.press(getByRole('button', { name: 'Social. Available after 5:00 PM. On' }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onToggle).not.toHaveBeenCalled();
+
+    fireEvent.press(getByRole('switch', { name: 'Social rule enabled' }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it('uses neutral radio rows for mutually exclusive settings', () => {

@@ -24,6 +24,9 @@ private struct KwiltPersonalCompositeCondition: Codable {
   let \`operator\`: String?
   let minutes: Int?
   let minuteOfDay: Int?
+  let categorySourceId: String?
+  let categoryName: String?
+  let preset: String?
 }
 
 private struct KwiltPersonalCompositeRulePayload: Codable {
@@ -451,7 +454,9 @@ const PREREQUISITE_METHODS_SWIFT = `
       let conditionIds = Set(payload.conditions.map { safeIdentifier($0.id) })
       let conditionsAreValid = conditionIds.count == payload.conditions.count
         && payload.conditions.allSatisfy { condition in
-          if condition.type == "real_step_complete" { return true }
+          if condition.type == "real_step_complete" {
+            return condition.operator == "is" || condition.operator == "is_not"
+          }
           if condition.type == "focus_active" {
             return condition.operator == "is" || condition.operator == "is_not"
           }
@@ -462,6 +467,12 @@ const PREREQUISITE_METHODS_SWIFT = `
           if condition.type == "time_of_day", let minute = condition.minuteOfDay {
             return (condition.operator == "after" || condition.operator == "before")
               && minute >= 0 && minute <= 1439
+          }
+          if condition.type == "budget" {
+            let presets = ["always_review", "when_hot", "at_95_percent", "when_over", "needs_review"]
+            return !(condition.categorySourceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+              && !(condition.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+              && presets.contains(condition.preset ?? "")
           }
           return false
         }

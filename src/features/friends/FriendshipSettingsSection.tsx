@@ -1,18 +1,15 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Share, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import {
   acceptFriendRequest,
   blockFriendship,
-  buildFriendInviteUrl,
-  createFriendInvite,
   declineFriendRequest,
-  endFriendship,
-  getPendingFriendRequests,
-  listFriends,
   type Friend,
   type PendingFriendRequest,
 } from '../../services/friendships';
+import { sharingActions } from '../account/actions/sharingActionsBoundary';
+import { sharingReviewReferenceForFriend } from '../account/actions/sharingActions';
 import { useToastStore } from '../../store/useToastStore';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -33,12 +30,9 @@ export function FriendshipSettingsSection() {
   const load = useCallback(async () => {
     setLoadFailed(false);
     try {
-      const [nextFriends, nextRequests] = await Promise.all([
-        listFriends(),
-        getPendingFriendRequests(),
-      ]);
-      setFriends(nextFriends);
-      setRequests(nextRequests);
+      const next = await sharingActions.loadNativeFriendships();
+      setFriends(next.friends);
+      setRequests(next.pendingFriendRequests);
     } catch {
       setLoadFailed(true);
     } finally {
@@ -76,18 +70,7 @@ export function FriendshipSettingsSection() {
     if (busyKey) return;
     setBusyKey('invite');
     try {
-      const invite = await createFriendInvite({ expiresInDays: 7, maxUses: 1 });
-      if (!invite) {
-        showToast({ message: 'Couldn’t create an invite right now.', variant: 'danger' });
-        return;
-      }
-      const url = buildFriendInviteUrl(invite.code);
-      await Share.share({
-        message:
-          'Connect with me on Kwilt. Becoming friends does not share anything by itself. ' +
-          `It only makes us easier to find when either of us chooses to share. ${url}`,
-        url,
-      });
+      await sharingActions.prepareInvitation({ expiresInDays: 7 });
     } catch (error) {
       if (!(error instanceof Error && error.message.toLowerCase().includes('cancel'))) {
         showToast({ message: 'Couldn’t share the invite right now.', variant: 'danger' });
@@ -108,7 +91,10 @@ export function FriendshipSettingsSection() {
           text: 'End friendship',
           onPress: () => void runRelationshipAction(
             `end:${friend.id}`,
-            () => endFriendship(friend.id),
+            async () => {
+              await sharingActions.revoke(sharingReviewReferenceForFriend(friend));
+              return true;
+            },
             'Friendship ended. Separate shares are unchanged.',
           ),
         },

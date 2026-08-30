@@ -27,6 +27,17 @@ export type PersonalCompositeRuleSummary = {
   updatedAt: string;
 };
 
+export type PersonalCompositeRuleExpectedVersion = string | 'unversioned' | null;
+
+function hasExpectedVersion(
+  prior: PersonalCompositeScreenTimeRule | null,
+  expectedUpdatedAt: PersonalCompositeRuleExpectedVersion,
+): boolean {
+  if (expectedUpdatedAt === null) return prior === null;
+  if (expectedUpdatedAt === 'unversioned') return prior !== null && prior.lastUpdated === null;
+  return prior?.lastUpdated === expectedUpdatedAt;
+}
+
 function summarize(rule: PersonalCompositeScreenTimeRule): PersonalCompositeRuleSummary {
   if (!rule.lastUpdated) throw new Error('screen_time_composite_rule_stale');
   return {
@@ -52,7 +63,7 @@ function fingerprint(rule: PersonalCompositeScreenTimeRule): string {
 
 export async function savePersonalCompositeScreenTimeRule(input: {
   rule: PersonalCompositeScreenTimeRule;
-  expectedUpdatedAt: string | null;
+  expectedUpdatedAt: PersonalCompositeRuleExpectedVersion;
   confirmed: boolean;
 }, boundary: PersonalCompositeRuleActionBoundary): Promise<PersonalCompositeRuleSummary> {
   if (!input.confirmed) throw new Error('screen_time_composite_rule_confirmation_required');
@@ -61,8 +72,7 @@ export async function savePersonalCompositeScreenTimeRule(input: {
   const settings = normalizeScreenTimeProtectionSettings(boundary.readSettings());
   if (settings.authorizationStatus !== 'approved') throw new Error('screen_time_rule_authorization_required');
   const prior = getPersonalCompositeScreenTimeRuleById(settings, normalized.id);
-  if ((input.expectedUpdatedAt === null && prior)
-    || (input.expectedUpdatedAt !== null && prior?.lastUpdated !== input.expectedUpdatedAt)) {
+  if (!hasExpectedVersion(prior, input.expectedUpdatedAt)) {
     throw new Error('screen_time_composite_rule_stale');
   }
   const duplicate = settings.personalCompositeRules.find((candidate) => (
@@ -90,7 +100,7 @@ export async function savePersonalCompositeScreenTimeRule(input: {
 
 export async function deletePersonalCompositeScreenTimeRule(input: {
   ruleId: string;
-  expectedUpdatedAt: string;
+  expectedUpdatedAt: Exclude<PersonalCompositeRuleExpectedVersion, null>;
   confirmed: boolean;
 }, boundary: PersonalCompositeRuleActionBoundary): Promise<PersonalCompositeRuleSummary> {
   if (!input.confirmed) throw new Error('screen_time_composite_rule_confirmation_required');
@@ -98,7 +108,7 @@ export async function deletePersonalCompositeScreenTimeRule(input: {
   if (settings.authorizationStatus !== 'approved') throw new Error('screen_time_rule_authorization_required');
   const prior = getPersonalCompositeScreenTimeRuleById(settings, input.ruleId.trim());
   if (!prior) throw new Error('screen_time_composite_rule_not_found');
-  if (prior.lastUpdated !== input.expectedUpdatedAt) throw new Error('screen_time_composite_rule_stale');
+  if (!hasExpectedVersion(prior, input.expectedUpdatedAt)) throw new Error('screen_time_composite_rule_stale');
   if (prior.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_composite_rule_deactivation_failed');
   }

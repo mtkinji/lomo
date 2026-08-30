@@ -3,6 +3,8 @@ import type { ServerAgentToolCall, ServerAgentToolDefinition, ServerAgentProposa
 import { summarizeActivity, summarizeArc, summarizeChapter, summarizeGoal,
   summarizeShowUpStatus } from './externalMcp.ts';
 import { executeServerPlanTool } from './serverPlanTools.ts';
+import { executeServerPlanAvailabilityTool } from './serverPlanAvailabilityTools.ts';
+import { executeServerPlanCalendarTool } from './serverPlanCalendarTools.ts';
 import { executeServerDeviceHandoff, type ServerDeviceActionRequest } from './serverDeviceHandoffs.ts';
 import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
@@ -26,6 +28,8 @@ import {
 } from '../../../packages/kwilt-agent-runtime/src/actionExecution.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
+import { capabilityNavigationLabel, parseCapabilityNavigationRequest } from '../../../packages/kwilt-agent-runtime/src/capabilityNavigationContract.ts';
+import { continueThreadOnPhoneAgent } from './phoneAgentContinuation.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
 type ReadResult = { data: unknown; error: unknown }; type ReadQuery = {
   select: (...args: unknown[]) => ReadQuery;
@@ -361,36 +365,36 @@ const DEVICE_ACTIONS: Record<string, ClientActionRequest> = {
   'notifications.configure': {
     capabilityId: 'notifications', actionType: 'configure_notifications', targetType: null, targetId: null,
     title: 'Review notification settings',
-    consequenceSummary: 'Kwilt will open notification settings. System permission and reminder choices remain under native review.',
+    consequenceSummary: 'Kwilt will open notification settings. You still choose the reminders and any iPhone permission.',
     payload: {},
   },
   'navigation.search.open': {
     capabilityId: 'navigation', actionType: 'open_search', targetType: null, targetId: null,
-    title: 'Open Search', consequenceSummary: 'Kwilt will open native search.', payload: {},
+    title: 'Open Search', consequenceSummary: 'This only opens Search. Nothing changes.', payload: {},
   },
   'navigation.account_settings.open': {
     capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
-    title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
+    title: 'Open Settings', consequenceSummary: 'This only opens Settings. Nothing changes.', payload: {},
   },
   'chores.open': {
     capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
-    title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
+    title: 'Open Chores', consequenceSummary: 'This only opens Chores. Nothing changes.', payload: {},
   },
   'account.subscription.open': {
     capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,
     title: 'Review subscription',
-    consequenceSummary: 'Kwilt will open subscription management. No billing or plan change is made by Chat.', payload: {},
+    consequenceSummary: 'Kwilt will open your subscription. Nothing changes until you confirm it there.', payload: {},
   },
   'account.delete.open': {
     capabilityId: 'account', actionType: 'open_account_deletion', targetType: null, targetId: null,
     title: 'Review account deletion',
-    consequenceSummary: 'Account deletion is destructive. Kwilt will open the native consequence and confirmation flow; Chat will not delete the account.',
+    consequenceSummary: 'Deleting your account is permanent. Kwilt will show the details and ask you to confirm before anything is deleted.',
     payload: {},
   },
   'plan.preferences.open': {
     capabilityId: 'plan', actionType: 'open_plan_preferences', targetType: null, targetId: null,
     title: 'Review Plan preferences',
-    consequenceSummary: 'Kwilt will open native availability and calendar preference settings. No setting changes until you make them there.',
+    consequenceSummary: 'Kwilt will open your availability and calendar settings. Nothing changes until you save it there.',
     payload: {},
   },
 };
@@ -417,6 +421,513 @@ async function executeServerAgentToolHandler({
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
+  if (call.toolId === 'channel.phone.continue_run') {
+    if (Object.keys(call.arguments).length !== 0 || !writeContext?.threadId || !client.rpc) return {
+      status: 'failed', code: 'invalid_phone_continuation',
+      message: 'A durable current Kwilt thread is required, and phone numbers are never accepted.', retryable: false,
+    };
+    try {
+      const output = await continueThreadOnPhoneAgent({
+        client: client as never, userId, threadId: writeContext.threadId,
+      });
+      return { status: 'completed', output, receipt: null };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'phone_agent_continuation_failed';
+      if (code === 'phone_agent_not_linked') return {
+        status: 'unavailable', reason: code, retryable: false,
+      };
+      return {
+        status: 'failed', code,
+        message: 'Kwilt could not connect this conversation to Phone Agent.', retryable: true,
+      };
+    }
+  }
+  if (call.toolId === 'notifications.preferences.read') {
+    const { data, error } = await (client.from('kwilt_agent_profile_projections') as ReadQuery)
+      .select('notification_preferences,updated_at').eq('user_id', userId).maybeSingle();
+    const projection = asRecord(data);
+    const preferences = asRecord(projection.notification_preferences);
+    if (error || Object.keys(preferences).length === 0) {
+      return { status: 'unavailable', reason: 'notification_preferences_not_synced', retryable: true };
+    }
+    return { status: 'completed', output: {
+      preferences,
+      lastSyncedAt: typeof projection.updated_at === 'string' ? projection.updated_at : null,
+      devicePermissionStatus: 'not_exposed',
+    }, receipt: null };
+  }
+  if (call.toolId === 'notifications.preferences.update') {
+    const fields = asRecord(call.arguments.fields);
+    const allowed = new Set([
+      'notificationsEnabled', 'allowActivityReminders', 'allowDailyShowUp', 'dailyShowUpTime',
+      'allowPlanKickoff', 'planKickoffCadence', 'planKickoffWeeklyDay', 'allowDailyFocus',
+      'dailyFocusTime', 'dailyFocusTimeMode', 'allowGoalNudges', 'goalNudgeTime',
+      'allowStreakAndReactivation', 'allowHouseholdMealPlanPush',
+    ]);
+    const keys = Object.keys(fields);
+    if (keys.length === 0 || keys.some((key) => !allowed.has(key))) {
+      return { status: 'failed', code: 'invalid_notification_preferences', message: 'Choose supported notification settings.', retryable: false };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'notifications', actionType: 'review_notification_preferences',
+      targetType: 'notification_preferences', targetId: 'self', title: 'Review notification changes',
+      consequenceSummary: 'Kwilt will show these notification changes on your iPhone. You still choose any iPhone permission.',
+      payload: { fields },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'navigation.open_capability') {
+    const navigation = parseCapabilityNavigationRequest(call.arguments);
+    if (!navigation) {
+      return {
+        status: 'failed', code: 'invalid_capability_navigation',
+        message: 'Choose an included Kwilt capability or one supported stable object.', retryable: false,
+      };
+    }
+    const capabilityLabel = capabilityNavigationLabel(navigation.capabilityId);
+    const request: ClientActionRequest = {
+      capabilityId: 'navigation', actionType: 'open_capability',
+      targetType: navigation.objectRef?.objectType ?? 'capability',
+      targetId: navigation.objectRef?.objectId ?? navigation.capabilityId,
+      title: `Open ${capabilityLabel}`,
+      consequenceSummary: `This only opens ${capabilityLabel}. Nothing changes.`,
+      payload: navigation,
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.haptics.read' || call.toolId === 'settings.haptics.update') {
+    if (call.toolId === 'settings.haptics.update'
+      && (typeof call.arguments.expectedEnabled !== 'boolean' || typeof call.arguments.enabled !== 'boolean')) {
+      return {
+        status: 'failed', code: 'invalid_haptics_preference',
+        message: 'Choose whether haptics should be enabled on the target device.', retryable: false,
+      };
+    }
+    const isRead = call.toolId === 'settings.haptics.read';
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_haptics_preference' : 'apply_haptics_preference',
+      targetType: 'device_preference', targetId: 'haptics',
+      title: isRead ? 'Check haptics' : 'Change haptics',
+      consequenceSummary: isRead
+        ? 'Kwilt will check whether haptics are on for this device.'
+        : 'Kwilt will make this change if the setting has not changed since you reviewed it.',
+      payload: isRead ? {} : {
+        expectedEnabled: call.arguments.expectedEnabled,
+        enabled: call.arguments.enabled,
+      },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.widgets.read' || call.toolId === 'settings.widgets.configure') {
+    const isRead = call.toolId === 'settings.widgets.read';
+    if (!isRead && (Object.keys(call.arguments).length !== 1 || call.arguments.openSetup !== true)) {
+      return {
+        status: 'failed', code: 'invalid_widget_setup',
+        message: 'Kwilt can open widget setup guidance, but iOS owns widget placement and shortcut selection.',
+        retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_widget_status' : 'open_widgets_settings',
+      targetType: 'device_setting', targetId: 'widgets',
+      title: isRead ? 'Check widget status' : 'Open widget setup',
+      consequenceSummary: isRead
+        ? 'Kwilt will check whether widget data is syncing. Your iPhone does not report where a widget is placed.'
+        : 'Kwilt will show you how to add a widget. You still place and edit it from the Home Screen.',
+      payload: isRead ? {} : { openSetup: true },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.appearance.read' || call.toolId === 'settings.appearance.update') {
+    const isRead = call.toolId === 'settings.appearance.read';
+    const styles = Array.isArray(call.arguments.thumbnailStyles)
+      ? call.arguments.thumbnailStyles.filter((value): value is string => typeof value === 'string')
+      : [];
+    if (!isRead && (typeof call.arguments.expectedUpdatedAt !== 'string'
+      || styles.length !== (Array.isArray(call.arguments.thumbnailStyles) ? call.arguments.thumbnailStyles.length : -1))) {
+      return {
+        status: 'failed', code: 'invalid_appearance_preference',
+        message: 'Choose one or more supported Kwilt thumbnail styles.', retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_appearance_preference' : 'apply_appearance_preference',
+      targetType: 'device_preference', targetId: 'appearance',
+      title: isRead ? 'Check appearance' : 'Change appearance',
+      consequenceSummary: isRead
+        ? 'Kwilt will check the appearance selected on this device.'
+        : 'Kwilt will apply these thumbnail styles if the setting has not changed since you reviewed it.',
+      payload: isRead ? {} : { expectedUpdatedAt: call.arguments.expectedUpdatedAt, thumbnailStyles: styles },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.connected_tools.')) {
+    const providerIds = new Set(['chatgpt', 'claude', 'cursor', 'codex', 'other']);
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.connected_tools.list') {
+      request = {
+        capabilityId: 'account', actionType: 'read_connected_tools',
+        targetType: 'connection_inventory', targetId: 'self', title: 'Check connected apps',
+        consequenceSummary: 'Kwilt will check which apps are connected. Passwords and access tokens stay private.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.connected_tools.get') {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      if (!connectionId) return { status: 'failed', code: 'invalid_connection_id', message: 'Choose a connected tool.', retryable: false };
+      request = {
+        capabilityId: 'account', actionType: 'read_connected_tool',
+        targetType: 'external_connection', targetId: connectionId, title: 'Check connected app',
+        consequenceSummary: 'Kwilt will check this connection and its recent status. Passwords and access tokens stay private.',
+        payload: { connectionId },
+      };
+    } else if (call.toolId === 'settings.connected_tools.connect.open') {
+      const providerId = typeof call.arguments.providerId === 'string' ? call.arguments.providerId : '';
+      if (!providerIds.has(providerId) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_connection_provider',
+        message: 'Choose a supported app. Credentials and tokens are never accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'open_connected_tool_setup',
+        targetType: 'connection_provider', targetId: providerId, title: `Connect ${providerId}`,
+        consequenceSummary: 'Kwilt will open this app’s connection screen. You still sign in and approve access there.',
+        payload: { providerId },
+      };
+    } else {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      const expectedConnectedAt = typeof call.arguments.expectedConnectedAt === 'string'
+        ? call.arguments.expectedConnectedAt : call.arguments.expectedConnectedAt === null ? null : undefined;
+      if (!connectionId || expectedConnectedAt === undefined) return {
+        status: 'failed', code: 'invalid_connection_revoke',
+        message: 'Choose an exact reviewed connection version.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'revoke_connected_tool',
+        targetType: 'external_connection', targetId: connectionId, title: 'Disconnect app',
+        consequenceSummary: 'Kwilt will disconnect this app and confirm that it no longer has access.',
+        payload: { connectionId, expectedConnectedAt },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.phone_agent.read' || call.toolId === 'settings.phone_agent.update') {
+    const isRead = call.toolId === 'settings.phone_agent.read';
+    const permissionKeys = [
+      'create_activities', 'remember_relationships', 'send_followups',
+      'log_done_replies', 'offer_drafts', 'suggest_arc_alignment',
+    ];
+    if (isRead && Object.keys(call.arguments).length !== 0) {
+      return { status: 'failed', code: 'invalid_phone_agent_settings', message: 'Phone Agent status does not accept secrets or phone numbers.', retryable: false };
+    }
+    if (!isRead) {
+      const expected = asRecord(call.arguments.expectedPermissions);
+      const fields = asRecord(call.arguments.fields);
+      const permissions = fields.permissions === undefined ? null : asRecord(fields.permissions);
+      const validPromptCap = (value: unknown) => Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 10;
+      const validPermissionRecord = (record: Record<string, unknown>, requireAll: boolean) => (
+        Object.keys(record).every((key) => permissionKeys.includes(key) && typeof record[key] === 'boolean')
+        && (!requireAll || permissionKeys.every((key) => typeof record[key] === 'boolean'))
+      );
+      if (Object.keys(call.arguments).some((key) => !['expectedPromptCapPerDay', 'expectedPermissions', 'fields'].includes(key))
+        || !validPromptCap(call.arguments.expectedPromptCapPerDay)
+        || !validPermissionRecord(expected, true)
+        || Object.keys(fields).length === 0
+        || Object.keys(fields).some((key) => !['promptCapPerDay', 'permissions'].includes(key))
+        || (fields.promptCapPerDay !== undefined && !validPromptCap(fields.promptCapPerDay))
+        || (permissions !== null && (Object.keys(permissions).length === 0 || !validPermissionRecord(permissions, false)))) {
+        return {
+          status: 'failed', code: 'invalid_phone_agent_settings',
+          message: 'Choose supported Phone Agent permissions and a daily prompt cap from 0 through 10.', retryable: false,
+        };
+      }
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_phone_agent_settings' : 'apply_phone_agent_settings',
+      targetType: 'phone_agent_preferences', targetId: 'self',
+      title: isRead ? 'Check Phone Agent settings' : 'Change Phone Agent settings',
+      consequenceSummary: isRead
+        ? 'Kwilt will check Phone Agent without showing your phone number or verification details.'
+        : 'Kwilt will apply these changes if the settings have not changed since you reviewed them, then confirm the result.',
+      payload: isRead ? {} : { ...call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'settings.ai_model.read' || call.toolId === 'settings.ai_model.update') {
+    const isRead = call.toolId === 'settings.ai_model.read';
+    const models = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2']);
+    if ((isRead && Object.keys(call.arguments).length !== 0)
+      || (!isRead && (Object.keys(call.arguments).length !== 2
+        || typeof call.arguments.expectedModelId !== 'string'
+        || typeof call.arguments.modelId !== 'string'
+        || !models.has(call.arguments.expectedModelId)
+        || !models.has(call.arguments.modelId)))) {
+      return {
+        status: 'failed', code: 'invalid_ai_model',
+        message: 'Choose a supported AI model without adding provider credentials.', retryable: false,
+      };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'account',
+      actionType: isRead ? 'read_ai_model_preference' : 'apply_ai_model_preference',
+      targetType: 'device_preference', targetId: 'ai_model',
+      title: isRead ? 'Check AI model' : 'Change AI model',
+      consequenceSummary: isRead
+        ? 'Kwilt will check the current AI model and the choices included with your plan.'
+        : 'Kwilt will change the model if it is still included with your plan and the setting has not changed.',
+      payload: isRead ? {} : {
+        expectedModelId: call.arguments.expectedModelId,
+        modelId: call.arguments.modelId,
+      },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.sharing.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.sharing.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_sharing_read', message: 'Sharing status does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_sharing_connections',
+        targetType: 'sharing_inventory', targetId: 'self', title: 'Check sharing connections',
+        consequenceSummary: 'Kwilt will check your friendships and Goal sharing without exposing invitation codes or private account details.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.sharing.invitation.prepare') {
+      const expiresInDays = call.arguments.expiresInDays;
+      if (Object.keys(call.arguments).length !== 1 || !Number.isInteger(expiresInDays)
+        || Number(expiresInDays) < 1 || Number(expiresInDays) > 30) return {
+        status: 'failed', code: 'invalid_sharing_invitation',
+        message: 'Choose an invitation expiration from 1 through 30 days.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'prepare_friend_invitation',
+        targetType: 'sharing_invitation', targetId: null, title: 'Invite a friend',
+        consequenceSummary: 'Kwilt will prepare a one-use invitation. You still choose who receives it. Friendship alone does not share your content.',
+        payload: { expiresInDays },
+      };
+    } else {
+      const connectionId = typeof call.arguments.connectionId === 'string' ? call.arguments.connectionId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      if (Object.keys(call.arguments).length !== 2 || !connectionId || !expectedFingerprint) return {
+        status: 'failed', code: 'invalid_sharing_revocation',
+        message: 'Choose the exact reviewed sharing connection.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'revoke_sharing_connection',
+        targetType: 'sharing_connection', targetId: connectionId, title: 'Revoke sharing connection',
+        consequenceSummary: 'Kwilt will remove this connection if it has not changed since you reviewed it, then confirm the result.',
+        payload: { connectionId, expectedFingerprint },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.execution_targets.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.execution_targets.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_execution_target_read',
+        message: 'Execution-target inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_execution_targets',
+        targetType: 'execution_target_inventory', targetId: 'self', title: 'Check coding connections',
+        consequenceSummary: 'Kwilt will check your coding connections without showing private account or repository details.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.execution_targets.get') {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      if (!targetId || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_execution_target_read', message: 'Choose one execution target.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_execution_target',
+        targetType: 'execution_target', targetId, title: 'Check coding connection',
+        consequenceSummary: 'Kwilt will check this coding connection without showing private account or repository details.',
+        payload: { targetId },
+      };
+    } else if (call.toolId === 'settings.execution_targets.create') {
+      const { providerId, displayName, repoName } = call.arguments;
+      if (providerId !== 'cursor_mcp_v1' || typeof displayName !== 'string' || typeof repoName !== 'string'
+        || !displayName.trim() || !repoName.trim() || Object.keys(call.arguments).length !== 3) return {
+        status: 'failed', code: 'invalid_execution_target_create',
+        message: 'Choose the curated Cursor provider, a display name, and a repository name. URLs and executable instructions are not accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'create_execution_target',
+        targetType: 'execution_target', targetId: null, title: 'Connect Cursor',
+        consequenceSummary: 'Kwilt will connect Cursor using the names you reviewed. Custom setup details are not accepted here.',
+        payload: { providerId, displayName: displayName.trim(), repoName: repoName.trim() },
+      };
+    } else if (call.toolId === 'settings.execution_targets.update') {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+      const fields = call.arguments.fields;
+      const allowed = new Set(['displayName', 'repoName', 'enabled']);
+      if (!targetId || !expectedUpdatedAt || !fields || typeof fields !== 'object' || Array.isArray(fields)
+        || Object.keys(call.arguments).length !== 3 || Object.keys(fields).length === 0
+        || Object.keys(fields).some((key) => !allowed.has(key))) return {
+        status: 'failed', code: 'invalid_execution_target_update',
+        message: 'Choose bounded target fields. URLs and executable instructions are not accepted in Chat.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'update_execution_target',
+        targetType: 'execution_target', targetId, title: 'Update coding connection',
+        consequenceSummary: 'Kwilt will change only the name or enabled setting you reviewed, and only if the connection has not changed.',
+        payload: { targetId, expectedUpdatedAt, fields },
+      };
+    } else {
+      const targetId = typeof call.arguments.targetId === 'string' ? call.arguments.targetId.trim() : '';
+      const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+      if (!targetId || !expectedUpdatedAt || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_execution_target_delete',
+        message: 'Choose the exact reviewed execution target to delete.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'delete_execution_target',
+        targetType: 'execution_target', targetId, title: 'Delete coding connection',
+        consequenceSummary: 'Kwilt will delete this connection if it has not changed since you reviewed it, then confirm the result.',
+        payload: { targetId, expectedUpdatedAt },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.destinations.')) {
+    const supported = new Set(['amazon', 'home_depot', 'instacart', 'doordash']);
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.destinations.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_destination_read',
+        message: 'Destination inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_destinations',
+        targetType: 'destination_inventory', targetId: 'self', title: 'Check Send to apps',
+        consequenceSummary: 'Kwilt will check which supported retailer apps are available.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.destinations.get') {
+      const destinationId = typeof call.arguments.destinationId === 'string' ? call.arguments.destinationId : '';
+      if (!supported.has(destinationId) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_destination_read', message: 'Choose one supported retailer destination.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_destination',
+        targetType: 'send_to_destination', targetId: destinationId, title: 'Check Send to app',
+        consequenceSummary: 'Kwilt will check whether this supported retailer app is available.',
+        payload: { destinationId },
+      };
+    } else if (call.toolId === 'settings.destinations.create') {
+      const kind = typeof call.arguments.kind === 'string' ? call.arguments.kind : '';
+      if (!supported.has(kind) || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_destination_install',
+        message: 'Choose one supported retailer destination. URLs are not accepted.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'install_destination',
+        targetType: 'send_to_destination', targetId: kind, title: 'Add Send to app',
+        consequenceSummary: 'Kwilt will add this supported retailer app. Custom links are not accepted here.',
+        payload: { kind },
+      };
+    } else {
+      const destinationId = typeof call.arguments.destinationId === 'string' ? call.arguments.destinationId : '';
+      if (!supported.has(destinationId) || call.arguments.expectedInstalled !== true
+        || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_destination_uninstall',
+        message: 'Choose the exact installed retailer destination to remove.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'uninstall_destination',
+        targetType: 'send_to_destination', targetId: destinationId, title: 'Remove Send to app',
+        consequenceSummary: 'Kwilt will remove this retailer app if it is still installed, then confirm the result.',
+        payload: { destinationId, expectedInstalled: true },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId.startsWith('settings.activity_areas.')) {
+    let request: ClientActionRequest;
+    if (call.toolId === 'settings.activity_areas.list') {
+      if (Object.keys(call.arguments).length !== 0) return {
+        status: 'failed', code: 'invalid_activity_area_read',
+        message: 'Activity-area inventory does not accept extra fields.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_activity_areas',
+        targetType: 'activity_area_inventory', targetId: 'self', title: 'Check Activity areas',
+        consequenceSummary: 'Kwilt will show your Activity areas, scheduling defaults, archive status, and how many To-dos use each one.',
+        payload: {},
+      };
+    } else if (call.toolId === 'settings.activity_areas.get') {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      if (!areaId || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_activity_area_read', message: 'Choose one Activity area.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'read_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: 'Check Activity area',
+        consequenceSummary: 'Kwilt will show this Activity area and how many To-dos use it.',
+        payload: { areaId },
+      };
+    } else if (call.toolId === 'settings.activity_areas.create') {
+      const label = typeof call.arguments.label === 'string' ? call.arguments.label.trim() : '';
+      if (!label || Object.keys(call.arguments).length !== 1) return {
+        status: 'failed', code: 'invalid_activity_area_create', message: 'Choose one Activity area name.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'create_activity_area',
+        targetType: 'activity_area', targetId: null, title: `Create ${label}`,
+        consequenceSummary: 'Kwilt will create this area with the standard scheduling defaults from Settings.',
+        payload: { label },
+      };
+    } else if (call.toolId === 'settings.activity_areas.update') {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      const label = typeof call.arguments.label === 'string' ? call.arguments.label.trim() : '';
+      if (!areaId || !expectedFingerprint || !label || Object.keys(call.arguments).length !== 3) return {
+        status: 'failed', code: 'invalid_activity_area_update',
+        message: 'Choose the exact reviewed Activity area and its new name.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'update_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: `Rename Activity area to ${label}`,
+        consequenceSummary: 'Kwilt will rename this area if it has not changed since you reviewed it.',
+        payload: { areaId, expectedFingerprint, label },
+      };
+    } else {
+      const areaId = typeof call.arguments.areaId === 'string' ? call.arguments.areaId.trim() : '';
+      const expectedFingerprint = typeof call.arguments.expectedFingerprint === 'string'
+        ? call.arguments.expectedFingerprint.trim() : '';
+      if (!areaId || !expectedFingerprint || Object.keys(call.arguments).length !== 2) return {
+        status: 'failed', code: 'invalid_activity_area_archive',
+        message: 'Choose the exact reviewed Activity area to archive.', retryable: false,
+      };
+      request = {
+        capabilityId: 'account', actionType: 'archive_activity_area',
+        targetType: 'activity_area', targetId: areaId, title: 'Archive Activity area',
+        consequenceSummary: 'Kwilt will archive this area if it has not changed. Existing To-dos will keep their assignments.',
+        payload: { areaId, expectedFingerprint },
+      };
+    }
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
   const deviceAction = DEVICE_ACTIONS[call.toolId];
   if (deviceAction) {
     await stageDeviceAction(deviceAction);
@@ -438,6 +949,10 @@ async function executeServerAgentToolHandler({
   if (choreResult) return choreResult;
   const foodResult = await executeServerFoodTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (foodResult) return foodResult;
+  const planAvailabilityResult = await executeServerPlanAvailabilityTool({ client, userId, call, stageDeviceAction });
+  if (planAvailabilityResult) return planAvailabilityResult;
+  const planCalendarResult = await executeServerPlanCalendarTool({ call, stageDeviceAction });
+  if (planCalendarResult) return planCalendarResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,
@@ -798,6 +1313,136 @@ async function executeServerAgentToolHandler({
       operation: {
         type: 'update_chapter_note', targetType: 'chapter', targetId: chapterId,
         summary: `Update Chapter ${periodKey} note`, payload: { note, expectedUpdatedAt },
+      },
+    });
+  }
+  if (call.toolId === 'chapters.digest_settings.read' || call.toolId === 'chapters.digest_settings.update') {
+    const { data, error } = await (client.from('kwilt_chapter_templates') as ReadQuery)
+      .select('id,filter_json,enabled,email_enabled,email_recipient,updated_at')
+      .eq('user_id', userId).eq('kind', 'reflection').eq('cadence', 'weekly')
+      .order('updated_at', { ascending: false }).limit(1);
+    const template = asRecord(Array.isArray(data) ? data[0] : null);
+    const filterJson = asRecord(template.filter_json);
+    const weeklyChapter = asRecord(filterJson.weeklyChapter);
+    const deliveryWeekday = Number.isInteger(weeklyChapter.deliveryWeekday)
+      && Number(weeklyChapter.deliveryWeekday) >= 1 && Number(weeklyChapter.deliveryWeekday) <= 7
+      ? Number(weeklyChapter.deliveryWeekday) : 1;
+    const expectedUpdatedAt = typeof template.updated_at === 'string' ? template.updated_at : '';
+    if (error || typeof template.id !== 'string' || !expectedUpdatedAt) {
+      return { status: 'unavailable', reason: 'chapter_digest_settings_unavailable', retryable: true };
+    }
+    const settings = {
+      templateId: template.id, expectedUpdatedAt, enabled: template.enabled === true,
+      deliveryWeekday, emailEnabled: template.email_enabled === true,
+      emailRecipient: typeof template.email_recipient === 'string' ? template.email_recipient : null,
+    };
+    if (call.toolId === 'chapters.digest_settings.read') {
+      return { status: 'completed', output: { settings }, receipt: null };
+    }
+    const templateId = typeof call.arguments.templateId === 'string' ? call.arguments.templateId.trim() : '';
+    const reviewedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+    const fields = asRecord(call.arguments.fields);
+    const allowed = new Set(['enabled', 'deliveryWeekday', 'emailEnabled', 'emailRecipient']);
+    const keys = Object.keys(fields);
+    const validWeekday = fields.deliveryWeekday === undefined || (Number.isInteger(fields.deliveryWeekday)
+      && Number(fields.deliveryWeekday) >= 1 && Number(fields.deliveryWeekday) <= 7);
+    const validEmail = fields.emailRecipient === undefined || fields.emailRecipient === null
+      || (typeof fields.emailRecipient === 'string' && fields.emailRecipient.length <= 320
+        && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.emailRecipient));
+    const nextEmailEnabled = typeof fields.emailEnabled === 'boolean' ? fields.emailEnabled : settings.emailEnabled;
+    const nextRecipient = Object.hasOwn(fields, 'emailRecipient')
+      ? (typeof fields.emailRecipient === 'string' ? fields.emailRecipient.trim() : null)
+      : settings.emailRecipient;
+    if (templateId !== template.id || reviewedAt !== expectedUpdatedAt || keys.length === 0
+        || keys.some((key) => !allowed.has(key)) || !validWeekday || !validEmail
+        || (fields.enabled !== undefined && typeof fields.enabled !== 'boolean')
+        || (fields.emailEnabled !== undefined && typeof fields.emailEnabled !== 'boolean')
+        || (nextEmailEnabled && !nextRecipient)) {
+      return { status: 'failed', code: 'invalid_chapter_digest_settings', message: 'Review the current weekly Chapter settings and a valid email recipient.', retryable: true };
+    }
+    return stageServerProposal(stageProposal, {
+      capabilityId: 'chapters', title: 'Update weekly Chapter settings',
+      body: 'Reviews the exact generation and email delivery changes before saving them.',
+      operation: {
+        type: 'update_chapter_digest_settings', targetType: 'chapter_template', targetId: template.id,
+        summary: 'Update weekly Chapter settings', payload: { fields, expectedUpdatedAt },
+      },
+    });
+  }
+  if (call.toolId === 'chapters.alignment.preview' || call.toolId === 'chapters.alignment.apply') {
+    const chapterId = typeof call.arguments.chapterId === 'string' ? call.arguments.chapterId.trim() : '';
+    if (!chapterId) {
+      return { status: 'failed', code: 'invalid_chapter', message: 'A valid Chapter is required.', retryable: false };
+    }
+    const [{ data: chapterData, error: chapterError }, goalsResult, activitiesResult] = await Promise.all([
+      (client.from('kwilt_chapters') as ReadQuery).select('id,output_json,updated_at')
+        .eq('user_id', userId).eq('id', chapterId).maybeSingle(),
+      (client.from('kwilt_goals') as ReadQuery).select('id,data,updated_at')
+        .eq('user_id', userId).eq('is_deleted', false).limit(100),
+      (client.from('kwilt_activities') as ReadQuery).select('id,data,updated_at')
+        .eq('user_id', userId).eq('is_deleted', false).limit(500),
+    ]);
+    const chapter = asRecord(chapterData);
+    if (chapterError || chapter.id !== chapterId || goalsResult.error || activitiesResult.error) {
+      return { status: 'failed', code: 'chapter_alignment_read_failed', message: 'Kwilt could not load that Chapter alignment.', retryable: true };
+    }
+    const output = asRecord(chapter.output_json);
+    const recommendations = Array.isArray(output.recommendations) ? output.recommendations : [];
+    const goalRows = Array.isArray(goalsResult.data) ? goalsResult.data.map(asRecord) : [];
+    const activityRows = Array.isArray(activitiesResult.data) ? activitiesResult.data.map(asRecord) : [];
+    const goalById = new Map(goalRows.map((row) => [String(row.id), asRecord(row.data)]));
+    const activityById = new Map(activityRows.map((row) => [String(row.id), row]));
+    const chapterVersion = typeof chapter.updated_at === 'string' ? chapter.updated_at : '';
+    const alignments = recommendations.flatMap((value) => {
+      const recommendation = asRecord(value);
+      const payload = asRecord(recommendation.payload);
+      if (recommendation.kind !== 'align' || typeof recommendation.id !== 'string'
+          || typeof payload.goalId !== 'string' || !Array.isArray(payload.activityIds)) return [];
+      const goal = goalById.get(payload.goalId);
+      if (!goal) return [];
+      const activities = payload.activityIds.flatMap((rawId) => {
+        if (typeof rawId !== 'string') return [];
+        const row = activityById.get(rawId);
+        if (!row) return [];
+        const data = asRecord(row.data);
+        const currentGoalId = typeof data.goalId === 'string' ? data.goalId : null;
+        if (currentGoalId && currentGoalId !== payload.goalId) return [];
+        return [{ id: rawId, title: typeof data.title === 'string' ? data.title : 'To-do', expectedUpdatedAt: objectVersion(row) }];
+      });
+      if (!chapterVersion || activities.length === 0) return [];
+      return [{
+        chapterId, recommendationId: recommendation.id, expectedUpdatedAt: chapterVersion,
+        goal: { id: payload.goalId, title: typeof goal.title === 'string' ? goal.title : 'Goal' },
+        arc: { id: typeof payload.arcId === 'string' ? payload.arcId : null, title: typeof payload.arcTitle === 'string' ? payload.arcTitle : null },
+        reason: typeof recommendation.reason === 'string' ? recommendation.reason : '', activities,
+      }];
+    });
+    if (call.toolId === 'chapters.alignment.preview') {
+      return { status: 'completed', output: { alignments }, receipt: null };
+    }
+    const recommendationId = typeof call.arguments.recommendationId === 'string' ? call.arguments.recommendationId.trim() : '';
+    const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+    const rawActivities = Array.isArray(call.arguments.activities) ? call.arguments.activities : [];
+    const requested = rawActivities.flatMap((value) => {
+      const item = asRecord(value);
+      return typeof item.activityId === 'string' && typeof item.expectedUpdatedAt === 'string'
+        ? [{ activityId: item.activityId, expectedUpdatedAt: item.expectedUpdatedAt }]
+        : [];
+    });
+    const preview = alignments.find((candidate) => candidate.recommendationId === recommendationId);
+    const currentVersions = new Map(preview?.activities.map((activity) => [activity.id, activity.expectedUpdatedAt]));
+    if (!preview || expectedUpdatedAt !== preview.expectedUpdatedAt || requested.length === 0
+        || requested.length !== rawActivities.length
+        || requested.some((activity) => currentVersions.get(activity.activityId) !== activity.expectedUpdatedAt)) {
+      return { status: 'failed', code: 'chapter_alignment_stale', message: 'That Chapter alignment changed. Review it again before applying.', retryable: true };
+    }
+    return stageServerProposal(stageProposal, {
+      capabilityId: 'chapters', title: `Tag ${requested.length} To-do${requested.length === 1 ? '' : 's'} to ${preview.goal.title}`,
+      body: `Reviews the exact ${requested.length} To-do${requested.length === 1 ? '' : 's'} before tagging them to this Goal.`,
+      operation: {
+        type: 'apply_chapter_alignment', targetType: 'chapter', targetId: chapterId,
+        summary: `Align ${requested.length} To-do${requested.length === 1 ? '' : 's'} from this Chapter`,
+        payload: { recommendationId, activities: requested, expectedUpdatedAt },
       },
     });
   }

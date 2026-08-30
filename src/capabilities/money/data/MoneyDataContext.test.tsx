@@ -8,7 +8,6 @@ import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
 import { reconcileConnectedMoneyActivity } from '../runtime/reconcileConnectedMoneyActivity';
 
 jest.mock('../runtime/moneyGlanceableState', () => ({ syncMoneyGlanceableState: jest.fn() }));
-jest.mock('../runtime/moneyAppControlRuntime', () => ({ reconcileMoneyAppControls: jest.fn() }));
 jest.mock('../runtime/reconcileConnectedMoneyActivity', () => ({ reconcileConnectedMoneyActivity: jest.fn() }));
 jest.mock('../../../services/backend/supabaseClient', () => ({ getSupabaseClient: jest.fn(() => ({})) }));
 

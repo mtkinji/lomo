@@ -1,6 +1,6 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
@@ -12,15 +12,14 @@ import { Icon } from '../../ui/Icon';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Heading, HStack, Text, VStack } from '../../ui/primitives';
+import { activityAreaActions } from './actions/activityAreaActionsBoundary';
+import { activityAreaReviewReference } from './actions/activityAreaActions';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsActivityAreas'>;
 
 export function ActivityAreasSettingsScreen() {
   const navigation = useNavigation<Nav>();
   const areas = useAppStore((state) => state.activityAreas);
-  const addActivityArea = useAppStore((state) => state.addActivityArea);
-  const renameActivityArea = useAppStore((state) => state.renameActivityArea);
-  const archiveActivityArea = useAppStore((state) => state.archiveActivityArea);
   const [newAreaLabel, setNewAreaLabel] = useState('');
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
@@ -30,8 +29,12 @@ export function ActivityAreasSettingsScreen() {
   function handleAddArea() {
     const label = newAreaLabel.trim();
     if (!label) return;
-    addActivityArea(label);
-    setNewAreaLabel('');
+    try {
+      activityAreaActions.create({ label });
+      setNewAreaLabel('');
+    } catch (error) {
+      Alert.alert('Unable to add area', error instanceof Error ? error.message : 'Try again.');
+    }
   }
 
   function startEditing(areaId: string, currentLabel: string) {
@@ -42,9 +45,14 @@ export function ActivityAreasSettingsScreen() {
   function saveEditing() {
     if (!editingAreaId) return;
     const label = editingLabel.trim();
-    if (label) renameActivityArea(editingAreaId, label);
-    setEditingAreaId(null);
-    setEditingLabel('');
+    const area = areas.find((item) => item.id === editingAreaId);
+    try {
+      if (label && area) activityAreaActions.update({ ...activityAreaReviewReference(area), label });
+      setEditingAreaId(null);
+      setEditingLabel('');
+    } catch (error) {
+      Alert.alert('Unable to rename area', error instanceof Error ? error.message : 'Try again.');
+    }
   }
 
   return (
@@ -98,7 +106,13 @@ export function ActivityAreasSettingsScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Archive ${area.label}`}
-                      onPress={() => archiveActivityArea(area.id)}
+                      onPress={() => {
+                        try {
+                          activityAreaActions.delete(activityAreaReviewReference(area));
+                        } catch (error) {
+                          Alert.alert('Unable to archive area', error instanceof Error ? error.message : 'Try again.');
+                        }
+                      }}
                       style={styles.iconButton}
                     >
                       <Icon name="close" size={18} color={colors.textSecondary} />

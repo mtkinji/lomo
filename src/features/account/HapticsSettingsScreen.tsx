@@ -4,6 +4,7 @@ import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore } from '../../store/useAppStore';
 import { HapticsService } from '../../services/HapticsService';
 import { SettingsGroup, SettingsPage, SettingsToggleRow } from '../../ui/SettingsSurface';
+import { createHapticsPreferenceActions } from './actions/hapticsPreferenceActions';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHaptics'>;
 
@@ -24,8 +25,13 @@ export function HapticsSettingsScreen() {
           title="Enable haptics"
           onPress={() => {
             const next = !enabled;
-            setEnabled(next);
-            HapticsService.setEnabled(next);
+            createHapticsPreferenceActions({
+              read: () => ({ enabled }),
+              apply: ({ enabled: applied }) => {
+                setEnabled(applied);
+                HapticsService.setEnabled(applied);
+              },
+            }).update({ expectedEnabled: enabled, enabled: next });
             if (next) {
               void HapticsService.trigger('outcome.success');
             }
@@ -35,4 +41,3 @@ export function HapticsSettingsScreen() {
     </SettingsPage>
   );
 }
-

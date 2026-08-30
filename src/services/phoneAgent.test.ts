@@ -15,6 +15,12 @@ describe('phoneAgent service helpers', () => {
     });
   });
 
+  test('builds a thread-continuation payload without accepting a phone number', () => {
+    expect(buildPhoneAgentLinkRequest({
+      action: 'continue_thread', threadId: 'thread-1',
+    })).toEqual({ action: 'continue_thread', threadId: 'thread-1' });
+  });
+
   test('normalizes link rows for Settings display', () => {
     expect(normalizePhoneAgentLink({
       phone: '+14155551212',

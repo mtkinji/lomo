@@ -7,28 +7,39 @@ import {
 } from '../serverToolProviderRegistry';
 
 describe('server tool provider registry', () => {
-  test('keeps a manifest-only tool out of the server catalog', () => {
-    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(true);
-    expect(SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(false);
+  test('registers the remaining Food review and handoff tools', () => {
+    const foodReviewTools = [
+      'recipes.publication.prepare', 'recipes.publication.publish',
+      'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
+      'savings.review', 'savings.accept', 'savings.coupon.open',
+      'receipt.extract', 'receipt.reconcile',
+    ];
+    expect(foodReviewTools.every((id) => KWILT_TOOL_CONTRACTS.some((tool) => tool.id === id))).toBe(true);
+    expect(foodReviewTools.every((id) => SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === id))).toBe(true);
     expect(SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === 'goals.read')).toBe(true);
   });
 
-  test('returns unavailable instead of invoking an unregistered dispatcher', async () => {
-    const dispatch = jest.fn();
+  test('registers Plan availability for bounded reads and native review handoff', () => {
+    expect(['plan.availability.read', 'plan.availability.update'].every((id) =>
+      SERVER_AGENT_TOOL_CATALOG.some((tool) => tool.id === id))).toBe(true);
+  });
+
+  test('dispatches a registered Food review handoff', async () => {
+    const result = { status: 'pending_client_action' as const, provider: 'device' as const, request: {} };
+    const dispatch = jest.fn(async () => result);
     const registry = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
-    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
+    const tool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
+    const call = { id: 'call-1', toolId: tool.id, arguments: {
+      recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['kwilt_mobile'],
+    } };
 
     await expect(executeServerRegisteredTool({
       registry,
       context: { dispatch },
-      call: { id: 'call-1', toolId: tool.id, arguments: {
-        recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['profile'],
-      } },
+      call,
       tool,
-    })).resolves.toEqual({
-      status: 'unavailable', reason: 'server_provider_unavailable', retryable: false,
-    });
-    expect(dispatch).not.toHaveBeenCalled();
+    })).resolves.toEqual(result);
+    expect(dispatch).toHaveBeenCalledWith(call, tool);
   });
 
   test('maps canonical action receipts into the model-facing tool protocol', () => {

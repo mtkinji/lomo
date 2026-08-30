@@ -87,6 +87,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'app',
     title: 'App',
     entries: [
+      { id: 'agent', title: 'Agent', route: 'SettingsAiModel' },
       { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       { id: 'connected_tools', title: 'Apps & connections', route: 'SettingsConnectedTools' },
       { id: 'kwilt_labs', title: 'Kwilt Labs', route: 'SettingsKwiltLabs' },

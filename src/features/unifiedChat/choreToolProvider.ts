@@ -94,7 +94,7 @@ export function createChoreToolProvider({ actions }: { actions: ChoreActions }) 
         if (!occurrenceId) return failed('invalid_chore_occurrence', 'Choose one exact chore occurrence.');
         const request: StagedUnifiedChatClientAction = {
           capabilityId: 'chores', actionType: 'open_chore_evidence_picker', targetType: 'chore_occurrence', targetId: occurrenceId,
-          title: 'Add chore photo', consequenceSummary: 'Kwilt will open the native camera or photo library. A photo is evidence for caregiver review, not automated proof.',
+          title: 'Add chore photo', consequenceSummary: 'Kwilt will open the camera or photo library. The photo documents the chore; Kwilt does not automatically decide whether it is complete.',
           payload: { occurrenceId },
         };
         clientActions.push(request);

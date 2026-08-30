@@ -119,6 +119,59 @@ export function SettingsDetailRow({
   );
 }
 
+export function SettingsDetailToggleRow({
+  context,
+  description,
+  disabled = false,
+  enabled,
+  onPress,
+  onToggle,
+  title,
+}: {
+  context?: string;
+  description: string;
+  disabled?: boolean;
+  enabled: boolean;
+  onPress: () => void;
+  onToggle: () => void;
+  title: string;
+}) {
+  const detailAccessibilityLabel = [
+    `${title}.`,
+    description,
+    context ? `${context}.` : null,
+    enabled ? 'On' : 'Off',
+  ].filter(Boolean).join(' ');
+  return (
+    <View style={[styles.detailToggleRow, disabled ? styles.disabled : null]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={detailAccessibilityLabel}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [styles.detailToggleDisclosure, pressed ? styles.pressed : null]}
+      >
+        <View style={styles.rowCopy}>
+          <Text selectable={false} style={styles.rowTitle}>{title}</Text>
+          <Text selectable={false} style={styles.rowDescription}>{description}</Text>
+          {context ? <Text selectable={false} style={styles.rowContext}>{context}</Text> : null}
+        </View>
+        <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+      </Pressable>
+      <View style={styles.detailToggleControl}>
+        <SettingsToggle
+          accessibilityLabel={`${title} rule enabled`}
+          disabled={disabled}
+          onPress={onToggle}
+          tone="neutral"
+          value={enabled}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function SettingsInstructionSection({
   children,
   footer,
@@ -524,6 +577,26 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  detailToggleRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  detailToggleDisclosure: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  detailToggleControl: {
+    minWidth: 60,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
   rowTitle: {
     color: colors.textPrimary,

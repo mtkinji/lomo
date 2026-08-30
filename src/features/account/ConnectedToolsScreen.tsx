@@ -24,6 +24,12 @@ import {
   type ExternalActionHistoryItem,
   type ExternalConnection,
 } from '../../services/externalConnections';
+import { createConnectedToolActions } from './actions/connectedToolActions';
+
+const connectedToolActions = createConnectedToolActions({
+  load: fetchExternalConnections,
+  revoke: revokeExternalConnection,
+});
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList>;
 type ConnectionRoute = RouteProp<SettingsStackParamList, 'SettingsConnectedToolDetail'>;
@@ -247,7 +253,7 @@ export function ConnectedToolsScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await fetchExternalConnections();
+      const result = await connectedToolActions.loadNativeInventory();
       setConnections(result.connections);
     } catch (error: unknown) {
       setLoadError(error instanceof Error ? error.message : 'Please try again.');
@@ -415,7 +421,7 @@ export function ConnectedToolDetailScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await fetchExternalConnections();
+      const result = await connectedToolActions.loadNativeInventory();
       const match = result.connections.find((item) => item.client_id === route.params.clientId && !item.revoked_at) ?? null;
       setConnection(match);
       setActions(result.actions.filter((action) => action.client_id === route.params.clientId).slice(0, 10));
@@ -434,7 +440,10 @@ export function ConnectedToolDetailScreen() {
     if (!connection) return;
     setDisconnecting(true);
     try {
-      await revokeExternalConnection(connection.client_id);
+      await connectedToolActions.revoke({
+        connectionId: connection.client_id,
+        expectedConnectedAt: connection.connected_at,
+      });
       navigation.goBack();
     } catch (error: unknown) {
       Alert.alert('Unable to disconnect', error instanceof Error ? error.message : 'Please try again.');

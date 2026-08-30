@@ -13,12 +13,24 @@ import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime
 
 export const SERVER_AGENT_PROMPT_VERSION = 'unified-chat-agent-v1';
 
+const CANONICAL_TOOL_ID_PATTERN = /^[A-Za-z0-9_.-]+$/;
+const PROVIDER_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
 type ResponsesPolicyContext = { currentDate: string; timeZone: string };
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function knownProxyFailureCode(responseText: string): string | null {
+  try {
+    const code = record(record(JSON.parse(responseText)).error).code;
+    return code === 'quota_exceeded' ? code : null;
+  } catch {
+    return null;
+  }
 }
 
 function stableValue(value: unknown): unknown {
@@ -43,11 +55,18 @@ function fnv1a(value: string): string {
 export function toServerResponsesTools(tools: readonly ServerAgentToolDefinition[]) {
   return tools.map((tool) => ({
     type: 'function',
-    name: tool.id,
+    name: toServerProviderToolName(tool.id),
     description: tool.purpose,
     parameters: toStrictToolInputSchema(tool.inputSchema),
     strict: true,
   }));
+}
+
+export function toServerProviderToolName(toolId: string): string {
+  if (!CANONICAL_TOOL_ID_PATTERN.test(toolId)) throw new Error('provider_tool_name_invalid');
+  const providerName = toolId.replaceAll('_', '_u_').replaceAll('.', '_d_');
+  if (!PROVIDER_TOOL_NAME_PATTERN.test(providerName)) throw new Error('provider_tool_name_invalid');
+  return providerName;
 }
 
 export function serverResponsesToolCatalogHash(tools: readonly ServerAgentToolDefinition[]): string {
@@ -88,7 +107,7 @@ export function toServerResponsesInput(messages: readonly ServerAgentLoopMessage
       input.push(...(message.toolCalls ?? []).map((call) => ({
           type: 'function_call',
           call_id: call.providerCallId ?? call.id,
-          name: call.toolId,
+          name: toServerProviderToolName(call.toolId),
           arguments: JSON.stringify(call.arguments),
         })));
       continue;
@@ -123,7 +142,7 @@ export function parseServerAgentResponse(
     throw new Error(`model_response_incomplete:${reason}`);
   }
 
-  const toolById = new Map(tools.map((tool) => [tool.id, tool]));
+  const toolByProviderName = new Map(tools.map((tool) => [toServerProviderToolName(tool.id), tool]));
   const text: string[] = [];
   const toolCalls: ServerAgentToolCall[] = [];
   let toolOrdinal = 0;
@@ -140,10 +159,10 @@ export function parseServerAgentResponse(
     }
     if (output.type !== 'function_call') continue;
     const providerCallId = typeof output.call_id === 'string' ? output.call_id : '';
-    const toolId = typeof output.name === 'string' ? output.name : '';
+    const providerToolName = typeof output.name === 'string' ? output.name : '';
     const argumentsText = typeof output.arguments === 'string' ? output.arguments : '';
-    if (!providerCallId || !toolId || !argumentsText) throw new Error('model_tool_call_malformed');
-    const tool = toolById.get(toolId);
+    if (!providerCallId || !providerToolName || !argumentsText) throw new Error('model_tool_call_malformed');
+    const tool = toolByProviderName.get(providerToolName);
     if (!tool) throw new Error('model_tool_unknown');
     let parsedArguments: unknown;
     try { parsedArguments = JSON.parse(argumentsText); } catch { throw new Error('model_tool_arguments_malformed'); }
@@ -158,7 +177,7 @@ export function parseServerAgentResponse(
     toolCalls.push({
       id: `${responseId}:tool:${toolOrdinal}`,
       providerCallId,
-      toolId,
+      toolId: tool.id,
       arguments: normalized as Record<string, unknown>,
     });
   }
@@ -181,7 +200,6 @@ export function parseServerAgentResponse(
 
 export async function requestServerAgentResponse({
   supabaseUrl,
-  anonKey,
   serviceRoleToken,
   quotaIdentity,
   isPro,
@@ -194,7 +212,6 @@ export async function requestServerAgentResponse({
   fetcher = fetch,
 }: {
   supabaseUrl: string;
-  anonKey: string;
   serviceRoleToken: string;
   quotaIdentity: string;
   isPro: boolean;
@@ -221,7 +238,7 @@ export async function requestServerAgentResponse({
     response = await fetcher(`${supabaseUrl}/functions/v1/ai-chat/v1/responses`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json', apikey: anonKey,
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${serviceRoleToken}`,
         'x-kwilt-install-id': `agent:${quotaIdentity}`,
         'x-kwilt-is-pro': String(isPro),
@@ -245,7 +262,11 @@ export async function requestServerAgentResponse({
     throw error;
   }
   const responseText = await response.text();
-  if (!response.ok) throw new Error(`model_request_failed:${response.status}:${responseText.slice(0, 300)}`);
+  if (!response.ok) {
+    const knownCode = knownProxyFailureCode(responseText);
+    if (knownCode) throw new Error(knownCode);
+    throw new Error(`model_request_failed:${response.status}:${responseText.slice(0, 300)}`);
+  }
   let data: unknown;
   try { data = JSON.parse(responseText); } catch { throw new Error('model_response_malformed'); }
   return parseServerAgentResponse(data, resolvedTools, {

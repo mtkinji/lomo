@@ -116,6 +116,27 @@ describe('Screen Time shield handoff bridge', () => {
     });
   });
 
+  it('passes Money-owned budget truth with its condition metadata to the native aggregate', async () => {
+    mockApplyPersonalCompositeRule.mockResolvedValue(true);
+    const rule = {
+      id: 'social-budget', selectionId: 'social-budget', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{
+        id: 'shopping-budget', type: 'budget' as const, categorySourceId: 'category-shopping',
+        categoryName: 'Shopping', preset: 'at_95_percent' as const,
+      }], lastUpdated: '2026-08-28T20:00:00.000Z',
+    };
+
+    await expect(applyPersonalCompositeScreenTimeRule(rule, {
+      budgetConditionTruth: { 'shopping-budget': true },
+    })).resolves.toBe(true);
+    expect(JSON.parse(mockApplyPersonalCompositeRule.mock.calls[0][0])).toEqual(expect.objectContaining({
+      conditions: [expect.objectContaining({ type: 'budget', categorySourceId: 'category-shopping', preset: 'at_95_percent' })],
+      hostTruth: { 'shopping-budget': true },
+    }));
+  });
+
   it('rejects incomplete composites before crossing the bridge and clears by aggregate id', async () => {
     await expect(applyPersonalCompositeScreenTimeRule({ conditions: [] } as never)).resolves.toBe(false);
     expect(mockApplyPersonalCompositeRule).not.toHaveBeenCalled();

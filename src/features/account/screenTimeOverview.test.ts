@@ -1,8 +1,6 @@
-import type { MoneyAppControlSettings } from '../../capabilities/money/domain/moneyAppControl';
 import type { HouseholdSnapshot } from '../household/data/household';
 import {
   buildFamilyScreenTimeOverviewRows,
-  buildMoneyScreenTimeOverview,
 } from './screenTimeOverview';
 
 const household: HouseholdSnapshot = {
@@ -20,40 +18,6 @@ const household: HouseholdSnapshot = {
   ],
   grants: [],
 };
-
-function moneySettings(overrides: Partial<MoneyAppControlSettings> = {}): MoneyAppControlSettings {
-  return {
-    authorizationStatus: 'approved',
-    policies: {
-      shopping: {
-        enabled: true,
-        preset: 'always_review',
-        unlockWindowMinutes: 20,
-        selectedApps: [{ token: 'amazon' }],
-        selectedCategories: [],
-        lastReview: null,
-      },
-      dining: {
-        enabled: true,
-        preset: 'when_hot',
-        unlockWindowMinutes: 20,
-        selectedApps: [],
-        selectedCategories: [{ token: 'delivery' }],
-        lastReview: null,
-      },
-      disabled: {
-        enabled: false,
-        preset: 'when_over',
-        unlockWindowMinutes: 20,
-        selectedApps: [{ token: 'store' }],
-        selectedCategories: [],
-        lastReview: null,
-      },
-    },
-    lastUpdated: null,
-    ...overrides,
-  };
-}
 
 describe('screenTimeOverview', () => {
   it('shows only activated child Screen Time rows with truthful setup state', () => {
@@ -73,20 +37,5 @@ describe('screenTimeOverview', () => {
       ],
     })).toEqual([]);
     expect(buildFamilyScreenTimeOverviewRows(null)).toEqual([]);
-  });
-
-  it('summarizes only enabled Money policies with actual targets', () => {
-    expect(buildMoneyScreenTimeOverview(moneySettings())).toEqual({
-      activePolicyIds: ['dining', 'shopping'],
-      value: '2 categories',
-    });
-  });
-
-  it('reports setup or attention instead of overstating Money enforcement', () => {
-    expect(buildMoneyScreenTimeOverview(moneySettings({ authorizationStatus: 'notDetermined' }))?.value)
-      .toBe('Needs setup');
-    expect(buildMoneyScreenTimeOverview(moneySettings({ authorizationStatus: 'denied' }))?.value)
-      .toBe('Needs attention');
-    expect(buildMoneyScreenTimeOverview(moneySettings({ policies: {} }))).toBeNull();
   });
 });

@@ -189,7 +189,7 @@ export function createGroceryControlToolProvider({ stock, cycle, lists, handoffs
         title: call.toolId === 'groceries.product_match.prepare' ? `Review retailer matches for ${groceryItemId}` : 'Confirm retailer product match',
         consequenceSummary: call.toolId === 'groceries.product_match.prepare'
           ? 'Kwilt will open current retailer candidates. No product is selected and nothing is added to a cart.'
-          : 'Kwilt will open the exact native substitution review. The mapping is not confirmed until you approve it there.',
+          : 'Kwilt will show the substitution. It is not confirmed until you approve it.',
         payload: { groceryListId: list.id, provider,
           ...(locationId ? { locationId } : {}), ...(retailerProductId ? { retailerProductId, evidenceObservedAt } : {}) },
       };
@@ -208,7 +208,7 @@ export function createGroceryControlToolProvider({ stock, cycle, lists, handoffs
       const request: StagedGroceryClientAction = {
         capabilityId: 'groceries', actionType: 'open_grocery_handoff', targetType: 'grocery_list', targetId: list.id,
         title: 'Review retailer handoff',
-        consequenceSummary: 'Kwilt will open the reviewed Grocery handoff. The retailer still owns product choices, substitutions, slot, payment, and checkout.',
+        consequenceSummary: 'Kwilt will open the retailer with this Grocery list. You still choose products, substitutions, delivery time, payment, and checkout.',
         payload: { provider, expectedVersion: list.revision, idempotencyKey },
       };
       actions.push(request);
@@ -224,7 +224,7 @@ export function createGroceryControlToolProvider({ stock, cycle, lists, handoffs
       const request: StagedGroceryClientAction = {
         capabilityId: 'groceries', actionType: 'open_grocery_handoff', targetType: 'grocery_list', targetId: handoff.groceryListId,
         title: 'Open retailer product review',
-        consequenceSummary: 'Kwilt will open the exact reviewed handoff. The retailer still owns substitutions, slot, payment, checkout, fulfillment, and support.',
+        consequenceSummary: 'Kwilt will open the retailer review. You still handle substitutions, delivery time, payment, checkout, and order support there.',
         payload: { retailerHandoffId: handoff.id, provider: handoff.provider, expiresAt: handoff.expiresAt },
       };
       actions.push(request);

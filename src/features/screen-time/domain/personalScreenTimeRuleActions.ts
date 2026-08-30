@@ -1,32 +1,19 @@
 import {
-  createPersonalScreenTimeRule,
-  addPersonalScreenTimeRule,
-  getPersonalScreenTimeRuleById,
+  getPersonalCompositeScreenTimeRuleById,
   normalizeScreenTimeProtectionSettings,
-  removePersonalScreenTimeRule,
-  replacePersonalScreenTimeRule,
-  type PersonalScreenTimeRule,
-  type PersonalScreenTimeRuleKind,
+  removePersonalCompositeScreenTimeRule,
+  replacePersonalCompositeScreenTimeRule,
   type ScreenTimeProtectionSettings,
 } from '../../../services/screenTimeProtection';
+import type {
+  PersonalCompositeRuleActionBoundary,
+  PersonalCompositeRuleSummary,
+} from './personalCompositeRuleActions';
+import type { PersonalCompositeScreenTimeRule } from './personalCompositeScreenTimeRule';
 
-export type PersonalScreenTimeRuleSummary = {
-  id: string;
-  kind: PersonalScreenTimeRuleKind;
-  targetLabels: string[];
-  appCount: number;
-  categoryCount: number;
-  enabled: boolean;
-  limitMinutes: number | null;
-  updatedAt: string;
-};
-
-export type PersonalScreenTimeRuleActionBoundary = {
-  readSettings(): ScreenTimeProtectionSettings;
-  persistSettings(settings: ScreenTimeProtectionSettings): void | Promise<void>;
-  activateRule(rule: PersonalScreenTimeRule): Promise<boolean>;
-  deactivateRule(rule: PersonalScreenTimeRule): Promise<boolean>;
-};
+/** The public operation remains "personal rule"; its only current representation is the composite aggregate. */
+export type PersonalScreenTimeRuleSummary = PersonalCompositeRuleSummary & { kind: 'composite' };
+export type PersonalScreenTimeRuleActionBoundary = PersonalCompositeRuleActionBoundary;
 
 type Receipt<OperationId extends string> = {
   operationId: OperationId;
@@ -50,24 +37,18 @@ export class PersonalScreenTimeRuleConfirmationError extends Error {
   constructor() { super('screen_time_rule_confirmation_required'); }
 }
 
-function targetLabels(rule: PersonalScreenTimeRule): string[] {
-  return [
-    ...rule.selectedApps.map((item) => item.label?.trim() || 'Selected app'),
-    ...rule.selectedCategories.map((item) => item.label?.trim() || 'Selected category'),
-  ];
-}
-
-function summary(rule: PersonalScreenTimeRule, fallbackUpdatedAt?: string): PersonalScreenTimeRuleSummary {
+function summarize(rule: PersonalCompositeScreenTimeRule, fallbackUpdatedAt?: string): PersonalScreenTimeRuleSummary {
   const updatedAt = rule.lastUpdated ?? fallbackUpdatedAt;
   if (!updatedAt) throw new PersonalScreenTimeRuleStaleError();
   return {
     id: rule.id,
-    kind: rule.kind,
-    targetLabels: targetLabels(rule),
-    appCount: rule.selectedApps.length,
-    categoryCount: rule.selectedCategories.length,
+    kind: 'composite',
+    targetLabels: [...rule.selectedApps, ...rule.selectedCategories]
+      .map((target) => target.label?.trim() || 'Selected app or category'),
+    conditionCount: rule.conditions.length,
+    connector: rule.connector,
+    outcome: rule.outcome,
     enabled: rule.enabled,
-    limitMinutes: rule.kind === 'daily_limit' ? rule.limitMinutes : null,
     updatedAt,
   };
 }
@@ -76,9 +57,17 @@ function currentSettings(boundary: PersonalScreenTimeRuleActionBoundary) {
   return normalizeScreenTimeProtectionSettings(boundary.readSettings());
 }
 
-function exactRule(settings: ScreenTimeProtectionSettings, ruleId: string, expectedUpdatedAt?: string) {
-  const rule = getPersonalScreenTimeRuleById(settings, ruleId.trim());
+function exactRule(
+  settings: ScreenTimeProtectionSettings,
+  ruleId: string,
+  expectedUpdatedAt?: string | 'unversioned',
+) {
+  const rule = getPersonalCompositeScreenTimeRuleById(settings, ruleId.trim());
   if (!rule) throw new PersonalScreenTimeRuleNotFoundError();
+  if (expectedUpdatedAt === 'unversioned') {
+    if (rule.lastUpdated) throw new PersonalScreenTimeRuleStaleError();
+    return rule;
+  }
   if (!rule.lastUpdated || (expectedUpdatedAt !== undefined && rule.lastUpdated !== expectedUpdatedAt)) {
     throw new PersonalScreenTimeRuleStaleError();
   }
@@ -95,67 +84,35 @@ function authorize(settings: ScreenTimeProtectionSettings) {
 
 export function listPersonalScreenTimeRules(boundary: PersonalScreenTimeRuleActionBoundary) {
   const settings = currentSettings(boundary);
-  const result = settings.personalRules.map((rule) => summary(
-    rule, settings.lastUpdated ?? '1970-01-01T00:00:00.000Z',
+  const result = settings.personalCompositeRules.map((rule) => summarize(
+    rule,
+    settings.lastUpdated ?? '1970-01-01T00:00:00.000Z',
   ));
-  return { operationId: 'screen_time.personal_rule.list' as const, status: 'completed' as const,
+  return {
+    operationId: 'screen_time.personal_rule.list' as const,
+    status: 'completed' as const,
     resultRefs: result.map((item) => ({ kind: 'personal_screen_time_rule' as const, id: item.id })),
-    reversible: true, result };
+    reversible: true,
+    result,
+  };
 }
 
 export function getPersonalScreenTimeRule(input: { ruleId: string }, boundary: PersonalScreenTimeRuleActionBoundary) {
-  const result = summary(exactRule(currentSettings(boundary), input.ruleId));
-  return { operationId: 'screen_time.personal_rule.get' as const, status: 'completed' as const,
-    resultRefs: [{ kind: 'personal_screen_time_rule' as const, id: result.id }], reversible: true, result };
+  const result = summarize(exactRule(currentSettings(boundary), input.ruleId));
+  return {
+    operationId: 'screen_time.personal_rule.get' as const,
+    status: 'completed' as const,
+    resultRefs: [{ kind: 'personal_screen_time_rule' as const, id: result.id }],
+    reversible: true,
+    result,
+  };
 }
 
-/** Native-only save path. Apple selection tokens enter here but never leave in the result. */
-export async function savePersonalScreenTimeRule(input: {
-  rule: PersonalScreenTimeRule;
-  expectedUpdatedAt: string | 'unversioned' | null;
-  confirmed: boolean;
-}, boundary: PersonalScreenTimeRuleActionBoundary): Promise<PersonalScreenTimeRuleSummary> {
-  confirm(input.confirmed);
-  const settings = currentSettings(boundary);
-  authorize(settings);
-  const prior = input.expectedUpdatedAt === null
-    ? null
-    : input.expectedUpdatedAt === 'unversioned'
-      ? (() => {
-          const existing = getPersonalScreenTimeRuleById(settings, input.rule.id);
-          if (!existing || existing.lastUpdated) throw new PersonalScreenTimeRuleStaleError();
-          return existing;
-        })()
-      : exactRule(settings, input.rule.id, input.expectedUpdatedAt);
-  if (input.expectedUpdatedAt === null && getPersonalScreenTimeRuleById(settings, input.rule.id)) {
-    throw new PersonalScreenTimeRuleStaleError();
-  }
-  const withoutCurrent = prior
-    ? { ...settings, personalRules: settings.personalRules.filter((rule) => rule.id !== prior.id) }
-    : settings;
-  const added = addPersonalScreenTimeRule(withoutCurrent, input.rule);
-  if (added.status === 'duplicate_rule') throw new Error('duplicate_personal_screen_time_rule');
-  if (prior?.enabled && !(await boundary.deactivateRule(prior))) {
-    throw new Error('screen_time_rule_deactivation_failed');
-  }
-  if (input.rule.enabled && !(await boundary.activateRule(input.rule))) {
-    if (prior?.enabled) await boundary.activateRule(prior);
-    throw new Error('screen_time_rule_activation_failed');
-  }
-  try {
-    await boundary.persistSettings(added.settings);
-  } catch (error) {
-    if (input.rule.enabled) await boundary.deactivateRule(input.rule);
-    if (prior?.enabled) await boundary.activateRule(prior);
-    throw error;
-  }
-  return summary(input.rule);
-}
-
+/** Chat owns lifecycle changes. Structural edits hand off to the native sentence composer. */
 export async function updatePersonalScreenTimeRule(input: {
   ruleId: string;
   expectedUpdatedAt: string;
-  fields: { enabled?: boolean; kind?: PersonalScreenTimeRuleKind; limitMinutes?: number };
+  fields: { enabled?: boolean };
   confirmed: boolean;
 }, boundary: PersonalScreenTimeRuleActionBoundary, now = () => new Date().toISOString()):
 Promise<Receipt<'screen_time.personal_rule.update'>> {
@@ -163,26 +120,11 @@ Promise<Receipt<'screen_time.personal_rule.update'>> {
   const settings = currentSettings(boundary);
   authorize(settings);
   const prior = exactRule(settings, input.ruleId, input.expectedUpdatedAt);
-  if (!Object.keys(input.fields).length || Object.keys(input.fields).some((key) => !['enabled', 'kind', 'limitMinutes'].includes(key))) {
-    throw new Error('invalid_personal_screen_time_rule_patch');
-  }
-  const kind = input.fields.kind ?? prior.kind;
-  const enabled = input.fields.enabled ?? prior.enabled;
-  const limitMinutes = input.fields.limitMinutes
-    ?? (prior.kind === 'daily_limit' ? prior.limitMinutes : 10);
-  if (!['real_step', 'focus', 'daily_limit'].includes(kind)
-    || !Number.isInteger(limitMinutes) || limitMinutes < 1 || limitMinutes > 1440
-    || (input.fields.limitMinutes !== undefined && kind !== 'daily_limit')) {
-    throw new Error('invalid_personal_screen_time_rule_patch');
+  if (Object.keys(input.fields).length !== 1 || typeof input.fields.enabled !== 'boolean') {
+    throw new Error('screen_time_rule_structural_edit_requires_native_composer');
   }
   const updatedAt = now();
-  const next = kind === prior.kind
-    ? { ...prior, enabled, ...(kind === 'daily_limit' ? { limitMinutes } : {}), lastUpdated: updatedAt } as PersonalScreenTimeRule
-    : createPersonalScreenTimeRule({
-      id: prior.id, selectionId: prior.selectionId, kind,
-      selectedApps: prior.selectedApps, selectedCategories: prior.selectedCategories,
-      enabled, setupCompleted: true, ...(kind === 'daily_limit' ? { limitMinutes } : {}), nowIso: updatedAt,
-    });
+  const next: PersonalCompositeScreenTimeRule = { ...prior, enabled: input.fields.enabled, lastUpdated: updatedAt };
   if (prior.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_rule_deactivation_failed');
   }
@@ -190,21 +132,32 @@ Promise<Receipt<'screen_time.personal_rule.update'>> {
     if (prior.enabled) await boundary.activateRule(prior);
     throw new Error('screen_time_rule_activation_failed');
   }
-  await boundary.persistSettings(replacePersonalScreenTimeRule(settings, next));
-  const result = summary(next);
+  try {
+    await boundary.persistSettings(replacePersonalCompositeScreenTimeRule(settings, next));
+  } catch (error) {
+    if (next.enabled) await boundary.deactivateRule(next);
+    if (prior.enabled) await boundary.activateRule(prior);
+    throw error;
+  }
   return {
-    operationId: 'screen_time.personal_rule.update', status: 'completed',
-    resultRefs: [{ kind: 'personal_screen_time_rule', id: next.id }], reversible: true, result,
+    operationId: 'screen_time.personal_rule.update',
+    status: 'completed',
+    resultRefs: [{ kind: 'personal_screen_time_rule', id: next.id }],
+    reversible: true,
+    result: summarize(next),
     undoOperation: {
-      type: 'screen_time.personal_rule.update', ruleId: prior.id, expectedUpdatedAt: updatedAt,
-      fields: { enabled: prior.enabled, kind: prior.kind,
-        ...(prior.kind === 'daily_limit' ? { limitMinutes: prior.limitMinutes } : {}) },
+      type: 'screen_time.personal_rule.update',
+      ruleId: prior.id,
+      expectedUpdatedAt: updatedAt,
+      fields: { enabled: prior.enabled },
     },
   };
 }
 
 export async function deactivatePersonalScreenTimeRuleReviewed(input: {
-  ruleId: string; expectedUpdatedAt: string; confirmed: boolean;
+  ruleId: string;
+  expectedUpdatedAt: string;
+  confirmed: boolean;
 }, boundary: PersonalScreenTimeRuleActionBoundary, now = () => new Date().toISOString()):
 Promise<Receipt<'screen_time.personal_rule.deactivate'>> {
   const updated = await updatePersonalScreenTimeRule({ ...input, fields: { enabled: false } }, boundary, now);
@@ -212,9 +165,10 @@ Promise<Receipt<'screen_time.personal_rule.deactivate'>> {
 }
 
 export async function deletePersonalScreenTimeRule(input: {
-  ruleId: string; expectedUpdatedAt: string; confirmed: boolean;
-}, boundary: PersonalScreenTimeRuleActionBoundary):
-Promise<Receipt<'screen_time.personal_rule.delete'>> {
+  ruleId: string;
+  expectedUpdatedAt: string | 'unversioned';
+  confirmed: boolean;
+}, boundary: PersonalScreenTimeRuleActionBoundary): Promise<Receipt<'screen_time.personal_rule.delete'>> {
   confirm(input.confirmed);
   const settings = currentSettings(boundary);
   authorize(settings);
@@ -222,10 +176,13 @@ Promise<Receipt<'screen_time.personal_rule.delete'>> {
   if (prior.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_rule_deactivation_failed');
   }
-  await boundary.persistSettings(removePersonalScreenTimeRule(settings, prior.id));
+  await boundary.persistSettings(removePersonalCompositeScreenTimeRule(settings, prior.id));
   return {
-    operationId: 'screen_time.personal_rule.delete', status: 'completed',
+    operationId: 'screen_time.personal_rule.delete',
+    status: 'completed',
     resultRefs: [{ kind: 'personal_screen_time_rule', id: prior.id }],
-    reversible: false, result: summary(prior), undoOperation: null,
+    reversible: false,
+    result: summarize(prior, settings.lastUpdated ?? '1970-01-01T00:00:00.000Z'),
+    undoOperation: null,
   };
 }

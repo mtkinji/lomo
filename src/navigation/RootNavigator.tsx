@@ -29,6 +29,7 @@ import { StandaloneFocusScreen } from '../features/activities/StandaloneFocusScr
 import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
+import type { NotificationPreferencePatch } from '../capabilities/notifications/actions/notificationPreferenceActions';
 import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyPrivacySettingsScreen';
 import { MoneyHouseholdSettingsScreen } from '../capabilities/money/screens/MoneyHouseholdSettingsScreen';
 import { BudgetSettingsScreen } from '../capabilities/money/screens/MoneyLivingPlanScreen';
@@ -365,7 +366,7 @@ export type SettingsStackParamList = {
   SettingsAppearance: undefined;
   SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
-  SettingsNotifications: undefined;
+  SettingsNotifications: { clientActionId: string; fields: NotificationPreferencePatch } | undefined;
   SettingsScreenTimeProtection:
     | {
         setupIntent?: ScreenTimeSetupIntent;
@@ -407,8 +408,27 @@ export type SettingsStackParamList = {
   SettingsExecutionTargets: undefined;
   SettingsDestinationsLibrary: undefined;
   SettingsActivityAreas: undefined;
-  SettingsPlanAvailability: undefined;
-  SettingsPlanCalendars: undefined;
+  SettingsPlanAvailability: {
+    clientActionId: string;
+    expectedVersion: number;
+    timeZone: string;
+    windows: Array<{
+      weekday: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+      mode: 'work' | 'personal';
+      startLocalTime: string;
+      endLocalTime: string;
+    }>;
+    affectedWeekdays: number[];
+  } | undefined;
+  SettingsPlanCalendars: {
+    clientActionId: string;
+    expectedVersion: number;
+    readCalendarIds: string[];
+    writeCalendarId: string | null;
+    addedReadCalendarIds: string[];
+    removedReadCalendarIds: string[];
+    writeCalendarChanged: boolean;
+  } | { clientActionId: string; reason: 'not_connected' | 'needs_reconnect' | 'inspect' } | undefined;
   SettingsDestinationDetail:
     | { mode: 'create'; definitionId: string }
     | { mode: 'edit'; targetId: string };
@@ -1450,7 +1470,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     <View
       style={[
         styles.drawerContentContainer,
-        { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET, paddingBottom: spacing.sm + insets.bottom },
+        { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET },
       ]}
     >
       <CapabilityMenu

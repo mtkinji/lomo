@@ -18,12 +18,12 @@ const validRequest = {
   parallel_tool_calls: false,
   input: [
     { role: 'user', content: 'Rename my fitness goal.' },
-    { type: 'function_call', call_id: 'call-1', name: 'goals.update', arguments: '{"goalId":"g1","title":"Fitness"}' },
+    { type: 'function_call', call_id: 'call-1', name: 'goals_d_update', arguments: '{"goalId":"g1","title":"Fitness"}' },
     { type: 'function_call_output', call_id: 'call-1', output: '{"status":"proposed"}' },
   ],
   tools: [{
     type: 'function',
-    name: 'goals.update',
+    name: 'goals_d_update',
     description: 'Update one goal.',
     parameters: strictParameters,
     strict: true,
@@ -61,6 +61,14 @@ describe('unified_chat_agent request contract', () => {
       tools: [{ ...validRequest.tools[0], parameters: { ...strictParameters, required: ['goalId'] } }],
     }],
     ['unknown input item', { ...validRequest, input: [{ type: 'computer_screenshot', image_url: 'x' }] }],
+    ['dotted function input name', {
+      ...validRequest,
+      input: [{ type: 'function_call', call_id: 'call-1', name: 'goals.update', arguments: '{}' }],
+    }],
+    ['dotted function tool name', {
+      ...validRequest,
+      tools: [{ ...validRequest.tools[0], name: 'goals.update' }],
+    }],
   ])('rejects %s', (_label, request) => {
     expect(validateKwiltAiRequestShape('/v1/responses', request, 'unified_chat_agent'))
       .toEqual(expect.objectContaining({ ok: false }));
@@ -81,6 +89,11 @@ describe('unified_chat_agent request contract', () => {
     const source = readFileSync('supabase/functions/ai-chat/index.ts', 'utf8');
     expect(source).toContain("aiJob !== 'unified_chat_agent'");
     expect(source).toContain("bearer !== `Bearer ${serviceRole}`");
+  });
+
+  test('lets ai-chat enforce its own request authorization behind the gateway', () => {
+    const config = readFileSync('supabase/config.toml', 'utf8');
+    expect(config).toMatch(/\[functions\.ai-chat\][\s\S]{0,400}?verify_jwt = false/);
   });
 
   test('replaces bounded policy context with server-owned instructions before forwarding', () => {

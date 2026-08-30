@@ -11,6 +11,7 @@ import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import { executeServerAgentTool } from './serverAgentTools.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { buildUnifiedChatAgentInstructions } from './unifiedChatAgentPolicy.ts';
+import { resolveUnsupportedEffectBoundary } from '../../../packages/kwilt-agent-runtime/src/unsupportedEffectBoundary.ts';
 import {
   planServerTurn,
   type ServerTurnJudgment,
@@ -18,6 +19,7 @@ import {
 } from './serverTurnPlanning.ts';
 import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
 import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+import { conversationalControlEventForResult } from './conversationalControlTelemetry.ts';
 
 function actionSourceForRequest(request: CanonicalAgentRunRequest): KwiltActionSource {
   if (request.initiator === 'system' || (request.triggerKind && request.triggerKind !== 'user_message')) {
@@ -50,7 +52,10 @@ type ClientActionRequest = {
 export type AgentRunPersistence = {
   enqueue: (request: CanonicalAgentRunRequest) => Promise<EnqueuedAgentRun>;
   start: (run: EnqueuedAgentRun, request: CanonicalAgentRunRequest) => Promise<number>;
-  loadHistory: (threadId: string) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>;
+  loadHistory: (
+    threadId: string,
+    throughMessageId: string,
+  ) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>;
   loadReplay: (run: EnqueuedAgentRun) => Promise<{
     answer: string;
     status: 'complete' | 'partial';
@@ -85,7 +90,7 @@ export type AgentRunPersistence = {
     body: string;
     status: 'complete' | 'partial';
     participatingCapabilities: string[];
-    requestClass: 'general' | 'capability_question';
+    requestClass: 'general' | 'capability_question' | 'better_served_elsewhere';
   }) => Promise<Record<string, unknown>>;
   fail: (input: {
     run: EnqueuedAgentRun;
@@ -93,7 +98,25 @@ export type AgentRunPersistence = {
     code: string;
     request: CanonicalAgentRunRequest;
   }) => Promise<void>;
+  authorizeControl?: (input: {
+    operationId: string; toolVersion: number; actorId: string; channel: 'mobile' | 'phone' | 'mcp' | 'scheduled';
+    provider: string; requestId: string; consequence: 'low' | 'consequential'; arguments: Record<string, unknown>;
+  }) => Promise<{ allowed: boolean; replayed: boolean; reason: string | null }>;
+  recordControl?: (input: {
+    event: 'requested' | 'authorization_refused' | 'proposed' | 'handoff' | 'completed'
+      | 'failed' | 'replayed' | 'stale_version_conflict';
+    operationId: string; toolVersion: number; actorId: string; channel: 'mobile' | 'phone' | 'mcp' | 'scheduled';
+    provider: string; requestId: string; arguments: Record<string, unknown>; resultStatus: string | null;
+    receiptId?: string | null; errorCode?: string | null; startedAtMs: number;
+  }) => Promise<void>;
 };
+
+function controlChannelForRequest(request: CanonicalAgentRunRequest): 'mobile' | 'phone' | 'mcp' | 'scheduled' {
+  if (request.initiator === 'system' || (request.triggerKind && request.triggerKind !== 'user_message')) return 'scheduled';
+  if (request.channel === 'phone' || request.channel === 'sms') return 'phone';
+  if (request.channel === 'mobile') return 'mobile';
+  return 'mcp';
+}
 
 export type AgentRunCoordinatorResult =
   | { state: 'complete' | 'partial'; replayed: true; run: EnqueuedAgentRun; answer: string }
@@ -143,10 +166,10 @@ function projectAuthoritativeServerAnswer({
     }
   }, 0);
   if (proposedCount === 1) {
-    return 'I prepared that change for review in Kwilt. It has not been applied yet.';
+    return 'That change is ready for review. Nothing has changed yet.';
   }
   if (proposedCount > 1) {
-    return `I prepared ${proposedCount} changes for review in Kwilt. They have not been applied yet.`;
+    return `${proposedCount} changes are ready for review. Nothing has changed yet.`;
   }
   const unavailableReason = messages.reduce<string | null>((reason, message) => {
     if (reason || message.role !== 'tool') return reason;
@@ -160,9 +183,17 @@ function projectAuthoritativeServerAnswer({
     }
   }, null);
   if (unavailableReason) return unavailableReason;
-  const pendingClientActionCount = events.filter((event) => event.resultStatus === 'pending_client_action').length;
-  if (pendingClientActionCount > 0) {
-    return 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.';
+  const hasPendingClientAction = events.some((event) => event.resultStatus === 'pending_client_action')
+    || messages.some((message) => {
+      if (message.role !== 'tool') return false;
+      try {
+        return (JSON.parse(message.content) as { status?: string }).status === 'pending_client_action';
+      } catch {
+        return false;
+      }
+    });
+  if (hasPendingClientAction) {
+    return 'Ready when you are. You still need to take the next step.';
   }
   return modelContent;
 }
@@ -225,7 +256,24 @@ export async function executeEnqueuedCanonicalAgentRun({
   let activeVersion = enqueued.version;
   try {
     activeVersion = await persistence.start(enqueued, request);
-    const history = await persistence.loadHistory(enqueued.threadId);
+    const unsupportedBoundary = resolveUnsupportedEffectBoundary(request.prompt);
+    if (unsupportedBoundary) {
+      const completed = await persistence.complete({
+        run: enqueued,
+        expectedVersion: activeVersion,
+        body: unsupportedBoundary.response,
+        status: 'complete',
+        participatingCapabilities: unsupportedBoundary.participatingCapabilities,
+        requestClass: 'better_served_elsewhere',
+      });
+      return {
+        state: 'complete',
+        replayed: false,
+        run: completed,
+        answer: unsupportedBoundary.response,
+      };
+    }
+    const history = await persistence.loadHistory(enqueued.threadId, enqueued.messageId);
     const actorAllowedTools = SERVER_AGENT_TOOL_CATALOG.filter((tool) => !authorizeTool || authorizeTool(tool));
     const plan = await planServerTurn({
       prompt: request.prompt,
@@ -250,13 +298,14 @@ export async function executeEnqueuedCanonicalAgentRun({
       tools: executableTools,
       modelTools: plan.visibleTools,
       initialMessages,
-      modelStep: async ({ messages, round }) => {
+      modelStep: async ({ messages, tools, round }) => {
+        const synthesisOnly = tools.length === 0;
         const step = await modelStep({
           messages,
           round,
-          tools: plan.visibleTools,
-          resolvedTools: executableTools,
-          toolSearchNamespaces: plan.toolSearchNamespaces,
+          tools,
+          resolvedTools: synthesisOnly ? [] : executableTools,
+          toolSearchNamespaces: synthesisOnly ? [] : plan.toolSearchNamespaces,
         });
         if (step.metadata) {
           await persistence.recordModelStep({ run: enqueued, round, metadata: step.metadata });
@@ -272,18 +321,68 @@ export async function executeEnqueuedCanonicalAgentRun({
             retryable: false,
           });
         }
-        return executeServerAgentTool({
-          client: dataClient,
-          userId,
-          call,
-          tool,
-          writeContext: { threadId: enqueued.threadId, runId: enqueued.runId, messageId: enqueued.messageId },
-          actionSource: actionSourceForRequest(request),
-          stageDeviceAction: (action) => persistence.stageClientAction({ run: enqueued, callId: call.id, action }),
-          stageProposal: (proposal) => persistence.stageProposal({ run: enqueued, callId: call.id, proposal }),
-          stageProposals: (proposals) => persistence.stageProposals({ run: enqueued, callId: call.id, proposals }),
-          timeZone: request.channelContext.timeZone,
-        });
+        const execute = async () => {
+          const channel = controlChannelForRequest(request);
+          const provider = tool.providers.includes('server') ? 'server' : tool.providers[0] ?? 'server';
+          const startedAtMs = Date.now();
+          const recordControl = async (input: Parameters<NonNullable<AgentRunPersistence['recordControl']>>[0]) => {
+            try { await persistence.recordControl?.(input); } catch (error) {
+              console.warn('[agent-run] Conversational control audit write failed', error instanceof Error ? error.message : 'unknown');
+            }
+          };
+          if (persistence.authorizeControl) {
+            const decision = await persistence.authorizeControl({
+              operationId: tool.id, toolVersion: tool.version, actorId: userId, channel, provider,
+              requestId: call.id, consequence: tool.consequence, arguments: call.arguments,
+            });
+            if (!decision.allowed) {
+              await recordControl({
+                event: 'authorization_refused', operationId: tool.id, toolVersion: tool.version,
+                actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+                resultStatus: 'refused', errorCode: decision.reason, startedAtMs,
+              });
+              return { status: 'refused' as const, reason: decision.reason ?? 'conversational_control_refused' };
+            }
+            await recordControl({
+              event: decision.replayed ? 'replayed' : 'requested', operationId: tool.id, toolVersion: tool.version,
+              actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+              resultStatus: null, startedAtMs,
+            });
+          }
+          try {
+            const result = await executeServerAgentTool({
+              client: dataClient,
+              userId,
+              call,
+              tool,
+              writeContext: { threadId: enqueued.threadId, runId: enqueued.runId, messageId: enqueued.messageId },
+              actionSource: actionSourceForRequest(request),
+              stageDeviceAction: (action) => persistence.stageClientAction({ run: enqueued, callId: call.id, action }),
+              stageProposal: (proposal) => persistence.stageProposal({ run: enqueued, callId: call.id, proposal }),
+              stageProposals: (proposals) => persistence.stageProposals({ run: enqueued, callId: call.id, proposals }),
+              timeZone: request.channelContext.timeZone,
+            });
+            if (persistence.authorizeControl) {
+              const receipt = result.status === 'completed' ? result.receipt : null;
+              await recordControl({
+                event: conversationalControlEventForResult(result), operationId: tool.id, toolVersion: tool.version,
+                actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+                resultStatus: result.status,
+                receiptId: receipt && typeof receipt.receiptId === 'string' ? receipt.receiptId : null,
+                errorCode: result.status === 'failed' ? result.code : null, startedAtMs,
+              });
+            }
+            return result;
+          } catch (error) {
+            if (persistence.authorizeControl) await recordControl({
+              event: 'failed', operationId: tool.id, toolVersion: tool.version,
+              actorId: userId, channel, provider, requestId: call.id, arguments: call.arguments,
+              resultStatus: 'failed', errorCode: 'server_tool_execution_failed', startedAtMs,
+            });
+            throw error;
+          }
+        };
+        return execute();
       },
     });
     const modelContent = loop.content?.trim();

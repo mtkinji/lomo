@@ -166,6 +166,12 @@ describe('SettingsHomeScreen planning group', () => {
     expect(queryByText('Connected tools')).toBeNull();
   });
 
+  it('makes the bounded Agent model and context settings reachable', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Agent'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsAiModel');
+  });
+
   it('opens the canonical Household settings surface', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Household'));

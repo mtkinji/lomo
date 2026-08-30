@@ -50,6 +50,31 @@ test('loads the persisted terminal answer for idempotent delivery recovery', asy
   });
 });
 
+test('loads retry history only through the message being retried', async () => {
+  const targetQuery = {
+    select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn(async () => ({ data: { created_at: '2026-08-29T19:35:11.000Z' }, error: null })),
+  };
+  const historyQuery = {
+    select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), lte: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    limit: jest.fn(async () => ({
+      data: [{ role: 'user', body: 'Review my goals, to-dos, plan, chores.' }], error: null,
+    })),
+  };
+  const from = jest.fn()
+    .mockReturnValueOnce(targetQuery)
+    .mockReturnValueOnce(historyQuery);
+  const persistence = createServiceAgentRunPersistence({ admin: { rpc: jest.fn(), from }, userId: 'user-1' });
+
+  await expect(persistence.loadHistory('thread-1', 'message-1')).resolves.toEqual([
+    { role: 'user', content: 'Review my goals, to-dos, plan, chores.' },
+  ]);
+
+  expect(targetQuery.eq).toHaveBeenCalledWith('id', 'message-1');
+  expect(historyQuery.lte).toHaveBeenCalledWith('created_at', '2026-08-29T19:35:11.000Z');
+});
+
 test('appends bounded model telemetry without raw request or authorization data', async () => {
   const rpc = jest.fn(async () => ({ data: null, error: null }));
   const persistence = createServiceAgentRunPersistence({

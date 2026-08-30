@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, AppState, ScrollView, StyleSheet, View, Platform, Switch } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -21,6 +21,7 @@ import {
   DEFAULT_DAILY_SHOW_UP_TIME,
   DEFAULT_GOAL_NUDGE_TIME,
 } from '../../services/notifications/defaultTimes';
+import { buildNotificationPreferenceReview } from '../../capabilities/notifications/actions/notificationPreferenceActions';
 
 type NotificationsSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -49,6 +50,7 @@ type TimePickerTarget = 'dailyShowUp' | 'dailyFocus' | 'goalNudge';
 
 export function NotificationsSettingsScreen() {
   const navigation = useNavigation<NotificationsSettingsNavigationProp>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsNotifications'>>();
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
@@ -56,6 +58,31 @@ export function NotificationsSettingsScreen() {
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
   const [timePickerDraft, setTimePickerDraft] = useState<Date>(() => new Date());
+  const requestedReview = useMemo(() => {
+    if (!route.params?.fields) return null;
+    try { return buildNotificationPreferenceReview(preferences, route.params.fields); } catch { return null; }
+  }, [preferences, route.params?.fields]);
+
+  const applyRequestedReview = useCallback(async () => {
+    if (!requestedReview) return;
+    if (requestedReview.requiresNativePermission) {
+      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      if (!granted) return;
+      requestedReview.next.osPermissionStatus = 'authorized';
+    }
+    const prior = preferences;
+    await NotificationService.applySettings(requestedReview.next);
+    if (userId && requestedReview.changedFields.includes('allowHouseholdMealPlanPush')) {
+      try {
+        await createMealPlanAttentionRepository().setPushEnabled(requestedReview.next.allowHouseholdMealPlanPush !== false);
+      } catch {
+        await NotificationService.applySettings(prior);
+        Alert.alert('Preference not saved', 'Check your connection and try again.');
+        return;
+      }
+    }
+    if (navigation.canGoBack()) navigation.goBack();
+  }, [navigation, preferences, requestedReview, userId]);
 
   const formatTimeLabel = (timeHHmm: string) => {
     const [hourString, minuteString] = timeHHmm.split(':');
@@ -494,6 +521,18 @@ export function NotificationsSettingsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
+          {requestedReview ? (
+            <View style={styles.card}>
+              <VStack space="sm">
+                <Text style={styles.sectionTitle}>Review chat request</Text>
+                <Text style={styles.rowSubtitle}>
+                  {requestedReview.changedFields.length} notification setting{requestedReview.changedFields.length === 1 ? '' : 's'} will change.
+                  {requestedReview.requiresNativePermission ? ' iOS will ask for permission after you continue.' : ''}
+                </Text>
+                <Button label="Apply these changes" onPress={() => { void applyRequestedReview(); }} />
+              </VStack>
+            </View>
+          ) : null}
           <View style={styles.card}>
             <VStack space="sm">
               <Text style={styles.sectionTitle}>Notifications</Text>

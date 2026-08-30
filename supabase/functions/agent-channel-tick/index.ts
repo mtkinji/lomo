@@ -11,6 +11,7 @@ import { requestServerAgentModel, requestServerTurnJudgment } from '../_shared/s
 import { sendPhoneAgentSms } from '../_shared/phoneAgentDelivery.ts';
 import { buildLegacyPhoneAgentEnrichmentPayload } from '../_shared/phoneAgent.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
+import { createConversationalControlTelemetry } from '../_shared/conversationalControlTelemetry.ts';
 import { calendarDateInTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -47,6 +48,12 @@ serve(async (req) => {
   if (!url || !anonKey || !serviceRole) return json(503, { ok: false, error: 'service_not_configured' });
 
   const admin = createClient(url, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
+  try {
+    await createConversationalControlTelemetry({ admin }).reconcile({ staleAfterMinutes: 15, limit: 100 });
+  } catch (error) {
+    console.warn('[agent-channel-tick] Conversational control reconciliation failed',
+      error instanceof Error ? error.message : 'unknown');
+  }
   const requestedLimit = Number(new URL(req.url).searchParams.get('limit') ?? 10);
   const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 25)) : 10;
   const { data: claimed, error: claimError } = await admin.rpc('claim_kwilt_agent_channel_jobs', { p_limit: limit });
@@ -95,7 +102,7 @@ serve(async (req) => {
           persistence: createServiceAgentRunPersistence({ admin, userId: input.userId }),
           dataClient: admin,
           modelStep: ({ messages, tools, resolvedTools, toolSearchNamespaces }) => requestServerAgentModel({
-            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: input.userId,
+            supabaseUrl: url, serviceRoleToken: serviceRole, quotaIdentity: input.userId,
             isPro, messages, tools, resolvedTools, toolSearchNamespaces,
             policyContext: {
               currentDate: calendarDateInTimeZone(new Date(), input.timeZone),
@@ -103,7 +110,7 @@ serve(async (req) => {
             },
           }),
           requestJudgment: ({ prompt, namespaces }) => requestServerTurnJudgment({
-            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole,
+            supabaseUrl: url, serviceRoleToken: serviceRole,
             quotaIdentity: input.userId, isPro, prompt, namespaces,
           }),
           authorizeTool: (tool) => (

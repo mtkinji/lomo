@@ -313,8 +313,8 @@ async function run() {
   const tools = await mcpCall(baseUrl, accessToken, 'tools/list');
   const toolNames = tools.tools?.map((tool) => tool.name) ?? [];
   console.log(`tools/list ok: ${toolNames.join(', ')}`);
-  if (!toolNames.includes('get_current_account')) throw new Error('tools/list did not include get_current_account');
-  if (!toolNames.includes('list_arcs')) throw new Error('tools/list did not include list_arcs');
+  if (!toolNames.includes('kwilt_profile_read')) throw new Error('tools/list did not include kwilt_profile_read');
+  if (!toolNames.includes('kwilt_arcs_list')) throw new Error('tools/list did not include kwilt_arcs_list');
 
   const currentAccount = await mcpCall(
     baseUrl,
@@ -335,7 +335,7 @@ async function run() {
   console.log(`list_arcs ok: ${JSON.stringify(listArcs.structuredContent ?? listArcs).slice(0, 500)}`);
 
   if (writeSmoke) {
-    if (!toolNames.includes('create_arc')) throw new Error('tools/list did not include write tools for life.read life.write scope');
+    if (!toolNames.includes('kwilt_arcs_create')) throw new Error('tools/list did not include write tools for life.read life.write scope');
     await runWriteSmoke(baseUrl, accessToken);
     await revokeToken(baseUrl, accessToken);
     await expectRevoked(baseUrl, accessToken);

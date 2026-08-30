@@ -17,7 +17,8 @@ export async function executeClientActionDecision({
   clientAction: UnifiedChatClientAction;
   decision: 'continue' | 'decline';
   repository: Repository;
-  open: (action: UnifiedChatClientAction) => void | Promise<void>;
+  open: (action: UnifiedChatClientAction) => Record<string, unknown> | void
+    | Promise<Record<string, unknown> | void>;
   now?: () => string;
 }): Promise<void> {
   if (clientAction.status !== 'pending_client_action' && clientAction.status !== 'presenting') {
@@ -38,11 +39,12 @@ export async function executeClientActionDecision({
         expectedVersion: clientAction.version, presentedAt: now(),
       });
   try {
-    await open(presenting);
+    const deviceResult = await open(presenting);
     const completedAt = now();
     await repository.transitionClientAction({
       actionId: presenting.id, fromStatus: 'presenting', toStatus: 'completed',
-      expectedVersion: presenting.version, result: { outcome: 'opened_native_review' },
+      expectedVersion: presenting.version,
+      result: deviceResult ?? { outcome: 'opened_native_review' },
       presentedAt: presenting.presentedAt, completedAt,
     });
   } catch (error) {

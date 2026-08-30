@@ -1,4 +1,4 @@
-import { evaluatePersonalCompositeRule } from './personalCompositeRuleEvaluation';
+import { evaluatePersonalCompositeRule, resolvePersonalRuleCondition } from './personalCompositeRuleEvaluation';
 import type { PersonalCompositeScreenTimeRule } from './personalCompositeScreenTimeRule';
 
 const rule: PersonalCompositeScreenTimeRule = {
@@ -46,5 +46,26 @@ describe('evaluatePersonalCompositeRule', () => {
       'after-five': false,
       'under-limit': true,
     })).toEqual({ status: 'available', matched: false });
+  });
+
+  it('uses Money-owned truth for a budget condition without reinterpreting it', () => {
+    const condition = {
+      id: 'shopping-budget', type: 'budget' as const, categorySourceId: 'category-shopping',
+      categoryName: 'Shopping', preset: 'at_95_percent' as const,
+    };
+    expect(resolvePersonalRuleCondition(condition, {
+      minuteOfDay: 0, dailyUsageMinutes: null, focusActive: null, realStepComplete: null,
+      budgetConditionTruth: { 'shopping-budget': true },
+    })).toBe(true);
+    expect(resolvePersonalRuleCondition(condition, {
+      minuteOfDay: 0, dailyUsageMinutes: null, focusActive: null, realStepComplete: null,
+      budgetConditionTruth: {},
+    })).toBe('unknown');
+  });
+
+  it('supports a real-step condition that matches completion or non-completion', () => {
+    const context = { minuteOfDay: 0, dailyUsageMinutes: null, focusActive: null, realStepComplete: true };
+    expect(resolvePersonalRuleCondition({ id: 'real', type: 'real_step_complete', operator: 'is' }, context)).toBe(true);
+    expect(resolvePersonalRuleCondition({ id: 'real', type: 'real_step_complete', operator: 'is_not' }, context)).toBe(false);
   });
 });

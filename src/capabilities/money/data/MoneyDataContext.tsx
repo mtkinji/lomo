@@ -10,12 +10,6 @@ import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 import { syncMoneyGlanceableState } from '../runtime/moneyGlanceableState';
-import { reconcileMoneyAppControls } from '../runtime/moneyAppControlRuntime';
-import {
-  recordMoneyAppControlReview,
-  type MoneyAppControlReviewOutcome,
-} from '../domain/moneyAppControl';
-import { loadMoneyAppControlSettings, saveMoneyAppControlSettings } from '../runtime/moneyAppControlStorage';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { getLivingPlanSettings } from './livingPlanRepository';
 import {
@@ -75,7 +69,6 @@ type MoneyDataContextValue = MoneyDataState & {
     budgetCents: number,
     funding?: Parameters<typeof previewLivingPlanOverride>[3],
   ) => Promise<LivingPlanOverridePreview | null>;
-  reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
   disconnectConnection: (connectionId: string) => Promise<void>;
 };
 
@@ -125,7 +118,6 @@ export function MoneyDataProvider({
       });
     }
     void syncMoneyGlanceableState(snapshot);
-    void reconcileMoneyAppControls(snapshot);
   }, [normalizedUserId, snapshotCache]);
 
   const refreshInBackground = useCallback((version: number) => {
@@ -565,7 +557,6 @@ export function MoneyDataProvider({
             receiptId: projection.receipt?.id ?? null,
           });
           void syncMoneyGlanceableState(projection.snapshot);
-          void reconcileMoneyAppControls(projection.snapshot);
           return;
         } finally {
           setSavingCategory(false);
@@ -574,14 +565,6 @@ export function MoneyDataProvider({
     }
     await applyCategoryMutation(() => resolvedRepository.updateCategoryPlan(categoryId, input));
   }, [applyCategoryMutation, resolvedRepository, state.snapshot]);
-
-  const reviewMoneyAppControl = useCallback(async (categoryId: string, outcome: MoneyAppControlReviewOutcome) => {
-    if (!state.snapshot) throw new Error('Money must finish loading before this review can be recorded.');
-    const current = await loadMoneyAppControlSettings();
-    const next = recordMoneyAppControlReview(current, categoryId, outcome);
-    await saveMoneyAppControlSettings(next);
-    await reconcileMoneyAppControls(state.snapshot, next);
-  }, [state.snapshot]);
 
   const disconnectConnection = useCallback(async (connectionId: string) => {
     const connection = (state.snapshot?.connections ?? []).find((candidate) => candidate.id === connectionId);
@@ -616,8 +599,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     disconnectConnection,
     previewCategoryPlanAmount,
-    reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

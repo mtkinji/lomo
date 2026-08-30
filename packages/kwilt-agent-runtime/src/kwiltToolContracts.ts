@@ -234,13 +234,13 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'money.read', version: 1, capabilityId: 'money',
     purpose: 'Read the current plan-versus-income-limit answer and current-month Money aggregates without exposing merchant or account details.',
-    providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'money.category.create', version: 1, capabilityId: 'money',
     purpose: 'Prepare a reviewed Money category with an exact name and monthly amount; use zero only when the user has not requested an amount.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -252,7 +252,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'money.category.rename', version: 1, capabilityId: 'money',
     purpose: 'Prepare a reviewed name-only change for one Money category, including adding an emoji directly to its name.',
-    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -264,7 +264,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'money.app_control.review', version: 1, capabilityId: 'money',
     purpose: 'Open the canonical Money category app-control editor for a self-authored rule whose Money condition pauses user-selected apps through Screen Time.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object',
@@ -300,6 +300,55 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
       additionalProperties: false,
     },
     outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.review_transaction', version: 1, capabilityId: 'money',
+    purpose: 'Open the private native Money transaction review, optionally at one exact transaction.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'native', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: { transactionId: { type: 'string', minLength: 1 } },
+      additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.category.update', version: 1, capabilityId: 'money',
+    purpose: 'Open one exact private Money category for native review of its planned amount, name, or rollover behavior.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'native', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        categoryId: { type: 'string', minLength: 1 },
+        fields: { type: 'object', minProperties: 1, additionalProperties: false, properties: {
+          name: { type: 'string', minLength: 1, maxLength: 120 },
+          budgetCents: { type: 'integer', minimum: 0 }, rollover: { type: 'boolean' },
+        } },
+      }, required: ['categoryId', 'fields'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.privacy.configure', version: 1, capabilityId: 'money',
+    purpose: 'Open Money privacy settings so device authentication can review the requested lock state.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'native', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: { enabled: { type: 'boolean' } }, required: ['enabled'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.connection.connect', version: 1, capabilityId: 'money',
+    purpose: 'Open the provider-owned native Money connection flow without accepting credentials in Chat.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'native', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.connection.sync', version: 1, capabilityId: 'money',
+    purpose: 'Open native Money account controls to review a sync without exposing provider credentials.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'native', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: { connectionId: { type: 'string', minLength: 1 } }, additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'relationships.read', version: 1, capabilityId: 'relationships',
@@ -1017,9 +1066,9 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'channel.phone.continue_run', version: 1, capabilityId: 'channels',
-    purpose: 'Continue one authorized Phone Agent request through the canonical durable run ledger.',
-    providers: ['channel', 'server'], effect: 'read', consequence: 'low', reversible: true,
-    confirmation: 'none', canDeferToClient: false,
+    purpose: 'Continue the current durable Kwilt conversation through the verified Phone Agent link.',
+    providers: ['device', 'channel', 'server'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: true,
     inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },
 ];

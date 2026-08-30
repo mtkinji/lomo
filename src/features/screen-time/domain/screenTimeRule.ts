@@ -1,6 +1,6 @@
 export const DEFAULT_TEMPORARY_OPEN_MINUTES = 20 as const;
 
-export type ScreenTimeRuleDomain = 'personal' | 'money' | 'family';
+export type ScreenTimeRuleDomain = 'personal' | 'family';
 
 export type ScreenTimeRuleSubject =
   | { kind: 'self' }
@@ -10,7 +10,7 @@ export type ScreenTimeRuleTrigger =
   | { type: 'focus_active' }
   | { type: 'real_step_pending'; minFocusMinutes: number }
   | { type: 'daily_usage_limit'; minutes: number; reset: 'daily' }
-  | { type: 'money_review'; categorySourceId: string }
+  | { type: 'composite' }
   | { type: 'family_agreement'; agreementId: string };
 
 export type ScreenTimeRule = {
@@ -70,10 +70,7 @@ function normalizeTrigger(value: unknown): ScreenTimeRuleTrigger | null {
       reset: 'daily',
     };
   }
-  if (value.type === 'money_review') {
-    const categorySourceId = cleanString(value.categorySourceId);
-    return categorySourceId ? { type: 'money_review', categorySourceId } : null;
-  }
+  if (value.type === 'composite') return { type: 'composite' };
   if (value.type === 'family_agreement') {
     const agreementId = cleanString(value.agreementId);
     return agreementId ? { type: 'family_agreement', agreementId } : null;
@@ -88,9 +85,9 @@ const triggerMatchesDomain = (
   if (domain === 'personal') {
     return trigger.type === 'focus_active'
       || trigger.type === 'real_step_pending'
-      || trigger.type === 'daily_usage_limit';
+      || trigger.type === 'daily_usage_limit'
+      || trigger.type === 'composite';
   }
-  if (domain === 'money') return trigger.type === 'money_review';
   return trigger.type === 'family_agreement';
 };
 
@@ -104,7 +101,7 @@ export function normalizeScreenTimeRule(value: unknown): ScreenTimeRule | null {
   const trigger = normalizeTrigger(value.trigger);
 
   if (!id || !selectionId || !title
-    || (domain !== 'personal' && domain !== 'money' && domain !== 'family')
+    || (domain !== 'personal' && domain !== 'family')
     || !subject || !trigger || !triggerMatchesDomain(domain, trigger)) return null;
   if (domain === 'family' ? subject.kind !== 'child' : subject.kind !== 'self') return null;
 

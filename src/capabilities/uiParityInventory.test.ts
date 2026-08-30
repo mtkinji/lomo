@@ -117,8 +117,10 @@ describe('UI parity inventory', () => {
     expect(errors).not.toEqual(expect.arrayContaining([
       expect.stringContaining('Unresolved UI gap'),
     ]));
-    expect(errors).toEqual(expect.arrayContaining([
+    expect(errors).not.toEqual(expect.arrayContaining([
       expect.stringContaining('recipes.publication.prepare mobile is missing_provider'),
+    ]));
+    expect(errors).toEqual(expect.arrayContaining([
       expect.stringContaining('activities.capture voice is missing_conformance'),
     ]));
     expect(() => assertFinalConversationalParity({ surfaces: UI_PARITY_SURFACES, rows }))

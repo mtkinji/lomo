@@ -1,40 +1,37 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import ReanimatedSwipeable, { type SwipeableProps } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { HStack, Text, VStack } from '../../ui/primitives';
-import type { RootDrawerParamList, SettingsStackParamList } from '../../navigation/RootNavigator';
+import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import {
   getScreenTimeAuthorizationStatus,
-  presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
 } from '../../services/appleEcosystem/screenTimeProtection';
 import {
-  createPersonalScreenTimeRule,
-  getPersonalScreenTimeRuleById,
   getScreenTimeSetupDefaults,
   getScreenTimeSetupRecoveryStep,
   normalizeScreenTimeProtectionSettings,
-  replacePersonalScreenTimeRule,
   type PersonalScreenTimeRuleKind,
   type ScreenTimeSetupIntent,
   type ScreenTimeSetupOfferSurface,
 } from '../../services/screenTimeProtection';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
+import { ensureCurrentScreenTimeRuleSystem } from '../screen-time/runtime/screenTimeRuleSystemCleanupRuntime';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
-import { useMoneyAppControlSettings } from '../../capabilities/money/runtime/moneyAppControlStorage';
 import {
   SettingsDivider,
   SettingsDetailRow,
+  SettingsDetailToggleRow,
   SettingsGroup,
   SettingsPage,
   SettingsRow,
@@ -48,18 +45,19 @@ import {
   buildMyScreenTimeRuleInventory,
   type ScreenTimeRuleInventoryRow,
 } from '../screen-time/domain/screenTimeRuleInventory';
-import { listPersonalScreenTimeRules } from '../screen-time/domain/personalScreenTimeRuleActions';
-import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
+import {
+  deletePersonalCompositeScreenTimeRule,
+  savePersonalCompositeScreenTimeRule,
+} from '../screen-time/domain/personalCompositeRuleActions';
+import {
+  createPersonalCompositeRuleActionBoundary,
+} from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 
-type SetupStep = 'idle' | 'permission' | 'selection';
-type SetupPhase = 'intro' | 'permission' | 'apps' | 'rules' | 'done' | 'manage';
-type RuleDraft = {
-  realStep: boolean;
-  focusSession: boolean;
-};
+type SetupStep = 'idle' | 'permission';
+type SetupPhase = 'intro' | 'permission' | 'manage';
 function statusLabel(status: string): string {
   switch (status) {
     case 'approved':
@@ -113,53 +111,16 @@ function setupPhaseIndex(phase: SetupPhase): number {
   switch (phase) {
     case 'permission':
       return 2;
-    case 'apps':
-      return 3;
-    case 'rules':
-      return 4;
-    case 'done':
-      return 5;
     case 'intro':
     default:
       return 1;
   }
 }
 
-function initialRuleDraft(params: {
-  focusEnabled: boolean;
-  meaningfulFirstEnabled: boolean;
-  setupIntent: ScreenTimeSetupIntent;
-}): RuleDraft {
-  if (params.focusEnabled || params.meaningfulFirstEnabled) {
-    return {
-      realStep: params.meaningfulFirstEnabled,
-      focusSession: params.focusEnabled,
-    };
-  }
-  const defaults = getScreenTimeSetupDefaults(params.setupIntent);
-  return {
-    realStep: defaults.realStep,
-    focusSession: defaults.focusSession,
-  };
-}
-
-function doneBodyForRules(rules: RuleDraft): string {
-  if (rules.realStep && rules.focusSession) {
-    return 'You created two rules. Each blocks its selected apps when that rule applies.';
-  }
-  if (rules.focusSession) {
-    return 'Selected apps will stay blocked while Focus is running.';
-  }
-  return 'Selected apps will stay blocked until you complete a to-do, record progress, or finish Focus.';
-}
-
 function setupStepCopy(params: {
   phase: SetupPhase;
   introCopy: { title: string; body: string };
-  hasTargets: boolean;
-  targetCount: number;
   isScreenTimeUnavailable: boolean;
-  rules: RuleDraft;
 }): { eyebrow: string; title: string; body: string } {
   switch (params.phase) {
     case 'permission':
@@ -169,26 +130,6 @@ function setupStepCopy(params: {
         body: params.isScreenTimeUnavailable
           ? 'Screen Time is unavailable in this build. Reinstall an entitlement-enabled development build to continue.'
           : 'Kwilt uses Screen Time to block only the apps you choose. Your choices stay on this device.',
-      };
-    case 'apps':
-      return {
-        eyebrow: 'Choose apps',
-        title: 'Choose apps to block.',
-        body: params.hasTargets
-          ? `${params.targetCount} apps or categories selected. You can change this anytime.`
-          : 'Pick apps or categories that tend to pull you away.',
-      };
-    case 'rules':
-      return {
-        eyebrow: 'Blocking rules',
-        title: 'What should come first?',
-        body: 'Choose when selected apps should wait.',
-      };
-    case 'done':
-      return {
-        eyebrow: "You're set",
-        title: 'Screen Time Controls are on.',
-        body: doneBodyForRules(params.rules),
       };
     case 'intro':
     case 'manage':
@@ -204,22 +145,17 @@ function setupStepCopy(params: {
 export function ScreenTimeProtectionSettingsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const { capture } = useAnalytics();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
-  const moneyAppControls = useMoneyAppControlSettings();
   const [householdSnapshot, setHouseholdSnapshot] = useState<HouseholdSnapshot | null>(null);
   const [householdLoadState, setHouseholdLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [setupStep, setSetupStep] = useState<SetupStep>('idle');
+  const [pendingPersonalRuleId, setPendingPersonalRuleId] = useState<string | null>(null);
   const startedKeyRef = useRef<string | null>(null);
 
   const normalized = useMemo(() => normalizeScreenTimeProtectionSettings(settings), [settings]);
-  const personalRuleSummaries = useMemo(
-    () => listPersonalScreenTimeRules(createPersonalScreenTimeRuleActionBoundary()).result,
-    [normalized],
-  );
   const setupIntent = route.params?.setupIntent ?? 'settings_discovery';
   const entrySurface = route.params?.entrySurface ?? 'settings';
   const returnToActivityId = route.params?.returnToActivityId;
@@ -228,18 +164,17 @@ export function ScreenTimeProtectionSettingsScreen() {
     [entrySurface, setupIntent],
   );
   const recoveryStep = getScreenTimeSetupRecoveryStep(normalized);
-  const targetCount = normalized.selectedApps.length + normalized.selectedCategories.length;
+  const canonicalTargetCount = normalized.personalCompositeRules.reduce(
+    (count, rule) => count + rule.selectedApps.length + rule.selectedCategories.length,
+    0,
+  );
+  const targetCount = canonicalTargetCount || normalized.selectedApps.length + normalized.selectedCategories.length;
   const hasTargets = targetCount > 0;
   const isApproved = normalized.authorizationStatus === 'approved';
-  const focusEnabled = normalized.personalRules.some((rule) => rule.kind === 'focus' && rule.enabled);
-  const meaningfulFirstEnabled = normalized.personalRules.some((rule) => rule.kind === 'real_step' && rule.enabled);
-  const hasCompletedRulesSetup = normalized.personalRules.some((rule) => rule.setupCompleted);
+  const hasCompletedRulesSetup = normalized.personalCompositeRules.some((rule) => rule.setupCompleted);
   const setupCompleted = isApproved && hasTargets && hasCompletedRulesSetup;
   const [setupPhase, setSetupPhase] = useState<SetupPhase>(() => (setupCompleted ? 'manage' : 'intro'));
   const previousAuthorizationApprovedRef = useRef(isApproved);
-  const [ruleDraft, setRuleDraft] = useState<RuleDraft>(() =>
-    initialRuleDraft({ focusEnabled, meaningfulFirstEnabled, setupIntent }),
-  );
 
   useEffect(() => {
     const wasAuthorizationApproved = previousAuthorizationApprovedRef.current;
@@ -248,11 +183,6 @@ export function ScreenTimeProtectionSettingsScreen() {
       setSetupPhase('intro');
     }
   }, [isApproved, setupPhase]);
-
-  useEffect(() => {
-    if (setupPhase !== 'rules') return;
-    setRuleDraft(initialRuleDraft({ focusEnabled, meaningfulFirstEnabled, setupIntent }));
-  }, [focusEnabled, meaningfulFirstEnabled, setupIntent, setupPhase]);
 
   useEffect(() => {
     if (setupPhase === 'manage') return;
@@ -280,13 +210,11 @@ export function ScreenTimeProtectionSettingsScreen() {
     });
   }, [reconcileAfterSettingsChange, setSettings]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!setupCompleted) {
-        setSetupPhase('intro');
-      }
-    }, [entrySurface, returnToActivityId, setupCompleted, setupIntent]),
-  );
+  useEffect(() => {
+    if (!setupCompleted) {
+      setSetupPhase('intro');
+    }
+  }, [entrySurface, returnToActivityId, setupCompleted, setupIntent]);
 
   useFocusEffect(
     useCallback(() => {
@@ -372,84 +300,6 @@ export function ScreenTimeProtectionSettingsScreen() {
     }
   };
 
-  const handleChooseTargets = async (mode: 'setup' | 'manage' = 'setup') => {
-    if (!isApproved) {
-      const authorizationStatus = await handleRequestPermission();
-      if (useAppStore.getState().screenTimeProtection.authorizationStatus !== 'approved') {
-        if (authorizationStatus === 'approved') {
-          setSetupPhase('apps');
-        }
-        return;
-      }
-    }
-
-    setSetupStep('selection');
-    const selection = await presentScreenTimeActivityPicker(
-      useAppStore.getState().screenTimeProtection,
-      { selectionId: 'personal_setup_staging' },
-    );
-    setSetupStep('idle');
-    if (!selection) return;
-
-    const nowIso = new Date().toISOString();
-    setSettings((current) => ({
-      ...current,
-      selectedApps: selection.selectedApps ?? current.selectedApps,
-      selectedCategories: selection.selectedCategories ?? current.selectedCategories,
-      lastUpdated: nowIso,
-    }));
-    if (mode === 'setup') {
-      setSetupPhase('rules');
-    }
-    reconcileAfterSettingsChange();
-  };
-
-  const completeSetupRules = () => {
-    if (!ruleDraft.realStep && !ruleDraft.focusSession) {
-      Alert.alert('Choose when apps are blocked', 'Pick at least one rule to finish setup.');
-      return;
-    }
-    const nowIso = new Date().toISOString();
-    setSettings((current) => {
-      const rules = [];
-      if (ruleDraft.realStep) {
-        rules.push(createPersonalScreenTimeRule({
-          kind: 'real_step',
-          selectedApps: current.selectedApps,
-          selectedCategories: current.selectedCategories,
-          enabled: true,
-          setupCompleted: true,
-          nowIso,
-        }));
-      }
-      if (ruleDraft.focusSession) {
-        rules.push(createPersonalScreenTimeRule({
-          kind: 'focus',
-          selectedApps: current.selectedApps,
-          selectedCategories: current.selectedCategories,
-          enabled: true,
-          setupCompleted: true,
-          nowIso,
-        }));
-      }
-      return normalizeScreenTimeProtectionSettings({
-        ...current,
-        personalRules: rules,
-        lastUpdated: nowIso,
-      });
-    });
-    capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
-      setup_intent: setupIntent,
-      surface: entrySurface,
-      default_focus_rule: getScreenTimeSetupDefaults(setupIntent).focusSession,
-      default_real_step_rule: getScreenTimeSetupDefaults(setupIntent).realStep,
-      focus_rule_enabled: ruleDraft.focusSession,
-      real_step_rule_enabled: ruleDraft.realStep,
-    });
-    reconcileAfterSettingsChange();
-    setSetupPhase('done');
-  };
-
   const beginPersonalRuleDraft = () => {
     if (!isApproved) return;
     navigation.navigate('SettingsScreenTimeRuleBuilder', { entry: 'inventory' });
@@ -463,51 +313,67 @@ export function ScreenTimeProtectionSettingsScreen() {
       ? isScreenTimeUnavailable
         ? 'Unavailable'
         : 'Continue'
-      : setupPhase === 'apps'
-        ? hasTargets
-          ? 'Continue'
-          : 'Choose Apps'
-        : setupPhase === 'rules'
-          ? 'Done'
-          : setupPhase === 'done'
-            ? 'Done'
-            : 'Set Up';
+      : 'Set Up';
   const setupPrimaryDisabled =
     setupPhase === 'permission'
       ? isBusy || isScreenTimeUnavailable
-      : setupPhase === 'apps'
-        ? isBusy || normalized.authorizationStatus === 'unavailable'
-        : setupPhase === 'rules'
-          ? !ruleDraft.realStep && !ruleDraft.focusSession
-          : false;
+      : false;
   const setupContent = setupStepCopy({
     phase: setupPhase,
     introCopy,
-    hasTargets,
-    targetCount,
     isScreenTimeUnavailable,
-    rules: ruleDraft,
   });
-  const setupSecondaryLabel =
-    setupPhase === 'apps' && hasTargets
-      ? 'Edit selection'
-      : setupPhase === 'done'
-        ? 'Change apps'
-      : null;
   const familyRows = buildFamilyScreenTimeOverviewRows(householdSnapshot);
   const myRuleRows = buildMyScreenTimeRuleInventory({
     personalSettings: normalized,
-    personalRules: personalRuleSummaries,
-    moneySettings: moneyAppControls.settings,
   });
-  const openRule = (row: ScreenTimeRuleInventoryRow) => {
-    if (row.destination.kind === 'money') {
-      rootNavigation?.navigate('Money', {
-        screen: 'MoneyAppControl',
-        params: { categoryId: row.destination.categorySourceId },
-      });
-      return;
+  const togglePersonalRule = async (row: ScreenTimeRuleInventoryRow) => {
+    if (pendingPersonalRuleId) return;
+    const ruleId = row.destination.ruleId;
+    const rule = normalized.personalCompositeRules.find((candidate) => candidate.id === ruleId);
+    if (!rule) return;
+    setPendingPersonalRuleId(ruleId);
+    try {
+      await savePersonalCompositeScreenTimeRule({
+        rule: { ...rule, enabled: !rule.enabled, lastUpdated: new Date().toISOString() },
+        expectedUpdatedAt: rule.lastUpdated ?? 'unversioned',
+        confirmed: true,
+      }, createPersonalCompositeRuleActionBoundary());
+      await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
+    } catch {
+      Alert.alert(
+        row.enabled ? 'Couldn’t turn off this rule' : 'Couldn’t turn on this rule',
+        'Kwilt did not receive confirmation from Screen Time. Nothing was changed.',
+      );
+    } finally {
+      setPendingPersonalRuleId(null);
     }
+  };
+  const confirmDeletePersonalRule = (row: ScreenTimeRuleInventoryRow) => {
+    if (pendingPersonalRuleId) return;
+    const ruleId = row.destination.ruleId;
+    const rule = normalized.personalCompositeRules.find((candidate) => candidate.id === ruleId);
+    if (!rule) return;
+    Alert.alert('Delete this rule?', 'These apps will no longer be controlled by this rule.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete rule', style: 'destructive', onPress: () => void (async () => {
+        setPendingPersonalRuleId(ruleId);
+        try {
+          await deletePersonalCompositeScreenTimeRule({
+            ruleId: rule.id,
+            expectedUpdatedAt: rule.lastUpdated ?? 'unversioned',
+            confirmed: true,
+          }, createPersonalCompositeRuleActionBoundary());
+          await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
+        } catch {
+          Alert.alert('Couldn’t delete this rule', 'Kwilt could not turn off its Screen Time restriction. Nothing was changed.');
+        } finally {
+          setPendingPersonalRuleId(null);
+        }
+      })() },
+    ]);
+  };
+  const openRule = (row: ScreenTimeRuleInventoryRow) => {
     navigation.navigate('SettingsScreenTimeRuleBuilder', {
       entry: 'inventory',
       ruleId: row.destination.ruleId,
@@ -536,31 +402,6 @@ export function ScreenTimeProtectionSettingsScreen() {
       void continueFromPermission();
       return;
     }
-    if (setupPhase === 'apps') {
-      if (hasTargets) {
-        setSetupPhase('rules');
-        return;
-      }
-      void handleChooseTargets('setup');
-      return;
-    }
-    if (setupPhase === 'rules') {
-      completeSetupRules();
-      return;
-    }
-    if (setupPhase === 'done') {
-      setSetupPhase('manage');
-    }
-  };
-
-  const handleSetupSecondaryPress = () => {
-    if (setupPhase === 'apps' && hasTargets) {
-      void handleChooseTargets('setup');
-      return;
-    }
-    if (setupPhase === 'done') {
-      setSetupPhase('apps');
-    }
   };
 
   const handleCloseSetupDrawer = () => {
@@ -577,6 +418,16 @@ export function ScreenTimeProtectionSettingsScreen() {
         />
       </SettingsGroup>
 
+      {normalized.ruleSystemCleanupStatus === 'needs_attention' ? (
+        <SettingsGroup footer="Kwilt couldn't finish removing older Screen Time controls on this iPhone. Keep Kwilt installed and try again.">
+          <SettingsRow
+            onPress={() => void ensureCurrentScreenTimeRuleSystem()}
+            title="Finish updating Screen Time rules"
+            value="Try again"
+          />
+        </SettingsGroup>
+      ) : null}
+
       <RuleInventoryGroup
         title={`My rules · ${myRuleRows.length}`}
         addAccessibilityLabel="Add My rule"
@@ -590,8 +441,10 @@ export function ScreenTimeProtectionSettingsScreen() {
             {index > 0 ? <SettingsDivider /> : null}
             <RuleInventoryRow
               row={row}
-              disabled={isBusy || normalized.authorizationStatus === 'unavailable'}
+              disabled={isBusy || pendingPersonalRuleId !== null || normalized.authorizationStatus === 'unavailable'}
+              onDelete={() => confirmDeletePersonalRule(row)}
               onPress={() => openRule(row)}
+              onToggle={() => void togglePersonalRule(row)}
             />
           </Fragment>
         ))}
@@ -650,7 +503,7 @@ export function ScreenTimeProtectionSettingsScreen() {
           <View style={styles.ftueSetupHeader}>
             <HStack alignItems="center" justifyContent="space-between">
               <View style={styles.ftueProgressTrack}>
-                <View style={[styles.ftueProgressFill, { width: `${Math.round((progressStep / 5) * 100)}%` }]} />
+                <View style={[styles.ftueProgressFill, { width: `${Math.round((progressStep / 2) * 100)}%` }]} />
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -668,32 +521,13 @@ export function ScreenTimeProtectionSettingsScreen() {
               <Text style={styles.ftueTitle}>{setupContent.title}</Text>
               <Text style={styles.ftueBody}>{setupContent.body}</Text>
 
-              {setupPhase === 'rules' ? (
-                <View style={styles.ftueRuleList}>
-                  <RuleDraftRow
-                    title="Complete a to-do, record progress, or finish Focus"
-                    subtitle="Unlock selected apps afterward."
-                    value={ruleDraft.realStep}
-                    onValueChange={(value) => setRuleDraft((current) => ({ ...current, realStep: value }))}
-                  />
-                  <RuleDraftRow
-                    title="Pause until Focus ends"
-                    subtitle="Keep selected apps blocked while Focus is running."
-                    value={ruleDraft.focusSession}
-                    onValueChange={(value) => setRuleDraft((current) => ({ ...current, focusSession: value }))}
-                  />
-                </View>
-              ) : null}
-
               {recoveryStep === 'permission_denied' ? (
                 <Text style={styles.ftueNotice}>Screen Time access is needed to block apps.</Text>
               ) : null}
             </VStack>
-            {setupPhase === 'rules' ? null : (
-              <View style={styles.ftueVisualSlot}>
-                <SetupVisual phase={setupPhase} />
-              </View>
-            )}
+            <View style={styles.ftueVisualSlot}>
+              <SetupVisual />
+            </View>
           </View>
 
           <View style={styles.ftueSetupFooter}>
@@ -713,13 +547,7 @@ export function ScreenTimeProtectionSettingsScreen() {
               <Text style={styles.ftuePrimaryButtonLabel}>{setupButtonLabel}</Text>
             </Button>
 
-            <View style={styles.ftueSecondarySlot}>
-              {setupSecondaryLabel ? (
-                <Button variant="ghost" fullWidth onPress={handleSetupSecondaryPress}>
-                  <Text style={styles.ftueSecondaryButtonLabel}>{setupSecondaryLabel}</Text>
-                </Button>
-              ) : null}
-            </View>
+            <View style={styles.ftueSecondarySlot} />
           </View>
         </View>
       </View>
@@ -736,16 +564,15 @@ export function ScreenTimeProtectionSettingsScreen() {
   );
 }
 
-function SetupVisual(props: { phase: SetupPhase }) {
-  const isDone = props.phase === 'done';
+function SetupVisual() {
   return (
     <View style={styles.setupVisual}>
       <View style={styles.setupPhone}>
         <View style={styles.setupPhoneSpeaker} />
         <View style={styles.setupAppGrid}>
           <View style={styles.setupBlockedApp} />
-          <View style={[styles.setupKwiltApp, isDone ? styles.setupKwiltAppDone : null]}>
-            <Icon name={isDone ? 'check' : 'shield'} size={22} color={colors.pine700} />
+          <View style={styles.setupKwiltApp}>
+            <Icon name="shield" size={22} color={colors.pine700} />
           </View>
           <View style={styles.setupBlockedApp} />
           <View style={styles.setupBlockedApp} />
@@ -754,36 +581,6 @@ function SetupVisual(props: { phase: SetupPhase }) {
         </View>
       </View>
     </View>
-  );
-}
-
-function RuleDraftRow(props: {
-  title: string;
-  subtitle: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityLabel={props.title}
-      accessibilityState={{ checked: props.value }}
-      onPress={() => props.onValueChange(!props.value)}
-      style={({ pressed }) => [
-        styles.ruleDraftRow,
-        styles.ftueRuleDraftRow,
-        props.value ? styles.ftueRuleDraftRowSelected : null,
-        pressed ? styles.ruleDraftRowPressed : null,
-      ]}
-    >
-      <VStack flex={1} space={0}>
-        <Text style={[styles.rowTitle, styles.ftueRuleTitle]}>{props.title}</Text>
-        <Text style={[styles.rowSubtitle, styles.ftueRuleSubtitle]}>{props.subtitle}</Text>
-      </VStack>
-      <View style={[styles.ruleCheck, props.value ? styles.ruleCheckSelected : null]}>
-        {props.value ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
-      </View>
-    </Pressable>
   );
 }
 
@@ -821,9 +618,21 @@ function RuleInventoryGroup(props: {
 function RuleInventoryRow(props: {
   row: ScreenTimeRuleInventoryRow;
   disabled?: boolean;
+  onDelete?: () => void;
   onPress: () => void;
+  onToggle?: () => void;
 }) {
-  return (
+  const row = props.onToggle ? (
+    <SettingsDetailToggleRow
+      context={props.row.contextLabel ?? undefined}
+      description={props.row.detail}
+      disabled={props.disabled}
+      enabled={props.row.enabled}
+      onPress={props.onPress}
+      onToggle={props.onToggle}
+      title={props.row.title}
+    />
+  ) : (
     <SettingsDetailRow
       context={props.row.contextLabel ?? undefined}
       description={props.row.detail}
@@ -832,6 +641,24 @@ function RuleInventoryRow(props: {
       state={props.row.enabled ? 'On' : 'Off'}
       title={props.row.title}
     />
+  );
+  if (!props.onDelete) return row;
+  const renderDeleteAction: NonNullable<SwipeableProps['renderRightActions']> = () => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${props.row.title} rule`}
+      disabled={props.disabled}
+      onPress={props.onDelete}
+      style={({ pressed }) => [styles.swipeDeleteAction, pressed ? styles.ruleDraftRowPressed : null]}
+    >
+      <Icon name="trash" size={19} color={colors.primaryForeground} />
+      <Text style={styles.swipeDeleteLabel}>Delete</Text>
+    </Pressable>
+  );
+  return (
+    <ReanimatedSwipeable overshootRight={false} renderRightActions={renderDeleteAction} rightThreshold={44}>
+      {row}
+    </ReanimatedSwipeable>
   );
 }
 
@@ -1151,6 +978,18 @@ const styles = StyleSheet.create({
   addRuleButtonText: {
     ...typography.bodySm,
     color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  swipeDeleteAction: {
+    width: 92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.destructive,
+  },
+  swipeDeleteLabel: {
+    ...typography.bodyXs,
+    color: colors.primaryForeground,
     fontFamily: typography.titleSm.fontFamily,
   },
 });

@@ -16,6 +16,7 @@ test('generated host bridge stores and applies one V2 composite aggregate', () =
   assert.match(rendered, /@objc\(clearPersonalCompositeRule:resolver:rejecter:\)/);
   assert.match(rendered, /connector == "all"/);
   assert.match(rendered, /outcome == "available"/);
+  assert.match(rendered, /condition\.type == "budget"/);
   assert.match(rendered, /let configurationChanged = shared\.data/);
   assert.match(rendered, /if configurationChanged/);
   assert.match(rendered, /includesPastActivity: true/);

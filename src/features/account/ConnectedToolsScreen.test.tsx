@@ -270,7 +270,13 @@ describe('ConnectedToolDetailScreen', () => {
   });
 
   it('explains the consequence before disconnecting', async () => {
-    fetchConnectionsMock.mockResolvedValue({ connections: [activeConnection], actions: [] });
+    fetchConnectionsMock
+      .mockResolvedValueOnce({ connections: [activeConnection], actions: [] })
+      .mockResolvedValueOnce({ connections: [activeConnection], actions: [] })
+      .mockResolvedValueOnce({
+        connections: [{ ...activeConnection, revoked_at: '2026-08-28T00:00:00.000Z' }],
+        actions: [],
+      });
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     const { getByLabelText } = renderWithProviders(<ConnectedToolDetailScreen />);

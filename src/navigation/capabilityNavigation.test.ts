@@ -19,7 +19,10 @@ describe('resolveCapabilityNavigation', () => {
     ['plan', { name: 'MainTabs', params: { screen: 'PlanTab' } }],
     [
       'arcs',
-      { name: 'MainTabs', params: { screen: 'MoreTab', params: { screen: 'MoreArcs' } } },
+      {
+        name: 'MainTabs',
+        params: { screen: 'MoreTab', params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } } },
+      },
     ],
     [
       'chapters',

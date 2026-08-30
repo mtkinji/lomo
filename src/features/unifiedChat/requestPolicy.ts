@@ -1,4 +1,5 @@
 import { directScreenTimeControl } from './directAppControl';
+import { resolveUnsupportedEffectBoundary } from '../../../packages/kwilt-agent-runtime/src/unsupportedEffectBoundary';
 
 export type UnifiedChatRequestClass =
   | 'general'
@@ -11,7 +12,7 @@ export type UnifiedChatRequestClass =
 export const UNIFIED_CHAT_CAPABILITY_IDS = [
   'arcs', 'goals', 'todos', 'plan', 'chapters', 'profile', 'relationships',
   'household', 'money', 'screenTime', 'notifications', 'account', 'navigation', 'recipes', 'meal_planning',
-  'chores', 'groceries',
+  'chores', 'groceries', 'savings',
 ] as const;
 export type UnifiedChatCapabilityId = typeof UNIFIED_CHAT_CAPABILITY_IDS[number];
 
@@ -182,6 +183,18 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
     capabilities.push('account');
   }
   if (/\b(search (?:kwilt|the app)|open search)\b/i.test(prompt)) capabilities.push('navigation');
+  if ((personal || action) && /\b(?:groceries|grocery list|pantry|food stock)\b/i.test(prompt)) {
+    capabilities.push('groceries');
+  }
+  if (
+    (personal || action) && (
+      /\b(?:coupons?|retailer offers?)\b/i.test(prompt)
+      || /\b(?:grocery|groceries|basket|cart|retailer)\b[^.!?]{0,50}\bsavings?\b/i.test(prompt)
+      || /\bsavings?\b[^.!?]{0,50}\b(?:grocery|groceries|basket|cart|retailer)\b/i.test(prompt)
+    )
+  ) {
+    capabilities.push('savings');
+  }
   if (
     capabilities.length === 0 &&
     DIRECT_TODO_CAPTURE_PATTERN.test(prompt) &&
@@ -213,6 +226,16 @@ export function classifyUnifiedChatRequest({
       usePrivateContext: false,
       clarification: null,
       policyReason: 'specialist-or-high-stakes-boundary',
+    };
+  }
+
+  if (resolveUnsupportedEffectBoundary(normalizedPrompt)) {
+    return {
+      requestClass: 'better_served_elsewhere',
+      participatingCapabilities: [],
+      usePrivateContext: false,
+      clarification: null,
+      policyReason: 'unsupported-consequential-effect',
     };
   }
 

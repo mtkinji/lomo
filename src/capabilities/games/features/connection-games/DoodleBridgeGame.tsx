@@ -37,7 +37,9 @@ export function DoodleBridgeGame({ players }: { players: string[] }) {
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: (event) => phase === 'drawing' && event.nativeEvent.touches.length === 1,
+    onStartShouldSetPanResponderCapture: (event) => phase === 'drawing' && event.nativeEvent.touches.length === 1,
     onMoveShouldSetPanResponder: (event) => phase === 'drawing' && event.nativeEvent.touches.length === 1,
+    onMoveShouldSetPanResponderCapture: (event) => phase === 'drawing' && event.nativeEvent.touches.length === 1,
     onPanResponderGrant: (event) => {
       const point = mapDoodlePointToCanvas({ x: event.nativeEvent.locationX, y: event.nativeEvent.locationY }, canvasBounds);
       setCurrent(point ? beginDoodleStroke(point) : []);

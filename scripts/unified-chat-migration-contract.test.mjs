@@ -34,6 +34,10 @@ const channelRunTriggerRepairMigration = readFileSync(
   new URL('../supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const retryMessageReuseMigration = readFileSync(
+  new URL('../supabase/migrations/20260829174829_unified_chat_retry_message_reuse.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const channelJobMigration = readFileSync(
   new URL('../supabase/migrations/20260723170039_agent_channel_job_queue.sql', import.meta.url),
   'utf8',
@@ -112,6 +116,15 @@ test('persists bounded phone-link timezone context for relative Plan dates', () 
   assert.match(phoneAgentTimezoneMigration, /char_length\(timezone\) between 1 and 100/);
   assert.match(channelTickFunction, /permissions,timezone/);
   assert.match(channelTickFunction, /timeZone: input\.timeZone/);
+});
+
+test('retries a failed run without inserting the original user prompt again', () => {
+  assert.match(retryMessageReuseMigration, /p_channel_context\s*#>>\s*'\{origin,action\}'\s*=\s*'run\.retry'/);
+  assert.match(retryMessageReuseMigration, /v_parent\.status\s*<>\s*'failed'/);
+  assert.match(retryMessageReuseMigration, /v_message_id\s*:=\s*v_parent\.user_message_id/);
+  assert.match(retryMessageReuseMigration, /insert into public\.kwilt_agent_runs/);
+  assert.doesNotMatch(retryMessageReuseMigration, /insert into public\.kwilt_agent_messages/);
+  assert.match(retryMessageReuseMigration, /'messageid',\s*v_message_id/);
 });
 
 test('projects only bounded native Profile fields for owner-scoped server-channel use', () => {

@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, BackHandler, Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
@@ -71,15 +71,18 @@ function humanizeCalendarError(raw: string): string {
 
 export function PlanCalendarSettingsScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const showToast = useToastStore((s) => s.showToast);
   const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
   const [calendars, setCalendars] = useState<CalendarListItem[]>([]);
   const [calendarErrors, setCalendarErrors] = useState<string[]>([]);
+  const [preferencesVersion, setPreferencesVersion] = useState(0);
   const [readRefs, setReadRefs] = useState<CalendarRef[]>([]);
   const [writeRef, setWriteRef] = useState<CalendarRef | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [disconnectingAccountKey, setDisconnectingAccountKey] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const refreshAll = async () => {
     await ensureSignedInWithPrompt('settings');
@@ -87,6 +90,7 @@ export function PlanCalendarSettingsScreen() {
     // see/manage connected accounts (e.g. disconnect a broken token).
     const [acct, prefs] = await Promise.all([listCalendarAccounts(), getCalendarPreferences()]);
     setAccounts(acct);
+    setPreferencesVersion(prefs.version);
     setReadRefs(prefs.readCalendarRefs ?? []);
     setWriteRef(prefs.writeCalendarRef ?? null);
 
@@ -243,18 +247,57 @@ export function PlanCalendarSettingsScreen() {
           (r) => !(r.provider === ref.provider && r.accountId === ref.accountId && r.calendarId === ref.calendarId),
         )
       : [...readRefs, ref];
+    const updated = await updateCalendarPreferences({
+      expectedVersion: preferencesVersion, readCalendarRefs: next, writeCalendarRef: writeRef,
+    });
     setReadRefs(next);
-    await updateCalendarPreferences({ readCalendarRefs: next, writeCalendarRef: writeRef });
+    setPreferencesVersion(updated.version);
   };
 
   const selectWriteCalendar = async (ref: CalendarRef) => {
+    const updated = await updateCalendarPreferences({
+      expectedVersion: preferencesVersion, readCalendarRefs: readRefs, writeCalendarRef: ref,
+    });
     setWriteRef(ref);
-    await updateCalendarPreferences({ readCalendarRefs: readRefs, writeCalendarRef: ref });
+    setPreferencesVersion(updated.version);
   };
 
   const clearWriteCalendar = async () => {
+    const updated = await updateCalendarPreferences({
+      expectedVersion: preferencesVersion, readCalendarRefs: readRefs, writeCalendarRef: null,
+    });
     setWriteRef(null);
-    await updateCalendarPreferences({ readCalendarRefs: readRefs, writeCalendarRef: null });
+    setPreferencesVersion(updated.version);
+  };
+
+  const applyReviewedCalendarSelection = async () => {
+    const params = route.params;
+    if (!params || 'reason' in params) return;
+    if (params.expectedVersion !== preferencesVersion) {
+      setReviewError('Calendar preferences changed since this review was prepared. Refresh and ask Chat to prepare it again.');
+      return;
+    }
+    const nextReadRefs = params.readCalendarIds.map(decodeCalendarValue);
+    const nextWriteRef = params.writeCalendarId ? decodeCalendarValue(params.writeCalendarId) : null;
+    if (nextReadRefs.some((ref: CalendarRef | null) => !ref)
+      || (params.writeCalendarId && !nextWriteRef)) {
+      setReviewError('One of the reviewed calendars is no longer available. Nothing was changed.');
+      return;
+    }
+    try {
+      const updated = await updateCalendarPreferences({
+        expectedVersion: params.expectedVersion,
+        readCalendarRefs: nextReadRefs as CalendarRef[],
+        writeCalendarRef: nextWriteRef,
+      });
+      setReadRefs(nextReadRefs as CalendarRef[]);
+      setWriteRef(nextWriteRef);
+      setPreferencesVersion(updated.version);
+      setReviewError(null);
+      showToast({ message: 'Plan calendars updated', variant: 'success' });
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'Calendar preferences could not be updated. Nothing was changed.');
+    }
   };
 
   const accountLabelByKey = React.useMemo(() => {
@@ -388,6 +431,30 @@ export function PlanCalendarSettingsScreen() {
           <Text style={styles.helperText}>
             Choose which calendars count as busy time and where Plan should write commitments.
           </Text>
+          {route.params ? (
+            <View style={styles.card}>
+              <VStack space="sm">
+                <Text style={styles.cardTitle}>
+                  {'reason' in route.params ? 'Calendar connection needed' : 'Chat-prepared calendar review'}
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  {'reason' in route.params
+                    ? route.params.reason === 'inspect'
+                      ? 'Calendar names and selections are shown below on this device. Event contents are not returned to ChatGPT.'
+                      : 'Connect or reconnect Google or Outlook below. Provider sign-in and consent stay outside Chat.'
+                    : route.params.addedReadCalendarIds.length === 0 && route.params.removedReadCalendarIds.length === 0 && !route.params.writeCalendarChanged
+                      ? 'Chat prepared an exact calendar selection. Review the calendars below before applying it.'
+                      : `${route.params.addedReadCalendarIds.length} busy calendar${route.params.addedReadCalendarIds.length === 1 ? '' : 's'} added, ${route.params.removedReadCalendarIds.length} removed${route.params.writeCalendarChanged ? ', commitment calendar changed' : ''}.`}
+                </Text>
+                {reviewError ? <Text style={styles.cardSubtitle}>{reviewError}</Text> : null}
+                {'reason' in route.params ? null : (
+                  <Button variant="primary" onPress={() => void applyReviewedCalendarSelection()}>
+                    Apply reviewed calendars
+                  </Button>
+                )}
+              </VStack>
+            </View>
+          ) : null}
           <View style={styles.card}>
             <VStack space="sm">
               <View style={styles.cardTitleRow}>

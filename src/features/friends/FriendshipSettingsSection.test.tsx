@@ -91,21 +91,20 @@ describe('FriendshipSettingsSection', () => {
   });
 
   it('offers normal end and safety block as separate relationship actions', async () => {
-    service.listFriends.mockResolvedValue([
-      {
-        id: 'friendship-1',
-        friendUserId: 'user-2',
-        status: 'active',
-        initiatedByMe: true,
-        createdAt: '2026-07-28T10:00:00.000Z',
-        acceptedAt: '2026-07-28T10:05:00.000Z',
-        name: 'Blaire',
-        avatarUrl: null,
-      },
-    ]);
+    const activeFriend = {
+      id: 'friendship-1', friendUserId: 'user-2', status: 'active' as const, initiatedByMe: true,
+      createdAt: '2026-07-28T10:00:00.000Z', acceptedAt: '2026-07-28T10:05:00.000Z',
+      name: 'Blaire', avatarUrl: null,
+    };
+    service.listFriends.mockResolvedValue([activeFriend]);
+    service.endFriendship.mockImplementation(async () => {
+      service.listFriends.mockResolvedValue([]);
+      return true;
+    });
     const alert = jest.spyOn(Alert, 'alert');
 
-    const { getByLabelText } = renderWithProviders(<FriendshipSettingsSection />);
+    const first = renderWithProviders(<FriendshipSettingsSection />);
+    const { getByLabelText } = first;
     await waitFor(() => expect(getByLabelText('Manage friendship with Blaire')).toBeTruthy());
     fireEvent.press(getByLabelText('Manage friendship with Blaire'));
 
@@ -121,7 +120,11 @@ describe('FriendshipSettingsSection', () => {
     });
     await waitFor(() => expect(service.endFriendship).toHaveBeenCalledWith('friendship-1'));
 
-    fireEvent.press(getByLabelText('Manage friendship with Blaire'));
+    first.unmount();
+    service.listFriends.mockResolvedValue([activeFriend]);
+    const second = renderWithProviders(<FriendshipSettingsSection />);
+    await waitFor(() => expect(second.getByLabelText('Manage friendship with Blaire')).toBeTruthy());
+    fireEvent.press(second.getByLabelText('Manage friendship with Blaire'));
     const nextOptions = alert.mock.calls[1]?.[2] ?? [];
     await act(async () => {
       nextOptions.find((option) => option.text === 'Block')?.onPress?.();

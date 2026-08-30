@@ -136,4 +136,31 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
       outcome: 'device_handoff',
     }));
   });
+
+  it('exposes advanced Food operations as truthful native-review handoffs', () => {
+    const operationIds = [
+      'recipes.publication.prepare',
+      'recipes.publication.publish',
+      'store_opportunity.capture',
+      'food_scenario.prepare',
+      'food_scenario.accept',
+      'savings.review',
+      'savings.accept',
+      'savings.coupon.open',
+      'receipt.extract',
+      'receipt.reconcile',
+    ];
+
+    for (const operationId of operationIds) {
+      const row = CHAT_CAPABILITY_COVERAGE.find((candidate) => candidate.id === operationId);
+      expect(row?.channels.mobile).toEqual(expect.objectContaining({
+        state: 'confirmation_only',
+        outcome: 'native_review',
+      }));
+      expect(row?.channels.phone).toEqual(expect.objectContaining({
+        state: 'confirmation_only',
+        outcome: 'device_handoff',
+      }));
+    }
+  });
 });

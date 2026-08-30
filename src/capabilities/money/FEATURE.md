@@ -42,6 +42,7 @@ briefs:
   - plaid-transaction-backed-meter
   - prediction-trust-contract
   - screen-time-controls
+  - screen-time-rule-system-consolidation
   - settings-surface-grammar
   - summary-freshness-recovery
   - transaction-display-names
@@ -50,7 +51,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-28
 ---
 
 # Money
@@ -62,12 +63,13 @@ life into a finance hobby.
 
 - `data/` owns the shared-session Money projection and authoritative mutation
   adapters.
-- `domain/` owns financial truth, forecast, living-plan, onboarding, app-control,
-  and Goal-bridge rules.
+- `domain/` owns financial truth, forecast, living-plan, onboarding, budget
+  condition semantics, and Goal-bridge rules. Screen Time owns app-rule identity,
+  selection, lifecycle, persistence, and enforcement.
 - `navigation/` and `screens/` own Money's Summary, Transactions, Accounts, and
   object workflows inside the one Kwilt shell.
 - `runtime/` and `native/` own capability activation, privacy, Plaid handoff,
-  widgets, and category-specific Screen Time coordination.
+  widgets, and typed budget truth supplied to Screen Time.
 - Kwilt's shell remains the single owner of authentication, Settings, Chat,
   RevenueCat, notifications, account deletion/export, and the release train.
 
@@ -83,7 +85,6 @@ stays posted-only, and the real sync path proves pending-to-posted replacement
 without a duplicate contribution. Temporary-hold treatment is excluded without
 explicit transaction-level evidence.
 
-The capability-onboarding development rehearsal now enters the real Money Summary with a bounded
-category-picking guide, then delegates to the existing category App Controls editor. Completion is
-recorded only after an approved policy has an enabled preset and at least one selected target.
-Source and test proof do not replace signed-device proof that the native shield is enforced.
+Money category entry delegates app-rule creation and editing to the canonical
+Screen Time sentence composer with the relevant budget preselected. Source and
+test proof do not replace signed-device proof that the native shield is enforced.

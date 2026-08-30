@@ -375,6 +375,12 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+[functions.ai-chat]
+# The proxy serves both signed-in and install-scoped clients, and internal agent
+# runs authenticate with the exact service-role bearer inside the handler.
+# Gateway JWT verification rejects backend secret keys before that guard runs.
+verify_jwt = false
+
 [functions.mcp]
 verify_jwt = false
 

@@ -5,15 +5,13 @@ import { Card } from '../../ui/Card';
 import { Text, VStack } from '../../ui/primitives';
 import { colors, fonts, spacing, typography } from '../../theme';
 import {
-  leaveSharedGoal,
-  listGoalSharing,
-  removeGoalPartner,
-  revokeTargetedGoalInvite,
   type GoalSharingItem,
 } from '../../services/sharedGoals';
 import { declineTargetedGoalInvite } from '../../services/invites';
 import { useJoinSharedGoalDrawerStore } from '../../store/useJoinSharedGoalDrawerStore';
 import { KwiltLoader } from '../../ui/KwiltLoader';
+import { sharingActions } from '../account/actions/sharingActionsBoundary';
+import { sharingReviewReferenceForGoalShare } from '../account/actions/sharingActions';
 
 export function GoalSharingSettingsSection() {
   const [items, setItems] = useState<GoalSharingItem[]>([]);
@@ -22,7 +20,7 @@ export function GoalSharingSettingsSection() {
 
   const load = useCallback(async () => {
     try {
-      setItems(await listGoalSharing());
+      setItems(await sharingActions.loadNativeGoalShares());
     } catch {
       setItems([]);
     } finally {
@@ -79,7 +77,10 @@ export function GoalSharingSettingsSection() {
                 {
                   text: 'Revoke',
                   style: 'destructive',
-                  onPress: () => void runAction(`invite:${item.inviteId}`, () => revokeTargetedGoalInvite(item.inviteId!)),
+                  onPress: () => void runAction(
+                    `invite:${item.inviteId}`,
+                    () => sharingActions.revoke(sharingReviewReferenceForGoalShare(item)),
+                  ),
                 },
               ],
             );
@@ -96,7 +97,7 @@ export function GoalSharingSettingsSection() {
                   style: 'destructive',
                   onPress: () => void runAction(
                     `member:${item.goalId}:${item.counterpartUserId}`,
-                    () => removeGoalPartner(item.goalId, item.counterpartUserId!),
+                    () => sharingActions.revoke(sharingReviewReferenceForGoalShare(item)),
                   ),
                 },
               ],
@@ -141,7 +142,10 @@ export function GoalSharingSettingsSection() {
                 {
                   text: 'Leave Goal',
                   style: 'destructive',
-                  onPress: () => void runAction(`goal:${item.goalId}`, () => leaveSharedGoal(item.goalId)),
+                  onPress: () => void runAction(
+                    `goal:${item.goalId}`,
+                    () => sharingActions.revoke(sharingReviewReferenceForGoalShare(item)),
+                  ),
                 },
               ],
             );

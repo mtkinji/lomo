@@ -2,24 +2,24 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 import { useAppStore } from '../store/useAppStore';
 import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
-import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
+import { ensureCurrentScreenTimeRuleSystem } from '../features/screen-time/runtime/screenTimeRuleSystemCleanupRuntime';
 
 let started = false;
 let lastKnownState: AppStateStatus = AppState.currentState;
 let subscription: { remove: () => void } | null = null;
 let hydrationSubscriptions: Array<() => void> = [];
 
-function reconcileCurrentProtectionState(): void {
+async function reconcileCurrentProtectionState(): Promise<void> {
+  if (!await ensureCurrentScreenTimeRuleSystem()) return;
   const focusSessionActive = useFocusSessionStore.getState().activeSession?.mode === 'running';
-  void reconcileScreenTimeRestrictions({ focusSessionActive }).catch(() => undefined);
-  void reconcileLatestMoneyAppControls().catch(() => undefined);
+  await reconcileScreenTimeRestrictions({ focusSessionActive }).catch(() => undefined);
 }
 
 function reconcileAfterHydration(): void {
   if (useAppStore.persist.hasHydrated() && useFocusSessionStore.persist.hasHydrated()) {
     hydrationSubscriptions.forEach((unsubscribe) => unsubscribe());
     hydrationSubscriptions = [];
-    reconcileCurrentProtectionState();
+    void reconcileCurrentProtectionState();
     return;
   }
   if (hydrationSubscriptions.length > 0) return;

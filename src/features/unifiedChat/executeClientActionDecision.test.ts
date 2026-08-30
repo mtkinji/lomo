@@ -34,6 +34,25 @@ test('persists presenting before opening native review and records only that it 
   }));
 });
 
+test('persists an exact device result when the handoff performs a device-local operation', async () => {
+  const repository = {
+    transitionClientAction: jest.fn(async (input) => ({
+      ...pending, status: input.toStatus, version: input.expectedVersion + 1,
+      presentedAt: input.presentedAt ?? null, completedAt: input.completedAt ?? null,
+    } as UnifiedChatClientAction)),
+  };
+  await executeClientActionDecision({
+    clientAction: pending,
+    decision: 'continue',
+    repository,
+    open: async () => ({ outcome: 'applied_device_preference', enabled: false }),
+  });
+  expect(repository.transitionClientAction).toHaveBeenLastCalledWith(expect.objectContaining({
+    toStatus: 'completed',
+    result: { outcome: 'applied_device_preference', enabled: false },
+  }));
+});
+
 test('declining never opens the native surface', async () => {
   const repository = {
     transitionClientAction: jest.fn(async (input) => ({

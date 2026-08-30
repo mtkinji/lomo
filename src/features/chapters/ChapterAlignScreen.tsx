@@ -41,6 +41,7 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
 import { dismissRecommendation } from './chapterRecommendationDismissals';
 import { recordChapterRecommendationEvent } from '../../services/chapters';
+import { applyChapterAlignment, previewChapterAlignments } from '../../capabilities/life-structure/actions/chapterAlignmentActions';
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterAlign'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterAlign'>;
@@ -73,12 +74,25 @@ export function ChapterAlignScreen() {
   // and now has effectively opted out of the suggestion (the user
   // already tagged it somewhere else), so we hide it rather than
   // offering to overwrite that choice.
+  const alignmentChapter = React.useMemo(() => ({
+    id: chapterId,
+    updatedAt: 'native-review',
+    output: { recommendations: [{
+      id: recommendationId, kind: 'align', reason: '',
+      payload: { goalId, goalTitle, arcId: null, arcTitle, activityIds },
+    }] },
+  }), [activityIds, arcTitle, chapterId, goalId, goalTitle, recommendationId]);
+  const alignmentPreview = React.useMemo(() => previewChapterAlignments({
+    chapter: alignmentChapter,
+    goals: goals.map((goal) => ({ id: goal.id, title: goal.title })),
+    activities: activities.map((activity) => ({
+      id: activity.id, title: activity.title, goalId: activity.goalId, updatedAt: activity.updatedAt,
+    })),
+  })[0] ?? null, [activities, alignmentChapter, goals]);
   const candidateActivities = React.useMemo(() => {
-    const ids = new Set(activityIds);
-    return activities
-      .filter((a) => ids.has(a.id))
-      .filter((a) => !a.goalId || a.goalId === goalId);
-  }, [activities, activityIds, goalId]);
+    const ids = new Set(alignmentPreview?.activities.map((activity) => activity.id) ?? []);
+    return activities.filter((activity) => ids.has(activity.id));
+  }, [activities, alignmentPreview]);
 
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(() => {
     // All server-suggested activities start selected so the default
@@ -107,13 +121,31 @@ export function ChapterAlignScreen() {
     });
   }, []);
 
-  const handleApply = React.useCallback(() => {
+  const handleApply = React.useCallback(async () => {
     if (!targetGoal) return;
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-
-    for (const id of ids) {
-      updateActivity(id, (a) => ({ ...a, goalId: targetGoal.id }));
+    if (!alignmentPreview) return;
+    try {
+      await applyChapterAlignment({
+        chapter: alignmentChapter,
+        goals: goals.map((goal) => ({ id: goal.id, title: goal.title })),
+        activities: activities.map((activity) => ({
+          id: activity.id, title: activity.title, goalId: activity.goalId, updatedAt: activity.updatedAt,
+        })),
+        input: {
+          chapterId, recommendationId, expectedUpdatedAt: alignmentChapter.updatedAt,
+          activities: alignmentPreview.activities
+            .filter((activity) => selectedIds.has(activity.id))
+            .map((activity) => ({ activityId: activity.id, expectedUpdatedAt: activity.expectedUpdatedAt })),
+        },
+        updateActivityGoal: (id, nextGoalId) => updateActivity(id, (activity) => ({
+          ...activity, goalId: nextGoalId, updatedAt: new Date().toISOString(),
+        })),
+      });
+    } catch {
+      showToast({ message: 'These To-dos changed. Review the current list and try again.', variant: 'danger' });
+      return;
     }
 
     capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
@@ -155,7 +187,11 @@ export function ChapterAlignScreen() {
     if (navigation.canGoBack()) navigation.goBack();
   }, [
     capture,
+    activities,
+    alignmentChapter,
+    alignmentPreview,
     chapterId,
+    goals,
     navigation,
     recommendationId,
     selectedIds,

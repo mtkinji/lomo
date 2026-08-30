@@ -12,7 +12,7 @@ import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import type { Activity } from '../../domain/types';
 import { getUnifiedChatProgressCopy } from './chatProgress';
-import { getUnifiedChatFailureCopy } from './chatFailure';
+import { getUnifiedChatFailureCopy, isUnifiedChatRunRetryable } from './chatFailure';
 
 type WorkbenchPresentation = {
   voice?: AgentWorkbenchSnapshot['composer']['voice'];
@@ -125,6 +125,30 @@ export function formatProposalReceiptSummary(
   if (operationType === 'reschedule_activity') return `Moved ${title}`;
   if (operationType === 'remove_activity_from_plan') return `Removed ${title} from Plan`;
   return `Updated ${title}`;
+}
+
+function humanizeDevicePreference(value: string): string {
+  const words = value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words ? `${words[0].toUpperCase()}${words.slice(1)}` : '';
+}
+
+function clientActionConsequenceSummary(
+  action: NonNullable<UnifiedChatThreadAggregate['clientActions']>[number],
+): string {
+  if (action.status !== 'completed' || action.actionType !== 'read_appearance_preference') {
+    return action.consequenceSummary;
+  }
+  const styles = Array.isArray(action.result?.thumbnailStyles)
+    ? action.result.thumbnailStyles
+      .filter((style): style is string => typeof style === 'string' && style.length > 0 && style.length <= 80)
+      .map(humanizeDevicePreference)
+      .filter(Boolean)
+    : [];
+  return styles.length > 0 ? `Appearance: ${styles.join(', ')}.` : action.consequenceSummary;
 }
 
 function projectRun(
@@ -446,6 +470,17 @@ export function buildWorkbenchSnapshot(
       .filter((proposal) => compactCreateProposals.has(proposal.id) && proposal.messageId)
       .map((proposal) => proposal.messageId as string),
   );
+  const externalHandoffRunIds = new Set(
+    aggregate.runs
+      .filter((run) => run.originChannel === 'external' &&
+        (aggregate.clientActions ?? []).some((action) => action.runId === run.id))
+      .map((run) => run.id),
+  );
+  const externalHandoffMessageIds = new Set(
+    aggregate.runs.flatMap((run) => externalHandoffRunIds.has(run.id)
+      ? [run.userMessageId, run.assistantMessageId].flatMap((id) => id ? [id] : [])
+      : []),
+  );
   const proposalIdByOutcomeSequence = new Map(
     (aggregate.proposals ?? []).flatMap((proposal) => proposal.operation.outcomeStep
       ? [[`${proposal.runId}:${proposal.operation.outcomeStep.sequence}`, proposal.id] as const]
@@ -502,7 +537,8 @@ export function buildWorkbenchSnapshot(
       coverageNote: evidence.coverageNote,
     })),
     messages: [...aggregate.messages.filter(
-      (message) => !compactCreateMessageIds.has(message.id),
+      (message) => !compactCreateMessageIds.has(message.id) &&
+        !externalHandoffMessageIds.has(message.id),
     ).map((message) => ({
       id: message.id,
       threadId: message.threadId,
@@ -535,7 +571,8 @@ export function buildWorkbenchSnapshot(
         ? { ...run, assistantMessageId: streamingMessageId }
         : run,
       (aggregate.events ?? []).filter((event) => event.runId === run.id),
-      run.status === 'failed' && !(aggregate.proposals ?? []).some((proposal) => proposal.runId === run.id),
+      run.status === 'failed' && isUnifiedChatRunRetryable(run.errorCode) &&
+        !(aggregate.proposals ?? []).some((proposal) => proposal.runId === run.id),
     )),
     proposals: (aggregate.proposals ?? []).filter(
       (proposal) => !compactCreateProposals.has(proposal.id),
@@ -667,6 +704,7 @@ export function buildWorkbenchSnapshot(
       return {
         id: receipt.id,
         proposalId: receipt.proposalId,
+        ...(proposal?.runId ? { runId: proposal.runId } : {}),
         status: receipt.status,
         summary: receipt.capabilityId === 'screenTime' && receipt.status === 'applied'
           ? receipt.resultState.deviceState === 'applied'
@@ -700,7 +738,7 @@ export function buildWorkbenchSnapshot(
     clientActions: (aggregate.clientActions ?? []).map((action) => ({
       id: action.id, runId: action.runId, capabilityId: action.capabilityId,
       actionType: action.actionType, title: action.title,
-      consequenceSummary: action.consequenceSummary, status: action.status,
+      consequenceSummary: clientActionConsequenceSummary(action), status: action.status,
       version: action.version,
       canContinue: action.status === 'pending_client_action' || action.status === 'presenting',
     })),

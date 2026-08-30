@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -9,6 +9,8 @@ import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { OOTB_DESTINATIONS } from '../../domain/ootbDestinations';
 import { formatActivityTypeLabel } from '../../domain/destinationCapabilities';
 import { useAppStore } from '../../store/useAppStore';
+import { destinationActions } from './actions/destinationActionsBoundary';
+import type { SupportedDestinationKind } from './actions/destinationActions';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsBuiltInDestinationDetail'>;
 type Rt = RouteProp<SettingsStackParamList, 'SettingsBuiltInDestinationDetail'>;
@@ -19,7 +21,6 @@ export function BuiltInDestinationDetailScreen() {
   const kind = String((route.params as any)?.kind ?? '').trim().toLowerCase();
 
   const enabledSendToDestinations = useAppStore((s) => s.enabledSendToDestinations);
-  const setSendToDestinationEnabled = useAppStore((s) => s.setSendToDestinationEnabled);
 
   const destination = OOTB_DESTINATIONS.find((d) => String(d.kind) === kind) ?? null;
   const isInstalled = Boolean((enabledSendToDestinations ?? {})[kind]);
@@ -66,7 +67,14 @@ export function BuiltInDestinationDetailScreen() {
                 fullWidth
                 variant={isInstalled ? 'secondary' : 'cta'}
                 label={isInstalled ? 'Uninstall' : 'Install'}
-                onPress={() => setSendToDestinationEnabled(kind, !isInstalled)}
+                onPress={() => {
+                  try {
+                    if (isInstalled) destinationActions.uninstall({ destinationId: kind, expectedInstalled: true });
+                    else destinationActions.install({ kind: kind as SupportedDestinationKind });
+                  } catch (error) {
+                    Alert.alert('Destination unavailable', error instanceof Error ? error.message : 'Try again.');
+                  }
+                }}
                 accessibilityLabel={isInstalled ? 'Uninstall destination' : 'Install destination'}
               />
               <Text style={styles.hint}>
@@ -97,4 +105,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
-

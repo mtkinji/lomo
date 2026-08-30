@@ -1,7 +1,3 @@
-import {
-  hasMoneyAppControlTargets,
-  type MoneyAppControlSettings,
-} from '../../capabilities/money/domain/moneyAppControl';
 import type {
   ChildCapabilityState,
   HouseholdSnapshot,
@@ -10,11 +6,6 @@ import type {
 export type FamilyScreenTimeOverviewRow = {
   childMembershipId: string;
   displayName: string;
-  value: string;
-};
-
-export type MoneyScreenTimeOverview = {
-  activePolicyIds: string[];
   value: string;
 };
 
@@ -49,25 +40,4 @@ export function buildFamilyScreenTimeOverviewRows(
       value,
     }];
   }).sort((left, right) => left.displayName.localeCompare(right.displayName));
-}
-
-export function buildMoneyScreenTimeOverview(
-  settings: MoneyAppControlSettings,
-): MoneyScreenTimeOverview | null {
-  const activePolicyIds = Object.entries(settings.policies)
-    .filter(([, policy]) => policy.enabled && hasMoneyAppControlTargets(policy))
-    .map(([policyId]) => policyId)
-    .sort();
-  if (activePolicyIds.length === 0) return null;
-
-  if (settings.authorizationStatus === 'notDetermined') {
-    return { activePolicyIds, value: 'Needs setup' };
-  }
-  if (settings.authorizationStatus !== 'approved') {
-    return { activePolicyIds, value: 'Needs attention' };
-  }
-  return {
-    activePolicyIds,
-    value: `${activePolicyIds.length} ${activePolicyIds.length === 1 ? 'category' : 'categories'}`,
-  };
 }

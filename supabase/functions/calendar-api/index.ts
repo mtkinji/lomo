@@ -464,28 +464,35 @@ serve(async (req) => {
   if (action === 'get_preferences') {
     const { data } = await admin
       .from('kwilt_calendar_preferences')
-      .select('read_calendar_refs,write_calendar_ref')
+      .select('version,read_calendar_refs,write_calendar_ref')
       .eq('user_id', userId)
       .single();
     return json(200, {
+      version: data?.version ?? 0,
       readCalendarRefs: data?.read_calendar_refs ?? [],
       writeCalendarRef: data?.write_calendar_ref ?? null,
     });
   }
 
   if (action === 'update_preferences') {
+    const expectedVersion = Number(body?.expectedVersion);
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 0) {
+      return json(400, { error: { message: 'Invalid calendar preference version', code: 'bad_request' } });
+    }
     const readCalendarRefs = normalizeRefs(body?.readCalendarRefs);
     const writeRef = normalizeRefs(body?.writeCalendarRef ? [body.writeCalendarRef] : [])[0] ?? null;
-    await admin.from('kwilt_calendar_preferences').upsert(
-      {
-        user_id: userId,
-        read_calendar_refs: readCalendarRefs,
-        write_calendar_ref: writeRef,
-        updated_at: nowIso(),
-      },
-      { onConflict: 'user_id' },
-    );
-    return json(200, { ok: true });
+    const { data, error } = await admin.rpc('update_kwilt_calendar_preferences', {
+      p_user_id: userId,
+      p_expected_version: expectedVersion,
+      p_read_calendar_refs: readCalendarRefs,
+      p_write_calendar_ref: writeRef,
+    });
+    if (error) return json(500, { error: { message: error.message, code: 'calendar_preferences_update_failed' } });
+    const result = Array.isArray(data) ? data[0] : data;
+    if (result?.status === 'stale') {
+      return json(409, { error: { message: 'Calendar preferences changed. Refresh and review again.', code: 'calendar_preferences_version_stale' }, version: result.version });
+    }
+    return json(200, { ok: true, version: result?.version ?? expectedVersion + 1 });
   }
 
   const accounts = await loadAccounts(admin, userId);

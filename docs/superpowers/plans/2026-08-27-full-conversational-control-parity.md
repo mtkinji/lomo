@@ -131,7 +131,6 @@ settings.execution_targets.delete
 settings.destinations.list
 settings.destinations.get
 settings.destinations.create
-settings.destinations.update
 settings.destinations.delete
 settings.activity_areas.list
 settings.activity_areas.get
@@ -581,16 +580,16 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `scripts/food-provider-feasibility.mjs`
 - Modify: `scripts/food-feasibility.test.mjs`
 
-- [ ] Add native capability actions for favorite/unfavorite, hide/restore, meal-preference read, and exact household meal-preference update.
-- [ ] Complete server providers for recipe search/read/create/import/update/scale/fork/share/publish/delete and Cook Mode read/start/control/complete.
-- [ ] Complete server providers for meal-plan create/update/candidates/round/response/finalize/revise.
-- [ ] Complete server providers for stock, grocery compile/item/review/product match/handoff, opportunity/scenario, receipt, savings, and food-budget operations.
-- [ ] Keep image/file selection, collaborator delivery, retailer cart opening, publication attestation, checkout, payment, and coupon application as reviewed or provider/native handoffs.
-- [ ] Use stable household/recipe/plan/list/item IDs and expected versions for writes. Require the actor’s household role for shared-food mutations.
-- [ ] Preserve retailer adapter truth: cart prepared/opened is not checkout; savings identified is not coupon applied; receipt extracted is not reconciled.
-- [ ] Add per-family tests for authorization, idempotency, stale versions, imported-source provenance, publication rights boundary, retailer outage, partial product matches, and receipt corrections.
-- [ ] Run focused food Jest tests, `npm run test:food-feasibility`, relevant Deno food tests, and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(food): complete conversational food providers`.
+- [x] Add native capability actions for favorite/unfavorite, hide/restore, meal-preference read, and exact household meal-preference update.
+- [x] Complete server providers for recipe search/read/create/import/update/scale/fork/share/publish/delete and Cook Mode read/start/control/complete.
+- [x] Complete server providers for meal-plan create/update/candidates/round/response/finalize/revise.
+- [x] Complete server providers for stock, grocery compile/item/review/product match/handoff, opportunity/scenario, receipt, savings, and food-budget operations.
+- [x] Keep image/file selection, collaborator delivery, retailer cart opening, publication attestation, checkout, payment, and coupon application as reviewed or provider/native handoffs.
+- [x] Use stable household/recipe/plan/list/item IDs and expected versions for writes. Require the actor’s household role for shared-food mutations.
+- [x] Preserve retailer adapter truth: cart prepared/opened is not checkout; savings identified is not coupon applied; receipt extracted is not reconciled.
+- [x] Add per-family tests for authorization, idempotency, stale versions, imported-source provenance, publication rights boundary, retailer outage, partial product matches, and receipt corrections.
+- [x] Run focused food Jest tests, `npm run test:food-feasibility`, relevant Deno food tests, and `npm run verify:changed -- --run`. The current parity ledger reports all 57 Food operations ready or intentionally bounded across mobile, Phone, and external providers. The closeout gate passed three feasibility tests, 38 focused Jest tests, and 29 Deno server-provider tests; the implementation was also covered by the green repository completion gate recorded for commit `28e08128`.
+- [x] Commit with message `feat(food): complete conversational food providers`. Landed as part of `28e08128` (`feat(chat): expand conversational parity controls`).
 
 ### Task 9: Complete Plan, Chapters, and notification settings
 
@@ -611,14 +610,14 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/serverAgentTools.ts`
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 
-- [ ] Implement availability read/update as a reviewed weekly diff with time zone and affected days.
-- [ ] Implement calendar preference read/update separately from OS calendar authorization. Missing authorization creates a native handoff.
-- [ ] Implement Chapter alignment preview as a pure read and alignment apply as an explicit Activity/Chapter proposal with exact affected IDs.
-- [ ] Implement Chapter digest and notification preference reads/updates; OS permission changes remain native handoffs.
-- [ ] Complete any existing Plan, Chapters, and notification pending providers in the same slice.
-- [ ] Add tests for time-zone changes, intentional availability overrides, unavailable calendars, stale alignment, notification denial, replay, and exact return.
-- [ ] Run focused tests and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(plan): complete conversational planning preferences`.
+- [x] Implement availability read/update as a reviewed weekly diff with time zone and affected days.
+- [x] Implement calendar preference read/update separately from provider calendar authorization. Missing authorization creates a native handoff.
+- [x] Implement Chapter alignment preview as a pure read and alignment apply as an explicit Activity/Chapter proposal with exact affected IDs.
+- [x] Implement Chapter digest and notification preference reads/updates; OS permission changes remain native handoffs.
+- [x] Complete any existing Plan, Chapters, and notification pending providers in the same slice.
+- [x] Add tests for time-zone changes, intentional availability overrides, unavailable calendars, stale alignment, notification denial, replay, and exact return.
+- [x] Run focused tests and `npm run verify:changed -- --run`.
+- [x] Commit with message `feat(plan): complete conversational planning preferences`.
 
 ### Task 10: Complete account settings and universal navigation
 
@@ -643,14 +642,15 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `src/features/unifiedChat/deviceToolProvider.ts`
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 
-- [ ] Move appearance, AI model, Phone Agent, haptics, widget preferences, connected tools, sharing, execution targets, destinations, and Activity areas behind typed capability actions used by native UI.
-- [ ] Treat device-local preferences as local direct operations after an explicit request. External requests create a device handoff and become complete only after the target device applies them.
-- [ ] Treat OAuth connect as `connect.open`; credentials never enter model arguments. Revocation is consequential, lists affected behavior, and returns a provider-confirmed receipt.
-- [ ] Treat sharing invitations as prepared drafts until the user confirms the exact person/audience and delivery. Revocation is an explicit write.
-- [ ] Validate execution targets and destinations against provider ownership and deny arbitrary URL/command injection.
-- [ ] Implement `navigation.open_capability` with an enum of included capability destinations and optional stable object reference. Reject arbitrary routes.
+- [x] Move appearance, AI model, Phone Agent, haptics, widget preferences, connected tools, sharing, execution targets, destinations, and Activity areas behind typed capability actions used by native UI.
+  - Completed: all listed settings groups now use typed capability actions and are ready across local Chat, Phone, and external ChatGPT. Device-local reads and writes return exact device/provider-confirmed results; widget placement remains honestly iOS-owned, OAuth approval stays provider-owned, Phone Agent verification/link/revoke stay native/provider-owned, sharing omits private identifiers and keeps recipient delivery native, execution-target Chat fields exclude repository URLs and executable instructions, Send to destinations accept only the four native retailer identifiers, and Activity-area archive preserves existing assignments. The phantom generic destination-update operation was removed because the native UI has only list, inspect, install, and uninstall. The Agent model selector is reachable from Settings and was operated in the current Simulator.
+- [x] Treat device-local preferences as local direct operations after an explicit request. External requests create a device handoff and become complete only after the target device applies them.
+- [x] Treat OAuth connect as `connect.open`; credentials never enter model arguments. Revocation is consequential, lists affected behavior, and returns a provider-confirmed receipt.
+- [x] Treat sharing invitations as prepared drafts until the user confirms the exact person/audience and delivery. Revocation is an explicit write.
+- [x] Validate execution targets and destinations against provider ownership and deny arbitrary URL/command injection.
+- [x] Implement `navigation.open_capability` with an enum of included capability destinations and optional stable object reference. Reject arbitrary routes. Local Chat, Phone, and external ChatGPT now share the same strict validator; focused navigation, provider, server, external-catalog, and parity tests pass, and the generated ledger reports mobile/Phone/external ready (voice proof remains Task 12).
 - [ ] Add tests for every settings operation, wrong-device handoff, OAuth cancellation, revoke retry, sharing audience mismatch, unsafe destination, unknown navigation target, and resume.
-- [ ] Run focused tests and `npm run verify:changed -- --run`.
+- [x] Run focused tests and `npm run verify:changed -- --run`. The final source completion gate passed app/test typechecks, all 1,136 Jest suites (7,042 passed tests, 2 skipped), Supabase Function typechecks and 118 Deno tests, product and Chat delivery lint, protocol contracts, generated code-map validation, architecture lint, and code-health ratchets. Physical-device and deployed-provider proof remain Tasks 17-19.
 - [ ] Commit with message `feat(settings): complete conversational settings control`.
 
 ### Task 11: Eliminate all pre-existing mobile and Phone pending providers
@@ -666,11 +666,11 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: server providers under `supabase/functions/_shared/`
 - Modify: `src/features/unifiedChat/conversationalParity.test.ts`
 
-- [ ] Generate the remaining missing-provider list after Tasks 4-10; use the generated report rather than the original 61/70 counts.
-- [ ] For every remaining row, implement exactly one of: direct provider, reviewed proposal, durable device handoff, durable provider handoff, or supported boundary.
-- [ ] Reject “handler registered but dispatcher falls through” by invoking every registration once in contract tests.
-- [ ] Assert mobile and Phone summaries contain zero `pending_provider` rows.
-- [ ] Run:
+- [x] Generate the remaining missing-provider list after Tasks 4-10; use the generated report rather than the original 61/70 counts.
+- [x] For every remaining row, implement exactly one of: direct provider, reviewed proposal, durable device handoff, durable provider handoff, or supported boundary.
+- [x] Reject “handler registered but dispatcher falls through” by invoking every registration once in contract tests.
+- [x] Assert mobile and Phone summaries contain zero `pending_provider` rows.
+- [x] Run:
 
 ```bash
 npx jest src/features/unifiedChat --runInBand
@@ -680,6 +680,8 @@ npm run verify:changed -- --run
 ```
 
 Expected: mobile and Phone have no pending provider; external and runtime proof may remain incomplete.
+
+Completed source result: the generated ledger contains 232 operations; mobile and Phone each report 225 ready and seven program exclusions, with zero pending providers and zero parity errors. Five supported-boundary operations remain intentionally non-executable final acts rather than provider gaps.
 
 - [ ] Commit with message `feat(chat): complete mobile and phone provider coverage`.
 
@@ -697,12 +699,12 @@ Expected: mobile and Phone have no pending provider; external and runtime proof 
 - Modify: `supabase/functions/_shared/__tests__/liveConversationSession_deno_test.ts`
 - Modify: `supabase/functions/_shared/serverAgentTools.ts`
 
-- [ ] Write a generated conformance test that iterates every included operation and proves voice invokes the same canonical tool ID, result state, confirmation requirement, and durable run/receipt path as text.
-- [ ] Make dictation only a composer input method and make live conversation only a streaming transport over the shared run coordinator.
-- [ ] When a proposal requires visual review, voice summarizes the change and opens the durable proposal; spoken “yes” is accepted only when the operation policy allows voice confirmation and the exact pending proposal is unambiguous.
-- [ ] Require native interaction for biometrics, permissions, Screen Time selections, photos, OAuth, payments, attestations, and audience-sensitive sharing.
-- [ ] Preserve interruption, stop, steer, retry, background/foreground, Bluetooth route changes, and microphone denial without losing the durable action state.
-- [ ] Run focused Jest/Deno voice tests and `npm run chat:protocol:conformance`.
+- [x] Write a generated conformance test that iterates every included operation and proves voice invokes the same canonical tool ID, result state, confirmation requirement, and durable run/receipt path as text.
+- [x] Make dictation only a composer input method and make live conversation only a streaming transport over the shared run coordinator.
+- [x] When a proposal requires visual review, voice summarizes the change and opens the durable proposal; spoken “yes” is accepted only when the operation policy allows voice confirmation and the exact pending proposal is unambiguous.
+- [x] Require native interaction for biometrics, permissions, Screen Time selections, photos, OAuth, payments, attestations, and audience-sensitive sharing.
+- [x] Preserve interruption, stop, steer, retry, background/foreground, Bluetooth route changes, and microphone denial without losing the durable action state. This is source/test proof only; signed-device transport and OS interruption evidence remains Task 18.
+- [x] Run focused Jest/Deno voice tests and `npm run chat:protocol:conformance`. Generated conformance covers all 225 included operations and the protocol gate passes.
 - [ ] Commit with message `feat(voice): share complete conversational control plane`.
 
 ### Task 13: Expose the complete safe catalog to ChatGPT
@@ -718,13 +720,13 @@ Expected: mobile and Phone have no pending provider; external and runtime proof 
 - Modify: `scripts/mcp-smoke.mjs`
 - Modify: `docs/feature-briefs/external-ai-connector.md`
 
-- [ ] Generate external registrations from the canonical catalog and server/device-handoff provider registry. Keep legacy aliases in a tested compatibility table only.
-- [ ] Assign least-privilege OAuth scopes by capability and effect. Reads never imply writes; household, Money, sharing, and Screen Time writes require their own scopes.
-- [ ] Expose device/provider handoff tools so ChatGPT can initiate and monitor the same native completion flow.
-- [ ] Ensure `tools/list` does not expose Games, Explore, internal orchestration operations, unsupported final acts, or operations without a provider.
-- [ ] Return structured content with operation ID, status, result refs, proposal/handoff ID, native destination, and user-safe message.
+- [x] Generate external registrations from the canonical catalog and server/device-handoff provider registry. Keep legacy aliases in a tested compatibility table only.
+- [x] Assign least-privilege OAuth scopes by capability and effect. Reads never imply writes; household, Money, sharing, and Screen Time writes require their own scopes.
+- [x] Expose device/provider handoff tools so ChatGPT can initiate and monitor the same native completion flow.
+- [x] Ensure `tools/list` does not expose Games, Explore, internal orchestration operations, unsupported final acts, or operations without a provider.
+- [x] Return structured content with operation ID, status, result refs, proposal/handoff ID, native destination, and user-safe message.
 - [ ] Test expired token, wrong audience, missing scope, revoked connection, cross-household target, schema rejection, duplicate request, provider outage, handoff expiry, and successful resume.
-- [ ] Assert external coverage contains zero `pending_provider` rows.
+- [x] Assert external coverage contains zero `pending_provider` rows. The generated ledger reports 223 ready, seven explicit supported boundaries, and two program exclusions, with zero pending providers.
 - [ ] Run:
 
 ```bash
@@ -751,14 +753,14 @@ Expected: all safe operations are exposed or have an explicit tested boundary; n
 - Create: `docs/operations/unified-chat-runbook.md`
 - Create: `docs/operations/conversational-control-incident-response.md`
 
-- [ ] Add per-operation/channel metrics for request, authorization refusal, proposal, handoff, completion, failure, replay, latency, and stale-version conflict.
-- [ ] Record catalog hash, tool version, actor/household IDs, redacted argument digest, provider, result status, receipt ID, and error code in the audit ledger.
-- [ ] Add rate limits by actor, OAuth client, operation consequence, and provider cost. Retries with the same request ID do not consume a second mutation allowance.
-- [ ] Add feature flags that can disable one operation/provider/channel without disabling all Chat.
-- [ ] Add handoff expiration, stuck-run reconciliation, dead-letter inspection, replay-safe recovery, and provider circuit breakers.
-- [ ] Add alerts for elevated refusal/failure, duplicate mutation, receipt mismatch, stalled handoff, tool-catalog drift, and OAuth scope mismatch.
-- [ ] Document rollback separately for Edge Functions, database migrations, MCP catalog, mobile feature flags, and native build.
-- [ ] Run security-focused Deno tests, rate-limit tests, migration checks, and a redaction snapshot test.
+- [x] Add per-operation/channel metrics for request, authorization refusal, proposal, handoff, completion, failure, replay, latency, and stale-version conflict.
+- [x] Record catalog hash, tool version, actor/household IDs, redacted argument digest, provider, result status, receipt ID, and error code in the audit ledger. Household ID is recorded only when the strict operation arguments explicitly carry it; Kwilt does not infer one from unrelated context.
+- [x] Add rate limits by actor, OAuth client, operation consequence, and provider cost. Retries with the same request ID do not consume a second mutation allowance.
+- [x] Add feature flags that can disable one operation/provider/channel without disabling all Chat.
+- [x] Add handoff expiration, stuck-run reconciliation, dead-letter inspection, replay-safe recovery, and provider circuit breakers.
+- [x] Add alerts for elevated refusal/failure, duplicate mutation, receipt mismatch, stalled handoff, tool-catalog drift, and OAuth scope mismatch.
+- [x] Document rollback separately for Edge Functions, database migrations, MCP catalog, mobile feature flags, and native build.
+- [x] Run security-focused Deno tests, rate-limit tests, migration checks, and a redaction snapshot test. The slice passes 135 focused Jest tests, 122 Supabase Deno tests, app/test and Edge Function typechecks, code-health ratchets, whitespace checks, and agent-map generation. Live database migration, alert delivery wiring, and deployed smoke proof remain release tasks.
 - [ ] Commit with message `feat(chat): harden conversational control operations`.
 
 ### Task 15: Build the full generated behavior matrix
@@ -772,11 +774,11 @@ Expected: all safe operations are exposed or have an explicit tested boundary; n
 - Create: `docs/delivery-evidence/unified-chat/conversational-control-matrix.md`
 - Modify: `docs/delivery-evidence/unified-chat/conversational-control-program.yml`
 
-- [ ] Generate at least these cases for every operation: ordinary phrasing, paraphrase, ambiguous target, unauthorized actor, missing scope, valid direct/proposal/handoff path, duplicate request, provider failure, and correction/retry.
-- [ ] Add capability-specific adversarial cases for financial semantics, household roles, child privacy, Screen Time token leakage, arbitrary navigation/destination injection, sharing audience, retailer completion claims, publication attestation, and reward settlement.
-- [ ] Use synthetic, disposable accounts and records. Never place Andrew’s real financial or household data in fixtures, screenshots, or reports.
-- [ ] Record exact model, prompt/catalog hash, branch, commit, backend environment, account fixture, timestamp, and result artifact for every live run.
-- [ ] Require 100% deterministic contract pass and zero false completion claims. Track model-understanding misses separately from provider/runtime failures.
+- [x] Generate at least these cases for every operation: ordinary phrasing, paraphrase, ambiguous target, unauthorized actor, missing scope, valid direct/proposal/handoff path, duplicate request, provider failure, and correction/retry.
+- [x] Add capability-specific adversarial cases for financial semantics, household roles, child privacy, Screen Time token leakage, arbitrary navigation/destination injection, sharing audience, retailer completion claims, publication attestation, and reward settlement.
+- [x] Use synthetic, disposable accounts and records. Never place Andrew’s real financial or household data in fixtures, screenshots, or reports.
+- [x] Record exact model, prompt/catalog hash, branch, commit, backend environment, account fixture, timestamp, and result artifact for every live run.
+- [x] Require 100% deterministic contract pass and zero false completion claims. Track model-understanding misses separately from provider/runtime failures.
 - [ ] Run focused corpus tests and a bounded live evaluation against the intended model.
 - [ ] Commit with message `test(chat): add full conversational control matrix`.
 
@@ -802,12 +804,12 @@ Expected: all safe operations are exposed or have an explicit tested boundary; n
 - Modify: `docs/delivery-evidence/unified-chat/conversational-control-program.yml`
 - Create: `docs/delivery-evidence/unified-chat/chatgpt-control-matrix.md`
 
-- [ ] Deploy migrations and Edge Functions only after explicit deployment authorization for that execution turn.
+- [x] Deploy migrations and Edge Functions only after explicit deployment authorization for that execution turn. MCP version 43 was deployed after Andrew's explicit confirmation on 2026-08-29.
 - [ ] Confirm OAuth discovery, authorization, refresh, revocation, `tools/list`, tool schema version, and account/household binding against the deployed connector.
 - [ ] From ChatGPT developer mode, run the generated full-catalog matrix using disposable data.
 - [ ] Complete native handoffs in Kwilt and verify ChatGPT observes the final receipt without claiming completion early.
 - [ ] Test read-only token, missing write scope, revoked connector, wrong household, expired handoff, duplicate request, provider outage, and retry.
-- [ ] Record the deployed function versions, catalog hash, OAuth client, target environment, and evidence timestamps.
+- [x] Record the deployed function versions, catalog hash, OAuth client, target environment, and evidence timestamps.
 - [ ] Do not label successful OAuth or `tools/list` as action coverage.
 - [ ] Commit evidence with message `test(mcp): record live ChatGPT control parity`.
 

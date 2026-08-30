@@ -44,11 +44,7 @@ export function preparePersonalScreenTimeProposal(
   const prior = getPersonalScreenTimeRule({ ruleId: proposal.operation.targetId }, boundary).result;
   return {
     type: 'screen_time.personal_rule.update', ruleId: prior.id, expectedUpdatedAt: appliedAt,
-    fields: {
-      enabled: prior.enabled, kind: prior.kind,
-      ...(prior.kind === 'daily_limit' && prior.limitMinutes !== null
-        ? { limitMinutes: prior.limitMinutes } : {}),
-    },
+    fields: { enabled: prior.enabled },
   };
 }
 

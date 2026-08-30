@@ -38,24 +38,17 @@ The OAuth surface is submission-oriented:
 
 ## Tools
 
-The function dispatches owner-scoped read tools:
+`tools/list` advertises the canonical `kwilt_*` operation catalog generated in
+`docs/delivery-evidence/unified-chat/conversational-control-catalog.json`. The
+catalog covers every externally ready Kwilt operation allowed by the token's
+capability scopes. The older 26 Life-tool names such as `list_arcs`,
+`create_goal`, and `capture_activity` remain callable for connector contract v1
+compatibility, but are not advertised to new clients.
 
-- `get_current_account`
-- `list_arcs`
-- `get_arc`
-- `list_goals`
-- `get_goal`
-- `list_recent_activities`
-- `get_current_chapter`
-- `get_show_up_status`
-
-When the token has `write` scope, `tools/list` also advertises write tools:
-
-- `create_arc`, `update_arc`, `delete_arc`
-- `create_goal`, `update_goal`, `delete_goal`, `add_goal_checkin`
-- `capture_activity`, `update_activity`, `mark_activity_done`, `set_focus_today`, `delete_activity`
-- `create_activity_step`, `update_activity_step`, `mark_activity_step_done`, `delete_activity_step`, `reorder_activity_steps`
-- `update_chapter_user_note`
+Read and write tools are separated, owner-scoped, and filtered by the granted
+`life`, `household`, `money`, and `food` read/write scopes. Device- or
+provider-owned outcomes return a truthful native handoff instead of claiming
+that ChatGPT completed the underlying action.
 
 Write tools create the same domain rows as the Kwilt app. Delete tools use the
 same recoverable soft-delete model (`is_deleted`, `deleted_at`, `data: {}`).

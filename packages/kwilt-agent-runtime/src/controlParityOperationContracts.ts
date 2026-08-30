@@ -97,6 +97,14 @@ const mealRefs = ['capability:meal_planning', 'action:mealPreferenceActions'] as
 const screenTimeRefs = ['capability:screenTime', 'action:personalScreenTimeRuleActions'] as const;
 const notificationRefs = ['capability:notifications', 'action:notificationPreferenceActions'] as const;
 const navigationRefs = ['capability:navigation', 'action:capabilityNavigationAction'] as const;
+const PHONE_AGENT_PERMISSION_PROPERTIES = {
+  create_activities: { type: 'boolean' },
+  remember_relationships: { type: 'boolean' },
+  send_followups: { type: 'boolean' },
+  log_done_replies: { type: 'boolean' },
+  offer_drafts: { type: 'boolean' },
+  suggest_arc_alignment: { type: 'boolean' },
+} as const;
 
 export const CONTROL_PARITY_OPERATION_CONTRACTS = [
   write({
@@ -175,6 +183,7 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
         maxItems: 28,
         items: objectSchema({
           weekday: { type: 'integer', minimum: 1, maximum: 7 },
+          mode: { type: 'string', enum: ['work', 'personal'] },
           startLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
           endLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
         }),
@@ -191,7 +200,11 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Update selected Plan calendars after native calendar authorization and exact calendar review.',
     providers: ['device'], consequence: 'consequential', reversible: true,
     confirmation: 'native', completionMode: 'native_handoff',
-    inputSchema: objectSchema({ expectedVersion: VERSION, calendarIds: STRING_LIST }), sourceRefs: planRefs,
+    inputSchema: objectSchema({
+      expectedVersion: VERSION,
+      readCalendarIds: STRING_LIST,
+      writeCalendarId: { type: ['string', 'null'], maxLength: 500 },
+    }), sourceRefs: planRefs,
   }),
 
   read({
@@ -204,7 +217,17 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Update explicitly reviewed weekly Chapter generation and delivery preferences.',
     providers: ['device', 'server'], consequence: 'low', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: objectSchema({ expectedVersion: VERSION, fields: FIELDS }), sourceRefs: chapterRefs,
+    inputSchema: timestampedTargetSchema('templateId', {
+      fields: {
+        type: 'object', minProperties: 1, additionalProperties: false,
+        properties: {
+          enabled: { type: 'boolean' },
+          deliveryWeekday: { type: 'integer', minimum: 1, maximum: 7 },
+          emailEnabled: { type: 'boolean' },
+          emailRecipient: { type: ['string', 'null'], maxLength: 320 },
+        },
+      },
+    }), sourceRefs: chapterRefs,
   }),
   read({
     id: 'chapters.alignment.preview', owner: 'chapters',
@@ -216,41 +239,83 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Apply one reviewed Chapter alignment proposal to the exact affected Activities.',
     providers: ['device', 'server'], consequence: 'consequential', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('chapterId', { activityIds: STRING_LIST }), sourceRefs: chapterRefs,
+    inputSchema: timestampedTargetSchema('chapterId', {
+      recommendationId: STRING_ID,
+      activities: {
+        type: 'array', minItems: 1, maxItems: 100,
+        items: objectSchema({ activityId: STRING_ID, expectedUpdatedAt: UPDATED_AT }),
+      },
+    }), sourceRefs: chapterRefs,
   }),
 
   read({ id: 'settings.appearance.read', owner: 'settings', purpose: 'Read device appearance preferences.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.appearance.update', owner: 'settings', purpose: 'Update device appearance preferences.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.appearance.update', owner: 'settings', purpose: 'Update device appearance preferences.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    expectedUpdatedAt: UPDATED_AT,
+    thumbnailStyles: { type: 'array', minItems: 1, maxItems: 5, uniqueItems: true, items: { type: 'string', enum: ['topographyDots', 'geoMosaic', 'contourRings', 'pixelBlocks', 'plainGradient'] } },
+  }), sourceRefs: settingsRefs }),
   read({ id: 'settings.ai_model.read', owner: 'settings', purpose: 'Read the preferred AI model and bounded behavior policy.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.ai_model.update', owner: 'settings', purpose: 'Update the preferred AI model after reviewing cost and behavior impact.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ expectedVersion: VERSION, modelId: STRING_ID }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.ai_model.update', owner: 'settings', purpose: 'Update the preferred AI model after reviewing cost and behavior impact.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    expectedModelId: { type: 'string', enum: ['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2'] },
+    modelId: { type: 'string', enum: ['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2'] },
+  }), sourceRefs: settingsRefs }),
   read({ id: 'settings.phone_agent.read', owner: 'settings', purpose: 'Read bounded Phone Agent enrollment and preference status.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.phone_agent.update', owner: 'settings', purpose: 'Update Phone Agent preferences without collecting provider credentials.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ expectedVersion: VERSION, fields: FIELDS }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.phone_agent.update', owner: 'settings', purpose: 'Update Phone Agent preferences without collecting provider credentials.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    expectedPromptCapPerDay: { type: 'integer', minimum: 0, maximum: 10 },
+    expectedPermissions: objectSchema(PHONE_AGENT_PERMISSION_PROPERTIES),
+    fields: {
+      ...objectSchema({
+        promptCapPerDay: { type: 'integer', minimum: 0, maximum: 10 },
+        permissions: { ...objectSchema(PHONE_AGENT_PERMISSION_PROPERTIES, []), minProperties: 1 },
+      }, []),
+      minProperties: 1,
+    },
+  }), sourceRefs: settingsRefs }),
   read({ id: 'settings.connected_tools.list', owner: 'settings', purpose: 'List connected external tools and their bounded authorization status.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
   read({ id: 'settings.connected_tools.get', owner: 'settings', purpose: 'Inspect one connected tool without exposing credentials or tokens.', providers: ['device', 'server'], inputSchema: targetSchema('connectionId'), sourceRefs: settingsRefs }),
-  write({ id: 'settings.connected_tools.connect.open', owner: 'settings', purpose: 'Open provider-owned OAuth connection for one supported tool.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'native', completionMode: 'provider_handoff', inputSchema: objectSchema({ providerId: STRING_ID }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.connected_tools.revoke', owner: 'settings', purpose: 'Revoke one connected tool after reviewing affected capability behavior.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('connectionId'), sourceRefs: settingsRefs }),
+  write({ id: 'settings.connected_tools.connect.open', owner: 'settings', purpose: 'Open provider-owned OAuth connection for one supported tool.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'native', completionMode: 'provider_handoff', inputSchema: objectSchema({ providerId: { type: 'string', enum: ['chatgpt', 'claude', 'cursor', 'codex', 'other'] } }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.connected_tools.revoke', owner: 'settings', purpose: 'Revoke one connected tool after reviewing affected capability behavior.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ connectionId: STRING_ID, expectedConnectedAt: { type: ['string', 'null'], format: 'date-time' } }), sourceRefs: settingsRefs }),
   read({ id: 'settings.sharing.list', owner: 'settings', purpose: 'List bounded sharing connections and pending invitations.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.sharing.invitation.prepare', owner: 'settings', purpose: 'Prepare a sharing invitation for exact native audience and delivery review.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ personId: STRING_ID, capabilityIds: STRING_LIST }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.sharing.connection.revoke', owner: 'settings', purpose: 'Revoke one sharing connection after reviewing what access will end.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('connectionId'), sourceRefs: settingsRefs }),
+  write({ id: 'settings.sharing.invitation.prepare', owner: 'settings', purpose: 'Prepare a one-use friendship invitation for exact native recipient and delivery review without granting content access.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ expiresInDays: { type: 'integer', minimum: 1, maximum: 30 } }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.sharing.connection.revoke', owner: 'settings', purpose: 'Revoke one friendship, Goal invitation, or Goal access connection after reviewing what access will end.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ connectionId: STRING_ID, expectedFingerprint: OPAQUE_VERSION }), sourceRefs: settingsRefs }),
   read({ id: 'settings.haptics.read', owner: 'settings', purpose: 'Read device haptic preferences.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.haptics.update', owner: 'settings', purpose: 'Update device haptic preferences.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.haptics.update', owner: 'settings', purpose: 'Update device haptic preferences.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ expectedEnabled: { type: 'boolean' }, enabled: { type: 'boolean' } }), sourceRefs: settingsRefs }),
   read({ id: 'settings.widgets.read', owner: 'settings', purpose: 'Read Kwilt widget preferences and installation guidance status.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  write({ id: 'settings.widgets.configure', owner: 'settings', purpose: 'Configure Kwilt widget preferences and open OS-owned placement guidance.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.widgets.configure', owner: 'settings', purpose: 'Open Kwilt widget setup guidance while leaving Home Screen placement OS-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ openSetup: { type: 'boolean', enum: [true] } }), sourceRefs: settingsRefs }),
   read({ id: 'settings.execution_targets.list', owner: 'settings', purpose: 'List bounded execution targets without exposing provider credentials.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
   read({ id: 'settings.execution_targets.get', owner: 'settings', purpose: 'Inspect one bounded execution target.', providers: ['device', 'server'], inputSchema: targetSchema('targetId'), sourceRefs: settingsRefs }),
-  write({ id: 'settings.execution_targets.create', owner: 'settings', purpose: 'Create one reviewed execution target from a supported provider type.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ providerId: STRING_ID, fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.execution_targets.update', owner: 'settings', purpose: 'Update one reviewed execution target without accepting arbitrary commands.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('targetId', { fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.execution_targets.delete', owner: 'settings', purpose: 'Delete one execution target after reviewing affected behavior.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('targetId'), sourceRefs: settingsRefs }),
-  read({ id: 'settings.destinations.list', owner: 'settings', purpose: 'List user-defined supported destinations.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
-  read({ id: 'settings.destinations.get', owner: 'settings', purpose: 'Inspect one user-defined supported destination.', providers: ['device', 'server'], inputSchema: targetSchema('destinationId'), sourceRefs: settingsRefs }),
-  write({ id: 'settings.destinations.create', owner: 'settings', purpose: 'Create one destination using a supported destination type.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ kind: STRING_ID, fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.destinations.update', owner: 'settings', purpose: 'Update one destination without accepting arbitrary executable URLs.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('destinationId', { fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.destinations.delete', owner: 'settings', purpose: 'Delete one user-defined destination.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('destinationId'), sourceRefs: settingsRefs }),
+  write({ id: 'settings.execution_targets.create', owner: 'settings', purpose: 'Install one curated Cursor execution target using bounded naming fields; URLs and executable commands remain native-only.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    providerId: { type: 'string', enum: ['cursor_mcp_v1'] },
+    displayName: { type: 'string', minLength: 1, maxLength: 80 },
+    repoName: { type: 'string', minLength: 1, maxLength: 100 },
+  }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.execution_targets.update', owner: 'settings', purpose: 'Update bounded fields on one reviewed execution target without accepting URLs or executable commands.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    targetId: STRING_ID,
+    expectedUpdatedAt: UPDATED_AT,
+    fields: {
+      type: 'object', minProperties: 1, additionalProperties: false,
+      properties: {
+        displayName: { type: 'string', minLength: 1, maxLength: 80 },
+        repoName: { type: 'string', minLength: 1, maxLength: 100 },
+        enabled: { type: 'boolean' },
+      },
+    },
+  }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.execution_targets.delete', owner: 'settings', purpose: 'Delete one execution target after reviewing affected behavior.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('targetId'), sourceRefs: settingsRefs }),
+  read({ id: 'settings.destinations.list', owner: 'settings', purpose: 'List allow-listed retailer Send to destinations and installation status.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
+  read({ id: 'settings.destinations.get', owner: 'settings', purpose: 'Inspect one allow-listed retailer Send to destination.', providers: ['device', 'server'], inputSchema: objectSchema({ destinationId: { type: 'string', enum: ['amazon', 'home_depot', 'instacart', 'doordash'] } }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.destinations.create', owner: 'settings', purpose: 'Install one allow-listed retailer Send to destination without accepting a URL.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ kind: { type: 'string', enum: ['amazon', 'home_depot', 'instacart', 'doordash'] } }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.destinations.delete', owner: 'settings', purpose: 'Uninstall one reviewed retailer Send to destination.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    destinationId: { type: 'string', enum: ['amazon', 'home_depot', 'instacart', 'doordash'] },
+    expectedInstalled: { type: 'boolean', enum: [true] },
+  }), sourceRefs: settingsRefs }),
   read({ id: 'settings.activity_areas.list', owner: 'settings', purpose: 'List configured Activity areas.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
   read({ id: 'settings.activity_areas.get', owner: 'settings', purpose: 'Inspect one configured Activity area.', providers: ['device', 'server'], inputSchema: targetSchema('areaId'), sourceRefs: settingsRefs }),
-  write({ id: 'settings.activity_areas.create', owner: 'settings', purpose: 'Create one reviewed Activity area.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.activity_areas.update', owner: 'settings', purpose: 'Update one reviewed Activity area.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('areaId', { fields: FIELDS }), sourceRefs: settingsRefs }),
-  write({ id: 'settings.activity_areas.delete', owner: 'settings', purpose: 'Delete one Activity area after reviewing affected Activities.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('areaId'), sourceRefs: settingsRefs }),
+  write({ id: 'settings.activity_areas.create', owner: 'settings', purpose: 'Create one reviewed Activity area with safe scheduling defaults.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ label: { type: 'string', minLength: 1, maxLength: 80 } }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.activity_areas.update', owner: 'settings', purpose: 'Rename one exact reviewed Activity area.', providers: ['device', 'server'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({
+    areaId: STRING_ID, expectedFingerprint: OPAQUE_VERSION,
+    label: { type: 'string', minLength: 1, maxLength: 80 },
+  }), sourceRefs: settingsRefs }),
+  write({ id: 'settings.activity_areas.delete', owner: 'settings', purpose: 'Archive one Activity area after reviewing affected Activities without erasing their assignments.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ areaId: STRING_ID, expectedFingerprint: OPAQUE_VERSION }), sourceRefs: settingsRefs }),
 
   read({ id: 'money.budget.read', owner: 'money', purpose: 'Read the explicit monthly Money plan without calling it income or cash flow.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: moneyRefs }),
   write({ id: 'money.budget.update', owner: 'money', purpose: 'Apply one reviewed monthly Money plan diff.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ expectedUpdatedAt: UPDATED_AT, month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' }, categoryId: STRING_ID, plannedCents: { type: 'integer', minimum: 0 } }), sourceRefs: moneyRefs }),
@@ -291,20 +356,32 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
 
   read({ id: 'screen_time.personal_rule.list', owner: 'screenTime', purpose: 'List personal Screen Time rules using opaque rule IDs and human-readable labels.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: screenTimeRefs }),
   read({ id: 'screen_time.personal_rule.get', owner: 'screenTime', purpose: 'Inspect one personal Screen Time rule without exposing FamilyControls tokens.', providers: ['device', 'server'], inputSchema: targetSchema('ruleId'), sourceRefs: screenTimeRefs }),
-  write({ id: 'screen_time.personal_rule.update', owner: 'screenTime', purpose: 'Update one personal Screen Time rule while keeping Apple selection device-owned.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId', { fields: {
+  write({ id: 'screen_time.personal_rule.update', owner: 'screenTime', purpose: 'Turn one personal Screen Time rule on or off. Structural edits use the native sentence composer because Apple selection stays device-owned.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId', { fields: {
     type: 'object', minProperties: 1, additionalProperties: false,
-    properties: {
-      enabled: { type: 'boolean' },
-      kind: { type: 'string', enum: ['real_step', 'focus', 'daily_limit'] },
-      limitMinutes: { type: 'integer', minimum: 1, maximum: 1440 },
-    },
+    properties: { enabled: { type: 'boolean' } },
+    required: ['enabled'],
   } }), sourceRefs: screenTimeRefs }),
   write({ id: 'screen_time.personal_rule.deactivate', owner: 'screenTime', purpose: 'Deactivate one personal Screen Time rule and remove its active enforcement.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
   write({ id: 'screen_time.personal_rule.delete', owner: 'screenTime', purpose: 'Delete one personal Screen Time rule after native enforcement cleanup.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
 
-  read({ id: 'notifications.preferences.read', owner: 'notifications', purpose: 'Read individual Kwilt notification preferences without changing OS permission.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: notificationRefs }),
-  write({ id: 'notifications.preferences.update', owner: 'notifications', purpose: 'Update individual Kwilt notification preferences; OS permission remains native-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: notificationRefs }),
-  write({ id: 'navigation.open_capability', owner: 'navigation', purpose: 'Open one allow-listed Kwilt capability or stable object destination.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ capabilityId: STRING_ID, objectRef: { type: ['object', 'null'], properties: { objectType: STRING_ID, objectId: STRING_ID }, required: ['objectType', 'objectId'], additionalProperties: false } }), sourceRefs: navigationRefs }),
+  read({ id: 'notifications.preferences.read', owner: 'notifications', purpose: 'Read bounded individual Kwilt notification preferences without exposing device permission state.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: notificationRefs }),
+  write({ id: 'notifications.preferences.update', owner: 'notifications', purpose: 'Review individual Kwilt notification preferences; any OS permission prompt remains native-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ fields: {
+    type: 'object', minProperties: 1, additionalProperties: false,
+    properties: {
+      notificationsEnabled: { type: 'boolean' }, allowActivityReminders: { type: 'boolean' },
+      allowDailyShowUp: { type: 'boolean' }, dailyShowUpTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      allowPlanKickoff: { type: 'boolean' }, planKickoffCadence: { type: 'string', enum: ['daily', 'weekdays', 'weekly'] },
+      planKickoffWeeklyDay: { type: 'integer', minimum: 0, maximum: 6 }, allowDailyFocus: { type: 'boolean' },
+      dailyFocusTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      dailyFocusTimeMode: { type: 'string', enum: ['auto', 'manual'] }, allowGoalNudges: { type: 'boolean' },
+      goalNudgeTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      allowStreakAndReactivation: { type: 'boolean' }, allowHouseholdMealPlanPush: { type: 'boolean' },
+    },
+  } }), sourceRefs: notificationRefs }),
+  write({ id: 'navigation.open_capability', owner: 'navigation', purpose: 'Open one allow-listed Kwilt capability or stable object destination.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({
+    capabilityId: { type: 'string', enum: ['goals', 'todos', 'plan', 'arcs', 'chapters', 'money', 'recipes', 'meal-planning', 'groceries', 'chores', 'focus', 'household', 'savings', 'screen-time', 'notifications', 'account-settings'] },
+    objectRef: { type: ['object', 'null'], properties: { objectType: { type: 'string', enum: ['goal', 'activity', 'chapter', 'recipe'] }, objectId: STRING_ID }, required: ['objectType', 'objectId'], additionalProperties: false },
+  }, ['capabilityId']), sourceRefs: navigationRefs }),
 ] as const satisfies readonly ControlParityOperationContract[];
 
 export const CONTROL_PARITY_OPERATION_IDS = CONTROL_PARITY_OPERATION_CONTRACTS.map(({ id }) => id);

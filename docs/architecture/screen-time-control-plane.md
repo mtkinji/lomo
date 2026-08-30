@@ -309,13 +309,12 @@ Packaging and pricing remain a product decision. The control plane must support 
 
 ## Current Implementation State
 
-As of 2026-08-10:
+As of 2026-08-28:
 
-- Personal Screen Time uses `useAppStore.screenTimeProtection`, stable per-rule native selections, and `screenTimeProtectionRuntime`.
-- The shared shield handoff preserves the current route and projects personal, Money, and family claims into the root contextual guide.
-- Money app controls use category-owned persisted policies, category-scoped selection identifiers, and `moneyAppControlRuntime`.
+- Personal Screen Time uses canonical composite rules in `useAppStore.screenTimeProtection`, stable per-rule native selections, the sentence composer, and `screenTimeProtectionRuntime`.
+- Budget is a composite condition whose current truth is supplied by Money; Money does not own a Screen Time policy store, editor, inventory row, or reconciler.
+- The shared shield handoff preserves the current route and projects canonical personal and family claims into the root contextual guide.
 - Family Screen Time uses server Household activation plus a local pre-TestFlight learning record with a development-only simulated acknowledgement.
-- Personal and Money share the Apple bridge, but each runtime reconciles independently.
 - Family native `.child` authorization, cross-device delivery, enforcement, and cleanup are not yet implemented or proven.
 
 This is sufficient for bounded learning but not the permanent control plane. Simulator and automated contracts do not prove signed-device Family Controls authorization, Device Activity callbacks, background/offline enforcement, shields, expiry, or release cleanup.
@@ -323,19 +322,19 @@ This is sufficient for bounded learning but not the permanent control plane. Sim
 ## Migration Sequence
 
 1. **Name the system.** Adopt this document and link every Screen Time brief to it.
-2. **Create the overview read model.** Let Settings summarize personal, Money, and family policy state without moving their editors.
-3. **Unify policy identity and receipts.** Introduce shared policy/selection identity, desired-applied state, and reconciliation results while preserving existing behavior.
-4. **Centralize conflict reconciliation.** Ensure overlapping personal and Money policies cannot clear each other or present a false single reason.
+2. **Keep one personal aggregate model.** Settings and contextual capability entries create and edit the same composite rule records.
+3. **Unify policy identity and receipts.** Introduce shared policy/selection identity, desired-applied state, and reconciliation results for personal and family scopes.
+4. **Centralize condition reconciliation.** Ensure all personal condition providers feed one aggregate evaluation and cannot clear another rule's active restriction.
 5. **Add family device delivery.** Implement `.child` authorization, managed-device identity, compiled family policy, receipts, offline behavior, and cleanup.
-6. **Prove on signed devices.** Exercise personal, Money, family, overlap, failure, reinstall, deactivation, and caregiver-failover paths before claiming the unit is shipped.
+6. **Prove on signed devices.** Exercise personal budget-backed rules, family rules, overlap, failure, reinstall, deactivation, and caregiver-failover paths before claiming the unit is shipped.
 
-Each step should be independently verifiable and avoid a bulk rewrite of existing working policy domains.
+Each step should be independently verifiable. The 2026-08-28 personal-rule consolidation intentionally used a clean development-state reset instead of preserving old personal and Money policies.
 
 ## Acceptance Rules
 
 - Screen Time remains absent from global capability navigation.
 - Settings exposes one Screen Time overview, not three competing settings homes.
-- Personal, Money, and family editors remain with their canonical condition owner.
+- Personal rules use one Screen Time editor; Money and other capabilities may only prefill typed conditions.
 - All policy application uses stable selection/store identity.
 - One domain cannot clear another domain's active restriction.
 - Desired and applied state remain distinguishable.

@@ -7,9 +7,9 @@ personas: [Marcus, Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls]
+related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls, brief-screen-time-rule-system-consolidation]
 owner: andrew
-last_updated: 2026-08-27
+last_updated: 2026-08-28
 ---
 
 # Screen Time Rule Governance
@@ -54,10 +54,14 @@ Each collection has its own **Add rule** action. The action carries scope into t
 The scoped add action opens one structured, full-screen builder after the
 established initial Screen Time setup pattern. From Settings, subject is
 already Me, so the first question is which apps the rule should manage. Apple
-selection advances directly into a flat rule composer whose visible grammar is
-**Rule for / When / AND-or-OR / Then**. Conditions expose their field,
-operator, and value independently. **Add condition** sits outside the
-statements it creates. There is no separate behavior step or sentence receipt.
+selection advances directly into a sentence-shaped rule composer whose visible grammar is
+**Rule behavior / Allow or Pause access to [selected apps] / When / [condition]**.
+The selected apps belong to the behavior statement instead of a page title or repeated summary
+row. Selectable outcome, target, condition field, operator, and value phrases use compact picker
+fields rather than underlined text. Conditions live in their own white well beneath **When**.
+Additional conditions extend that well with an editable **AND** or **OR** connector. **Add
+condition** remains inside that well. There is no separate **Then** section, behavior step, or
+sentence receipt.
 From a contextual Focus, real-step, or daily-use offer, the known condition is
 prepopulated but remains editable.
 When authorization already exists, these workflow offers present the same
@@ -72,7 +76,7 @@ valid selection and advances to the next unresolved question. Cancel or an
 empty selection stays on the apps question, avoiding a redundant second
 confirmation.
 
-The outcome is explicit: **Make these apps available** or **Pause these apps**.
+The outcome is explicit and concrete: **Allow access** or **Pause access**.
 When a rule has more than one condition, the connector is equally explicit:
 **AND** means every condition must match; **OR** means any condition may match.
 Tapping the connector changes it through a two-choice radio drawer. The UI and
@@ -86,10 +90,13 @@ Examples:
 > Games are available to Charlie on school days from 4–7 PM, after today's responsibilities are complete, for up to 30 minutes.
 
 Condition owners define compatible fields and deterministic semantics. The
-personal composite supports time of day, device-local daily usage, Focus, and
-real-step completion. Money remains a capability-owned rule source in this
-slice. The control plane continues to preserve each named restriction and AND
-enforcement across overlapping saved rules.
+personal composite supports time of day, device-local daily usage, Focus,
+real-step completion, and budget truth. Screen Time owns the composed rule;
+Money owns eligible budget names, condition semantics, and current budget
+truth. This allows a budget condition to participate honestly in the same
+visible AND/OR aggregate instead of creating a hidden second rule. The control
+plane continues to preserve each named restriction and AND enforcement across
+overlapping saved rules.
 
 Personal composite rules are repeatable. Every saved aggregate owns one stable
 rule ID and native selection ID; editing, toggling, reconciling, and clearing
@@ -113,7 +120,9 @@ Delivery is sliced. The first slice replaces the inline personal prototype with
 the shared builder semantics and proves both modes using Focus and real-step
 rules. The second applies the same builder anatomy to typed Household access
 agreements. The third adds Household pause triggers and temporary actions.
-Money continues to own creation of Money-backed rules.
+The accepted Screen Time rule-system consolidation supersedes standalone Money
+app-control editing. Money supplies budget choices and current truth to this
+composer; Screen Time owns every rule's identity, lifecycle, and enforcement.
 
 ## UI contract
 
@@ -139,7 +148,8 @@ Scan order: authorization -> My rules/count/add -> Household rules/count/add -> 
 
 Must not add: global dashboard, tabs, generic wizard instructions or repeated
 context, decorative rails, an enclosing condition card, a result card, green
-emphasis, rule names, global personal visibility, or unverified device claims.
+emphasis, rule names, inconsistent dividers inside a choice list, global
+personal visibility, or unverified device claims.
 
 Reuse map: the canonical secondary Settings page shell; Apple
 FamilyActivityPicker for app volume; standard BottomDrawer and radio-row
@@ -174,8 +184,8 @@ state.
 - The flat composer is the source of truth; it does not duplicate the rule as a
   read-only agreement receipt. Inventory copy uses the same normalized
   conditions and connector as enforcement.
-- Personal conditions include Focus, real step, and a device-local daily usage
-  allowance. Existing personal records derive their mode, so adding the allowance
+- Personal conditions include Focus, real step, a device-local daily usage
+  allowance, time of day, and Money-owned budget truth. Existing personal records derive their mode, so adding the allowance
   kind requires no rewrite of older records. Chat may carry a self subject,
   suggested app label, bounded minute allowance, and daily reset into the same
   native builder; Apple token selection and save remain native-only.
@@ -187,12 +197,18 @@ state.
   same builder screen with a Household adapter. Typed V2 Household agreement JSON
   is introduced behind normalization and legacy reading; IDs, selections, and
   desired/applied version behavior remain stable.
-- Money rules are projected individually but their condition configuration
-  remains Money-owned.
+- A composed rule stores a stable budget source ID, display name, and
+  Money-defined predicate. Money supplies current truth to Screen Time without
+  owning or separately enforcing any rule. The consolidation phase clears and
+  retires standalone Money policies rather than preserving a permanent
+  projection path.
 - Changing a condition field replaces only that condition and its incompatible
-  operator/value. Rule enabled remains a top-level edit affordance; deletion is
-  a standalone destructive action at the bottom, without a Rule management
-  section.
+  operator/value. The composer contains no lifecycle controls. A saved rule's
+  header overflow reveals **Turn on/off rule** and **Delete rule**, with deletion
+  visually destructive and confirmed before native enforcement is removed. The
+  My rules list owns the frequent direct enabled switch and exposes deletion by
+  swipe; tapping the rest of the row opens the rule detail. There is no Rule
+  management or danger-zone section.
 - Temporary Allow/Pause actions are overrides, not builder modes.
 - Logic projections and personal rule mutations require tests first; UI composition may be implemented directly with component tests for key states.
 - A Chat handoff is not a saved rule or enforcement receipt. It reports only

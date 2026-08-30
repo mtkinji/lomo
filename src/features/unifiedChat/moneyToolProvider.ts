@@ -96,7 +96,7 @@ export function createMoneyToolProvider({
     if (privacyLocked || !snapshot) {
       return stageNative(
         'open_money_control', call, null, 'Unlock Kwilt Money',
-        'Kwilt will open Money on this device. Face ID, Touch ID, or the device passcode remains native and no financial detail is exposed in Chat.',
+        'Kwilt will open Money on this device. You still unlock it with Face ID, Touch ID, or your passcode. Financial details stay private.',
       );
     }
 
@@ -128,7 +128,7 @@ export function createMoneyToolProvider({
         return stageNative(
           'open_money_connection_repair', call, connection.id,
           `Repair ${connection.institutionName}`,
-          'Kwilt will open the provider-owned repair flow. Credentials and institution consent stay with the provider and native device.',
+          'Kwilt will open the provider’s repair screen. Your sign-in information and bank approval stay with the provider.',
         );
       }
       if (call.toolId === 'money.budget.update') {

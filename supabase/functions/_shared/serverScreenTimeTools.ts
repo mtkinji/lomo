@@ -364,8 +364,8 @@ export async function executeServerScreenTimeTool({
       title: setup ? 'Set up My Screen Time' : limit ? 'Review personal app limit'
         : list ? 'Open My Screen Time rules' : 'Review personal Screen Time rule',
       consequenceSummary: call.toolId.endsWith('.delete')
-        ? 'Kwilt will open the exact native rule. Deletion and enforcement cleanup require confirmation on that device.'
-        : 'Kwilt will open the exact native Screen Time review on the signed-in device; Apple authorization and enforcement remain device-owned.',
+        ? 'Kwilt will open this rule. It stays active until you confirm deletion on that device.'
+        : 'Kwilt will open this Screen Time review on the signed-in device. You still finish Apple authorization and confirm the rule there.',
       payload: { ...call.arguments },
     };
     await stageDeviceAction(request);
@@ -420,7 +420,7 @@ export async function executeServerScreenTimeTool({
       capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
       targetType: 'family_screen_time_child', targetId: String(child.membershipId),
       title: setupStep === 'release' ? `Review ${String(child.displayName)}'s device release` : `Continue Screen Time setup for ${String(child.displayName)}`,
-      consequenceSummary: 'Kwilt will open the exact authorized native step. Nothing is applied until Apple authorization, selection, and device confirmation complete there.',
+      consequenceSummary: 'Kwilt will open the next authorized step. Nothing changes until you finish Apple authorization, make the selection, and confirm on the device.',
       payload: {
         householdId, childDisplayName: child.displayName, setupStep,
         expectedPolicyVersion: child.desiredPolicyVersion,

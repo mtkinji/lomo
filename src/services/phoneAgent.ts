@@ -46,6 +46,7 @@ export type PhoneAgentLinkRequest =
   | { action: 'verify_code'; phone: string; code: string }
   | { action: 'update_settings'; phone: string; permissions: Record<string, boolean>; promptCapPerDay: number }
   | { action: 'revoke'; phone: string }
+  | { action: 'continue_thread'; threadId: string }
   | { action: 'status' };
 
 type JsonRecord = Record<string, unknown>;
@@ -186,4 +187,16 @@ export async function revokePhoneAgentLink(phone: string): Promise<{ status: 're
 
 export async function getPhoneAgentStatus(): Promise<PhoneAgentStatus> {
   return normalizePhoneAgentStatus(await callPhoneAgentLink({ action: 'status' }));
+}
+
+export async function continuePhoneAgentThread(threadId: string): Promise<{
+  status: 'ready';
+  channel: 'phone_agent';
+  continuation: 'next_message';
+}> {
+  const result = asRecord(await callPhoneAgentLink({ action: 'continue_thread', threadId }));
+  if (result.status !== 'ready' || result.channel !== 'phone_agent' || result.continuation !== 'next_message') {
+    throw new Error('Phone Agent returned an invalid continuation receipt');
+  }
+  return { status: 'ready', channel: 'phone_agent', continuation: 'next_message' };
 }

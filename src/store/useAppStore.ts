@@ -53,11 +53,9 @@ import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
 import {
   DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
-  getPersonalScreenTimeRule,
   normalizeScreenTimeProtectionSettings,
   recordMeaningfulFirstBypass,
   recordMeaningfulFirstQualification,
-  replacePersonalScreenTimeRule,
   type MeaningfulFirstQualification,
   type ScreenTimeProtectionSettings,
   type ScreenTimeSetupOfferSurface,
@@ -2772,22 +2770,15 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
           const at = dismissedAtIso ?? new Date().toISOString();
-          const rule = getPersonalScreenTimeRule(current, 'real_step');
-          return { screenTimeProtection: rule
-            ? replacePersonalScreenTimeRule(current, {
-              ...rule,
+          return { screenTimeProtection: normalizeScreenTimeProtectionSettings({
+            ...current,
+            meaningfulFirst: {
+              ...current.meaningfulFirst,
               lastPromptDismissedAtIso: at,
               lastUpdated: at,
-            })
-            : normalizeScreenTimeProtectionSettings({
-              ...current,
-              meaningfulFirst: {
-                ...current.meaningfulFirst,
-                lastPromptDismissedAtIso: at,
-                lastUpdated: at,
-              },
-              lastUpdated: at,
-            }) };
+            },
+            lastUpdated: at,
+          }) };
         }),
       markScreenTimeSetupOfferShown: (surface, shownAtIso) =>
         set((state) => {
@@ -2812,14 +2803,14 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
           const at = dismissedAtIso ?? new Date().toISOString();
-          const rule = getPersonalScreenTimeRule(current, 'real_step');
-          const withDismissal = rule
-            ? replacePersonalScreenTimeRule(current, {
-              ...rule,
+          const withDismissal = normalizeScreenTimeProtectionSettings({
+            ...current,
+            meaningfulFirst: {
+              ...current.meaningfulFirst,
               lastPromptDismissedAtIso: at,
               lastUpdated: at,
-            })
-            : current;
+            },
+          });
           return {
             screenTimeProtection: normalizeScreenTimeProtectionSettings({
               ...withDismissal,

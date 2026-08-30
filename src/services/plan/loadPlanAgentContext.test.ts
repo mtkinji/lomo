@@ -6,7 +6,7 @@ const writeCalendarRef = { provider: 'google' as const, accountId: 'account-1', 
 describe('loadPlanAgentContext', () => {
   test('loads provider preferences and target-day busy intervals', async () => {
     const getPreferences = jest.fn(async () => ({
-      readCalendarRefs: [writeCalendarRef], writeCalendarRef,
+      version: 1, readCalendarRefs: [writeCalendarRef], writeCalendarRef,
     }));
     const listBusy = jest.fn(async () => ({
       intervals: [{ start: '2026-07-24T15:00:00.000Z', end: '2026-07-24T16:00:00.000Z' }],
@@ -35,7 +35,7 @@ describe('loadPlanAgentContext', () => {
       targetDate,
       kwiltBusyIntervals: [],
       dependencies: {
-        getPreferences: async () => ({ readCalendarRefs: [], writeCalendarRef: null }),
+        getPreferences: async () => ({ version: 0, readCalendarRefs: [], writeCalendarRef: null }),
         listBusy: jest.fn(),
         listEvents: jest.fn(),
       },

@@ -28,7 +28,7 @@ export type ScreenTimeProposalOperation =
       targetId: string;
       payload: {
         expectedUpdatedAt: string;
-        fields: { enabled?: boolean; kind?: 'real_step' | 'focus' | 'daily_limit'; limitMinutes?: number };
+        fields: { enabled: boolean };
       };
     }
   | {
@@ -145,21 +145,14 @@ export function parsePersonalScreenTimeRuleProposal(
     };
   }
   if (Object.keys(value).some((key) => !['ruleId', 'expectedUpdatedAt', 'fields'].includes(key))
-    || !isRecord(value.fields) || Object.keys(value.fields).length === 0
-    || Object.keys(value.fields).some((key) => !['enabled', 'kind', 'limitMinutes'].includes(key))) return null;
+    || !isRecord(value.fields) || Object.keys(value.fields).length !== 1
+    || typeof value.fields.enabled !== 'boolean') return null;
   const fields = value.fields;
-  if ((fields.enabled !== undefined && typeof fields.enabled !== 'boolean')
-    || (fields.kind !== undefined && !['real_step', 'focus', 'daily_limit'].includes(String(fields.kind)))
-    || (fields.limitMinutes !== undefined && !isIntegerInRange(fields.limitMinutes, 1, 1440))) return null;
   return {
     type: 'update_personal_screen_time_rule', targetId: value.ruleId,
     payload: {
       expectedUpdatedAt: value.expectedUpdatedAt,
-      fields: {
-        ...(fields.enabled !== undefined ? { enabled: fields.enabled } : {}),
-        ...(fields.kind !== undefined ? { kind: fields.kind as 'real_step' | 'focus' | 'daily_limit' } : {}),
-        ...(fields.limitMinutes !== undefined ? { limitMinutes: Number(fields.limitMinutes) } : {}),
-      },
+      fields: { enabled: fields.enabled === true },
     },
   };
 }

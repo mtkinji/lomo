@@ -8,6 +8,7 @@ export {
   parseServerAgentResponse,
   requestServerAgentResponse as requestServerAgentModel,
   serverResponsesToolCatalogHash,
+  toServerProviderToolName,
   toServerResponsesInput,
   toServerResponsesTools,
 } from './serverAgentResponses.ts';
@@ -73,7 +74,6 @@ function parseJudgmentOutput(raw: unknown): ServerTurnJudgment | null {
 
 export async function requestServerTurnJudgment({
   supabaseUrl,
-  anonKey,
   serviceRoleToken,
   quotaIdentity,
   isPro,
@@ -82,7 +82,6 @@ export async function requestServerTurnJudgment({
   fetcher = fetch,
 }: {
   supabaseUrl: string;
-  anonKey: string;
   serviceRoleToken: string;
   quotaIdentity: string;
   isPro: boolean;
@@ -96,7 +95,7 @@ export async function requestServerTurnJudgment({
   const response = await fetcher(`${supabaseUrl}/functions/v1/ai-chat/v1/responses`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json', apikey: anonKey,
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${serviceRoleToken}`,
       'x-kwilt-install-id': `agent-plan:${quotaIdentity}`,
       'x-kwilt-is-pro': String(isPro),

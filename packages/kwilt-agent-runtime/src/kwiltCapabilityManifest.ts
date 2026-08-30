@@ -169,6 +169,19 @@ const householdManagementProof = [
   'src/features/unifiedChat/executeHouseholdReceiptUndo.test.ts',
   'supabase/functions/_shared/__tests__/serverHouseholdTools.test.ts',
 ] as const;
+const planAvailabilityProof = [
+  'src/capabilities/plan/actions/planPreferenceActions.test.ts',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/services/sync/agentProfileProjection.test.ts',
+  'supabase/functions/_shared/__tests__/serverPlanAvailabilityTools.test.ts',
+] as const;
+const planCalendarPreferenceProof = [
+  'src/capabilities/plan/actions/planCalendarPreferenceActions.test.ts',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverPlanCalendarTools.test.ts',
+] as const;
 
 const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'general.answer', 'general.answer_with_context',
@@ -176,6 +189,8 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'goals.list', 'goals.get',
   'activities.list', 'activities.get', 'activities.search', 'activities.capture',
   'chapters.list', 'chapters.get', 'chapters.reflect',
+  'chapters.digest_settings.read', 'chapters.alignment.preview',
+  'notifications.preferences.read',
   'account.show_up_status',
   'profile.read',
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
@@ -186,6 +201,7 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
   'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
   'screen_time.request.decide',
+  'plan.availability.read',
   'plan.read_day_context', 'plan.recommend_day',
   'chores.list', 'chores.get', 'chores.reward.read',
   'recipes.search', 'recipes.read', 'recipes.scale.preview',
@@ -194,18 +210,33 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'meal_planning.candidates.prepare',
   'food_budget.read', 'food_stock.read',
   'groceries.list.review',
+  'channel.phone.continue_run',
 ]);
 
 const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
-  'plan.preferences.open',
+  'plan.preferences.open', 'plan.availability.update', 'plan.calendars.read', 'plan.calendars.update',
   'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
   'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
   'screen_time.personal_rule.delete', 'screen_time.personal.setup.open',
   'screen_time.personal.limit.open', 'screen_time.selection.open',
   'screen_time.device.setup.open', 'screen_time.device.release.open', 'screen_time.configure',
-  'notifications.configure', 'search.open',
+  'notifications.configure', 'notifications.preferences.update', 'search.open', 'navigation.open_capability',
+  'settings.haptics.read', 'settings.haptics.update',
+  'settings.widgets.read', 'settings.widgets.configure',
+  'settings.appearance.read', 'settings.appearance.update',
+  'settings.connected_tools.list', 'settings.connected_tools.get',
+  'settings.connected_tools.connect.open', 'settings.connected_tools.revoke',
+  'settings.phone_agent.read', 'settings.phone_agent.update',
+  'settings.ai_model.read', 'settings.ai_model.update',
+  'settings.sharing.list', 'settings.sharing.invitation.prepare', 'settings.sharing.connection.revoke',
+  'settings.execution_targets.list', 'settings.execution_targets.get',
+  'settings.execution_targets.create', 'settings.execution_targets.update', 'settings.execution_targets.delete',
+  'settings.destinations.list', 'settings.destinations.get',
+  'settings.destinations.create', 'settings.destinations.delete',
+  'settings.activity_areas.list', 'settings.activity_areas.get',
+  'settings.activity_areas.create', 'settings.activity_areas.update', 'settings.activity_areas.delete',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
   'money.budget.read', 'money.budget.update', 'money.transaction.get',
   'money.transaction.meaning.update', 'money.transaction.plan_treatment.update',
@@ -213,10 +244,17 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'money.transfer.list', 'money.transfer.get', 'money.transfer.review',
   'chores.evidence.add',
   'chores.open',
+  'money.read', 'money.review_transaction', 'money.category.create', 'money.category.rename',
+  'money.app_control.review', 'money.category.update', 'money.privacy.configure',
+  'money.connection.connect', 'money.connection.sync',
   'recipes.import.prepare',
   'recipes.share_copy.prepare',
   'groceries.product_match.prepare', 'groceries.product_match.confirm',
   'groceries.handoff.prepare', 'groceries.handoff.open',
+  'recipes.publication.prepare', 'recipes.publication.publish',
+  'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
+  'savings.review', 'savings.accept', 'savings.coupon.open',
+  'receipt.extract', 'receipt.reconcile',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -226,7 +264,7 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'activities.steps.create', 'activities.steps.update', 'activities.steps.complete',
   'activities.steps.delete', 'activities.steps.reorder', 'activities.repeat.update',
   'activities.reminder.update', 'activities.focus_today',
-  'chapters.note.update',
+  'chapters.note.update', 'chapters.digest_settings.update', 'chapters.alignment.apply',
   'profile.update',
   'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
   'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
@@ -366,6 +404,8 @@ const profileProof = [
   'src/features/unifiedChat/threadRepository.test.ts',
 ] as const;
 const chapterMutationProof = [
+  'src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts',
+  'src/capabilities/life-structure/actions/chapterDigestSettingsActions.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
   'src/features/unifiedChat/chapterProposalExecutor.test.ts',
   'src/features/unifiedChat/executeChapterProposalDecision.test.ts',
@@ -373,11 +413,92 @@ const chapterMutationProof = [
   'src/features/unifiedChat/threadRepository.test.ts',
 ] as const;
 const deviceHandoffProof = [
+  'src/capabilities/notifications/actions/notificationPreferenceActions.test.ts',
   'src/features/unifiedChat/deviceToolProvider.test.ts',
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/executeClientActionDecision.test.ts',
   'src/features/unifiedChat/clientActionNavigation.test.ts',
   'src/features/unifiedChat/UnifiedChatScreen.test.tsx',
+] as const;
+const hapticsPreferenceProof = [
+  'src/features/account/actions/hapticsPreferenceActions.test.ts',
+  'src/features/account/HapticsSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const widgetPreferenceProof = [
+  'src/features/account/actions/widgetPreferenceActions.test.ts',
+  'src/features/account/WidgetsSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const appearancePreferenceProof = [
+  'src/features/account/actions/appearancePreferenceActions.test.ts',
+  'src/features/account/AppearanceSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const connectedToolProof = [
+  'src/features/account/actions/connectedToolActions.test.ts',
+  'src/features/account/ConnectedToolsScreen.test.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const phoneAgentSettingsProof = [
+  'src/features/account/actions/phoneAgentSettingsActions.test.ts',
+  'src/features/account/PhoneAgentSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const phoneAgentContinuationProof = [
+  'supabase/functions/_shared/__tests__/phoneAgentContinuation.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/services/phoneAgent.test.ts',
+] as const;
+const aiModelPreferenceProof = [
+  'src/features/account/actions/aiModelPreferenceActions.test.ts',
+  'src/features/account/AiModelSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const sharingSettingsProof = [
+  'src/features/account/actions/sharingActions.test.ts',
+  'src/features/friends/FriendshipSettingsSection.test.tsx',
+  'src/features/goals/GoalSharingSettingsSection.test.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const executionTargetSettingsProof = [
+  'src/features/account/actions/executionTargetActions.test.ts',
+  'src/features/account/ExecutionTargetsSettingsScreen.tsx',
+  'src/features/account/DestinationDetailScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const destinationSettingsProof = [
+  'src/features/account/actions/destinationActions.test.ts',
+  'src/features/account/BuiltInDestinationDetailScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
+] as const;
+const activityAreaSettingsProof = [
+  'src/features/account/actions/activityAreaActions.test.ts',
+  'src/features/account/ActivityAreasSettingsScreen.tsx',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/executeClientActionDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
 ] as const;
 const showUpProof = [
   'src/features/unifiedChat/capabilityAdapters.test.ts',
@@ -504,6 +625,25 @@ const groceryRetailerHandoffProof = [
   'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
   'scripts/food-conversational-control-migration.test.mjs',
 ] as const;
+const advancedFoodHandoffProof = [
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/features/unifiedChat/mobileToolProviderRegistry.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'supabase/functions/_shared/__tests__/serverToolProviderRegistry.test.ts',
+] as const;
+const ADVANCED_FOOD_HANDOFF_IDS = new Set([
+  'recipes.publication.prepare',
+  'recipes.publication.publish',
+  'store_opportunity.capture',
+  'food_scenario.prepare',
+  'food_scenario.accept',
+  'savings.review',
+  'savings.accept',
+  'savings.coupon.open',
+  'receipt.extract',
+  'receipt.reconcile',
+]);
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -529,6 +669,10 @@ const screenTimeWriteProof = [
   'src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts',
   'supabase/functions/_shared/__tests__/serverScreenTimeTools.test.ts',
   'supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts',
+] as const;
+const supportedBoundaryProof = [
+  'packages/kwilt-agent-runtime/src/capabilityManifest.test.ts',
+  'src/features/unifiedChat/conversationalParity.test.ts',
 ] as const;
 
 function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): ChatCapabilityCoverageRow {
@@ -575,16 +719,143 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
       groceryRetailerHandoffProof,
     );
   }
+  if (ADVANCED_FOOD_HANDOFF_IDS.has(contract.id)) {
+    return bounded(
+      'confirmation_only',
+      row,
+      'Chat resolves and validates the exact Food target, then stages a durable native review. Publication, scenario acceptance, coupon activation, receipt reconciliation, and other consequential outcomes remain unclaimed until the person completes that review.',
+      advancedFoodHandoffProof,
+    );
+  }
   return bounded(
     contract.authority === 'excluded' ? 'excluded' : 'pending_provider',
     row,
     contract.boundaryReason,
+    contract.authority === 'excluded' ? supportedBoundaryProof : [],
   );
 }
 
 function controlParityCapabilityRow(
   contract: typeof CONTROL_PARITY_OPERATION_CONTRACTS[number],
 ): ChatCapabilityCoverageRow {
+  if (contract.id === 'navigation.open_capability') {
+    return bounded('confirmation_only', {
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, 'Chat validates an included capability or stable object destination and opens it natively without changing its contents.', deviceHandoffProof);
+  }
+  if (contract.id === 'settings.haptics.read' || contract.id === 'settings.haptics.update') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, hapticsPreferenceProof);
+  }
+  if (contract.id === 'settings.widgets.read' || contract.id === 'settings.widgets.configure') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, widgetPreferenceProof);
+  }
+  if (contract.id === 'settings.appearance.read' || contract.id === 'settings.appearance.update') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, appearancePreferenceProof);
+  }
+  if (contract.id.startsWith('settings.connected_tools.')) {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, connectedToolProof);
+  }
+  if (contract.id === 'settings.phone_agent.read' || contract.id === 'settings.phone_agent.update') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, phoneAgentSettingsProof);
+  }
+  if (contract.id === 'settings.ai_model.read' || contract.id === 'settings.ai_model.update') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, aiModelPreferenceProof);
+  }
+  if (contract.id.startsWith('settings.sharing.')) {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, sharingSettingsProof);
+  }
+  if (contract.id.startsWith('settings.execution_targets.')) {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, executionTargetSettingsProof);
+  }
+  if (contract.id.startsWith('settings.destinations.')) {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, destinationSettingsProof);
+  }
+  if (contract.id.startsWith('settings.activity_areas.')) {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, activityAreaSettingsProof);
+  }
+  if (contract.id === 'plan.availability.read') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, planAvailabilityProof);
+  }
+  if (contract.id === 'plan.availability.update') {
+    return bounded('confirmation_only', {
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, 'Chat prepares the exact weekly diff and time zone, then the authoritative native Profile applies it after explicit review.', planAvailabilityProof);
+  }
+  if (contract.id === 'plan.calendars.read' || contract.id === 'plan.calendars.update') {
+    return bounded('confirmation_only', {
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, 'Calendar identity and selection are loaded on the authorized device; provider authorization and final selection remain in native review, and event contents are never returned externally.', planCalendarPreferenceProof);
+  }
+  if (contract.owner === 'chapters') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, chapterMutationProof);
+  }
+  if (contract.id === 'notifications.preferences.read') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, deviceHandoffProof);
+  }
+  if (contract.id === 'notifications.preferences.update') {
+    return bounded('confirmation_only', {
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, 'Chat carries the exact preference patch into native review; iOS permission and final scheduling remain device-owned.', deviceHandoffProof);
+  }
   if (contract.owner === 'household') {
     return live({
       id: contract.id,
@@ -652,7 +923,7 @@ const CAPABILITY_ROWS = [
   live({ id: 'relationships.remember', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.remember'], sourceRefs: ['service:phone_agent_relationship_memory', 'legacy:phone_agent_fact_extractor'] }, relationshipProof),
   live({ id: 'relationships.correct', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.correct'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
   live({ id: 'relationships.forget', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.forget'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
-  bounded('excluded', { id: 'relationships.forget_person', providers: ['server', 'channel'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Whole-person forgetting is withheld until Kwilt can review and restore every dependent relationship record safely.'),
+  bounded('excluded', { id: 'relationships.forget_person', providers: ['server', 'channel'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Whole-person forgetting is withheld until Kwilt can review and restore every dependent relationship record safely.', supportedBoundaryProof),
   live({ id: 'household.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.read'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
   live({ id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
   live({ id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
@@ -711,15 +982,15 @@ const CAPABILITY_ROWS = [
   live({ id: 'chapters.reflect', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: ['chapters.read'], sourceRefs: [] }, readProof),
   live({ id: 'chapters.note.update', providers: ['server'], consequence: 'low', confirmation: 'explicit', toolIds: ['chapters.note.update'], sourceRefs: ['mcp:update_chapter_user_note'] }, chapterMutationProof),
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
-  live({ id: 'money.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['money.read'], sourceRefs: ['capability:money'] }, moneyReadProof),
-  bounded('confirmation_only', { id: 'money.review_transaction', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Transaction category changes complete only after an explicit selection in native Money. Chat can explain the path but cannot silently reclassify spending.', moneyReviewProof),
-  live({ id: 'money.category.create', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['money.category.create'], sourceRefs: [] }, moneyCategoryCreateProof),
-  live({ id: 'money.category.rename', providers: ['device'], consequence: 'low', confirmation: 'explicit', toolIds: ['money.category.rename'], sourceRefs: [] }, moneyCategoryCreateProof),
-  bounded('confirmation_only', { id: 'money.app_control.review', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.app_control.review'], sourceRefs: ['capability:money', 'capability:screenTime'] }, 'Chat resolves the self subject and Money-owned condition, then opens the category-owned native editor. Apple app selection, permission, and policy persistence remain under explicit device review.', deviceHandoffProof),
-  bounded('confirmation_only', { id: 'money.category.update', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category name, monthly amount, and rollover changes complete as separate explicit native actions so partial multi-table success is never hidden.', moneyCategoryCreateProof),
-  bounded('confirmation_only', { id: 'money.privacy.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Money privacy lock changes require native device-authentication review. Chat cannot prompt for or bypass Face ID, Touch ID, or passcode.', moneyPrivacyProof),
-  bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
-  bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Manual Plaid sync starts only from native Money; Phone and Chat do not receive client-side financial credentials.', moneyConnectionProof),
+  live({ id: 'money.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['money.read'], sourceRefs: ['capability:money'] }, moneyReadProof),
+  bounded('confirmation_only', { id: 'money.review_transaction', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.review_transaction'], sourceRefs: [] }, 'Transaction category changes complete only after an explicit selection in native Money. Chat can open the exact review without exposing transaction details server-side.', moneyReviewProof),
+  live({ id: 'money.category.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['money.category.create'], sourceRefs: [] }, moneyCategoryCreateProof),
+  live({ id: 'money.category.rename', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['money.category.rename'], sourceRefs: [] }, moneyCategoryCreateProof),
+  bounded('confirmation_only', { id: 'money.app_control.review', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.app_control.review'], sourceRefs: ['capability:money', 'capability:screenTime'] }, 'Chat resolves the self subject and Money-owned condition, then opens the category-owned native editor. Apple app selection, permission, and policy persistence remain under explicit device review.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'money.category.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.category.update'], sourceRefs: [] }, 'Chat opens the exact category for native review; private plan values and final changes remain device-authenticated.', moneyCategoryCreateProof),
+  bounded('confirmation_only', { id: 'money.privacy.configure', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.privacy.configure'], sourceRefs: [] }, 'Money privacy lock changes require native device-authentication review. Chat cannot prompt for or bypass Face ID, Touch ID, or passcode.', moneyPrivacyProof),
+  bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['money.connection.connect'], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
+  bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['money.connection.sync'], sourceRefs: [] }, 'Chat opens native account controls for sync; Phone and Chat never receive provider credentials.', moneyConnectionProof),
 
   bounded('excluded', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore and precise location-history control are explicitly outside this conversational-control program.'),
   bounded('excluded', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games, player seating, sessions, and game state are explicitly outside this conversational-control program.'),
@@ -746,7 +1017,7 @@ const CAPABILITY_ROWS = [
   bounded('confirmation_only', { id: 'account.settings.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.account_settings.open'], sourceRefs: [] }, 'Chat stages and opens native account settings; changes remain user-driven.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.subscription.manage', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.subscription.open'], sourceRefs: [] }, 'Chat stages a durable handoff; subscription management completes only in the native App Store or RevenueCat surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.delete', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.delete.open'], sourceRefs: [] }, 'Chat stages a durable handoff to the existing two-step native deletion confirmation and never deletes silently.', deviceHandoffProof),
-  bounded('pending_provider', { id: 'channel.phone.continue_run', providers: ['channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, 'The canonical queued coordinator is implemented, but migration, deployment, scheduler, and signed-provider runtime proof are still pending.'),
+  live({ id: 'channel.phone.continue_run', providers: ['device', 'channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, phoneAgentContinuationProof),
 
   ...CONTROL_PARITY_OPERATION_CONTRACTS.map(controlParityCapabilityRow),
 ] as const satisfies readonly ChatCapabilityCoverageRow[];
@@ -757,7 +1028,7 @@ const PURPOSE_BY_OPERATION: Readonly<Record<string, string>> = {
   'general.answer': 'Answer an ordinary question without retrieving private Kwilt context.',
   'general.answer_with_context': 'Answer a broader question with the minimum authorized Kwilt evidence that materially improves it.',
   'relationships.forget_person': 'Forget every retained record for one person only when the complete dependency set can be reviewed and restored safely.',
-  'channel.phone.continue_run': 'Continue one authorized Phone Agent request through the canonical durable thread and run ledger.',
+  'channel.phone.continue_run': 'Continue the current durable Kwilt conversation through the verified Phone Agent link.',
 };
 const CONTROL_PARITY_CONTRACT_BY_ID = new Map<string, (typeof CONTROL_PARITY_OPERATION_CONTRACTS)[number]>(
   CONTROL_PARITY_OPERATION_CONTRACTS.map((contract) => [contract.id, contract] as const),

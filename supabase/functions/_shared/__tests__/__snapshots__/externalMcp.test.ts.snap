@@ -11,16 +11,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Get Current Account",
     },
     "canonicalName": "kwilt_profile_read",
-    "compatibilityAlias": {
-      "name": "get_current_account",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
       "type": "object",
     },
-    "name": "get_current_account",
+    "name": "kwilt_profile_read",
     "operationId": "profile.read",
     "outputSchema": {
       "additionalProperties": true,
@@ -40,30 +37,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "List Arcs",
     },
     "canonicalName": "kwilt_arcs_list",
-    "compatibilityAlias": {
-      "name": "list_arcs",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {
-        "limit": {
-          "maximum": 100,
-          "minimum": 1,
-          "type": "integer",
-        },
-        "status": {
-          "enum": [
-            "active",
-            "paused",
-            "archived",
-          ],
-          "type": "string",
-        },
-      },
+      "properties": {},
       "type": "object",
     },
-    "name": "list_arcs",
+    "name": "kwilt_arcs_list",
     "operationId": "arcs.list",
     "outputSchema": {
       "additionalProperties": true,
@@ -83,23 +63,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Get Arc",
     },
     "canonicalName": "kwilt_arcs_get",
-    "compatibilityAlias": {
-      "name": "get_arc",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {
-        "arc_id": {
-          "type": "string",
-        },
-      },
-      "required": [
-        "arc_id",
-      ],
+      "properties": {},
       "type": "object",
     },
-    "name": "get_arc",
+    "name": "kwilt_arcs_get",
     "operationId": "arcs.get",
     "outputSchema": {
       "additionalProperties": true,
@@ -119,38 +89,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "List Goals",
     },
     "canonicalName": "kwilt_goals_list",
-    "compatibilityAlias": {
-      "name": "list_goals",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {
-        "arc_id": {
-          "type": "string",
-        },
-        "limit": {
-          "maximum": 100,
-          "minimum": 1,
-          "type": "integer",
-        },
-        "status": {
-          "oneOf": [
-            {
-              "type": "string",
-            },
-            {
-              "items": {
-                "type": "string",
-              },
-              "type": "array",
-            },
-          ],
-        },
-      },
+      "properties": {},
       "type": "object",
     },
-    "name": "list_goals",
+    "name": "kwilt_goals_list",
     "operationId": "goals.list",
     "outputSchema": {
       "additionalProperties": true,
@@ -170,23 +115,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Get Goal",
     },
     "canonicalName": "kwilt_goals_get",
-    "compatibilityAlias": {
-      "name": "get_goal",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {
-        "goal_id": {
-          "type": "string",
-        },
-      },
-      "required": [
-        "goal_id",
-      ],
+      "properties": {},
       "type": "object",
     },
-    "name": "get_goal",
+    "name": "kwilt_goals_get",
     "operationId": "goals.get",
     "outputSchema": {
       "additionalProperties": true,
@@ -206,25 +141,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "List Recent To-dos",
     },
     "canonicalName": "kwilt_activities_list",
-    "compatibilityAlias": {
-      "name": "list_recent_activities",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {
-        "days": {
-          "maximum": 90,
-          "minimum": 1,
-          "type": "integer",
-        },
-        "include_rich": {
-          "type": "boolean",
-        },
-      },
+      "properties": {},
       "type": "object",
     },
-    "name": "list_recent_activities",
+    "name": "kwilt_activities_list",
     "operationId": "activities.list",
     "outputSchema": {
       "additionalProperties": true,
@@ -244,16 +167,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Get Current Chapter",
     },
     "canonicalName": "kwilt_chapters_get_current",
-    "compatibilityAlias": {
-      "name": "get_current_chapter",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
       "type": "object",
     },
-    "name": "get_current_chapter",
+    "name": "kwilt_chapters_get_current",
     "operationId": "chapters.get",
     "outputSchema": {
       "additionalProperties": true,
@@ -273,16 +193,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Get Show-up Status",
     },
     "canonicalName": "kwilt_account_show_up_status",
-    "compatibilityAlias": {
-      "name": "get_show_up_status",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
       "type": "object",
     },
-    "name": "get_show_up_status",
+    "name": "kwilt_account_show_up_status",
     "operationId": "account.show_up_status",
     "outputSchema": {
       "additionalProperties": true,
@@ -301,10 +218,7 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Create Arc",
     },
     "canonicalName": "kwilt_arcs_create",
-    "compatibilityAlias": {
-      "name": "create_arc",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -314,14 +228,24 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "identity_statement": {
-          "type": "string",
+        "identityStatement": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null",
+          ],
         },
         "name": {
+          "maxLength": 160,
+          "minLength": 1,
           "type": "string",
         },
         "narrative": {
-          "type": "string",
+          "maxLength": 5000,
+          "type": [
+            "string",
+            "null",
+          ],
         },
         "status": {
           "enum": [
@@ -338,7 +262,7 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       ],
       "type": "object",
     },
-    "name": "create_arc",
+    "name": "kwilt_arcs_create",
     "operationId": "arcs.create",
     "outputSchema": {
       "additionalProperties": true,
@@ -358,15 +282,46 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Update Arc",
     },
     "canonicalName": "kwilt_arcs_update",
-    "compatibilityAlias": {
-      "name": "update_arc",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "arc_id": {
+        "arcId": {
+          "minLength": 1,
           "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "properties": {
+            "identityStatement": {
+              "maxLength": 1000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "name": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string",
+            },
+            "narrative": {
+              "maxLength": 5000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "status": {
+              "enum": [
+                "active",
+                "paused",
+                "archived",
+              ],
+              "type": "string",
+            },
+          },
+          "type": "object",
         },
         "idempotency_key": {
           "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
@@ -374,31 +329,15 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "identity_statement": {
-          "type": "string",
-        },
-        "name": {
-          "type": "string",
-        },
-        "narrative": {
-          "type": "string",
-        },
-        "status": {
-          "enum": [
-            "active",
-            "paused",
-            "archived",
-          ],
-          "type": "string",
-        },
       },
       "required": [
-        "arc_id",
+        "arcId",
+        "fields",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "update_arc",
+    "name": "kwilt_arcs_update",
     "operationId": "arcs.update",
     "outputSchema": {
       "additionalProperties": true,
@@ -418,14 +357,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Delete Arc",
     },
     "canonicalName": "kwilt_arcs_delete",
-    "compatibilityAlias": {
-      "name": "delete_arc",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "arc_id": {
+        "arcId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -436,12 +373,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
       },
       "required": [
-        "arc_id",
+        "arcId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "delete_arc",
+    "name": "kwilt_arcs_delete",
     "operationId": "arcs.delete",
     "outputSchema": {
       "additionalProperties": true,
@@ -461,21 +398,43 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Create Goal",
     },
     "canonicalName": "kwilt_goals_create",
-    "compatibilityAlias": {
-      "name": "create_goal",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "arc_id": {
+        "arcId": {
           "type": [
             "string",
             "null",
           ],
         },
         "description": {
-          "type": "string",
+          "maxLength": 5000,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "followUpActivity": {
+          "additionalProperties": false,
+          "properties": {
+            "repeatRule": {
+              "enum": [
+                "daily",
+              ],
+              "type": "string",
+            },
+            "title": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string",
+            },
+          },
+          "required": [
+            "title",
+            "repeatRule",
+          ],
+          "type": "object",
         },
         "idempotency_key": {
           "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
@@ -488,8 +447,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
             1,
             2,
             3,
+            null,
           ],
-          "type": "integer",
+          "type": [
+            "integer",
+            "null",
+          ],
         },
         "status": {
           "enum": [
@@ -500,10 +463,16 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           ],
           "type": "string",
         },
-        "target_date": {
-          "type": "string",
+        "targetDate": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null",
+          ],
         },
         "title": {
+          "maxLength": 240,
+          "minLength": 1,
           "type": "string",
         },
       },
@@ -513,7 +482,7 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       ],
       "type": "object",
     },
-    "name": "create_goal",
+    "name": "kwilt_goals_create",
     "operationId": "goals.create",
     "outputSchema": {
       "additionalProperties": true,
@@ -533,23 +502,64 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Update Goal",
     },
     "canonicalName": "kwilt_goals_update",
-    "compatibilityAlias": {
-      "name": "update_goal",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "arc_id": {
-          "type": [
-            "string",
-            "null",
-          ],
+        "fields": {
+          "additionalProperties": false,
+          "properties": {
+            "arcId": {
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "description": {
+              "maxLength": 5000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "priority": {
+              "enum": [
+                1,
+                2,
+                3,
+                null,
+              ],
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "status": {
+              "enum": [
+                "planned",
+                "in_progress",
+                "completed",
+                "archived",
+              ],
+              "type": "string",
+            },
+            "targetDate": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "title": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string",
+            },
+          },
+          "type": "object",
         },
-        "description": {
-          "type": "string",
-        },
-        "goal_id": {
+        "goalId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -558,40 +568,15 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "priority": {
-          "enum": [
-            1,
-            2,
-            3,
-          ],
-          "type": "integer",
-        },
-        "status": {
-          "enum": [
-            "planned",
-            "in_progress",
-            "completed",
-            "archived",
-          ],
-          "type": "string",
-        },
-        "target_date": {
-          "type": [
-            "string",
-            "null",
-          ],
-        },
-        "title": {
-          "type": "string",
-        },
       },
       "required": [
-        "goal_id",
+        "goalId",
+        "fields",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "update_goal",
+    "name": "kwilt_goals_update",
     "operationId": "goals.update",
     "outputSchema": {
       "additionalProperties": true,
@@ -611,14 +596,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Delete Goal",
     },
     "canonicalName": "kwilt_goals_delete",
-    "compatibilityAlias": {
-      "name": "delete_goal",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "goal_id": {
+        "goalId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -629,12 +612,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
       },
       "required": [
-        "goal_id",
+        "goalId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "delete_goal",
+    "name": "kwilt_goals_delete",
     "operationId": "goals.delete",
     "outputSchema": {
       "additionalProperties": true,
@@ -654,14 +637,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Add Goal Check-in",
     },
     "canonicalName": "kwilt_goals_check_in",
-    "compatibilityAlias": {
-      "name": "add_goal_checkin",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "goal_id": {
+        "goalId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -670,30 +651,20 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "preset": {
-          "enum": [
-            "made_progress",
-            "struggled_today",
-            "need_encouragement",
-            "just_checking_in",
-            null,
-          ],
-          "type": [
-            "string",
-            "null",
-          ],
-        },
         "text": {
+          "maxLength": 2000,
+          "minLength": 1,
           "type": "string",
         },
       },
       "required": [
-        "goal_id",
+        "goalId",
+        "text",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "add_goal_checkin",
+    "name": "kwilt_goals_check_in",
     "operationId": "goals.check_in",
     "outputSchema": {
       "additionalProperties": true,
@@ -713,14 +684,33 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Capture To-do",
     },
     "canonicalName": "kwilt_activities_capture",
-    "compatibilityAlias": {
-      "name": "capture_activity",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "goal_id": {
+        "difficulty": {
+          "enum": [
+            "very_easy",
+            "easy",
+            "medium",
+            "hard",
+            "very_hard",
+            null,
+          ],
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "estimateMinutes": {
+          "maximum": 1440,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null",
+          ],
+        },
+        "goalId": {
           "type": [
             "string",
             "null",
@@ -733,17 +723,105 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "type": "string",
         },
         "notes": {
-          "type": "string",
+          "maxLength": 5000,
+          "type": [
+            "string",
+            "null",
+          ],
         },
         "priority": {
           "enum": [
             1,
             2,
             3,
+            null,
           ],
-          "type": "integer",
+          "type": [
+            "integer",
+            "null",
+          ],
         },
-        "scheduled_date": {
+        "reminderAt": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "reminderLocalTime": {
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "type": "string",
+        },
+        "repeatBasis": {
+          "enum": [
+            "scheduled",
+            "after_completion",
+            null,
+          ],
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "repeatCustom": {
+          "additionalProperties": false,
+          "properties": {
+            "cadence": {
+              "enum": [
+                "days",
+                "weeks",
+                "months",
+                "years",
+              ],
+              "type": "string",
+            },
+            "interval": {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "weekdays": {
+              "items": {
+                "maximum": 6,
+                "minimum": 0,
+                "type": "integer",
+              },
+              "maxItems": 7,
+              "type": "array",
+            },
+          },
+          "type": [
+            "object",
+            "null",
+          ],
+        },
+        "repeatRule": {
+          "enum": [
+            "daily",
+            "weekly",
+            "weekdays",
+            "monthly",
+            "yearly",
+            "custom",
+            null,
+          ],
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "repeatWeekdays": {
+          "items": {
+            "maximum": 6,
+            "minimum": 0,
+            "type": "integer",
+          },
+          "maxItems": 7,
+          "minItems": 1,
+          "type": "array",
+        },
+        "scheduledDate": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
           "type": [
             "string",
             "null",
@@ -761,14 +839,26 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
         "tags": {
           "items": {
+            "maxLength": 80,
+            "minLength": 1,
             "type": "string",
           },
+          "maxItems": 20,
           "type": "array",
         },
         "title": {
+          "maxLength": 240,
+          "minLength": 1,
           "type": "string",
         },
         "type": {
+          "enum": [
+            "task",
+            "checklist",
+            "shopping_list",
+            "instructions",
+            "plan",
+          ],
           "type": "string",
         },
       },
@@ -778,7 +868,7 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       ],
       "type": "object",
     },
-    "name": "capture_activity",
+    "name": "kwilt_activities_capture",
     "operationId": "activities.capture",
     "outputSchema": {
       "additionalProperties": true,
@@ -798,21 +888,172 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Update To-do",
     },
     "canonicalName": "kwilt_activities_update",
-    "compatibilityAlias": {
-      "name": "update_activity",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
-        "goal_id": {
-          "type": [
-            "string",
-            "null",
-          ],
+        "fields": {
+          "additionalProperties": false,
+          "properties": {
+            "difficulty": {
+              "enum": [
+                "very_easy",
+                "easy",
+                "medium",
+                "hard",
+                "very_hard",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "estimateMinutes": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "goalId": {
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "notes": {
+              "maxLength": 5000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "priority": {
+              "enum": [
+                1,
+                2,
+                3,
+                null,
+              ],
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "reminderAt": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "repeatBasis": {
+              "enum": [
+                "scheduled",
+                "after_completion",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "repeatCustom": {
+              "additionalProperties": false,
+              "properties": {
+                "cadence": {
+                  "enum": [
+                    "days",
+                    "weeks",
+                    "months",
+                    "years",
+                  ],
+                  "type": "string",
+                },
+                "interval": {
+                  "maximum": 365,
+                  "minimum": 1,
+                  "type": "integer",
+                },
+                "weekdays": {
+                  "items": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "type": "integer",
+                  },
+                  "maxItems": 7,
+                  "type": "array",
+                },
+              },
+              "type": [
+                "object",
+                "null",
+              ],
+            },
+            "repeatRule": {
+              "enum": [
+                "daily",
+                "weekly",
+                "weekdays",
+                "monthly",
+                "yearly",
+                "custom",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "scheduledDate": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "status": {
+              "enum": [
+                "planned",
+                "in_progress",
+                "done",
+                "skipped",
+                "cancelled",
+              ],
+              "type": "string",
+            },
+            "tags": {
+              "items": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 20,
+              "type": "array",
+            },
+            "title": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string",
+            },
+            "type": {
+              "enum": [
+                "task",
+                "checklist",
+                "shopping_list",
+                "instructions",
+                "plan",
+              ],
+              "type": "string",
+            },
+          },
+          "type": "object",
         },
         "idempotency_key": {
           "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
@@ -820,57 +1061,15 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "notes": {
-          "type": "string",
-        },
-        "priority": {
-          "enum": [
-            1,
-            2,
-            3,
-            null,
-          ],
-          "type": [
-            "integer",
-            "null",
-          ],
-        },
-        "scheduled_date": {
-          "type": [
-            "string",
-            "null",
-          ],
-        },
-        "status": {
-          "enum": [
-            "planned",
-            "in_progress",
-            "done",
-            "skipped",
-            "cancelled",
-          ],
-          "type": "string",
-        },
-        "tags": {
-          "items": {
-            "type": "string",
-          },
-          "type": "array",
-        },
-        "title": {
-          "type": "string",
-        },
-        "type": {
-          "type": "string",
-        },
       },
       "required": [
-        "activity_id",
+        "activityId",
+        "fields",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "update_activity",
+    "name": "kwilt_activities_update",
     "operationId": "activities.update",
     "outputSchema": {
       "additionalProperties": true,
@@ -890,14 +1089,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Create To-do Step",
     },
     "canonicalName": "kwilt_activity_steps_create",
-    "compatibilityAlias": {
-      "name": "create_activity_step",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -906,21 +1103,23 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "is_optional": {
+        "optional": {
           "type": "boolean",
         },
         "title": {
+          "maxLength": 240,
+          "minLength": 1,
           "type": "string",
         },
       },
       "required": [
-        "activity_id",
+        "activityId",
         "title",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "create_activity_step",
+    "name": "kwilt_activity_steps_create",
     "operationId": "activities.steps.create",
     "outputSchema": {
       "additionalProperties": true,
@@ -940,14 +1139,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Update To-do Step",
     },
     "canonicalName": "kwilt_activity_steps_update",
-    "compatibilityAlias": {
-      "name": "update_activity_step",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -956,24 +1153,27 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "is_optional": {
+        "optional": {
           "type": "boolean",
         },
-        "step_id": {
+        "stepId": {
+          "minLength": 1,
           "type": "string",
         },
         "title": {
+          "maxLength": 240,
+          "minLength": 1,
           "type": "string",
         },
       },
       "required": [
-        "activity_id",
-        "step_id",
+        "activityId",
+        "stepId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "update_activity_step",
+    "name": "kwilt_activity_steps_update",
     "operationId": "activities.steps.update",
     "outputSchema": {
       "additionalProperties": true,
@@ -993,15 +1193,16 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Mark To-do Step Done",
     },
     "canonicalName": "kwilt_activity_steps_complete",
-    "compatibilityAlias": {
-      "name": "mark_activity_step_done",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
+        },
+        "completed": {
+          "type": "boolean",
         },
         "idempotency_key": {
           "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
@@ -1009,18 +1210,20 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "step_id": {
+        "stepId": {
+          "minLength": 1,
           "type": "string",
         },
       },
       "required": [
-        "activity_id",
-        "step_id",
+        "activityId",
+        "stepId",
+        "completed",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "mark_activity_step_done",
+    "name": "kwilt_activity_steps_complete",
     "operationId": "activities.steps.complete",
     "outputSchema": {
       "additionalProperties": true,
@@ -1040,14 +1243,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Delete To-do Step",
     },
     "canonicalName": "kwilt_activity_steps_delete",
-    "compatibilityAlias": {
-      "name": "delete_activity_step",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -1056,18 +1257,19 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "step_id": {
+        "stepId": {
+          "minLength": 1,
           "type": "string",
         },
       },
       "required": [
-        "activity_id",
-        "step_id",
+        "activityId",
+        "stepId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "delete_activity_step",
+    "name": "kwilt_activity_steps_delete",
     "operationId": "activities.steps.delete",
     "outputSchema": {
       "additionalProperties": true,
@@ -1087,14 +1289,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Reorder To-do Steps",
     },
     "canonicalName": "kwilt_activity_steps_reorder",
-    "compatibilityAlias": {
-      "name": "reorder_activity_steps",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -1103,21 +1303,22 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "minLength": 8,
           "type": "string",
         },
-        "step_ids": {
+        "stepIds": {
           "items": {
             "type": "string",
           },
+          "maxItems": 24,
           "type": "array",
         },
       },
       "required": [
-        "activity_id",
-        "step_ids",
+        "activityId",
+        "stepIds",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "reorder_activity_steps",
+    "name": "kwilt_activity_steps_reorder",
     "operationId": "activities.steps.reorder",
     "outputSchema": {
       "additionalProperties": true,
@@ -1137,15 +1338,172 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Mark To-do Done",
     },
     "canonicalName": "kwilt_activities_complete",
-    "compatibilityAlias": {
-      "name": "mark_activity_done",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "properties": {
+            "difficulty": {
+              "enum": [
+                "very_easy",
+                "easy",
+                "medium",
+                "hard",
+                "very_hard",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "estimateMinutes": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "goalId": {
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "notes": {
+              "maxLength": 5000,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "priority": {
+              "enum": [
+                1,
+                2,
+                3,
+                null,
+              ],
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "reminderAt": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "repeatBasis": {
+              "enum": [
+                "scheduled",
+                "after_completion",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "repeatCustom": {
+              "additionalProperties": false,
+              "properties": {
+                "cadence": {
+                  "enum": [
+                    "days",
+                    "weeks",
+                    "months",
+                    "years",
+                  ],
+                  "type": "string",
+                },
+                "interval": {
+                  "maximum": 365,
+                  "minimum": 1,
+                  "type": "integer",
+                },
+                "weekdays": {
+                  "items": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "type": "integer",
+                  },
+                  "maxItems": 7,
+                  "type": "array",
+                },
+              },
+              "type": [
+                "object",
+                "null",
+              ],
+            },
+            "repeatRule": {
+              "enum": [
+                "daily",
+                "weekly",
+                "weekdays",
+                "monthly",
+                "yearly",
+                "custom",
+                null,
+              ],
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "scheduledDate": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "status": {
+              "enum": [
+                "planned",
+                "in_progress",
+                "done",
+                "skipped",
+                "cancelled",
+              ],
+              "type": "string",
+            },
+            "tags": {
+              "items": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 20,
+              "type": "array",
+            },
+            "title": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string",
+            },
+            "type": {
+              "enum": [
+                "task",
+                "checklist",
+                "shopping_list",
+                "instructions",
+                "plan",
+              ],
+              "type": "string",
+            },
+          },
+          "type": "object",
         },
         "idempotency_key": {
           "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
@@ -1155,12 +1513,13 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
       },
       "required": [
-        "activity_id",
+        "activityId",
+        "fields",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "mark_activity_done",
+    "name": "kwilt_activities_complete",
     "operationId": "activities.complete",
     "outputSchema": {
       "additionalProperties": true,
@@ -1180,14 +1539,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Set Focus Today",
     },
     "canonicalName": "kwilt_activities_focus_today",
-    "compatibilityAlias": {
-      "name": "set_focus_today",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -1198,12 +1555,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
       },
       "required": [
-        "activity_id",
+        "activityId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "set_focus_today",
+    "name": "kwilt_activities_focus_today",
     "operationId": "activities.focus_today",
     "outputSchema": {
       "additionalProperties": true,
@@ -1223,14 +1580,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Delete To-do",
     },
     "canonicalName": "kwilt_activities_delete",
-    "compatibilityAlias": {
-      "name": "delete_activity",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "activity_id": {
+        "activityId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -1241,12 +1596,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         },
       },
       "required": [
-        "activity_id",
+        "activityId",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "delete_activity",
+    "name": "kwilt_activities_delete",
     "operationId": "activities.delete",
     "outputSchema": {
       "additionalProperties": true,
@@ -1266,14 +1621,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "title": "Update Chapter Note",
     },
     "canonicalName": "kwilt_chapters_note_update",
-    "compatibilityAlias": {
-      "name": "update_chapter_user_note",
-      "version": 1,
-    },
+    "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "chapter_id": {
+        "chapterId": {
+          "minLength": 1,
           "type": "string",
         },
         "idempotency_key": {
@@ -1283,17 +1636,21 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           "type": "string",
         },
         "note": {
-          "type": "string",
+          "maxLength": 500,
+          "type": [
+            "string",
+            "null",
+          ],
         },
       },
       "required": [
-        "chapter_id",
+        "chapterId",
         "note",
         "idempotency_key",
       ],
       "type": "object",
     },
-    "name": "update_chapter_user_note",
+    "name": "kwilt_chapters_note_update",
     "operationId": "chapters.note.update",
     "outputSchema": {
       "additionalProperties": true,
@@ -1304,6 +1661,353 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "life.write",
     ],
     "toolId": "chapters.note.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Weekly Chapter Settings",
+    },
+    "canonicalName": "kwilt_chapters_digest_settings_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_chapters_digest_settings_read",
+    "operationId": "chapters.digest_settings.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "chapters.digest_settings.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Weekly Chapter Settings",
+    },
+    "canonicalName": "kwilt_chapters_digest_settings_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "deliveryWeekday": {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "emailEnabled": {
+              "type": "boolean",
+            },
+            "emailRecipient": {
+              "maxLength": 320,
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "enabled": {
+              "type": "boolean",
+            },
+          },
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "templateId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "templateId",
+        "expectedUpdatedAt",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chapters_digest_settings_update",
+    "operationId": "chapters.digest_settings.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "chapters.digest_settings.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Preview Chapter Alignment",
+    },
+    "canonicalName": "kwilt_chapters_alignment_preview",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "chapterId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "chapterId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chapters_alignment_preview",
+    "operationId": "chapters.alignment.preview",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "chapters.alignment.preview",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Apply Chapter Alignment",
+    },
+    "canonicalName": "kwilt_chapters_alignment_apply",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "activityId": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string",
+              },
+              "expectedUpdatedAt": {
+                "format": "date-time",
+                "type": "string",
+              },
+            },
+            "required": [
+              "activityId",
+              "expectedUpdatedAt",
+            ],
+            "type": "object",
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "chapterId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "recommendationId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "chapterId",
+        "expectedUpdatedAt",
+        "recommendationId",
+        "activities",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chapters_alignment_apply",
+    "operationId": "chapters.alignment.apply",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "chapters.alignment.apply",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Notification Preferences",
+    },
+    "canonicalName": "kwilt_notifications_preferences_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "allowActivityReminders": {
+              "type": "boolean",
+            },
+            "allowDailyFocus": {
+              "type": "boolean",
+            },
+            "allowDailyShowUp": {
+              "type": "boolean",
+            },
+            "allowGoalNudges": {
+              "type": "boolean",
+            },
+            "allowHouseholdMealPlanPush": {
+              "type": "boolean",
+            },
+            "allowPlanKickoff": {
+              "type": "boolean",
+            },
+            "allowStreakAndReactivation": {
+              "type": "boolean",
+            },
+            "dailyFocusTime": {
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "dailyFocusTimeMode": {
+              "enum": [
+                "auto",
+                "manual",
+              ],
+              "type": "string",
+            },
+            "dailyShowUpTime": {
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "goalNudgeTime": {
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "notificationsEnabled": {
+              "type": "boolean",
+            },
+            "planKickoffCadence": {
+              "enum": [
+                "daily",
+                "weekdays",
+                "weekly",
+              ],
+              "type": "string",
+            },
+            "planKickoffWeeklyDay": {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer",
+            },
+          },
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_notifications_preferences_update",
+    "operationId": "notifications.preferences.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "notifications.preferences.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Notification Preferences",
+    },
+    "canonicalName": "kwilt_notifications_preferences_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_notifications_preferences_read",
+    "operationId": "notifications.preferences.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "notifications.preferences.read",
   },
   {
     "annotations": {
@@ -1366,6 +2070,201 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "life.read",
     ],
     "toolId": "plan.recommend_day",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Plan Availability",
+    },
+    "canonicalName": "kwilt_plan_availability_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_plan_availability_read",
+    "operationId": "plan.availability.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "plan.availability.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Plan Availability",
+    },
+    "canonicalName": "kwilt_plan_availability_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "timeZone": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string",
+        },
+        "windows": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "endLocalTime": {
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string",
+              },
+              "mode": {
+                "enum": [
+                  "work",
+                  "personal",
+                ],
+                "type": "string",
+              },
+              "startLocalTime": {
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string",
+              },
+              "weekday": {
+                "maximum": 7,
+                "minimum": 1,
+                "type": "integer",
+              },
+            },
+            "required": [
+              "weekday",
+              "mode",
+              "startLocalTime",
+              "endLocalTime",
+            ],
+            "type": "object",
+          },
+          "maxItems": 28,
+          "type": "array",
+        },
+      },
+      "required": [
+        "expectedVersion",
+        "timeZone",
+        "windows",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_plan_availability_update",
+    "operationId": "plan.availability.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "plan.availability.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Review Plan Calendars",
+    },
+    "canonicalName": "kwilt_plan_calendars_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_plan_calendars_read",
+    "operationId": "plan.calendars.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "plan.calendars.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Plan Calendars",
+    },
+    "canonicalName": "kwilt_plan_calendars_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "readCalendarIds": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 100,
+          "type": "array",
+        },
+        "writeCalendarId": {
+          "maxLength": 500,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "expectedVersion",
+        "readCalendarIds",
+        "writeCalendarId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_plan_calendars_update",
+    "operationId": "plan.calendars.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "plan.calendars.update",
   },
   {
     "annotations": {
@@ -6779,6 +7678,498 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
   {
     "annotations": {
       "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Prepare Recipe Publication Review",
+    },
+    "canonicalName": "kwilt_recipes_publication_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "distributionScopes": {
+          "items": {
+            "type": "string",
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "publicProfileId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "recipeVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "recipeVersionId",
+        "publicProfileId",
+        "distributionScopes",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_publication_prepare",
+    "operationId": "recipes.publication.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.publication.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Recipe Publication",
+    },
+    "canonicalName": "kwilt_recipes_publication_publish",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmedScopes": {
+          "items": {
+            "type": "string",
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array",
+        },
+        "confirmedVersionId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "publicationId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "publicationId",
+        "confirmedVersionId",
+        "confirmedScopes",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_recipes_publication_publish",
+    "operationId": "recipes.publication.publish",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "recipes.publication.publish",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Store Opportunity",
+    },
+    "canonicalName": "kwilt_store_opportunity_capture",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "opportunity": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object",
+        },
+      },
+      "required": [
+        "opportunity",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_store_opportunity_capture",
+    "operationId": "store_opportunity.capture",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "store_opportunity.capture",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Prepare Food Scenario Review",
+    },
+    "canonicalName": "kwilt_food_scenario_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object",
+        },
+        "opportunityIds": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 20,
+          "type": "array",
+        },
+      },
+      "required": [
+        "baseline",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_food_scenario_prepare",
+    "operationId": "food_scenario.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "food_scenario.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Food Scenario Acceptance",
+    },
+    "canonicalName": "kwilt_food_scenario_accept",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "scenarioId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "scenarioId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_food_scenario_accept",
+    "operationId": "food_scenario.accept",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "food_scenario.accept",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Review Grocery Savings",
+    },
+    "canonicalName": "kwilt_savings_review",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groceryListId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "locationId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "provider": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "groceryListId",
+        "provider",
+        "locationId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_savings_review",
+    "operationId": "savings.review",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+    ],
+    "toolId": "savings.review",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Savings Plan Acceptance",
+    },
+    "canonicalName": "kwilt_savings_accept",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "savingsPlanId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "savingsPlanId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_savings_accept",
+    "operationId": "savings.accept",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "savings.accept",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Coupon Activation Review",
+    },
+    "canonicalName": "kwilt_savings_coupon_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "offerId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "offerId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_savings_coupon_open",
+    "operationId": "savings.coupon.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "savings.coupon.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Receipt Extraction",
+    },
+    "canonicalName": "kwilt_receipt_extract",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "sourceArtifactRefs": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array",
+        },
+      },
+      "required": [
+        "sourceArtifactRefs",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_receipt_extract",
+    "operationId": "receipt.extract",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "receipt.extract",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Receipt Reconciliation",
+    },
+    "canonicalName": "kwilt_receipt_reconcile",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "receiptDraftId": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "reviewedMatches": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object",
+          },
+          "maxItems": 500,
+          "type": "array",
+        },
+      },
+      "required": [
+        "receiptDraftId",
+        "expectedVersion",
+        "reviewedMatches",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_receipt_reconcile",
+    "operationId": "receipt.reconcile",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "food.read",
+      "food.write",
+    ],
+    "toolId": "receipt.reconcile",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
@@ -7533,20 +8924,10 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
             "enabled": {
               "type": "boolean",
             },
-            "kind": {
-              "enum": [
-                "real_step",
-                "focus",
-                "daily_limit",
-              ],
-              "type": "string",
-            },
-            "limitMinutes": {
-              "maximum": 1440,
-              "minimum": 1,
-              "type": "integer",
-            },
           },
+          "required": [
+            "enabled",
+          ],
           "type": "object",
         },
         "idempotency_key": {
@@ -8378,6 +9759,460 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
+      "title": "Read Private Money Summary",
+    },
+    "canonicalName": "kwilt_money_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_money_read",
+    "operationId": "money.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+    ],
+    "toolId": "money.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Transaction Review",
+    },
+    "canonicalName": "kwilt_money_review_transaction",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "transactionId": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_review_transaction",
+    "operationId": "money.review_transaction",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.review_transaction",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Money Category",
+    },
+    "canonicalName": "kwilt_money_category_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "budgetCents": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "name",
+        "budgetCents",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_category_create",
+    "operationId": "money.category.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.category.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Rename Money Category",
+    },
+    "canonicalName": "kwilt_money_category_rename",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "categoryId",
+        "name",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_category_rename",
+    "operationId": "money.category.rename",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.category.rename",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Money App Control",
+    },
+    "canonicalName": "kwilt_money_app_control_review",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "additionalProperties": false,
+          "properties": {
+            "categoryId": {
+              "minLength": 1,
+              "type": "string",
+            },
+            "owner": {
+              "enum": [
+                "money",
+              ],
+              "type": "string",
+            },
+            "preset": {
+              "enum": [
+                "always_review",
+                "when_hot",
+                "at_95_percent",
+                "when_over",
+                "needs_review",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "owner",
+            "categoryId",
+            "preset",
+          ],
+          "type": "object",
+        },
+        "effect": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "pause_selected_apps",
+              ],
+              "type": "string",
+            },
+            "owner": {
+              "enum": [
+                "screenTime",
+              ],
+              "type": "string",
+            },
+            "suggestedAppLabels": {
+              "items": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string",
+              },
+              "maxItems": 8,
+              "type": "array",
+            },
+          },
+          "required": [
+            "owner",
+            "kind",
+            "suggestedAppLabels",
+          ],
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "subject": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "self",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "subject",
+        "condition",
+        "effect",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_app_control_review",
+    "operationId": "money.app_control.review",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.app_control.review",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Money Category Review",
+    },
+    "canonicalName": "kwilt_money_category_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "budgetCents": {
+              "minimum": 0,
+              "type": "integer",
+            },
+            "name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string",
+            },
+            "rollover": {
+              "type": "boolean",
+            },
+          },
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "categoryId",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_category_update",
+    "operationId": "money.category.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.category.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Money Privacy",
+    },
+    "canonicalName": "kwilt_money_privacy_configure",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "enabled",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_privacy_configure",
+    "operationId": "money.privacy.configure",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.privacy.configure",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Connect Money Account",
+    },
+    "canonicalName": "kwilt_money_connection_connect",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_connection_connect",
+    "operationId": "money.connection.connect",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.connection.connect",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Money Sync",
+    },
+    "canonicalName": "kwilt_money_connection_sync",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_connection_sync",
+    "operationId": "money.connection.sync",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.connection.sync",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
       "title": "List Chapters",
     },
     "canonicalName": "kwilt_chapters_list",
@@ -8803,6 +10638,1447 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "life.write",
     ],
     "toolId": "navigation.search.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Kwilt Capability",
+    },
+    "canonicalName": "kwilt_navigation_open_capability",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityId": {
+          "enum": [
+            "goals",
+            "todos",
+            "plan",
+            "arcs",
+            "chapters",
+            "money",
+            "recipes",
+            "meal-planning",
+            "groceries",
+            "chores",
+            "focus",
+            "household",
+            "savings",
+            "screen-time",
+            "notifications",
+            "account-settings",
+          ],
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "objectRef": {
+          "additionalProperties": false,
+          "properties": {
+            "objectId": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string",
+            },
+            "objectType": {
+              "enum": [
+                "goal",
+                "activity",
+                "chapter",
+                "recipe",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "objectType",
+            "objectId",
+          ],
+          "type": [
+            "object",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "capabilityId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_navigation_open_capability",
+    "operationId": "navigation.open_capability",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "navigation.open_capability",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Device Haptics",
+    },
+    "canonicalName": "kwilt_settings_haptics_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_haptics_read",
+    "operationId": "settings.haptics.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.haptics.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Device Haptics",
+    },
+    "canonicalName": "kwilt_settings_haptics_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+        },
+        "expectedEnabled": {
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "expectedEnabled",
+        "enabled",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_haptics_update",
+    "operationId": "settings.haptics.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.haptics.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Device Widget Status",
+    },
+    "canonicalName": "kwilt_settings_widgets_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_widgets_read",
+    "operationId": "settings.widgets.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.widgets.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Widget Setup",
+    },
+    "canonicalName": "kwilt_settings_widgets_configure",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "openSetup": {
+          "enum": [
+            true,
+          ],
+          "type": "boolean",
+        },
+      },
+      "required": [
+        "openSetup",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_widgets_configure",
+    "operationId": "settings.widgets.configure",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.widgets.configure",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Device Appearance",
+    },
+    "canonicalName": "kwilt_settings_appearance_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_appearance_read",
+    "operationId": "settings.appearance.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.appearance.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Device Appearance",
+    },
+    "canonicalName": "kwilt_settings_appearance_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "thumbnailStyles": {
+          "items": {
+            "enum": [
+              "topographyDots",
+              "geoMosaic",
+              "contourRings",
+              "pixelBlocks",
+              "plainGradient",
+            ],
+            "type": "string",
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true,
+        },
+      },
+      "required": [
+        "expectedUpdatedAt",
+        "thumbnailStyles",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_appearance_update",
+    "operationId": "settings.appearance.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.appearance.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Apps and Connections",
+    },
+    "canonicalName": "kwilt_settings_connected_tools_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_connected_tools_list",
+    "operationId": "settings.connected_tools.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.connected_tools.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get App Connection",
+    },
+    "canonicalName": "kwilt_settings_connected_tools_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "connectionId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_connected_tools_get",
+    "operationId": "settings.connected_tools.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.connected_tools.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Connect App",
+    },
+    "canonicalName": "kwilt_settings_connected_tools_connect_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "providerId": {
+          "enum": [
+            "chatgpt",
+            "claude",
+            "cursor",
+            "codex",
+            "other",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "providerId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_connected_tools_connect_open",
+    "operationId": "settings.connected_tools.connect.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.connected_tools.connect.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Disconnect App",
+    },
+    "canonicalName": "kwilt_settings_connected_tools_revoke",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedConnectedAt": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "connectionId",
+        "expectedConnectedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_connected_tools_revoke",
+    "operationId": "settings.connected_tools.revoke",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.connected_tools.revoke",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Phone Agent Settings",
+    },
+    "canonicalName": "kwilt_settings_phone_agent_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_phone_agent_read",
+    "operationId": "settings.phone_agent.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.phone_agent.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Phone Agent Settings",
+    },
+    "canonicalName": "kwilt_settings_phone_agent_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedPermissions": {
+          "additionalProperties": false,
+          "properties": {
+            "create_activities": {
+              "type": "boolean",
+            },
+            "log_done_replies": {
+              "type": "boolean",
+            },
+            "offer_drafts": {
+              "type": "boolean",
+            },
+            "remember_relationships": {
+              "type": "boolean",
+            },
+            "send_followups": {
+              "type": "boolean",
+            },
+            "suggest_arc_alignment": {
+              "type": "boolean",
+            },
+          },
+          "required": [
+            "create_activities",
+            "remember_relationships",
+            "send_followups",
+            "log_done_replies",
+            "offer_drafts",
+            "suggest_arc_alignment",
+          ],
+          "type": "object",
+        },
+        "expectedPromptCapPerDay": {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "integer",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "permissions": {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "create_activities": {
+                  "type": "boolean",
+                },
+                "log_done_replies": {
+                  "type": "boolean",
+                },
+                "offer_drafts": {
+                  "type": "boolean",
+                },
+                "remember_relationships": {
+                  "type": "boolean",
+                },
+                "send_followups": {
+                  "type": "boolean",
+                },
+                "suggest_arc_alignment": {
+                  "type": "boolean",
+                },
+              },
+              "required": [],
+              "type": "object",
+            },
+            "promptCapPerDay": {
+              "maximum": 10,
+              "minimum": 0,
+              "type": "integer",
+            },
+          },
+          "required": [],
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "expectedPromptCapPerDay",
+        "expectedPermissions",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_phone_agent_update",
+    "operationId": "settings.phone_agent.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.phone_agent.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read AI Model",
+    },
+    "canonicalName": "kwilt_settings_ai_model_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_ai_model_read",
+    "operationId": "settings.ai_model.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.ai_model.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update AI Model",
+    },
+    "canonicalName": "kwilt_settings_ai_model_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedModelId": {
+          "enum": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-5.1",
+            "gpt-5.2",
+          ],
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "modelId": {
+          "enum": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-5.1",
+            "gpt-5.2",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "expectedModelId",
+        "modelId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_ai_model_update",
+    "operationId": "settings.ai_model.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.ai_model.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Sharing Connections",
+    },
+    "canonicalName": "kwilt_settings_sharing_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_sharing_list",
+    "operationId": "settings.sharing.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.sharing.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Invite a Friend",
+    },
+    "canonicalName": "kwilt_settings_sharing_invitation_prepare",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expiresInDays": {
+          "maximum": 30,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "expiresInDays",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_sharing_invitation_prepare",
+    "operationId": "settings.sharing.invitation.prepare",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.sharing.invitation.prepare",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Revoke Sharing Connection",
+    },
+    "canonicalName": "kwilt_settings_sharing_connection_revoke",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedFingerprint": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "connectionId",
+        "expectedFingerprint",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_sharing_connection_revoke",
+    "operationId": "settings.sharing.connection.revoke",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.sharing.connection.revoke",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Execution Targets",
+    },
+    "canonicalName": "kwilt_settings_execution_targets_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_execution_targets_list",
+    "operationId": "settings.execution_targets.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.execution_targets.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Execution Target",
+    },
+    "canonicalName": "kwilt_settings_execution_targets_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "targetId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "targetId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_execution_targets_get",
+    "operationId": "settings.execution_targets.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.execution_targets.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Install Execution Target",
+    },
+    "canonicalName": "kwilt_settings_execution_targets_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "providerId": {
+          "enum": [
+            "cursor_mcp_v1",
+          ],
+          "type": "string",
+        },
+        "repoName": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "providerId",
+        "displayName",
+        "repoName",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_execution_targets_create",
+    "operationId": "settings.execution_targets.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.execution_targets.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Execution Target",
+    },
+    "canonicalName": "kwilt_settings_execution_targets_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "displayName": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string",
+            },
+            "enabled": {
+              "type": "boolean",
+            },
+            "repoName": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string",
+            },
+          },
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "targetId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "targetId",
+        "expectedUpdatedAt",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_execution_targets_update",
+    "operationId": "settings.execution_targets.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.execution_targets.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete Execution Target",
+    },
+    "canonicalName": "kwilt_settings_execution_targets_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "targetId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "targetId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_execution_targets_delete",
+    "operationId": "settings.execution_targets.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.execution_targets.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Send To Destinations",
+    },
+    "canonicalName": "kwilt_settings_destinations_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_destinations_list",
+    "operationId": "settings.destinations.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.destinations.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Send To Destination",
+    },
+    "canonicalName": "kwilt_settings_destinations_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "destinationId": {
+          "enum": [
+            "amazon",
+            "home_depot",
+            "instacart",
+            "doordash",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "destinationId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_destinations_get",
+    "operationId": "settings.destinations.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.destinations.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Install Send To Destination",
+    },
+    "canonicalName": "kwilt_settings_destinations_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "kind": {
+          "enum": [
+            "amazon",
+            "home_depot",
+            "instacart",
+            "doordash",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "kind",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_destinations_create",
+    "operationId": "settings.destinations.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.destinations.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Uninstall Send To Destination",
+    },
+    "canonicalName": "kwilt_settings_destinations_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "destinationId": {
+          "enum": [
+            "amazon",
+            "home_depot",
+            "instacart",
+            "doordash",
+          ],
+          "type": "string",
+        },
+        "expectedInstalled": {
+          "enum": [
+            true,
+          ],
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "destinationId",
+        "expectedInstalled",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_destinations_delete",
+    "operationId": "settings.destinations.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.destinations.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Activity Areas",
+    },
+    "canonicalName": "kwilt_settings_activity_areas_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_settings_activity_areas_list",
+    "operationId": "settings.activity_areas.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.activity_areas.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Activity Area",
+    },
+    "canonicalName": "kwilt_settings_activity_areas_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "areaId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "areaId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_activity_areas_get",
+    "operationId": "settings.activity_areas.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+    ],
+    "toolId": "settings.activity_areas.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Activity Area",
+    },
+    "canonicalName": "kwilt_settings_activity_areas_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "label": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "label",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_activity_areas_create",
+    "operationId": "settings.activity_areas.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.activity_areas.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Rename Activity Area",
+    },
+    "canonicalName": "kwilt_settings_activity_areas_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "areaId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedFingerprint": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "label": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "areaId",
+        "expectedFingerprint",
+        "label",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_activity_areas_update",
+    "operationId": "settings.activity_areas.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.activity_areas.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Archive Activity Area",
+    },
+    "canonicalName": "kwilt_settings_activity_areas_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "areaId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedFingerprint": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "areaId",
+        "expectedFingerprint",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_settings_activity_areas_delete",
+    "operationId": "settings.activity_areas.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "settings.activity_areas.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Continue Conversation on Phone Agent",
+    },
+    "canonicalName": "kwilt_phone_continue_conversation",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_phone_continue_conversation",
+    "operationId": "channel.phone.continue_run",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "life.read",
+      "life.write",
+    ],
+    "toolId": "channel.phone.continue_run",
   },
   {
     "annotations": {

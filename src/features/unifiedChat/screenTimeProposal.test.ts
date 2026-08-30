@@ -60,8 +60,12 @@ describe('parsePersonalScreenTimeRuleProposal', () => {
   it('accepts only redacted versioned personal rule mutations', () => {
     expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.update', {
       ruleId: 'rule-1', expectedUpdatedAt: updatedAt,
-      fields: { kind: 'daily_limit', limitMinutes: 30, enabled: true },
+      fields: { enabled: true },
     })).toMatchObject({ type: 'update_personal_screen_time_rule', targetId: 'rule-1' });
+    expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.update', {
+      ruleId: 'rule-1', expectedUpdatedAt: updatedAt,
+      fields: { limitMinutes: 30 },
+    })).toBeNull();
     expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.deactivate', {
       ruleId: 'rule-1', expectedUpdatedAt: updatedAt,
     })).toMatchObject({ type: 'deactivate_personal_screen_time_rule' });

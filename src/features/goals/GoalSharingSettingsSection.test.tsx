@@ -83,6 +83,11 @@ describe('GoalSharingSettingsSection', () => {
   });
 
   it('keeps creator revoke and recipient decline as explicit separate decisions', async () => {
+    const currentItems = await sharing.listGoalSharing();
+    sharing.revokeTargetedGoalInvite.mockImplementation(async () => {
+      sharing.listGoalSharing.mockResolvedValue(currentItems.slice(1));
+      return { ok: true };
+    });
     const alert = jest.spyOn(Alert, 'alert');
     const screen = renderWithProviders(<GoalSharingSettingsSection />);
     await waitFor(() => expect(screen.getByLabelText('Revoke invitation for Blaire')).toBeTruthy());

@@ -32,6 +32,7 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   recipes: 'Find and discuss the user\'s authorized Recipes and meal ideas.',
   meal_planning: 'Prepare a household-aware Meal Plan using explicit preferences, budget boundaries, and available food evidence.',
   groceries: 'Read and update reviewed Food Stock evidence, and manage Grocery lists without claiming retailer checkout or payment.',
+  savings: 'Review current Grocery price and offer evidence, stage Savings Plan review, and open retailer coupon handoffs without claiming activation or realized savings.',
 };
 
 const capabilityDescriptions = (Object.keys(CAPABILITY_DESCRIPTIONS) as UnifiedChatCapabilityId[])

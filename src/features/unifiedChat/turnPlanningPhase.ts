@@ -42,6 +42,7 @@ import {
 import { runWithPlanningBudget } from './planningBudget';
 
 const DEFAULT_PLANNING_BUDGET_MS = 5_000;
+const PLANNING_BUDGET_EXHAUSTED: unique symbol = Symbol('planning-budget-exhausted');
 
 export type PlanUnifiedChatTurnPhaseInput = {
   prompt: string;
@@ -196,10 +197,10 @@ export async function planUnifiedChatTurnPhase(
   }));
   const planningDeadline = Date.now() + (input.planningBudgetMs ?? DEFAULT_PLANNING_BUDGET_MS);
   const remainingPlanningMs = () => Math.max(0, planningDeadline - Date.now());
-  const requestedAgentJudgment = planningStrategy === 'fast_direct'
+  const requestedAgentJudgmentResult = planningStrategy === 'fast_direct'
     ? null
     : shouldAttemptAgentJudgment(deterministicPolicy)
-    ? await runWithPlanningBudget(
+    ? await runWithPlanningBudget<AgentJudgment | null, typeof PLANNING_BUDGET_EXHAUSTED>(
         (signal) => input.requestJudgment({
           prompt: buildAgentJudgmentPrompt({
             prompt: input.prompt,
@@ -213,15 +214,21 @@ export async function planUnifiedChatTurnPhase(
           allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
           signal,
         }),
-        { timeoutMs: remainingPlanningMs(), fallback: null, parentSignal: input.signal },
+        {
+          timeoutMs: remainingPlanningMs(),
+          fallback: PLANNING_BUDGET_EXHAUSTED,
+          parentSignal: input.signal,
+        },
       )
     : null;
+  const planningBudgetExhausted = requestedAgentJudgmentResult === PLANNING_BUDGET_EXHAUSTED;
+  const requestedAgentJudgment = planningBudgetExhausted ? null : requestedAgentJudgmentResult;
   const agentJudgment = requestedAgentJudgment && hasCoherentExecutionPlan(requestedAgentJudgment)
     ? requestedAgentJudgment
     : null;
   const semanticRoute = planningStrategy === 'fast_direct'
     ? null
-    : !agentJudgment && shouldAttemptSemanticRouting({
+    : !planningBudgetExhausted && !agentJudgment && shouldAttemptSemanticRouting({
     prompt: input.prompt,
     deterministicPolicy,
   })

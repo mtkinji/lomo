@@ -125,7 +125,7 @@ serve(async (req) => {
           resolvedTools: Parameters<typeof requestServerAgentModel>[0]['resolvedTools'];
           toolSearchNamespaces: Parameters<typeof requestServerAgentModel>[0]['toolSearchNamespaces'];
         }) => requestServerAgentModel({
-          supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: authData.user.id,
+          supabaseUrl: url, serviceRoleToken: serviceRole, quotaIdentity: authData.user.id,
           isPro, messages, tools, resolvedTools, toolSearchNamespaces,
           policyContext: {
             currentDate: calendarDateInTimeZone(new Date(), request.channelContext.timeZone ?? 'UTC'),
@@ -137,7 +137,7 @@ serve(async (req) => {
           namespaces: Parameters<typeof requestServerTurnJudgment>[0]['namespaces'];
         }) =>
           requestServerTurnJudgment({
-            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole,
+            supabaseUrl: url, serviceRoleToken: serviceRole,
             quotaIdentity: authData.user.id, isPro, prompt, namespaces,
           }),
         authorizeTool: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => (

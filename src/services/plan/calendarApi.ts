@@ -194,6 +194,7 @@ export async function listCalendarsWithErrors(): Promise<{ calendars: CalendarLi
 }
 
 export async function getCalendarPreferences(): Promise<{
+  version: number;
   readCalendarRefs: CalendarRef[];
   writeCalendarRef: CalendarRef | null;
 }> {
@@ -207,6 +208,7 @@ export async function getCalendarPreferences(): Promise<{
  * - We ONLY run this when both read + write are missing, so we won't override intentional choices.
  */
 export async function getOrInitCalendarPreferences(): Promise<{
+  version: number;
   readCalendarRefs: CalendarRef[];
   writeCalendarRef: CalendarRef | null;
 }> {
@@ -216,7 +218,7 @@ export async function getOrInitCalendarPreferences(): Promise<{
   const needsRead = existingRead.length === 0;
   const needsWrite = !existingWrite;
   // If the user already configured both, never override.
-  if (!needsRead && !needsWrite) return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+  if (!needsRead && !needsWrite) return { ...prefs, readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
 
   // No prefs saved yet; infer defaults from the provider calendar lists.
   let calendars: CalendarListItem[] = [];
@@ -228,7 +230,7 @@ export async function getOrInitCalendarPreferences(): Promise<{
     return prefs;
   }
 
-  if (calendars.length === 0) return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+  if (calendars.length === 0) return { ...prefs, readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
 
   const byAccount = new Map<string, CalendarListItem[]>();
   for (const c of calendars) {
@@ -286,26 +288,29 @@ export async function getOrInitCalendarPreferences(): Promise<{
   const writeCalendarRef = needsWrite ? inferredWriteCalendarRef : existingWrite;
 
   if (readCalendarRefs.length === 0 && !writeCalendarRef) {
-    return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+    return { ...prefs, readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
   }
 
   try {
-    await updateCalendarPreferences({
+    const updated = await updateCalendarPreferences({
+      expectedVersion: prefs.version,
       readCalendarRefs,
       writeCalendarRef,
     });
+    return { version: updated.version, readCalendarRefs, writeCalendarRef };
   } catch {
     // If saving fails, still return inferred values so the UI can proceed.
   }
 
-  return { readCalendarRefs, writeCalendarRef };
+  return { ...prefs, readCalendarRefs, writeCalendarRef };
 }
 
 export async function updateCalendarPreferences(params: {
+  expectedVersion: number;
   readCalendarRefs: CalendarRef[];
   writeCalendarRef: CalendarRef | null;
 }) {
-  await postJson('calendar-api', { action: 'update_preferences', ...params }, true);
+  return await postJson<{ ok: true; version: number }>('calendar-api', { action: 'update_preferences', ...params }, true);
 }
 
 export async function listBusyIntervals(params: { start: string; end: string; readCalendarRefs?: CalendarRef[] }) {
@@ -348,4 +353,3 @@ export async function updateCalendarEvent(params: {
 export async function deleteCalendarEvent(params: { eventRef: CalendarEventRef }): Promise<{ ok: boolean }> {
   return await postJson('calendar-api', { action: 'delete_event', ...params }, true);
 }
-

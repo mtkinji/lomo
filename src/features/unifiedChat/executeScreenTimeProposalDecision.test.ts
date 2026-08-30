@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
-import { createPersonalScreenTimeRule, normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
+import { normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
 
 const proposal: Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }> = {
   id: 'proposal-1', threadId: 'thread-1', runId: 'run-1', messageId: 'message-1',
@@ -45,7 +45,7 @@ const personalProposal: Extract<UnifiedChatProposal, { capabilityId: 'screenTime
   operation: {
     ...proposal.operation, id: 'operation-personal', proposalId: 'proposal-personal',
     type: 'update_personal_screen_time_rule', targetId: 'rule-1',
-    payload: { expectedUpdatedAt: '2026-08-27T10:00:00.000Z', fields: { limitMinutes: 20 } },
+    payload: { expectedUpdatedAt: '2026-08-27T10:00:00.000Z', fields: { enabled: false } },
   },
 };
 
@@ -101,12 +101,13 @@ describe('executeScreenTimeProposalDecision', () => {
 
   it('applies a personal rule through the device boundary and stores only redacted receipt state', async () => {
     let settings = normalizeScreenTimeProtectionSettings({
-      authorizationStatus: 'approved', personalRules: [createPersonalScreenTimeRule({
-        id: 'rule-1', selectionId: 'private-selection', kind: 'daily_limit',
+      authorizationStatus: 'approved', personalRuleSchemaVersion: 2, personalCompositeRules: [{
+        id: 'rule-1', selectionId: 'private-selection',
         selectedApps: [{ token: 'private-token', label: 'Instagram' }], selectedCategories: [],
-        enabled: true, setupCompleted: true, limitMinutes: 30,
-        nowIso: '2026-08-27T10:00:00.000Z',
-      })],
+        enabled: true, setupCompleted: true, connector: 'all', outcome: 'pause',
+        conditions: [{ id: 'usage', type: 'daily_usage', operator: 'reaches', minutes: 30 }],
+        lastUpdated: '2026-08-27T10:00:00.000Z',
+      }],
     });
     const repository = {
       decideProposal: jest.fn().mockResolvedValue({ status: 'approved', version: 2 }),
@@ -126,19 +127,19 @@ describe('executeScreenTimeProposalDecision', () => {
       },
       now: () => new Date('2026-08-27T11:00:00.000Z'),
     });
-    expect(settings.personalRules[0]).toMatchObject({ limitMinutes: 20, lastUpdated: '2026-08-27T11:00:00.000Z' });
+    expect(settings.personalCompositeRules[0]).toMatchObject({ enabled: false, lastUpdated: '2026-08-27T11:00:00.000Z' });
     expect(repository.persistMutationReceipt).toHaveBeenCalledWith(expect.objectContaining({
       status: 'reserved',
       undoOperation: {
         type: 'screen_time.personal_rule.update', ruleId: 'rule-1',
         expectedUpdatedAt: '2026-08-27T11:00:00.000Z',
-        fields: { enabled: true, kind: 'daily_limit', limitMinutes: 30 },
+        fields: { enabled: true },
       },
     }));
     const finalized = repository.finalizeMutationReceipt.mock.calls[0][1];
     expect(finalized).toMatchObject({
       resultingObjectType: 'personal_screen_time_rule', resultingObjectId: 'rule-1',
-      resultState: { enforcementState: 'applied', rule: { targetLabels: ['Instagram'], limitMinutes: 20 } },
+      resultState: { enforcementState: 'applied', rule: { targetLabels: ['Instagram'], kind: 'composite', enabled: false } },
       undoOperation: { type: 'screen_time.personal_rule.update', ruleId: 'rule-1' },
     });
     expect(JSON.stringify(finalized)).not.toMatch(/private-token|private-selection/);

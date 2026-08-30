@@ -1,11 +1,8 @@
 import type { MoneyCategory, MoneySnapshot } from '../data/moneySnapshot';
 import {
-  evaluateMoneyAppControlPolicy,
+  evaluateMoneyBudgetCondition,
   getMoneyAppControlPresetCopy,
-  isFreshMoneyReviewHandoff,
   normalizeMoneyAppControlSettings,
-  projectMoneyScreenTimeRule,
-  recordMoneyAppControlReview,
 } from './moneyAppControl';
 
 const category: MoneyCategory = {
@@ -55,39 +52,7 @@ function snapshot(): MoneySnapshot {
   };
 }
 
-describe('Money app control', () => {
-  it('projects a category-owned policy into the shared rule identity', () => {
-    const settings = normalizeMoneyAppControlSettings({
-      authorizationStatus: 'approved',
-      policies: {
-        shopping: {
-          enabled: true,
-          preset: 'when_over',
-          selectedApps: [{ token: 'amazon' }],
-          selectedCategories: [],
-          unlockWindowMinutes: 15,
-        },
-      },
-    });
-
-    expect(projectMoneyScreenTimeRule({
-      categorySourceId: 'shopping',
-      categoryName: 'Shopping',
-      policy: settings.policies.shopping,
-    })).toEqual({
-      id: 'money_shopping',
-      domain: 'money',
-      subject: { kind: 'self' },
-      selectionId: 'money_shopping',
-      title: 'Review Shopping',
-      trigger: { type: 'money_review', categorySourceId: 'shopping' },
-      temporaryOpen: { allowed: true, durationMinutes: 20 },
-      active: true,
-      desiredVersion: 1,
-      appliedVersion: null,
-    });
-  });
-
+describe('Money budget condition provider and legacy cleanup', () => {
   it('normalizes untrusted policy settings and keeps category policies namespaced', () => {
     expect(normalizeMoneyAppControlSettings({
       authorizationStatus: 'approved',
@@ -108,51 +73,6 @@ describe('Money app control', () => {
     });
   });
 
-  it('blocks at the selected threshold and an open review clears only its access window', () => {
-    const settings = normalizeMoneyAppControlSettings({
-      authorizationStatus: 'approved',
-      policies: {
-        'category-shopping': {
-          enabled: true,
-          preset: 'at_95_percent',
-          unlockWindowMinutes: 20,
-          selectedApps: [{ token: 'native:applications' }],
-        },
-      },
-    });
-    const now = new Date('2026-07-23T18:00:00.000Z');
-
-    expect(evaluateMoneyAppControlPolicy({ settings, snapshot: snapshot(), category, now })).toMatchObject({
-      restricted: true,
-      reason: 'money_usage_threshold',
-    });
-
-    const opened = recordMoneyAppControlReview(settings, 'category-shopping', 'opened_for_now', now);
-    expect(evaluateMoneyAppControlPolicy({ settings: opened, snapshot: snapshot(), category, now: new Date(now.getTime() + 19 * 60_000) }).restricted).toBe(false);
-    expect(evaluateMoneyAppControlPolicy({ settings: opened, snapshot: snapshot(), category, now: new Date(now.getTime() + 21 * 60_000) }).restricted).toBe(true);
-  });
-
-  it('does not let keep-blocked reviews open access', () => {
-    const settings = recordMoneyAppControlReview(
-      normalizeMoneyAppControlSettings({
-        authorizationStatus: 'approved',
-        policies: {
-          'category-shopping': {
-            enabled: true,
-            preset: 'always_review',
-            unlockWindowMinutes: 20,
-            selectedApps: [{ token: 'native:applications' }],
-          },
-        },
-      }),
-      'category-shopping',
-      'left_blocked',
-      new Date('2026-07-23T18:00:00.000Z'),
-    );
-
-    expect(evaluateMoneyAppControlPolicy({ settings, snapshot: snapshot(), category, now: new Date('2026-07-23T18:01:00.000Z') }).restricted).toBe(true);
-  });
-
   it('keeps preset language reductive', () => {
     expect(getMoneyAppControlPresetCopy('when_hot')).toEqual({
       title: 'When spending is 10 points ahead of the month',
@@ -162,10 +82,17 @@ describe('Money app control', () => {
     expect(getMoneyAppControlPresetCopy('needs_review').title).toBe('While any transaction needs review');
   });
 
-  it('accepts a shield handoff once only inside the two-minute window', () => {
-    const now = Date.parse('2026-07-23T18:02:00.000Z');
-    expect(isFreshMoneyReviewHandoff(now - 119_000, now)).toBe(true);
-    expect(isFreshMoneyReviewHandoff(now - 121_000, now)).toBe(false);
-    expect(isFreshMoneyReviewHandoff(now + 1, now)).toBe(false);
+  it('supplies deterministic truth for composed budget conditions without requiring a standalone policy', () => {
+    const current = snapshot();
+    const now = new Date('2026-07-23T18:00:00.000Z');
+    expect(evaluateMoneyBudgetCondition({
+      snapshot: current, categorySourceId: 'category-shopping', preset: 'at_95_percent', now,
+    })).toBe(true);
+    expect(evaluateMoneyBudgetCondition({
+      snapshot: current, categorySourceId: 'category-shopping', preset: 'when_over', now,
+    })).toBe(false);
+    expect(evaluateMoneyBudgetCondition({
+      snapshot: current, categorySourceId: 'missing', preset: 'when_over', now,
+    })).toBeNull();
   });
 });

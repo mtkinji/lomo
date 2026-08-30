@@ -100,7 +100,8 @@ describe('runBoundedAgentToolLoop', () => {
     });
     expect(result.status).toBe('partial');
     expect(result.errorCode).toBe('max_rounds_reached');
-    expect(modelStep).toHaveBeenCalledTimes(2);
+    expect(modelStep).toHaveBeenCalledTimes(3);
+    expect(modelStep.mock.calls[2][0].tools).toEqual([]);
   });
 });
 

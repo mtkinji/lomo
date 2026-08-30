@@ -54,7 +54,7 @@ export async function executeServerChoreTool({ client, userId, call, stagePropos
     const occurrenceId = string(call.arguments.occurrenceId);
     if (!occurrenceId || !stageDeviceAction) return { status: 'failed', code: 'invalid_chore_evidence_target', message: 'Choose one exact Chore occurrence on a linked device.', retryable: false };
     const request: DeviceActionRequest = { capabilityId: 'chores', actionType: 'open_chore_evidence_picker', targetType: 'chore_occurrence', targetId: occurrenceId,
-      title: 'Add chore photo', consequenceSummary: 'Kwilt will open the native camera or photo library. A photo is evidence, not automated proof.',
+      title: 'Add chore photo', consequenceSummary: 'Kwilt will open the camera or photo library. The photo documents the chore; Kwilt does not automatically decide whether it is complete.',
       payload: { occurrenceId }, idempotencyKey: call.id };
     await stageDeviceAction(request);
     return { status: 'pending_client_action', provider: 'device', request };
