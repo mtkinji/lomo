@@ -22,7 +22,8 @@ test('generated host bridge stores and applies one V2 composite aggregate', () =
   assert.match(rendered, /outcome == "available"/);
   assert.match(rendered, /condition\.type == "budget"/);
   assert.match(rendered, /let configurationChanged = shared\.data/);
-  assert.match(rendered, /if configurationChanged/);
+  assert.match(rendered, /let monitoringChanged = configurationChanged/);
+  assert.match(rendered, /if monitoringChanged/);
   assert.match(rendered, /includesPastActivity: true/);
   assert.match(rendered, /KwiltRestrictionLedger\.upsert/);
   assert.match(bridgeSource, /applyPersonalCompositeRule:\(NSString \*\)json/);

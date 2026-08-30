@@ -59,6 +59,17 @@ describe('Screen Time prerequisite native generation', () => {
     expect(bridgePlugin).toContain('includesPastActivity: true');
   });
 
+  it('repairs orphaned composite monitors and reports Apple monitoring errors exactly', () => {
+    expect(generatedBridge).toContain('center.activities.filter');
+    expect(generatedBridge).toContain('activeRuleIds');
+    expect(generatedBridge).toContain('center.stopMonitoring(staleCompositeActivities)');
+    expect(generatedBridge).toContain('center.stopMonitoring(obsoleteCurrentRuleActivities)');
+    expect(generatedBridge).toContain('expectedActivities.contains');
+    expect(generatedBridge).toContain('monitoring_excessive_activities');
+    expect(generatedBridge).toContain('monitoredActivityCount');
+    expect(generatedBridge).toContain('error.errorDescription');
+  });
+
   it('preserves rule-specific Swift interpolation in generated personal-limit identifiers', () => {
     expect(bridgePlugin).toContain('"kwilt.personal.limit.\\\\(safeIdentifier(ruleId))"');
     expect(bridgePlugin).toContain('forKey: "\\\\(personalUsageLimitConfigPrefix)\\\\(activity.rawValue)"');

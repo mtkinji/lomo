@@ -33,6 +33,7 @@ private struct KwiltPersonalCompositeRulePayload: Codable {
   let version: Int
   let ruleId: String
   let selectionId: String
+  let activeRuleIds: [String]?
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
@@ -115,6 +116,14 @@ const PREREQUISITE_HELPERS_SWIFT = `
   @available(iOS 16.0, *)
   private func personalCompositeActivityName(ruleId: String, conditionId: String) -> DeviceActivityName {
     DeviceActivityName("kwilt.composite.\\(safeIdentifier(ruleId)).\\(safeIdentifier(conditionId))")
+  }
+
+  @available(iOS 16.0, *)
+  private func personalCompositeRuleId(from activity: DeviceActivityName) -> String? {
+    let prefix = "kwilt.composite."
+    guard activity.rawValue.hasPrefix(prefix) else { return nil }
+    return activity.rawValue.dropFirst(prefix.count).split(separator: ".", maxSplits: 1)
+      .first.map(String.init)
   }
 
   @available(iOS 16.0, *)
@@ -440,13 +449,17 @@ const PREREQUISITE_METHODS_SWIFT = `
   ) {
 #if canImport(DeviceActivity) && canImport(FamilyControls) && canImport(ManagedSettings)
     if #available(iOS 16.0, *) {
-      guard isAuthorized(), let data = json.data(using: .utf8),
+      guard isAuthorized() else {
+        resolve(["ok": false, "code": "monitoring_unauthorized"])
+        return
+      }
+      guard let data = json.data(using: .utf8),
             let payload = try? JSONDecoder().decode(KwiltPersonalCompositeRulePayload.self, from: data),
             payload.version == 2, !payload.conditions.isEmpty,
             payload.connector == "all" || payload.connector == "any",
             payload.outcome == "available" || payload.outcome == "pause",
             let shared = UserDefaults(suiteName: appGroupIdentifier) else {
-        resolve(false)
+        resolve(["ok": false, "code": "invalid_payload"])
         return
       }
       let ruleId = safeIdentifier(payload.ruleId)
@@ -480,13 +493,13 @@ const PREREQUISITE_METHODS_SWIFT = `
           return false
         }
       guard conditionsAreValid else {
-        resolve(false)
+        resolve(["ok": false, "code": "invalid_conditions"])
         return
       }
       let selection = loadSelection(for: selectionId)
       guard !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty
         || !selection.webDomainTokens.isEmpty else {
-        resolve(false)
+        resolve(["ok": false, "code": "missing_selection"])
         return
       }
       let configuration = KwiltPersonalCompositeRuleConfiguration(
@@ -495,8 +508,26 @@ const PREREQUISITE_METHODS_SWIFT = `
         restrictionLabel: String(payload.restrictionLabel.prefix(80))
       )
       guard let configurationData = try? JSONEncoder().encode(configuration) else {
-        resolve(false)
+        resolve(["ok": false, "code": "configuration_encoding_failed"])
         return
+      }
+      let center = DeviceActivityCenter()
+      let activeRuleIds = Set((payload.activeRuleIds ?? [payload.ruleId]).map { safeIdentifier($0) })
+        .union([ruleId])
+      let staleCompositeActivities = center.activities.filter { activity in
+        guard let monitoredRuleId = personalCompositeRuleId(from: activity) else { return false }
+        return !activeRuleIds.contains(monitoredRuleId)
+      }
+      if !staleCompositeActivities.isEmpty {
+        center.stopMonitoring(staleCompositeActivities)
+        staleCompositeActivities.forEach { activity in
+          shared.removeObject(forKey: "\\(personalCompositeMonitorConfigPrefix)\\(activity.rawValue)")
+          if let staleRuleId = personalCompositeRuleId(from: activity) {
+            shared.removeObject(forKey: "\\(personalCompositeConfigPrefix)\\(staleRuleId)")
+            personalCompositeStore(for: staleRuleId).clearAllSettings()
+            KwiltRestrictionLedger.remove(id: "personal_composite.\\(staleRuleId)")
+          }
+        }
       }
       let configurationKey = "\\(personalCompositeConfigPrefix)\\(ruleId)"
       let configurationChanged = shared.data(forKey: configurationKey) != configurationData
@@ -513,9 +544,22 @@ const PREREQUISITE_METHODS_SWIFT = `
         shared.set(truth, forKey: personalCompositeTruthKey(ruleId: ruleId, conditionId: conditionId))
       }
 
-      if configurationChanged {
+      let expectedActivities = configuration.conditions
+        .filter { $0.type == "time_of_day" || $0.type == "daily_usage" }
+        .map { personalCompositeActivityName(ruleId: ruleId, conditionId: $0.id) }
+      let obsoleteCurrentRuleActivities = center.activities.filter { activity in
+        personalCompositeRuleId(from: activity) == ruleId && !expectedActivities.contains(activity)
+      }
+      if !obsoleteCurrentRuleActivities.isEmpty {
+        center.stopMonitoring(obsoleteCurrentRuleActivities)
+        obsoleteCurrentRuleActivities.forEach {
+          shared.removeObject(forKey: "\\(personalCompositeMonitorConfigPrefix)\\($0.rawValue)")
+        }
+      }
+      let monitoringChanged = configurationChanged
+        || expectedActivities.contains { !center.activities.contains($0) }
+      if monitoringChanged {
         var activities: [DeviceActivityName] = []
-        let center = DeviceActivityCenter()
         for condition in configuration.conditions where condition.type == "time_of_day" || condition.type == "daily_usage" {
           let activity = personalCompositeActivityName(ruleId: ruleId, conditionId: condition.id)
           activities.append(activity)
@@ -551,27 +595,60 @@ const PREREQUISITE_METHODS_SWIFT = `
             }
             events[DeviceActivityEvent.Name(condition.id)] = event
           } else {
-            resolve(false)
+            resolve(["ok": false, "code": "invalid_schedule"])
             return
           }
           center.stopMonitoring([activity])
           do {
             try center.startMonitoring(activity, during: schedule, events: events)
+          } catch let error as DeviceActivityCenter.MonitoringError {
+            center.stopMonitoring(activities)
+            personalCompositeStore(for: ruleId).clearAllSettings()
+            KwiltRestrictionLedger.remove(id: "personal_composite.\\(ruleId)")
+            shared.removeObject(forKey: configurationKey)
+            activities.forEach {
+              shared.removeObject(forKey: "\\(personalCompositeMonitorConfigPrefix)\\($0.rawValue)")
+            }
+            let code: String
+            switch error {
+            case .excessiveActivities: code = "monitoring_excessive_activities"
+            case .intervalTooLong: code = "monitoring_interval_too_long"
+            case .intervalTooShort: code = "monitoring_interval_too_short"
+            case .invalidDateComponents: code = "monitoring_invalid_date_components"
+            case .unauthorized: code = "monitoring_unauthorized"
+            @unknown default: code = "monitoring_failed"
+            }
+            resolve([
+              "ok": false,
+              "code": code,
+              "message": error.errorDescription ?? error.localizedDescription,
+              "monitoredActivityCount": center.activities.count,
+            ])
+            return
           } catch {
             center.stopMonitoring(activities)
             personalCompositeStore(for: ruleId).clearAllSettings()
             KwiltRestrictionLedger.remove(id: "personal_composite.\\(ruleId)")
-            resolve(false)
+            shared.removeObject(forKey: configurationKey)
+            activities.forEach {
+              shared.removeObject(forKey: "\\(personalCompositeMonitorConfigPrefix)\\($0.rawValue)")
+            }
+            resolve([
+              "ok": false,
+              "code": "monitoring_failed",
+              "message": error.localizedDescription,
+              "monitoredActivityCount": center.activities.count,
+            ])
             return
           }
         }
       }
       evaluatePersonalCompositeRule(configuration)
-      resolve(true)
+      resolve(["ok": true])
       return
     }
 #endif
-    resolve(false)
+    resolve(["ok": false, "code": "screen_time_unavailable"])
   }
 
   @objc(clearPersonalCompositeRule:resolver:rejecter:)

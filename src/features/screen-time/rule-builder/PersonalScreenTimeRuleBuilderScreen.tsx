@@ -13,6 +13,7 @@ import {
   type ScreenTimeToken,
 } from '../../../services/screenTimeProtection';
 import {
+  consumeLastPersonalCompositeActivationFailure,
   presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
 } from '../../../services/appleEcosystem/screenTimeProtection';
@@ -59,6 +60,23 @@ type RuleTargets = { selectedApps: ScreenTimeToken[]; selectedCategories: Screen
 type Drawer = 'condition' | 'budget' | 'budgetPreset' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | null;
 
 const MINUTE_OPTIONS = Array.from({ length: 288 }, (_, index) => (index + 1) * 5);
+
+function activationFailureMessage(code: string | null): string {
+  if (code === 'monitoring_excessive_activities') {
+    return 'Apple still has too many old Screen Time schedules for Kwilt. Turn Kwilt off and back on under Settings → Screen Time → Apps With Screen Time Access, then try again.';
+  }
+  if (code === 'missing_selection') {
+    return 'Your app selection did not carry over to Screen Time. Choose the apps and categories again, then retry.';
+  }
+  if (code === 'monitoring_unauthorized') {
+    return 'Apple is not allowing Kwilt to schedule this rule. Turn Kwilt off and back on under Settings → Screen Time → Apps With Screen Time Access, then retry.';
+  }
+  if (code?.startsWith('monitoring_') || code === 'invalid_schedule') {
+    return `Apple could not start this Screen Time schedule (${code}). Change the time and retry.`;
+  }
+  if (code) return `Screen Time rejected this rule (${code}). Try choosing the apps again before leaving setup.`;
+  return 'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.';
+}
 
 function targetLabel(targets: RuleTargets): string {
   const all = [...targets.selectedApps, ...targets.selectedCategories];
@@ -318,10 +336,14 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
         Alert.alert('A physical device is required', 'The Simulator can preview this rule, but Apple Screen Time can only enforce it in an entitlement-enabled build on a physical iPhone.');
         return;
       }
+      const activationFailure = error instanceof Error
+        && error.message === 'screen_time_composite_rule_activation_failed'
+        ? consumeLastPersonalCompositeActivationFailure()
+        : null;
       Alert.alert(isEditing ? 'Couldn’t update this rule' : 'Couldn’t turn on this rule',
         error instanceof Error && error.message === 'duplicate_personal_screen_time_rule'
           ? 'The same apps and conditions are already saved.'
-          : 'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.');
+          : activationFailureMessage(activationFailure?.code ?? null));
       return;
     }
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {

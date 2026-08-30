@@ -6,6 +6,7 @@ import { resetAllStores } from '../../../test/storeFixtures';
 import { useAppStore } from '../../../store/useAppStore';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../../services/screenTimeProtection';
 import {
+  consumeLastPersonalCompositeActivationFailure,
   presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
 } from '../../../services/appleEcosystem/screenTimeProtection';
@@ -25,6 +26,7 @@ jest.mock('@react-navigation/native', () => {
 });
 
 jest.mock('../../../services/appleEcosystem/screenTimeProtection', () => ({
+  consumeLastPersonalCompositeActivationFailure: jest.fn(),
   presentScreenTimeActivityPicker: jest.fn(),
   requestScreenTimeAuthorization: jest.fn(),
 }));
@@ -101,6 +103,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     mockRouteParams = { entry: 'inventory' };
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     (requestScreenTimeAuthorization as jest.Mock).mockReset().mockResolvedValue('approved');
+    (consumeLastPersonalCompositeActivationFailure as jest.Mock).mockReset().mockReturnValue(null);
     (activatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     (deactivatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     mockLoadMoneySnapshot.mockReset().mockResolvedValue({
@@ -220,6 +223,30 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     expect((requestScreenTimeAuthorization as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
       (activatePersonalCompositeScreenTimeRule as jest.Mock).mock.invocationCallOrder[0],
     );
+  });
+
+  it('shows Apple’s exact monitor-limit recovery instead of the generic confirmation error', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    (activatePersonalCompositeScreenTimeRule as jest.Mock).mockResolvedValueOnce(false);
+    (consumeLastPersonalCompositeActivationFailure as jest.Mock).mockReturnValueOnce({
+      code: 'monitoring_excessive_activities',
+      message: 'The calling process is monitoring too many activities.',
+      monitoredActivityCount: 20,
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(
+      'Couldn’t turn on this rule',
+      'Apple still has too many old Screen Time schedules for Kwilt. Turn Kwilt off and back on under Settings → Screen Time → Apps With Screen Time Access, then try again.',
+    ));
   });
 
   it('offers Budget with the full condition list and adds the chosen budget predicate', async () => {
