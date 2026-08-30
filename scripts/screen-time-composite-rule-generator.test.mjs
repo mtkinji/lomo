@@ -14,6 +14,8 @@ test('generated host bridge stores and applies one V2 composite aggregate', () =
   assert.match(rendered, /kwilt_screen_time_composite_config_v2/);
   assert.match(rendered, /@objc\(applyPersonalCompositeRule:resolver:rejecter:\)/);
   assert.match(rendered, /@objc\(clearPersonalCompositeRule:resolver:rejecter:\)/);
+  assert.match(rendered, /let selectionId = selectionIdentifier\(payload\.selectionId\)/);
+  assert.doesNotMatch(rendered, /let selectionId = safeIdentifier\(payload\.selectionId\)/);
   assert.match(rendered, /connector == "all"/);
   assert.match(rendered, /outcome == "available"/);
   assert.match(rendered, /condition\.type == "budget"/);
