@@ -70,6 +70,16 @@ describe('Screen Time prerequisite native generation', () => {
     expect(generatedBridge).toContain('error.errorDescription');
   });
 
+  it('keeps long condition IDs with a shared rule prefix distinct across the app and monitor extension', () => {
+    expect(generatedBridge).toContain('private func personalCompositeConditionIdentifier(_ raw: String) -> String');
+    expect(generatedBridge).toContain('Set(payload.conditions.map { personalCompositeConditionIdentifier($0.id) })');
+    expect(generatedBridge).toContain('safeIdentifier(ruleId)).\\(personalCompositeConditionIdentifier(conditionId))');
+    expect(generatedBridge).not.toContain('Set(payload.conditions.map { safeIdentifier($0.id) })');
+    expect(extensionPlugin).toContain('static func personalCompositeConditionIdentifier(_ raw: String) -> String');
+    expect(extensionPlugin).toContain('safeIdentifier(ruleId)).\\\\(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier(conditionId))');
+    expect(extensionPlugin).toContain('hasSuffix(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier($0.id))');
+  });
+
   it('preserves rule-specific Swift interpolation in generated personal-limit identifiers', () => {
     expect(bridgePlugin).toContain('"kwilt.personal.limit.\\\\(safeIdentifier(ruleId))"');
     expect(bridgePlugin).toContain('forKey: "\\\\(personalUsageLimitConfigPrefix)\\\\(activity.rawValue)"');

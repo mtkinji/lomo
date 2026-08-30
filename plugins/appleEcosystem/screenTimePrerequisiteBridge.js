@@ -83,6 +83,23 @@ const PREREQUISITE_HELPERS_SWIFT = `
   }
 
   @available(iOS 16.0, *)
+  private func personalCompositeConditionIdentifier(_ raw: String) -> String {
+    let allowed = raw.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
+    }
+    let normalized = String(String.UnicodeScalarView(allowed))
+    guard !normalized.isEmpty else { return "condition" }
+    guard normalized.count > 48 else { return normalized }
+    var hash: UInt64 = 1469598103934665603
+    for byte in raw.utf8 {
+      hash = (hash ^ UInt64(byte)) &* 1099511628211
+    }
+    let digest = String(hash, radix: 16)
+    let suffix = normalized.suffix(48 - digest.count - 1)
+    return "\\(suffix)_\\(digest)"
+  }
+
+  @available(iOS 16.0, *)
   private func prerequisiteStore(for agreementId: String) -> ManagedSettingsStore {
     ManagedSettingsStore(named: ManagedSettingsStore.Name(
       "kwilt.prerequisite.\\(safeIdentifier(agreementId))"
@@ -115,7 +132,7 @@ const PREREQUISITE_HELPERS_SWIFT = `
 
   @available(iOS 16.0, *)
   private func personalCompositeActivityName(ruleId: String, conditionId: String) -> DeviceActivityName {
-    DeviceActivityName("kwilt.composite.\\(safeIdentifier(ruleId)).\\(safeIdentifier(conditionId))")
+    DeviceActivityName("kwilt.composite.\\(safeIdentifier(ruleId)).\\(personalCompositeConditionIdentifier(conditionId))")
   }
 
   @available(iOS 16.0, *)
@@ -128,7 +145,7 @@ const PREREQUISITE_HELPERS_SWIFT = `
 
   @available(iOS 16.0, *)
   private func personalCompositeTruthKey(ruleId: String, conditionId: String) -> String {
-    "\\(personalCompositeTruthPrefix)\\(safeIdentifier(ruleId)).\\(safeIdentifier(conditionId))"
+    "\\(personalCompositeTruthPrefix)\\(safeIdentifier(ruleId)).\\(personalCompositeConditionIdentifier(conditionId))"
   }
 
   @available(iOS 16.0, *)
@@ -467,7 +484,7 @@ const PREREQUISITE_METHODS_SWIFT = `
       // Use the same normalization here so UUID-backed rule IDs are not
       // truncated to a different UserDefaults key during enforcement.
       let selectionId = selectionIdentifier(payload.selectionId)
-      let conditionIds = Set(payload.conditions.map { safeIdentifier($0.id) })
+      let conditionIds = Set(payload.conditions.map { personalCompositeConditionIdentifier($0.id) })
       let conditionsAreValid = conditionIds.count == payload.conditions.count
         && payload.conditions.allSatisfy { condition in
           if condition.type == "real_step_complete" {
