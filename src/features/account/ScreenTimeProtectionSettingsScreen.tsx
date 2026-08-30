@@ -102,8 +102,8 @@ function setupCopy(params: {
     };
   }
   return {
-    title: 'Do what matters first.',
-    body: 'Block distracting apps until you complete a to-do, record progress, or finish Focus.',
+    title: 'Set rules that fit real life.',
+    body: 'Pause or allow apps based on daily use, time of day, a budget, Focus, or a completed to-do. You’ll approve Screen Time before creating a rule.',
   };
 }
 
@@ -126,10 +126,10 @@ function setupStepCopy(params: {
     case 'permission':
       return {
         eyebrow: 'Allow Screen Time',
-        title: 'Choose what Kwilt can block.',
+        title: 'Allow Kwilt to use Screen Time.',
         body: params.isScreenTimeUnavailable
           ? 'Screen Time is unavailable in this build. Reinstall an entitlement-enabled development build to continue.'
-          : 'Kwilt uses Screen Time to block only the apps you choose. Your choices stay on this device.',
+          : 'iOS will ask you to approve Screen Time. Then choose the apps for your first rule; those choices stay on this iPhone.',
       };
     case 'intro':
     case 'manage':
@@ -312,8 +312,8 @@ export function ScreenTimeProtectionSettingsScreen() {
     setupPhase === 'permission'
       ? isScreenTimeUnavailable
         ? 'Unavailable'
-        : 'Continue'
-      : 'Set Up';
+        : 'Allow Screen Time'
+      : 'Continue';
   const setupPrimaryDisabled =
     setupPhase === 'permission'
       ? isBusy || isScreenTimeUnavailable
