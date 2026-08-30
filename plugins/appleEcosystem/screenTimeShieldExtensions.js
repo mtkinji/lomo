@@ -578,7 +578,7 @@ private enum KwiltPersonalCompositeRuleRuntime {
   }
 
   static func truthKey(ruleId: String, conditionId: String) -> String {
-    "\\(truthPrefix)\\(KwiltPrerequisiteMonitorRuntime.safeIdentifier(ruleId)).\\(KwiltPrerequisiteMonitorRuntime.safeIdentifier(conditionId))"
+    "\\(truthPrefix)\\(KwiltPrerequisiteMonitorRuntime.safeIdentifier(ruleId)).\\(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier(conditionId))"
   }
 
   static func store(for configuration: KwiltPersonalCompositeRuleConfiguration) -> ManagedSettingsStore {
@@ -644,6 +644,22 @@ private enum KwiltPrerequisiteMonitorRuntime {
     return normalized.isEmpty ? "default" : String(normalized)
   }
 
+  static func personalCompositeConditionIdentifier(_ raw: String) -> String {
+    let allowed = raw.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
+    }
+    let normalized = String(String.UnicodeScalarView(allowed))
+    guard !normalized.isEmpty else { return "condition" }
+    guard normalized.count > 48 else { return normalized }
+    var hash: UInt64 = 1469598103934665603
+    for byte in raw.utf8 {
+      hash = (hash ^ UInt64(byte)) &* 1099511628211
+    }
+    let digest = String(hash, radix: 16)
+    let suffix = normalized.suffix(48 - digest.count - 1)
+    return "\\(suffix)_\\(digest)"
+  }
+
   static func defaults() -> UserDefaults? {
     UserDefaults(suiteName: appGroupIdentifier)
   }
@@ -707,7 +723,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
     super.intervalDidStart(for: activity)
     if let composite = KwiltPersonalCompositeRuleRuntime.configuration(for: activity) {
       if let condition = composite.conditions.first(where: {
-        activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.safeIdentifier($0.id))
+        activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier($0.id))
       }) {
         if condition.type == "daily_usage" {
           KwiltPersonalCompositeRuleRuntime.setTruth(false, conditionId: condition.id, configuration: composite)
@@ -753,7 +769,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
     super.intervalDidEnd(for: activity)
     if let composite = KwiltPersonalCompositeRuleRuntime.configuration(for: activity),
        let condition = composite.conditions.first(where: {
-         activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.safeIdentifier($0.id))
+         activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier($0.id))
        }) {
       KwiltPersonalCompositeRuleRuntime.setTruth(false, conditionId: condition.id, configuration: composite)
       KwiltPersonalCompositeRuleRuntime.evaluate(configuration: composite)
