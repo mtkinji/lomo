@@ -125,6 +125,10 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
     expect(await screen.findByText('Rule behavior')).toBeTruthy();
+    expect(requestScreenTimeAuthorization).toHaveBeenCalledTimes(1);
+    expect((requestScreenTimeAuthorization as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (presentScreenTimeActivityPicker as jest.Mock).mock.invocationCallOrder[0],
+    );
     expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
     expect(screen.getByText('2 of 2')).toBeTruthy();
     expect(screen.getByText('to')).toBeTruthy();
@@ -212,6 +216,10 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     expect(activatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({
       rule: expect.objectContaining({ connector: 'all', conditions: expect.any(Array) }),
     }));
+    expect(requestScreenTimeAuthorization).toHaveBeenCalledTimes(1);
+    expect((requestScreenTimeAuthorization as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (activatePersonalCompositeScreenTimeRule as jest.Mock).mock.invocationCallOrder[0],
+    );
   });
 
   it('offers Budget with the full condition list and adds the chosen budget predicate', async () => {

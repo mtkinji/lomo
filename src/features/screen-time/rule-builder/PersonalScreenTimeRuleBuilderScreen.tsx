@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Crypto from 'expo-crypto';
@@ -145,6 +145,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
   const [saving, setSaving] = useState(false);
   const [budgets, setBudgets] = useState<MoneyCategory[]>([]);
   const [budgetDraft, setBudgetDraft] = useState<Pick<Extract<PersonalRuleCondition, { type: 'budget' }>, 'categorySourceId' | 'categoryName'> | null>(null);
+  const authorizationConfirmedRef = useRef(false);
 
   const count = targets.selectedApps.length + targets.selectedCategories.length;
   const label = targetLabel(targets);
@@ -160,16 +161,21 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     props.onClose();
   };
 
+  const confirmAuthorization = async () => {
+    if (authorizationConfirmedRef.current) return 'approved' as const;
+    const authorizationStatus = await requestScreenTimeAuthorization();
+    setSettings((current) => ({ ...current, authorizationStatus, lastUpdated: new Date().toISOString() }));
+    authorizationConfirmedRef.current = authorizationStatus === 'approved';
+    return authorizationStatus;
+  };
+
   const chooseApps = async () => {
     setChoosingApps(true);
-    if (normalized.authorizationStatus !== 'approved') {
-      const authorizationStatus = await requestScreenTimeAuthorization();
-      setSettings((current) => ({ ...current, authorizationStatus, lastUpdated: new Date().toISOString() }));
-      if (authorizationStatus !== 'approved') {
-        setChoosingApps(false);
-        Alert.alert('Screen Time access needed', 'Allow Screen Time access to choose apps for this rule.');
-        return;
-      }
+    const authorizationStatus = await confirmAuthorization();
+    if (authorizationStatus !== 'approved') {
+      setChoosingApps(false);
+      Alert.alert('Screen Time access needed', 'Allow Screen Time access to choose apps for this rule.');
+      return;
     }
     const selection = await presentScreenTimeActivityPicker(targets, { selectionId: draftRuleId });
     setChoosingApps(false);
@@ -295,6 +301,12 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       lastUpdated: new Date().toISOString(),
     };
     try {
+      // Revalidate at the user-initiated write boundary. A cached approval can
+      // outlive AuthorizationCenter's in-process status across app launches.
+      const authorizationStatus = await confirmAuthorization();
+      if (authorizationStatus !== 'approved') {
+        throw new Error('screen_time_rule_authorization_required');
+      }
       await savePersonalCompositeScreenTimeRule({
         rule,
         expectedUpdatedAt: existingRule ? existingRule.lastUpdated ?? 'unversioned' : null,

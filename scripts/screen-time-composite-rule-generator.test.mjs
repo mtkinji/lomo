@@ -16,6 +16,8 @@ test('generated host bridge stores and applies one V2 composite aggregate', () =
   assert.match(rendered, /@objc\(clearPersonalCompositeRule:resolver:rejecter:\)/);
   assert.match(rendered, /let selectionId = selectionIdentifier\(payload\.selectionId\)/);
   assert.doesNotMatch(rendered, /let selectionId = safeIdentifier\(payload\.selectionId\)/);
+  assert.match(rendered, /guard self\.isAuthorized\(\) else/);
+  assert.doesNotMatch(rendered, /guard AuthorizationCenter\.shared\.authorizationStatus == \.approved else/);
   assert.match(rendered, /connector == "all"/);
   assert.match(rendered, /outcome == "available"/);
   assert.match(rendered, /condition\.type == "budget"/);

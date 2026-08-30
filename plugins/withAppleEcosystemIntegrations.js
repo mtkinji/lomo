@@ -493,7 +493,7 @@ ${PREREQUISITE_HELPERS_SWIFT}
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
       DispatchQueue.main.async {
-        guard AuthorizationCenter.shared.authorizationStatus == .approved else {
+        guard self.isAuthorized() else {
           resolve(nil)
           return
         }
@@ -568,7 +568,7 @@ ${PREREQUISITE_HELPERS_SWIFT}
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      guard AuthorizationCenter.shared.authorizationStatus == .approved else {
+      guard isAuthorized() else {
         resolve(false)
         return
       }
