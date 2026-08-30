@@ -450,7 +450,10 @@ const PREREQUISITE_METHODS_SWIFT = `
         return
       }
       let ruleId = safeIdentifier(payload.ruleId)
-      let selectionId = safeIdentifier(payload.selectionId)
+      // The picker stores selections with selectionIdentifier (64 characters).
+      // Use the same normalization here so UUID-backed rule IDs are not
+      // truncated to a different UserDefaults key during enforcement.
+      let selectionId = selectionIdentifier(payload.selectionId)
       let conditionIds = Set(payload.conditions.map { safeIdentifier($0.id) })
       let conditionsAreValid = conditionIds.count == payload.conditions.count
         && payload.conditions.allSatisfy { condition in
