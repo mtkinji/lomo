@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Text, HStack } from '../../ui/primitives';
@@ -6,6 +7,7 @@ import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import { signInWithProvider } from '../../services/backend/auth';
 import { useAuthPromptStore, type AuthPromptReason } from '../../store/useAuthPromptStore';
+import { EmailPasswordSignInForm } from './EmailPasswordSignInForm';
 
 function copyForReason(reason: AuthPromptReason): { title: string; body: string } {
   switch (reason) {
@@ -43,6 +45,13 @@ export function AuthPromptDrawerHost() {
   const busy = useAuthPromptStore((s) => s.busy);
   const close = useAuthPromptStore((s) => s.close);
   const setBusy = useAuthPromptStore((s) => s.setBusy);
+  const [emailFormVisible, setEmailFormVisible] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setEmailFormVisible(false);
+    }
+  }, [visible, reason]);
 
   const titleAndBody = copyForReason(reason ?? 'settings');
 
@@ -69,7 +78,7 @@ export function AuthPromptDrawerHost() {
         if (busy) return;
         reject(new Error('Sign-in cancelled'));
       }}
-      snapPoints={['50%']}
+      snapPoints={[emailFormVisible ? '72%' : '50%']}
       initialSnapIndex={0}
       dismissable={!busy}
       enableContentPanningGesture
@@ -79,72 +88,90 @@ export function AuthPromptDrawerHost() {
       handleStyle={styles.handle}
     >
       <View style={styles.content}>
-        <VStack space="md">
-          <VStack space="xs">
-            <Text style={styles.title}>{titleAndBody.title}</Text>
-            <Text style={styles.body}>{titleAndBody.body}</Text>
+        {emailFormVisible ? (
+          <EmailPasswordSignInForm
+            onSuccess={resolveWithSession}
+            onBack={() => setEmailFormVisible(false)}
+            onBusyChange={setBusy}
+          />
+        ) : (
+          <VStack space="md">
+            <VStack space="xs">
+              <Text style={styles.title}>{titleAndBody.title}</Text>
+              <Text style={styles.body}>{titleAndBody.body}</Text>
+            </VStack>
+
+            <VStack space="sm" style={styles.buttonGroup}>
+              <Button
+                fullWidth
+                variant="outline"
+                disabled={busy}
+                onPress={async () => {
+                  if (busy) return;
+                  setBusy(true);
+                  try {
+                    const session = await signInWithProvider('apple');
+                    resolveWithSession(session);
+                  } catch (e: any) {
+                    reject(e instanceof Error ? e : new Error('Unable to sign in with Apple'));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                accessibilityLabel="Continue with Apple"
+              >
+                <HStack alignItems="center" justifyContent="center" space="sm">
+                  <Icon name="apple" size={18} color={colors.textPrimary} />
+                  <Text style={styles.authButtonLabel}>Continue with Apple</Text>
+                </HStack>
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outline"
+                disabled={busy}
+                onPress={async () => {
+                  if (busy) return;
+                  setBusy(true);
+                  try {
+                    const session = await signInWithProvider('google');
+                    resolveWithSession(session);
+                  } catch (e: any) {
+                    reject(e instanceof Error ? e : new Error('Unable to sign in with Google'));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                accessibilityLabel="Continue with Google"
+              >
+                <HStack alignItems="center" justifyContent="center" space="sm">
+                  <Icon name="google" size={18} color={colors.textPrimary} />
+                  <Text style={styles.authButtonLabel}>Continue with Google</Text>
+                </HStack>
+              </Button>
+
+              <Button
+                fullWidth
+                variant="ghost"
+                disabled={busy}
+                onPress={() => setEmailFormVisible(true)}
+                accessibilityLabel="Sign in with email"
+              >
+                <Text style={styles.emailOptionLabel}>Sign in with email</Text>
+              </Button>
+
+              <Button
+                fullWidth
+                variant="ghost"
+                disabled={busy}
+                onPress={() => reject(new Error('Sign-in cancelled'))}
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.cancelLabel}>Cancel</Text>
+              </Button>
+            </VStack>
           </VStack>
-
-          <VStack space="sm" style={styles.buttonGroup}>
-            <Button
-              fullWidth
-              variant="outline"
-              disabled={busy}
-              onPress={async () => {
-                if (busy) return;
-                setBusy(true);
-                try {
-                  const session = await signInWithProvider('apple');
-                  resolveWithSession(session);
-                } catch (e: any) {
-                  reject(e instanceof Error ? e : new Error('Unable to sign in with Apple'));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              accessibilityLabel="Continue with Apple"
-            >
-              <HStack alignItems="center" justifyContent="center" space="sm">
-                <Icon name="apple" size={18} color={colors.textPrimary} />
-                <Text style={styles.authButtonLabel}>Continue with Apple</Text>
-              </HStack>
-            </Button>
-
-            <Button
-              fullWidth
-              variant="outline"
-              disabled={busy}
-              onPress={async () => {
-                if (busy) return;
-                setBusy(true);
-                try {
-                  const session = await signInWithProvider('google');
-                  resolveWithSession(session);
-                } catch (e: any) {
-                  reject(e instanceof Error ? e : new Error('Unable to sign in with Google'));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              accessibilityLabel="Continue with Google"
-            >
-              <HStack alignItems="center" justifyContent="center" space="sm">
-                <Icon name="google" size={18} color={colors.textPrimary} />
-                <Text style={styles.authButtonLabel}>Continue with Google</Text>
-              </HStack>
-            </Button>
-
-            <Button
-              fullWidth
-              variant="ghost"
-              disabled={busy}
-              onPress={() => reject(new Error('Sign-in cancelled'))}
-              accessibilityLabel="Cancel"
-            >
-              <Text style={styles.cancelLabel}>Cancel</Text>
-            </Button>
-          </VStack>
-        </VStack>
+        )}
       </View>
     </BottomDrawer>
   );
@@ -188,5 +215,10 @@ const styles = StyleSheet.create({
   cancelLabel: {
     ...typography.body,
     color: colors.textSecondary,
+  },
+  emailOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
 });

@@ -115,7 +115,20 @@ describe('Screen Time shield handoff bridge', () => {
       conditions: [
         { id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 },
         { id: 'under-limit', type: 'daily_usage', operator: 'below', minutes: 15 },
-      ], restrictionLabel: 'Social', activeRuleIds: ['existing-rule', 'social-rule'],
+      ],
+      conditionExplanations: [
+        {
+          conditionId: 'after-five',
+          whenMatched: "It's after 5:00 PM.",
+          whenUnmatched: "It's before 5:00 PM. Try again after 5:00 PM.",
+        },
+        {
+          conditionId: 'under-limit',
+          whenMatched: 'Daily use is under 15 minutes.',
+          whenUnmatched: 'Daily use reached 15 minutes. Try again tomorrow or change this rule.',
+        },
+      ],
+      restrictionLabel: 'Social', activeRuleIds: ['existing-rule', 'social-rule'],
     });
   });
 
@@ -182,6 +195,7 @@ describe('Screen Time shield handoff bridge', () => {
         selectionId: 'personal_real_step',
         reason: 'meaningful_first_locked',
         label: 'A real step',
+        details: ['Complete a to-do, record progress, or finish Focus.'],
         appliedAtMs: 1_786_291_100_000,
       }],
     });
@@ -195,6 +209,7 @@ describe('Screen Time shield handoff bridge', () => {
         selectionId: 'personal_real_step',
         reason: 'meaningful_first_locked',
         label: 'A real step',
+        details: ['Complete a to-do, record progress, or finish Focus.'],
         appliedAtMs: 1_786_291_100_000,
       }],
     });

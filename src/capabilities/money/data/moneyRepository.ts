@@ -30,6 +30,7 @@ import {
   type TransactionReviewUpdate,
 } from './moneyMutations';
 import { loadMoneyPlanProjection } from './moneyPlanProjection';
+import { canReadSandboxMoneyData } from '../domain/demoMoneyEnvironment';
 
 type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -166,7 +167,11 @@ export interface MoneyRepository {
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
   const loadSnapshot = async (): Promise<MoneySnapshot> => {
-    await requireSignedIn(client);
+    const signedInUser = await requireSignedInUser(client);
+    const includeSandbox = canReadSandboxMoneyData(
+      signedInUser,
+      typeof __DEV__ !== 'undefined' && __DEV__,
+    );
 
     const db = client as unknown as MoneyReadClient;
     const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
@@ -175,7 +180,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
           .from('budget_financial_connections')
-          .select('id,institution_name,status,last_synced_at,updated_at'), 'environment')
+          .select('id,environment,institution_name,status,last_synced_at,updated_at'), 'environment', includeSandbox)
           .order('created_at', { ascending: false })),
       readPart<MoneyAccountRow[]>('accounts',
         environmentQuery(db
@@ -189,7 +194,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               type,
               subtype,
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
-          `), 'budget_financial_connections.environment')
+          `), 'budget_financial_connections.environment', includeSandbox)
           .order('created_at', { ascending: false })),
       readPart<MoneyRuleRow[]>('merchant rules',
         db
@@ -235,7 +240,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 personal_finance_category_confidence,
                 updated_at,
                 budget_financial_connections!inner(environment)
-            `), 'budget_financial_connections.environment')
+            `), 'budget_financial_connections.environment', includeSandbox)
             .order('date', { ascending: false })
             .order('id', { ascending: false })
             .range(from, to)),
@@ -764,10 +769,14 @@ function requireConfirmedRows(label: string, rows: unknown[], expectedCount: num
 }
 
 async function requireSignedIn(client: SupabaseClient): Promise<string> {
+  return (await requireSignedInUser(client)).id;
+}
+
+async function requireSignedInUser(client: SupabaseClient) {
   const { data: userData, error: userError } = await client.auth.getUser();
   if (userError) throw new Error(userError.message);
   if (!userData.user?.id) throw new Error('Sign in to see your Money data.');
-  return userData.user.id;
+  return userData.user;
 }
 
 async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promise<T> {
@@ -812,8 +821,12 @@ function isMissingRpcError(error: NonNullable<ReadResult['error']>, name: string
     || error.message?.includes(name) === true && error.message?.includes('schema cache') === true;
 }
 
-function environmentQuery(query: MoneyReadQuery, column: string): MoneyReadQuery {
-  return typeof __DEV__ !== 'undefined' && __DEV__ ? query : query.neq(column, 'sandbox');
+function environmentQuery(
+  query: MoneyReadQuery,
+  column: string,
+  includeSandbox: boolean,
+): MoneyReadQuery {
+  return includeSandbox ? query : query.neq(column, 'sandbox');
 }
 
 function normalizeAccountRelations(rows: MoneyAccountRow[]): MoneyAccountRow[] {

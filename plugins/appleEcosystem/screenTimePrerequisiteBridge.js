@@ -29,6 +29,12 @@ private struct KwiltPersonalCompositeCondition: Codable {
   let preset: String?
 }
 
+private struct KwiltPersonalCompositeConditionExplanation: Codable {
+  let conditionId: String
+  let whenMatched: String
+  let whenUnmatched: String
+}
+
 private struct KwiltPersonalCompositeRulePayload: Codable {
   let version: Int
   let ruleId: String
@@ -37,6 +43,7 @@ private struct KwiltPersonalCompositeRulePayload: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
   let hostTruth: [String: Bool]?
 }
@@ -49,6 +56,7 @@ private struct KwiltPersonalCompositeRuleConfiguration: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
 }
 #endif
@@ -175,6 +183,7 @@ const PREREQUISITE_HELPERS_SWIFT = `
         selectionId: configuration.selectionId,
         reason: "personal_composite_rule",
         label: configuration.restrictionLabel,
+        details: personalCompositeBlockingDetails(configuration: configuration, values: values),
         applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(configuration.targetSelection.applicationTokens),
         categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(configuration.targetSelection.categoryTokens),
         webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(configuration.targetSelection.webDomainTokens)
@@ -182,6 +191,21 @@ const PREREQUISITE_HELPERS_SWIFT = `
     } else {
       managedStore.clearAllSettings()
       KwiltRestrictionLedger.remove(id: ledgerId)
+    }
+  }
+
+  @available(iOS 16.0, *)
+  private func personalCompositeBlockingDetails(
+    configuration: KwiltPersonalCompositeRuleConfiguration,
+    values: [Bool]
+  ) -> [String] {
+    let explanations = Dictionary(
+      uniqueKeysWithValues: (configuration.conditionExplanations ?? []).map { ($0.conditionId, $0) }
+    )
+    return zip(configuration.conditions, values).compactMap { condition, value -> String? in
+      let causesPause = configuration.outcome == "pause" ? value : !value
+      guard causesPause, let explanation = explanations[condition.id] else { return nil }
+      return value ? explanation.whenMatched : explanation.whenUnmatched
     }
   }
 
@@ -522,6 +546,7 @@ const PREREQUISITE_METHODS_SWIFT = `
       let configuration = KwiltPersonalCompositeRuleConfiguration(
         version: 2, ruleId: ruleId, selectionId: selectionId, targetSelection: selection,
         connector: payload.connector, outcome: payload.outcome, conditions: payload.conditions,
+        conditionExplanations: payload.conditionExplanations,
         restrictionLabel: String(payload.restrictionLabel.prefix(80))
       )
       guard let configurationData = try? JSONEncoder().encode(configuration) else {

@@ -3,7 +3,9 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -20,10 +22,12 @@ import { Button } from '../../ui/Button';
 import { Text } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
+import type { Session } from '@supabase/supabase-js';
 import { signInWithProvider, deriveAuthIdentityFromSession } from '../../services/backend/auth';
 import { checkUserHasSyncedData } from '../../services/sync/domainSync';
 import { AUTH_SIGNIN_WALLPAPERS } from '../../assets/authSignInWallpapers';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
+import { EmailPasswordSignInForm } from '../account/EmailPasswordSignInForm';
 
 export type SignInResult = {
   isReturningUser: boolean;
@@ -56,7 +60,9 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [loadingProvider, setLoadingProvider] = useState<'apple' | 'google' | null>(null);
-  const busy = !!loadingProvider;
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailFormVisible, setEmailFormVisible] = useState(false);
+  const busy = !!loadingProvider || emailBusy;
   const [error, setError] = useState<string | null>(null);
   
   // State for which image is in which slot
@@ -106,31 +112,35 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
     return Date.now() - createdAtMs > RETURNING_ACCOUNT_AGE_MS;
   };
 
+  const completeSignIn = async (session: Session) => {
+    if (!mountedRef.current || didCompleteSignInRef.current) return;
+    const identity = deriveAuthIdentityFromSession(session);
+    let isReturningUser = false;
+    if (identity?.userId) {
+      // Primary signal: existing synced domain objects.
+      // Fallback: account age heuristic for legacy users whose rows may not be visible yet.
+      isReturningUser = await checkUserHasSyncedData(identity.userId);
+      if (!isReturningUser && looksLikeExistingAuthAccount(session)) {
+        isReturningUser = true;
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[auth] returning-user fallback: account age heuristic');
+        }
+      }
+    }
+    if (!mountedRef.current || didCompleteSignInRef.current) return;
+    didCompleteSignInRef.current = true;
+    setLoadingProvider(null);
+    onSignInComplete({ isReturningUser });
+  };
+
   const handleSignIn = async (provider: 'apple' | 'google') => {
     if (busy || didCompleteSignInRef.current) return;
     setLoadingProvider(provider);
     setError(null);
     try {
       const session = await signInWithProvider(provider);
-      if (!mountedRef.current || didCompleteSignInRef.current) return;
-      const identity = deriveAuthIdentityFromSession(session);
-      let isReturningUser = false;
-      if (identity?.userId) {
-        // Primary signal: existing synced domain objects.
-        // Fallback: account age heuristic for legacy users whose rows may not be visible yet.
-        isReturningUser = await checkUserHasSyncedData(identity.userId);
-        if (!isReturningUser && looksLikeExistingAuthAccount(session)) {
-          isReturningUser = true;
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.log('[auth] returning-user fallback: account age heuristic');
-          }
-        }
-      }
-      if (!mountedRef.current || didCompleteSignInRef.current) return;
-      didCompleteSignInRef.current = true;
-      setLoadingProvider(null);
-      onSignInComplete({ isReturningUser });
+      await completeSignIn(session);
     } catch (err: any) {
       if (!mountedRef.current || didCompleteSignInRef.current) return;
       const message = err?.message ?? 'Unable to sign in';
@@ -355,7 +365,8 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
                 style={StyleSheet.absoluteFillObject}
               />
             </View>
-            <View
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               style={[
                 styles.content,
                 {
@@ -375,53 +386,74 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
                     </Animated.View>
 
                     <View style={styles.buttonStack}>
-                      {error ? (
-                        <View style={styles.errorContainer}>
-                          <Text style={styles.errorText}>{error}</Text>
-                        </View>
-                      ) : null}
+                      {emailFormVisible ? (
+                        <EmailPasswordSignInForm
+                          tone="dark"
+                          onSuccess={completeSignIn}
+                          onBack={() => setEmailFormVisible(false)}
+                          onBusyChange={setEmailBusy}
+                        />
+                      ) : (
+                        <>
+                          {error ? (
+                            <View style={styles.errorContainer}>
+                              <Text style={styles.errorText}>{error}</Text>
+                            </View>
+                          ) : null}
 
-                      <Button
-                        variant="outline"
-                        fullWidth
-                        disabled={busy}
-                        onPress={() => handleSignIn('apple')}
-                        accessibilityLabel="Continue with Apple"
-                      >
-                        <View style={styles.buttonContent}>
-                          <Icon name="apple" size={20} color={colors.textPrimary} />
-                          <Text style={styles.appleButtonLabel}>
-                            {loadingProvider === 'apple' ? 'Connecting…' : 'Continue with Apple'}
-                          </Text>
-                        </View>
-                      </Button>
+                          <Button
+                            variant="outline"
+                            fullWidth
+                            disabled={busy}
+                            onPress={() => handleSignIn('apple')}
+                            accessibilityLabel="Continue with Apple"
+                          >
+                            <View style={styles.buttonContent}>
+                              <Icon name="apple" size={20} color={colors.textPrimary} />
+                              <Text style={styles.appleButtonLabel}>
+                                {loadingProvider === 'apple' ? 'Connecting…' : 'Continue with Apple'}
+                              </Text>
+                            </View>
+                          </Button>
 
-                      <Button
-                        variant="outline"
-                        fullWidth
-                        disabled={busy}
-                        onPress={() => handleSignIn('google')}
-                        accessibilityLabel="Continue with Google"
-                      >
-                        <View style={styles.buttonContent}>
-                          <Icon name="google" size={20} color={colors.textPrimary} />
-                          <Text style={styles.googleButtonLabel}>
-                            {loadingProvider === 'google' ? 'Connecting…' : 'Continue with Google'}
-                          </Text>
-                        </View>
-                      </Button>
+                          <Button
+                            variant="outline"
+                            fullWidth
+                            disabled={busy}
+                            onPress={() => handleSignIn('google')}
+                            accessibilityLabel="Continue with Google"
+                          >
+                            <View style={styles.buttonContent}>
+                              <Icon name="google" size={20} color={colors.textPrimary} />
+                              <Text style={styles.googleButtonLabel}>
+                                {loadingProvider === 'google' ? 'Connecting…' : 'Continue with Google'}
+                              </Text>
+                            </View>
+                          </Button>
 
-                      {onSetUpChildDevice ? (
-                        <Button
-                          variant="ghost"
-                          fullWidth
-                          disabled={busy}
-                          onPress={onSetUpChildDevice}
-                          accessibilityLabel="Set up a child's device"
-                        >
-                          <Text style={styles.childSetupLabel}>Set up a child’s device</Text>
-                        </Button>
-                      ) : null}
+                          <Button
+                            variant="ghost"
+                            fullWidth
+                            disabled={busy}
+                            onPress={() => setEmailFormVisible(true)}
+                            accessibilityLabel="Sign in with email"
+                          >
+                            <Text style={styles.secondaryActionLabel}>Sign in with email</Text>
+                          </Button>
+
+                          {onSetUpChildDevice ? (
+                            <Button
+                              variant="ghost"
+                              fullWidth
+                              disabled={busy}
+                              onPress={onSetUpChildDevice}
+                              accessibilityLabel="Set up a shared device"
+                            >
+                              <Text style={styles.secondaryActionLabel}>Set up a shared device</Text>
+                            </Button>
+                          ) : null}
+                        </>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -448,7 +480,7 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
                 </Text>
                 .
               </Text>
-            </View>
+            </KeyboardAvoidingView>
           </View>
           <PortalHost />
         </BottomSheetModalProvider>
@@ -530,7 +562,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '600',
   },
-  childSetupLabel: {
+  secondaryActionLabel: {
     ...typography.bodySm,
     color: colors.canvas,
     fontWeight: '600',

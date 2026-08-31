@@ -20,6 +20,7 @@ export type ScreenTimeRule = {
   selectionId: string;
   title: string;
   trigger: ScreenTimeRuleTrigger;
+  blockingDetails?: string[];
   temporaryOpen: {
     allowed: boolean;
     durationMinutes: typeof DEFAULT_TEMPORARY_OPEN_MINUTES;
@@ -112,6 +113,13 @@ export function normalizeScreenTimeRule(value: unknown): ScreenTimeRule | null {
     ? appliedCandidate
     : null;
 
+  const blockingDetails = Array.isArray(value.blockingDetails)
+    ? value.blockingDetails.flatMap((detail) => {
+      const cleaned = cleanString(detail);
+      return cleaned ? [cleaned.slice(0, 160)] : [];
+    }).slice(0, 8)
+    : [];
+
   return {
     id,
     domain,
@@ -119,6 +127,7 @@ export function normalizeScreenTimeRule(value: unknown): ScreenTimeRule | null {
     selectionId,
     title,
     trigger,
+    ...(blockingDetails.length > 0 ? { blockingDetails } : {}),
     temporaryOpen: {
       allowed: temporaryOpen.allowed === true,
       durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,

@@ -7,7 +7,7 @@ const generator = await readFile(new URL('../plugins/appleEcosystem/screenTimeSh
 const bridgeGenerator = await readFile(new URL('../plugins/withAppleEcosystemIntegrations.js', import.meta.url), 'utf8');
 const require = createRequire(import.meta.url);
 const { buildScreenTimeProtectionSwift } = require('../plugins/withAppleEcosystemIntegrations.js');
-const { infoPlist } = require('../plugins/appleEcosystem/screenTimeShieldExtensions.js');
+const { buildConfigurationSwift, infoPlist } = require('../plugins/appleEcosystem/screenTimeShieldExtensions.js');
 
 test('every Kwilt shield renders solid parchment without a darkening blur', () => {
   assert.match(generator, /backgroundBlurStyle: nil,/);
@@ -76,6 +76,7 @@ test('native stores keep target-aware restriction entries instead of one last-wr
   assert.match(generator, /webDomainTokenKeys/);
   assert.match(generator, /let ruleId: String\?/);
   assert.match(generator, /let selectionId: String\?/);
+  assert.match(generator, /let details: \[String\]\?/);
   assert.match(bridgeGenerator, /buildRestrictionLedgerSwift\('__KWILT_APP_GROUP_ID__'\)/);
   assert.match(bridgeGenerator, /KwiltRestrictionLedger\.upsert/);
   assert.match(bridgeGenerator, /KwiltRestrictionLedger\.remove/);
@@ -87,6 +88,16 @@ test('the JavaScript bridge receives semantic restriction identity without nativ
   assert.match(rendered, /"ruleId": entry\.ruleId \?\? entry\.id/);
   assert.match(rendered, /"selectionId": entry\.selectionId \?\? entry\.id/);
   assert.doesNotMatch(rendered, /"applicationTokenKeys": entry\.applicationTokenKeys/);
+  assert.match(rendered, /"details": entry\.details \?\? \[\]/);
+});
+
+test('a single composite shield explains the active conditions and retains the generic fallback', () => {
+  const rendered = buildConfigurationSwift('group.test.kwilt');
+  assert.match(rendered, /first\.reason == "personal_composite_rule"/);
+  assert.match(rendered, /let details = first\.details \?\? \[\]/);
+  assert.match(rendered, /title = "\\\(appName\) is paused\."/);
+  assert.match(rendered, /more conditions also apply/);
+  assert.match(rendered, /Open Kwilt to review what needs to change before using/);
 });
 
 test('the app bridge and extensions render the same concrete App Group', () => {

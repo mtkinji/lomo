@@ -455,6 +455,7 @@ ${PREREQUISITE_HELPERS_SWIFT}
           "selectionId": entry.selectionId ?? entry.id,
           "reason": entry.reason,
           "label": entry.label ?? "",
+          "details": entry.details ?? [],
           "appliedAtMs": entry.appliedAtMs,
         ]
       },

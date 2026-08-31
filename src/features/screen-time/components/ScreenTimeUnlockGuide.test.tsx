@@ -34,7 +34,8 @@ describe('ScreenTimeUnlockGuide', () => {
       onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
     />);
 
-    expect(mockBottomDrawerProps.at(-1)).toMatchObject({ visible: true, snapPoints: ['55%'] });
+    expect(mockBottomDrawerProps.at(-1)).toMatchObject({ visible: true, snapPoints: ['100%'] });
+    expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('dynamicSizing');
     expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('sheetStyle');
     expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
   });
@@ -76,5 +77,28 @@ describe('ScreenTimeUnlockGuide', () => {
     />);
 
     expect(screen.getByText('Wait until tomorrow or change the daily limit.')).toBeTruthy();
+  });
+
+  it('shows the native blocking details for a composite rule', () => {
+    const compositeRule: ScreenTimeRule = {
+      id: 'social-evening', domain: 'personal', subject: { kind: 'self' },
+      selectionId: 'social-evening', title: 'Social', trigger: { type: 'composite' },
+      blockingDetails: [
+        "It's before 8:00 PM. Try again after 8:00 PM.",
+        'Daily use reached 15 minutes. Try again tomorrow or change this rule.',
+      ],
+      temporaryOpen: { allowed: true, durationMinutes: 20 }, active: true,
+      desiredVersion: 1, appliedVersion: null,
+    };
+
+    renderWithProviders(<ScreenTimeUnlockGuide
+      visible rules={[compositeRule]} unresolvedCount={0} result={null} busy={false}
+      actions={projectScreenTimeGuideActions({ actor: { kind: 'self_adult' }, activeRules: [compositeRule] })}
+      onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
+    />);
+
+    expect(screen.getByText("It's before 8:00 PM. Try again after 8:00 PM.")).toBeTruthy();
+    expect(screen.getByText('Daily use reached 15 minutes. Try again tomorrow or change this rule.')).toBeTruthy();
+    expect(screen.queryByText('Review this rule in Screen Time.')).toBeNull();
   });
 });

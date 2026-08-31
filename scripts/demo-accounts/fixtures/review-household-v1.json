@@ -1,0 +1,127 @@
+{
+  "version": "review-household-v1",
+  "cohort": "app-review",
+  "household": {
+    "id": "a1d3c8de-aef4-4a92-a4d5-78c424722df1",
+    "name": "The Rowan Household"
+  },
+  "showcase": {
+    "chapterTemplateId": "b34ac142-d057-4936-a591-075c1ff97efa",
+    "chapterId": "a041f65a-0814-4b45-a57c-9109ad7efeeb",
+    "mealPlanId": "96127476-f640-44de-9d4d-967330828c6d",
+    "mealCandidateIds": [
+      "1f6faf0d-f698-407b-a2d2-e11fd921aaf2",
+      "d4559062-ed30-44ac-9e91-2fa928b6b4d8"
+    ],
+    "choreProfileId": "005cda0c-4c35-4c12-81c1-c0f813b5607c",
+    "budgetCategoryId": "22ae1040-753c-4170-9121-593d0bd48af8",
+    "budgetPlanId": "92ed2372-f799-4712-8a9f-b54bbdbba1be",
+    "plaidConnectionId": "d5234ea2-e6d4-4e67-9e3a-0e39fe35bf10"
+  },
+  "plaidSandbox": {
+    "ownerAlias": "review-owner",
+    "institutionId": "ins_109508",
+    "institutionName": "Rowan Household Sample Bank",
+    "seed": "kwilt-review-household-v1",
+    "accounts": [
+      {
+        "type": "depository",
+        "subtype": "checking",
+        "name": "Household checking",
+        "officialName": "Rowan Household Checking",
+        "mask": "2048",
+        "startingBalance": 6840.25,
+        "transactions": [
+          { "daysAgo": 2, "amount": 148.37, "description": "Family Market" },
+          { "daysAgo": 4, "amount": 86.42, "description": "Mountain Energy" },
+          { "daysAgo": 7, "amount": -3250, "description": "Payroll Deposit" },
+          { "daysAgo": 9, "amount": 72.18, "description": "Neighborhood Pharmacy" },
+          { "daysAgo": 12, "amount": 54.9, "description": "Community Internet" },
+          { "daysAgo": 15, "amount": 164.22, "description": "Family Market" },
+          { "daysAgo": 18, "amount": 128.5, "description": "Youth Soccer Club" },
+          { "daysAgo": 21, "amount": -3250, "description": "Payroll Deposit" },
+          { "daysAgo": 24, "amount": 2200, "description": "Monthly Rent" },
+          { "daysAgo": 28, "amount": 63.14, "description": "Mountain Energy" },
+          { "daysAgo": 34, "amount": 151.08, "description": "Family Market" },
+          { "daysAgo": 38, "amount": -3250, "description": "Payroll Deposit" }
+        ]
+      },
+      {
+        "type": "credit",
+        "subtype": "credit card",
+        "name": "Family rewards card",
+        "officialName": "Rowan Family Rewards",
+        "mask": "7314",
+        "startingBalance": 1264.8,
+        "transactions": [
+          { "daysAgo": 1, "amount": 42.65, "description": "Corner Fuel" },
+          { "daysAgo": 5, "amount": 119.3, "description": "Family Market" },
+          { "daysAgo": 11, "amount": 38.75, "description": "School Supply Store" },
+          { "daysAgo": 17, "amount": 76.2, "description": "Taco Night Groceries" },
+          { "daysAgo": 23, "amount": -600, "description": "Card Payment" },
+          { "daysAgo": 31, "amount": 94.1, "description": "Family Market" }
+        ]
+      }
+    ]
+  },
+  "accounts": [
+    {
+      "alias": "review-owner",
+      "emailEnv": "KWILT_DEMO_OWNER_EMAIL",
+      "passwordEnv": "KWILT_DEMO_OWNER_PASSWORD",
+      "displayName": "Maya Rowan",
+      "role": "owner",
+      "personId": "4e830056-f5ab-42f4-a569-3a33d96d6a72",
+      "bindingId": "41fa5ee8-416e-4ba9-83b5-a45c1a5e3951",
+      "membershipId": "2fde2178-206d-4639-991f-6d0e9a445c58",
+      "arc": {
+        "id": "demo-owner-arc-family-steward",
+        "name": "Family Steward",
+        "narrative": "Create a warm household rhythm without carrying every detail alone.",
+        "status": "active"
+      },
+      "goal": {
+        "id": "demo-owner-goal-weekly-rhythm",
+        "title": "Make the weekly family rhythm feel lighter",
+        "description": "Choose meals, protect one family block, and make responsibilities visible.",
+        "status": "in_progress"
+      },
+      "activity": {
+        "id": "demo-owner-activity-sunday-reset",
+        "title": "Hold a 20-minute Sunday reset",
+        "notes": "Review the week together and decide what matters most.",
+        "status": "planned",
+        "scheduledDate": "2026-09-06"
+      }
+    },
+    {
+      "alias": "review-member",
+      "emailEnv": "KWILT_DEMO_MEMBER_EMAIL",
+      "passwordEnv": "KWILT_DEMO_MEMBER_PASSWORD",
+      "displayName": "Jordan Rowan",
+      "role": "caregiver",
+      "personId": "f75d3ebd-2e39-43a9-b3bc-8b0314295719",
+      "bindingId": "ad1b355c-37f2-4b70-a787-744a1e65fb6a",
+      "membershipId": "62e1a635-823a-48dd-9a76-dc516db46ca0",
+      "arc": {
+        "id": "demo-member-arc-present-partner",
+        "name": "Present Partner",
+        "narrative": "Notice what would help and take clear ownership of it.",
+        "status": "active"
+      },
+      "goal": {
+        "id": "demo-member-goal-family-dinner",
+        "title": "Own two family dinners each week",
+        "description": "Pick the meals, get what is needed, and handle cleanup.",
+        "status": "in_progress"
+      },
+      "activity": {
+        "id": "demo-member-activity-taco-night",
+        "title": "Plan Thursday taco night",
+        "notes": "Keep it simple and let everyone choose a topping.",
+        "status": "planned",
+        "scheduledDate": "2026-09-03"
+      }
+    }
+  ]
+}

@@ -124,7 +124,7 @@ describe('SettingsSurface', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onToggle).not.toHaveBeenCalled();
 
-    fireEvent.press(getByRole('switch', { name: 'Social rule enabled' }));
+    fireEvent.press(getByRole('switch', { name: 'Social. Available after 5:00 PM. Rule enabled' }));
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onOpen).toHaveBeenCalledTimes(1);
   });

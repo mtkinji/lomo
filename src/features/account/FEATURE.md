@@ -1,7 +1,7 @@
 ---
 feature: account
-audiences: [audience-ai-native-life-operators]
-personas: [Nina]
+audiences: [audience-ai-native-life-operators, audience-aspirational-family-organizers]
+personas: [Nina, Maya]
 hero_jtbd: jtbd-trust-this-app-with-my-life
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves:
@@ -15,9 +15,10 @@ briefs:
   - external-ai-connector
   - monetization-paywall-revenuecat
   - notifications-v1-5
+  - provisioned-email-sign-in-demo-accounts
   - social-goals-auth
 status: shipped
-last_reviewed: 2026-05-13
+last_reviewed: 2026-08-31
 ---
 
 # account

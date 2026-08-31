@@ -442,11 +442,11 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(screen.getByLabelText('Add My rule').props.accessibilityState.disabled).toBe(false);
     expect(screen.queryAllByRole('switch')).toHaveLength(2);
 
-    fireEvent.press(screen.getByRole('switch', { name: 'YouTube rule enabled' }));
+    fireEvent.press(screen.getByRole('switch', { name: 'Pause while Focus is active. YouTube. Rule enabled' }));
     await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules
       .find((rule) => rule.id === 'focus-video')?.enabled).toBe(false));
 
-    fireEvent.press(screen.getByLabelText('YouTube. Pause while Focus is active. Off'));
+    fireEvent.press(screen.getByLabelText('Pause while Focus is active. YouTube Off'));
 
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
       entry: 'inventory',
@@ -466,7 +466,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Delete Social rule' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Delete Pause while Focus is active rule' }));
     const actions = alert.mock.calls.at(-1)?.[2] ?? [];
     await act(async () => { actions.find((action) => action.text === 'Delete rule')?.onPress?.(); });
 

@@ -36,6 +36,7 @@ import { getMoneyTransactionsAvailability } from '../domain/moneyOnboarding';
 import { useMoneyNavigationAvailabilityStore } from '../runtime/useMoneyNavigationAvailabilityStore';
 import { createMoneyControlActions } from '../actions/moneyControlActions';
 import { createMoneyControlActionBoundary } from '../actions/moneyControlActionBoundary';
+import { shouldSyncConnectedMoneyActivity } from '../domain/demoMoneyEnvironment';
 
 type MoneyDataContextValue = MoneyDataState & {
   userId: string | null;
@@ -207,7 +208,7 @@ export function MoneyDataProvider({
         client: getSupabaseClient(),
         repository: resolvedRepository,
         trigger: input.trigger,
-        sync: input.sync,
+        sync: input.sync && shouldSyncConnectedMoneyActivity(state.snapshot),
       });
       if (mutationVersionRef.current !== version) return result.syncResult;
       acceptSnapshot(result.snapshot);
@@ -226,7 +227,7 @@ export function MoneyDataProvider({
       }
       throw error;
     }
-  }, [acceptSnapshot, capture, resolvedRepository]);
+  }, [acceptSnapshot, capture, resolvedRepository, state.snapshot]);
 
   useEffect(() => {
     void initialize();

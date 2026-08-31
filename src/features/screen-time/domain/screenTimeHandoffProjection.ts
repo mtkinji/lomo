@@ -64,7 +64,13 @@ export function projectRulesForScreenTimeHandoff(params: {
       unresolvedRestrictions.push(restriction);
       return;
     }
-    if (!resolved.some((candidate) => candidate.id === rule.id)) resolved.push({ ...rule, active: true });
+    if (!resolved.some((candidate) => candidate.id === rule.id)) {
+      resolved.push({
+        ...rule,
+        active: true,
+        ...(restriction.details.length > 0 ? { blockingDetails: restriction.details } : {}),
+      });
+    }
   });
 
   return { rules: resolved, unresolvedRestrictions };

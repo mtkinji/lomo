@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls, brief-screen-time-rule-system-consolidation]
 owner: andrew
-last_updated: 2026-08-28
+last_updated: 2026-08-31
 ---
 
 # Screen Time Rule Governance
@@ -111,6 +111,16 @@ cleared. The native shield summarizes how many rules apply and names the first
 actionable blockers without using sequential language. The in-app guide lists
 the concrete rules so the person can inspect every remaining blocker.
 
+For one active personal composite rule, the native shield names the blocked app
+and states the condition values that currently cause the pause, such as the
+current time or a reached daily-use limit. It does not substitute the selected
+app or category name for the reason. The same bounded condition details travel
+with the shield handoff into Kwilt. **Open Screen Time** presents them in a
+full-height, scrollable guide; older native records without condition details
+retain the generic review message. When multiple rules affect the same target,
+the shield keeps the unordered rule-count summary and the guide lists each
+resolved rule rather than implying that one action clears every blocker.
+
 Personal rules are private to the signed-in person. Household rules are shared with authorized caregivers. Money rules remain personal unless Money later defines an explicitly shared scope. Children see only their understandable agreement and current next action.
 
 Temporary **Allow until…** and **Pause until…** actions remain versioned,
@@ -134,7 +144,7 @@ Three-second read: Screen Time is allowed; I have N private rules and N Househol
 
 Primary actions: **Add rule** within each collection.
 
-Primary information: target summary, concrete behavior, and state; in the
+Primary information: concrete behavior, then target summary and state; in the
 personal builder, the editable When conditions, visible connector, and Then
 outcome.
 
@@ -148,8 +158,10 @@ Scan order: authorization -> My rules/count/add -> Household rules/count/add -> 
 
 Must not add: global dashboard, tabs, generic wizard instructions or repeated
 context, decorative rails, an enclosing condition card, a result card, green
-emphasis, rule names, inconsistent dividers inside a choice list, global
-personal visibility, or unverified device claims.
+emphasis, separate user-authored rule names, inconsistent dividers inside a
+choice list, global personal visibility, or unverified device claims. The
+generated rule sentence serves as the inventory title; the target summary is
+supporting context.
 
 Reuse map: the canonical secondary Settings page shell; Apple
 FamilyActivityPicker for app volume; standard BottomDrawer and radio-row

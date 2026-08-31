@@ -21,6 +21,8 @@ test('generated host bridge stores and applies one V2 composite aggregate', () =
   assert.match(rendered, /connector == "all"/);
   assert.match(rendered, /outcome == "available"/);
   assert.match(rendered, /condition\.type == "budget"/);
+  assert.match(rendered, /conditionExplanations: \[KwiltPersonalCompositeConditionExplanation\]\?/);
+  assert.match(rendered, /details: personalCompositeBlockingDetails/);
   assert.match(rendered, /let configurationChanged = shared\.data/);
   assert.match(rendered, /let monitoringChanged = configurationChanged/);
   assert.match(rendered, /if monitoringChanged/);
@@ -38,4 +40,6 @@ test('generated monitor combines time and usage truth before changing one aggreg
   assert.match(rendered, /connector == "any"/);
   assert.match(rendered, /evaluate\(configuration:/);
   assert.match(rendered, /personal_composite_rule/);
+  assert.match(rendered, /conditionExplanations: \[KwiltPersonalCompositeConditionExplanation\]\?/);
+  assert.match(rendered, /details: blockingDetails/);
 });

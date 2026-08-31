@@ -11,6 +11,17 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type AuthProvider = 'apple' | 'google';
 
+export const EMAIL_PASSWORD_SIGN_IN_MESSAGE =
+  "That email or password wasn't recognized. Try again.";
+
+export class EmailPasswordSignInError extends Error {
+  readonly code = 'email_password_sign_in_failed';
+
+  constructor() {
+    super(EMAIL_PASSWORD_SIGN_IN_MESSAGE);
+    this.name = 'EmailPasswordSignInError';
+  }
+}
 export type AuthIdentity = {
   userId: string;
   email?: string;
@@ -164,6 +175,22 @@ async function maybeRefreshSession(existing: Session): Promise<Session | null> {
     return null;
   }
   return data.session ?? null;
+}
+
+export async function signInWithEmailPassword(email: string, password: string): Promise<Session> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const supabase = getSupabaseClient();
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+    if (error || !data.session) throw new EmailPasswordSignInError();
+    return data.session;
+  } catch {
+    throw new EmailPasswordSignInError();
+  }
 }
 
 export async function signInWithProvider(provider: AuthProvider): Promise<Session> {

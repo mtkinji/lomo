@@ -9,12 +9,13 @@ import type { ScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import type { TemporaryOpenResult } from '../runtime/openScreenTimeRulesTemporarily';
 
-const triggerDetail = (rule: ScreenTimeRule): string => {
-  if (rule.trigger.type === 'focus_active') return 'Finish or end the current Focus.';
-  if (rule.trigger.type === 'real_step_pending') return 'Complete a to-do, record progress, or finish Focus.';
-  if (rule.trigger.type === 'daily_usage_limit') return 'Wait until tomorrow or change the daily limit.';
-  if (rule.trigger.type === 'composite') return 'Review this rule in Screen Time.';
-  return 'Complete the family agreement.';
+const triggerDetails = (rule: ScreenTimeRule): string[] => {
+  if (rule.blockingDetails?.length) return rule.blockingDetails;
+  if (rule.trigger.type === 'focus_active') return ['Finish or end the current Focus.'];
+  if (rule.trigger.type === 'real_step_pending') return ['Complete a to-do, record progress, or finish Focus.'];
+  if (rule.trigger.type === 'daily_usage_limit') return ['Wait until tomorrow or change the daily limit.'];
+  if (rule.trigger.type === 'composite') return ['Review this rule in Screen Time.'];
+  return ['Complete the family agreement.'];
 };
 
 export function ScreenTimeUnlockGuide(props: {
@@ -45,8 +46,7 @@ export function ScreenTimeUnlockGuide(props: {
     <BottomDrawer
       visible={props.visible}
       onClose={props.onDismiss}
-      snapPoints={['55%']}
-      dynamicSizing
+      snapPoints={['100%']}
       enableContentPanningGesture
       scrimToken="pineSubtle"
     >
@@ -64,7 +64,11 @@ export function ScreenTimeUnlockGuide(props: {
             {props.rules.map((rule) => (
               <View key={rule.id} style={styles.ruleCard}>
                 <Text variant="label">{rule.title}</Text>
-                <Text tone="secondary" style={styles.ruleDetail}>{triggerDetail(rule)}</Text>
+                {triggerDetails(rule).map((detail, index) => (
+                  <Text key={`${rule.id}:${index}`} tone="secondary" style={styles.ruleDetail}>
+                    {detail}
+                  </Text>
+                ))}
               </View>
             ))}
             {props.unresolvedCount > 0 ? (

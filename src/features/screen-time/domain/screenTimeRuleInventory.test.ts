@@ -26,8 +26,9 @@ describe('buildMyScreenTimeRuleInventory', () => {
     });
 
     expect(rows).toEqual([{
-      id: 'social-evening', domain: 'personal', title: 'Social',
-      detail: 'Available after 5:00 PM and while daily use is under 15 minutes.',
+      id: 'social-evening', domain: 'personal',
+      title: 'Available after 5:00 PM and while daily use is under 15 minutes',
+      detail: 'Social',
       targetCount: 1, enabled: true, contextLabel: null,
       destination: { kind: 'personal', ruleId: 'social-evening' },
     }]);

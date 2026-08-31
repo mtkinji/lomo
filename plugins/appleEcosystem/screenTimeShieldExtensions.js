@@ -17,6 +17,7 @@ function buildRestrictionLedgerSwift(appGroupId) {
   let selectionId: String?
   let reason: String
   let label: String?
+  let details: [String]?
   let appliedAtMs: Double
   let applicationTokenKeys: [String]
   let categoryTokenKeys: [String]
@@ -54,16 +55,22 @@ private enum KwiltRestrictionLedger {
     selectionId: String,
     reason: String,
     label: String?,
+    details: [String]? = nil,
     applicationTokenKeys: [String],
     categoryTokenKeys: [String],
     webDomainTokenKeys: [String]
   ) {
+    let normalizedDetails = (details ?? []).compactMap { detail -> String? in
+      let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+      return trimmed.isEmpty ? nil : String(trimmed.prefix(160))
+    }
     let entry = KwiltRestrictionLedgerEntry(
       id: id,
       ruleId: ruleId,
       selectionId: selectionId,
       reason: reason,
       label: label,
+      details: normalizedDetails.isEmpty ? nil : Array(normalizedDetails.prefix(8)),
       appliedAtMs: Date().timeIntervalSince1970 * 1000.0,
       applicationTokenKeys: applicationTokenKeys,
       categoryTokenKeys: categoryTokenKeys,
@@ -332,6 +339,18 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
       let remaining = restrictions.count - 2
       let suffix = remaining > 0 ? " \\(remaining) more rules also apply." : ""
       subtitle = "\\(KwiltShieldCopy.sentenceStart(KwiltShieldCopy.nextAction(for: first))). Also \\(KwiltShieldCopy.nextAction(for: restrictions[1])).\\(suffix)"
+    } else if let first = restrictions.first, first.reason == "personal_composite_rule" {
+      let details = first.details ?? []
+      if details.isEmpty {
+        title = KwiltShieldCopy.title(for: reason)
+        subtitle = KwiltShieldCopy.subtitle(for: reason, appName: appName)
+      } else {
+        title = "\\(appName) is paused."
+        let visibleDetails = Array(details.prefix(2))
+        let remaining = details.count - visibleDetails.count
+        let suffix = remaining > 0 ? " \\(remaining) more conditions also apply." : ""
+        subtitle = visibleDetails.joined(separator: " ") + suffix
+      }
     } else {
       title = KwiltShieldCopy.title(for: reason)
       subtitle = KwiltShieldCopy.subtitle(for: reason, appName: appName)
@@ -504,6 +523,12 @@ private struct KwiltPersonalCompositeCondition: Codable {
   let minuteOfDay: Int?
 }
 
+private struct KwiltPersonalCompositeConditionExplanation: Codable {
+  let conditionId: String
+  let whenMatched: String
+  let whenUnmatched: String
+}
+
 private struct KwiltPersonalCompositeRuleConfiguration: Codable {
   let version: Int
   let ruleId: String
@@ -512,6 +537,7 @@ private struct KwiltPersonalCompositeRuleConfiguration: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
 }
 
@@ -603,6 +629,14 @@ private enum KwiltPersonalCompositeRuleRuntime {
       ? values.allSatisfy { $0 }
       : configuration.connector == "any" && values.contains(true)
     let shouldPause = configuration.outcome == "available" ? !matched : matched
+    let explanations = Dictionary(
+      uniqueKeysWithValues: (configuration.conditionExplanations ?? []).map { ($0.conditionId, $0) }
+    )
+    let blockingDetails = zip(configuration.conditions, values).compactMap { condition, value -> String? in
+      let causesPause = configuration.outcome == "pause" ? value : !value
+      guard causesPause, let explanation = explanations[condition.id] else { return nil }
+      return value ? explanation.whenMatched : explanation.whenUnmatched
+    }
     let managedStore = store(for: configuration)
     let selection = configuration.targetSelection
     let ledgerId = "personal_composite.\\(configuration.ruleId)"
@@ -616,6 +650,7 @@ private enum KwiltPersonalCompositeRuleRuntime {
       KwiltRestrictionLedger.upsert(
         id: ledgerId, ruleId: configuration.ruleId, selectionId: configuration.selectionId,
         reason: "personal_composite_rule", label: configuration.restrictionLabel,
+        details: blockingDetails,
         applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.applicationTokens),
         categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.categoryTokens),
         webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.webDomainTokens)

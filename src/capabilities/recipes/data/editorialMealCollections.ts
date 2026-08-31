@@ -295,7 +295,7 @@ export const EDITORIAL_MEAL_PLAN_TEMPLATES: readonly EditorialMealPlanTemplate[]
     slots: slots(collection.id),
   }));
 
-const ROTATIONS = [
+export const EDITORIAL_MEAL_COLLECTION_ROTATIONS = [
   [JAPAN_ID, BUDGET_ID],
   [NEW_FLAVORS_ID, EASY_WEEK_ID],
 ] as const;
@@ -317,8 +317,8 @@ export function getMealEditorialEdition(
   ends.setUTCDate(ends.getUTCDate() + 7);
   const weekIndex = Math.floor(starts.getTime() / (7 * 24 * 60 * 60 * 1000));
   const rotation =
-    ROTATIONS[
-      ((weekIndex % ROTATIONS.length) + ROTATIONS.length) % ROTATIONS.length
+    EDITORIAL_MEAL_COLLECTION_ROTATIONS[
+      ((weekIndex % EDITORIAL_MEAL_COLLECTION_ROTATIONS.length) + EDITORIAL_MEAL_COLLECTION_ROTATIONS.length) % EDITORIAL_MEAL_COLLECTION_ROTATIONS.length
     ];
   return {
     id: `meal-edition-${starts.toISOString().slice(0, 10)}`,

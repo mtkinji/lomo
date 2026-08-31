@@ -52,6 +52,7 @@ export type MoneyPlanRow = {
 
 export type MoneyConnectionRow = {
   id: string;
+  environment?: 'sandbox' | 'development' | 'production' | null;
   institution_name: string;
   status: 'linked' | 'syncing' | 'healthy' | 'error' | 'disconnecting' | 'disconnected';
   last_synced_at: string | null;
@@ -197,6 +198,7 @@ export type MoneyTransaction = {
 
 export type MoneyConnection = {
   id: string;
+  environment: MoneyConnectionRow['environment'];
   institutionName: string;
   status: MoneyConnectionRow['status'];
   lastSyncedAt: string | null;
@@ -457,6 +459,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   });
   const connections = rows.connections.map((connection): MoneyConnection => ({
     id: connection.id,
+    environment: connection.environment ?? null,
     institutionName: connection.institution_name.trim() || 'Linked institution',
     status: connection.status,
     lastSyncedAt: connection.last_synced_at,

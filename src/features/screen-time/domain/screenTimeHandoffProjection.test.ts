@@ -15,13 +15,17 @@ describe('projectRulesForScreenTimeHandoff', () => {
         requestedAtMs: 1,
         reason: 'personal_composite_rule',
         restrictions: [
-          { restrictionId: 'p', ruleId: personalRule.id, selectionId: personalRule.selectionId, reason: 'personal_composite_rule', label: null, appliedAtMs: 1 },
+          {
+            restrictionId: 'p', ruleId: personalRule.id, selectionId: personalRule.selectionId,
+            reason: 'personal_composite_rule', label: null,
+            details: ['Focus is active. End Focus to continue.'], appliedAtMs: 1,
+          },
         ],
       },
       personalSettings: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, personalCompositeRules: [personalRule] },
     });
-    expect(result.rules.map((rule) => [rule.id, rule.title])).toEqual([
-      [personalRule.id, 'Social'],
+    expect(result.rules.map((rule) => [rule.id, rule.title, rule.blockingDetails])).toEqual([
+      [personalRule.id, 'Social', ['Focus is active. End Focus to continue.']],
     ]);
     expect(result.unresolvedRestrictions).toEqual([]);
   });
@@ -30,7 +34,10 @@ describe('projectRulesForScreenTimeHandoff', () => {
     const result = projectRulesForScreenTimeHandoff({
       handoff: {
         requestedAtMs: 1, reason: 'family_prerequisite',
-        restrictions: [{ restrictionId: 'x', ruleId: 'family_x', selectionId: 'selection-x', reason: 'family_prerequisite', label: 'Finish homework', appliedAtMs: 1 }],
+        restrictions: [{
+          restrictionId: 'x', ruleId: 'family_x', selectionId: 'selection-x',
+          reason: 'family_prerequisite', label: 'Finish homework', details: [], appliedAtMs: 1,
+        }],
       },
       personalSettings: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
     });

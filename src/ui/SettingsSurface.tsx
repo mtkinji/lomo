@@ -136,6 +136,9 @@ export function SettingsDetailToggleRow({
   onToggle: () => void;
   title: string;
 }) {
+  const accessibilityClause = (value: string) => (
+    /[.!?]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`
+  );
   const detailAccessibilityLabel = [
     `${title}.`,
     description,
@@ -161,7 +164,7 @@ export function SettingsDetailToggleRow({
       </Pressable>
       <View style={styles.detailToggleControl}>
         <SettingsToggle
-          accessibilityLabel={`${title} rule enabled`}
+          accessibilityLabel={`${accessibilityClause(title)} ${accessibilityClause(description)} Rule enabled`}
           disabled={disabled}
           onPress={onToggle}
           tone="neutral"

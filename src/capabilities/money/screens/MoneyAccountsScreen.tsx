@@ -87,6 +87,8 @@ export function MoneyAccountsSurface({
   const [canRetryConnection, setCanRetryConnection] = useState(false);
   const accounts = snapshot?.accounts ?? [];
   const connections = (snapshot?.connections ?? []).filter((connection) => connection.status !== 'disconnected');
+  const sampleDataVisible = connections.length > 0
+    && connections.every((connection) => connection.environment === 'sandbox');
   const visibleAccounts = useMemo(() => sortAccounts(accounts.filter((account) => (
     filter === 'all' || (filter === 'linked' ? account.transactionCount > 0 : account.transactionCount === 0)
   )), sort), [accounts, filter, sort]);
@@ -213,7 +215,7 @@ export function MoneyAccountsSurface({
         count={{ visible: visibleAccounts.length, total: accounts.length }}
         variant="cards"
         contentStyle={styles.accountList}
-        action={(
+        action={sampleDataVisible ? null : (
           <View style={styles.actionGroup}>
             <Pressable accessibilityRole="button" accessibilityLabel="Check for new activity" disabled={Boolean(connectionAction)} hitSlop={10} onPress={() => void syncAccounts()} style={({ pressed }) => [styles.iconButton, connectionAction ? styles.iconButtonDisabled : null, pressed ? styles.iconButtonPressed : null]}>
               <Icon name="refresh" size={18} color={colors.textPrimary} />
@@ -226,6 +228,7 @@ export function MoneyAccountsSurface({
       >
         <View style={styles.freshnessRow}>
           <Text numberOfLines={1} style={styles.freshnessText}>{formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}</Text>
+          {sampleDataVisible ? <Text style={styles.sampleDataLabel}>Sample Plaid data</Text> : null}
         </View>
         {connectionMessage ? (
           <View accessibilityLiveRegion="polite" style={[styles.connectionStatus, connectionTone === 'error' ? styles.connectionStatusError : null]}>
@@ -285,10 +288,12 @@ function ConnectionInventoryRow({ connection, disabled, onRepair, onDisconnect }
       <View style={styles.connectionRowCopy}>
         <Text numberOfLines={1} style={styles.rowTitle}>{connection.institutionName}</Text>
         <Text style={styles.recentActivity}>
-          {needsRepair ? 'Needs repair' : `${connection.accountCount} linked account${connection.accountCount === 1 ? '' : 's'}`}
+          {connection.environment === 'sandbox'
+            ? `${connection.accountCount} sample account${connection.accountCount === 1 ? '' : 's'}`
+            : needsRepair ? 'Needs repair' : `${connection.accountCount} linked account${connection.accountCount === 1 ? '' : 's'}`}
         </Text>
       </View>
-      <DropdownMenu>
+      {connection.environment === 'sandbox' ? null : <DropdownMenu>
         <DropdownMenuTrigger accessibilityLabel={`Manage ${connection.institutionName} connection`} disabled={disabled}>
           <View pointerEvents="none" style={[styles.connectionMenuButton, disabled ? styles.iconButtonDisabled : null]}>
             <Icon name="more" size={18} color={colors.textPrimary} />
@@ -309,7 +314,7 @@ function ConnectionInventoryRow({ connection, disabled, onRepair, onDisconnect }
             </View>
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu>}
     </View>
   );
 }
@@ -377,6 +382,7 @@ const styles = StyleSheet.create({
   iconButtonDisabled: { opacity: 0.35 },
   freshnessRow: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingBottom: spacing.xs },
   freshnessText: { flexShrink: 0, ...typography.bodyXs, color: colors.textSecondary },
+  sampleDataLabel: { ...typography.bodyXs, color: colors.textSecondary, fontFamily: fonts.bold },
   connectionStatus: { minHeight: 38, marginBottom: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: 8, backgroundColor: colors.gray50 },
   connectionStatusError: { backgroundColor: colors.madder50 },
   connectionStatusText: { flex: 1, ...typography.bodyXs, color: colors.textSecondary },

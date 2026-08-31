@@ -10,6 +10,7 @@ import {
   normalizePersonalCompositeScreenTimeRule,
   type PersonalCompositeScreenTimeRule,
 } from '../../features/screen-time/domain/personalCompositeScreenTimeRule';
+import { buildPersonalCompositeConditionExplanations } from '../../features/screen-time/domain/personalCompositeRuleExplanation';
 
 type ScreenTimeSelectionResult = {
   selectedApps?: ScreenTimeToken[];
@@ -35,6 +36,7 @@ export type ScreenTimeShieldRestriction = {
   selectionId: string;
   reason: string;
   label: string | null;
+  details: string[];
   appliedAtMs: number;
 };
 
@@ -143,6 +145,13 @@ export async function consumePendingScreenTimeShieldHandoff(): Promise<ScreenTim
             selectionId,
             reason,
             label: typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : null,
+            details: Array.isArray(raw.details)
+              ? raw.details.flatMap((detail) => (
+                typeof detail === 'string' && detail.trim()
+                  ? [detail.trim().slice(0, 160)]
+                  : []
+              )).slice(0, 8)
+              : [],
             appliedAtMs,
           }];
         })
@@ -321,6 +330,11 @@ export async function applyPersonalCompositeScreenTimeRule(
       connector: rule.connector,
       outcome: rule.outcome,
       conditions: rule.conditions,
+      conditionExplanations: buildPersonalCompositeConditionExplanations(rule).map((explanation) => ({
+        conditionId: explanation.conditionId,
+        whenMatched: explanation.whenMatched.slice(0, 160),
+        whenUnmatched: explanation.whenUnmatched.slice(0, 160),
+      })),
       restrictionLabel: restrictionLabel.slice(0, 80),
       ...(Object.keys(hostTruth).length > 0 ? { hostTruth } : {}),
     }));

@@ -34,7 +34,13 @@ jest.mock('../../store/useAuthPromptStore', () => ({
   },
 }));
 
-import { getSession, isInvalidRefreshTokenError, signInWithProvider } from './auth';
+import {
+  EmailPasswordSignInError,
+  getSession,
+  isInvalidRefreshTokenError,
+  signInWithEmailPassword,
+  signInWithProvider,
+} from './auth';
 import * as WebBrowser from 'expo-web-browser';
 
 const mockOpenAuthSessionAsync = WebBrowser.openAuthSessionAsync as jest.Mock;
@@ -89,7 +95,6 @@ describe('auth invalid refresh recovery', () => {
     expect(isInvalidRefreshTokenError(null)).toBe(false);
   });
 });
-
 describe('OAuth callback failures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -117,5 +122,42 @@ describe('OAuth callback failures', () => {
     await expect(signInWithProvider('apple')).rejects.toThrow(
       'Apple sign-in is temporarily unavailable. Please try again, or continue with Google.',
     );
+  });
+});
+
+describe('email and password sign-in', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('normalizes the email, preserves the password, and returns the ordinary session', async () => {
+    const session = { access_token: 'opaque', user: { id: 'user-1' } } as Session;
+    const signInWithPassword = jest.fn(async () => ({ data: { session }, error: null }));
+    mockGetSupabaseClient.mockReturnValue({ auth: { signInWithPassword } });
+
+    await expect(
+      signInWithEmailPassword('  Reviewer@Example.COM ', '  keep password spaces  '),
+    ).resolves.toBe(session);
+
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      email: 'reviewer@example.com',
+      password: '  keep password spaces  ',
+    });
+  });
+
+  it.each([
+    [{ message: 'Invalid login credentials' }, null],
+    [null, null],
+  ])('returns one bounded error without exposing backend details', async (error, session) => {
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        signInWithPassword: jest.fn(async () => ({ data: { session }, error })),
+      },
+    });
+
+    const result = signInWithEmailPassword('reviewer@example.com', 'not-a-real-password');
+    await expect(result).rejects.toBeInstanceOf(EmailPasswordSignInError);
+    await expect(result).rejects.toThrow("That email or password wasn't recognized. Try again.");
+    await expect(result).rejects.not.toThrow('Invalid login credentials');
   });
 });
