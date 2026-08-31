@@ -119,6 +119,21 @@ describe('CTA URL migration (Phase 3 of email-system-ga-plan.md)', () => {
     expect(out.html).toContain('Open shared goal');
   });
 
+  it('Household invite names the inviter and preserves explicit review', () => {
+    const { buildHouseholdInviteEmail } = loadTemplates();
+    const out = buildHouseholdInviteEmail({
+      inviterName: 'Andrew',
+      householdName: 'Watanabe household',
+      role: 'caregiver',
+      inviteLink: 'https://go.kwilt.app/open/household/ABCD2345',
+      inviteCode: 'ABCD-2345',
+    });
+    expect(out.subject).toBe('Andrew invited you to their Household in Kwilt');
+    expect(out.text).toContain('review what joining shares before you accept');
+    expect(out.text).toContain('ABCD-2345');
+    expect(out.html).toContain('Open invitation');
+  });
+
   it('Pro Grant → /open/settings/subscription with pro_granted campaign', () => {
     const { buildProGrantEmail } = loadTemplates();
     const out = buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' });

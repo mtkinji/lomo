@@ -2,6 +2,7 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Share, StyleSheet, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
@@ -21,8 +22,10 @@ import { Text } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import {
   acceptHouseholdInvitation,
+  acceptPendingHouseholdInvitation,
   addDependentHouseholdMember,
   createHouseholdInvitation,
+  findPendingHouseholdInvitation,
   previewHouseholdInvitation,
   readHousehold,
   setHouseholdCaregiverGrant,
@@ -31,6 +34,7 @@ import {
 } from '../../capabilities/relationships/actions/relationshipActions';
 import {
   buildHouseholdInviteUrl,
+  formatHouseholdInviteCode,
   type ChildCapabilityId,
   type ChildCapabilityState,
   type HouseholdInvitation,
@@ -164,12 +168,19 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
         ...base,
         members: base.members.map((member) => ({ ...member, ...(avatars[member.id] ?? {}) })),
       });
+      if (!base.household && !linkedInviteCode) {
+        const pending = (await findPendingHouseholdInvitation(householdActions)).result;
+        if (pending) {
+          setInvitePreview(pending);
+          setEntryMode('join');
+        }
+      }
     } catch (error) {
       Alert.alert('Unable to load your household', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [householdActions]);
+  }, [householdActions, linkedInviteCode]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -287,13 +298,20 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const joinHousehold = async () => {
-    if (!householdActions || !joinCode.trim()) return;
+    if (!householdActions) return;
     if (!invitePreview) return;
-    const saved = await runMutation('join', () => acceptHouseholdInvitation({
-      code: joinCode,
-      displayName: authIdentity?.name || (invitePreview.role === 'child' ? 'Child' : 'Caregiver'),
-      confirmed: true,
-    }, householdActions));
+    const displayName = authIdentity?.name || (invitePreview.role === 'child' ? 'Child' : 'Caregiver');
+    const saved = await runMutation('join', () => invitePreview.invitationId
+      ? acceptPendingHouseholdInvitation({
+        invitationId: invitePreview.invitationId,
+        displayName,
+        confirmed: true,
+      }, householdActions)
+      : acceptHouseholdInvitation({
+        code: joinCode,
+        displayName,
+        confirmed: true,
+      }, householdActions));
     if (saved) {
       setJoinCode('');
       setInvitePreview(null);
@@ -313,12 +331,12 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
 
   const entryDescription = entryMode === 'child-choice'
     ? 'Connect the account they already use, or create a profile for them.'
-    : entryMode === 'child-account'
-      ? 'They’ll review and accept this invitation in their own Kwilt account.'
+      : entryMode === 'child-account'
+      ? 'Kwilt will email their account, then they’ll review before joining.'
       : entryMode === 'child-profile'
         ? 'Use this when they do not have their own Kwilt account yet.'
         : entryMode === 'caregiver'
-          ? 'They’ll join with no access to a child’s capabilities.'
+          ? 'Enter their Kwilt email to send it, or leave it blank to share it yourself.'
           : invitePreview
             ? 'Review the relationship before joining.'
             : 'Enter the code from your family organizer.';
@@ -419,7 +437,7 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
             : entryMode === 'child-account'
               ? !childEmail.trim() || Boolean(mutationKey)
               : entryMode === 'join'
-                ? !joinCode.trim() || Boolean(mutationKey)
+                ? (!invitePreview?.invitationId && !joinCode.trim()) || Boolean(mutationKey)
                 : Boolean(mutationKey)}
           fullWidth
           onPress={() => {
@@ -434,9 +452,11 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           {entryMode === 'child-profile'
             ? mutationKey === 'add-child' ? 'Adding…' : 'Add child'
             : entryMode === 'child-account'
-              ? mutationKey === 'child-invite' ? 'Creating…' : 'Create invitation'
+              ? mutationKey === 'child-invite' ? 'Sending…' : 'Send invitation'
               : entryMode === 'caregiver'
-                ? mutationKey === 'invite' ? 'Creating…' : 'Create invitation'
+                ? mutationKey === 'invite'
+                  ? inviteEmail.trim() ? 'Sending…' : 'Creating…'
+                  : inviteEmail.trim() ? 'Send invitation' : 'Create invitation'
                 : invitePreview
                   ? mutationKey === 'join' ? 'Joining…' : 'Join household'
                   : mutationKey === 'preview-invite' ? 'Reviewing…' : 'Review invitation'}
@@ -538,8 +558,21 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           {entryMode ? entryForm : actionList}
           {inviteReceipt ? (
             <View style={styles.inviteReceipt}>
+              <Text style={styles.inviteReceiptTitle}>
+                {inviteReceipt.recovered ? 'Invitation ready again' : 'Invitation ready'}
+              </Text>
+              <View accessibilityLabel="Household invitation QR code" style={styles.inviteQr}>
+                <QRCode size={148} value={buildHouseholdInviteUrl(inviteReceipt.code)} />
+              </View>
               <Text selectable style={styles.inviteCode}>
-                {`${inviteReceipt.role === 'child' ? 'Child' : 'Caregiver'} invitation code: ${inviteReceipt.code}`}
+                {formatHouseholdInviteCode(inviteReceipt.code)}
+              </Text>
+              <Text style={styles.inviteDelivery}>
+                {inviteReceipt.emailDelivery === 'sent'
+                  ? 'Email sent. They can also scan this QR code.'
+                  : inviteReceipt.emailDelivery === 'failed'
+                    ? 'Email could not be delivered. Share the QR code or manual code instead.'
+                    : 'Share the QR code or manual code.'}
               </Text>
               <Text style={styles.invitePrivacy}>
                 This invitation shares Household membership only. Private Kwilt content stays private.
@@ -783,14 +816,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   inviteCode: {
-    ...typography.bodySm,
+    ...typography.titleSm,
     color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 2,
   },
   inviteReceipt: {
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: 14,
     backgroundColor: colors.gray100,
+  },
+  inviteReceiptTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  inviteQr: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  inviteDelivery: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   invitePrivacy: {
     ...typography.bodyXs,

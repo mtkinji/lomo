@@ -51,6 +51,8 @@ import { useRecipeFavoriteStore } from "../runtime/useRecipeFavoriteStore";
 import type { RecipeProjection } from "../data/recipeCache";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { AnalyticsEvent } from "../../../services/analytics/events";
+import { getSupabaseClient } from "../../../services/backend/supabaseClient";
+import { getHouseholdSnapshot } from "../../../features/household/data/household";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { useAppStore } from "../../../store/useAppStore";
@@ -60,6 +62,10 @@ import {
   type GuestMealFeedbackSummary,
 } from "../../meal-planning/data/mealPlanningRepository";
 import { createMealPlanAttentionRepository } from "../../meal-planning/data/mealPlanAttentionRepository";
+import {
+  loadCurrentHouseholdMealCart,
+  resolveCurrentMealPlanHouseholdId,
+} from "../../meal-planning/data/mealPlanHouseholdScope";
 import {
   shareGuestMealPlan,
   type GuestMealPlanInvitation,
@@ -222,6 +228,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [mealChatVisible, setMealChatVisible] = useState(false);
   const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
+  const [mealPlanHouseholdId, setMealPlanHouseholdId] = useState<string | null | undefined>(undefined);
   const [planBrowsing, setPlanBrowsing] = useState(false);
   const [mealPlanNeedsAttention, setMealPlanNeedsAttention] = useState(false);
   const [guestInvitation, setGuestInvitation] = useState<GuestMealPlanInvitation | null>(null);
@@ -258,6 +265,20 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const { capture } = useAnalytics();
   const mealPlanAttentionRepository = useMemo(() => createMealPlanAttentionRepository(), []);
+  const resolveMealPlanHouseholdId = useCallback(async () => {
+    const householdId = await resolveCurrentMealPlanHouseholdId(
+      () => getHouseholdSnapshot(getSupabaseClient()),
+    );
+    setMealPlanHouseholdId(householdId);
+    return householdId;
+  }, []);
+  const loadCurrentMealCart = useCallback(async () => {
+    const repository = createMealPlanningRepository();
+    return loadCurrentHouseholdMealCart(
+      () => getHouseholdSnapshot(getSupabaseClient()),
+      (householdId) => repository.getMealCart(householdId),
+    );
+  }, []);
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
     () => ({
       capabilityId: "meal_planning",
@@ -278,9 +299,11 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           return;
         }
         try {
-          const mealRepository = createMealPlanningRepository();
-          const latest = await mealRepository.getMealCart(mealPreferences?.householdId ?? null);
-          if (!cancelled) setSharedCart(latest);
+          const latest = await loadCurrentMealCart();
+          if (!cancelled) {
+            setMealPlanHouseholdId(latest.householdId);
+            setSharedCart(latest.cart);
+          }
         } catch {
           // Preserve the last truthful projection while refreshing fails.
         }
@@ -289,7 +312,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       return () => {
         cancelled = true;
       };
-    }, [mealPreferences?.householdId, userId]),
+    }, [loadCurrentMealCart, userId]),
   );
   const inventory = useMemo(
     () => buildRecipeLibraryInventory(personalRecipes),
@@ -468,20 +491,21 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     ],
   );
   const reloadSharedCart = useCallback(async () => {
-    const mealRepository = createMealPlanningRepository();
-    const next = await mealRepository.getMealCart(mealPreferences?.householdId ?? null);
-    setSharedCart(next);
-    if (!next) throw new Error('The Plan is not available yet.');
-    return next;
-  }, [mealPreferences?.householdId]);
+    const next = await loadCurrentMealCart();
+    setMealPlanHouseholdId(next.householdId);
+    setSharedCart(next.cart);
+    if (!next.cart) throw new Error('The Plan is not available yet.');
+    return next.cart;
+  }, [loadCurrentMealCart]);
   const getIdeasFromKwilt = useCallback(async (): Promise<boolean> => {
     if (gettingKwiltIdeas || planMutationBusy || !mealPlanIdeaRecommendations.length) return false;
     setGettingKwiltIdeas(true);
     setPlanMutationBusy(true);
     try {
       const repository = createMealPlanningRepository();
+      const householdId = await resolveMealPlanHouseholdId();
       const { candidateIds } = await addRecipeRecommendationsToSharedMealCart({
-        householdId: mealPreferences?.householdId ?? null,
+        householdId,
         projections: mealPlanIdeaRecommendations.map(({ projection }) => projection),
         plannedPortions: defaultServings,
         createCandidateId: Crypto.randomUUID,
@@ -499,7 +523,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         actionLabel: "Undo",
         actionOnPress: () => {
           void withdrawMealCandidatesFromSharedMealCart({
-            householdId: mealPreferences?.householdId ?? null,
+            householdId,
             candidateIds,
             repository: createMealPlanningRepository(),
             reloadCart: reloadSharedCart,
@@ -525,9 +549,9 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     defaultServings,
     gettingKwiltIdeas,
     mealPlanIdeaRecommendations,
-    mealPreferences?.householdId,
     planMutationBusy,
     reloadSharedCart,
+    resolveMealPlanHouseholdId,
     showToast,
   ]);
   const refreshGuestFeedback = useCallback(async () => {
@@ -567,7 +591,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       void reloadSharedCart().catch(() => undefined);
       void refreshGuestFeedback().catch(() => undefined);
     });
-  }, [mealPreferences?.householdId, refreshGuestFeedback, reloadSharedCart]);
+  }, [refreshGuestFeedback, reloadSharedCart]);
   const toggleMealInPlan = useCallback(
     async (projection: RecipeProjection) => {
       if (planMutationBusy) return;
@@ -579,9 +603,10 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPlanMutationBusy(true);
       try {
         const repository = createMealPlanningRepository();
+        const householdId = await resolveMealPlanHouseholdId();
         const result = await toggleRecipeInSharedMealCart({
           cart: sharedCart,
-          householdId: mealPreferences?.householdId ?? null,
+          householdId,
           projection,
           recipeScaleMultiplier: 1,
           plannedPortions: defaultServings,
@@ -614,7 +639,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         setPlanMutationBusy(false);
       }
     },
-    [defaultServings, dispatchCapabilityOnboarding, foodGuideStep, mealPreferences?.householdId, planMutationBusy, reloadSharedCart, sharedCart, showToast, userId],
+    [defaultServings, dispatchCapabilityOnboarding, foodGuideStep, planMutationBusy, reloadSharedCart, resolveMealPlanHouseholdId, sharedCart, showToast, userId],
   );
   const removeCandidate = useCallback(async (item: MealPlanTrayItem, keepGroceries = false) => {
     if (!sharedCart?.planId || !sharedCart.version || planMutationBusy) return;
@@ -974,7 +999,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           onReturnToPlan={returnCandidateToPlan}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
           onGetIdeas={userId && mealPlanIdeaRecommendations.length > 0 && (
-            sharedCart?.viewer.canAdd ?? mealPreferences?.householdId == null
+            sharedCart?.viewer.canAdd ?? mealPlanHouseholdId === null
           ) ? getIdeasFromKwilt : undefined}
           gettingIdeas={gettingKwiltIdeas}
           getIdeasDisabled={planMutationBusy && !gettingKwiltIdeas}

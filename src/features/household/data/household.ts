@@ -7,8 +7,11 @@ export type HouseholdInvitation = {
   code: string;
   expiresAt: string;
   role: HouseholdInvitationRole;
+  recovered: boolean;
+  emailDelivery: 'sent' | 'failed' | 'not_requested';
 };
 export type HouseholdInvitationPreview = {
+  invitationId?: string;
   householdName: string;
   inviterDisplayName: string;
   role: HouseholdInvitationRole;
@@ -84,8 +87,17 @@ const isInvitationRole = (value: unknown): value is HouseholdInvitationRole => (
   value === 'caregiver' || value === 'child'
 );
 
+export function normalizeHouseholdInviteCode(code: string): string {
+  return code.trim().toUpperCase().replace(/[-\s]/g, '');
+}
+
+export function formatHouseholdInviteCode(code: string): string {
+  const normalized = normalizeHouseholdInviteCode(code);
+  return normalized.length === 8 ? `${normalized.slice(0, 4)}-${normalized.slice(4)}` : normalized;
+}
+
 export function buildHouseholdInviteUrl(code: string): string {
-  return `https://go.kwilt.app/open/household/${encodeURIComponent(code.trim().toUpperCase())}`;
+  return `https://go.kwilt.app/open/household/${encodeURIComponent(normalizeHouseholdInviteCode(code))}`;
 }
 
 export function buildHouseholdPlanInviteMessage(input: {
@@ -95,7 +107,7 @@ export function buildHouseholdPlanInviteMessage(input: {
 }): string {
   const inviterName = input.inviterName.trim() || 'Someone';
   const householdName = input.householdName.trim() || 'their Household';
-  const code = input.code.trim().toUpperCase();
+  const code = normalizeHouseholdInviteCode(input.code);
   return `${inviterName} invited you to join ${householdName} in Kwilt and weigh in on the family Plan.\n\n`
     + 'You’ll review what joining shares before you accept.\n\n'
     + buildHouseholdInviteUrl(code);
@@ -217,19 +229,56 @@ export async function createHouseholdMemberInvite(client: SupabaseClient, input:
   invitedEmail?: string;
   ownerDisplayName: string;
 }): Promise<HouseholdInvitation> {
-  const data = await callRpc(client, 'create_kwilt_household_member_invite', {
-    p_household_id: input.householdId,
-    p_invited_role: input.role,
-    p_invited_email: input.invitedEmail?.trim().toLowerCase() || null,
-    p_owner_display_name: input.ownerDisplayName.trim(),
-  });
+  const invitedEmail = input.invitedEmail?.trim().toLowerCase() || '';
+  let data: unknown;
+  if (invitedEmail) {
+    const result = await client.functions.invoke('household-invite-send', { body: {
+      householdId: input.householdId,
+      role: input.role,
+      invitedEmail,
+      ownerDisplayName: input.ownerDisplayName.trim(),
+    } });
+    if (result.error) throw new Error(result.error.message || 'Unable to send Household invitation');
+    data = result.data;
+  } else {
+    data = await callRpc(client, 'create_kwilt_household_member_invite', {
+      p_household_id: input.householdId,
+      p_invited_role: input.role,
+      p_invited_email: null,
+      p_owner_display_name: input.ownerDisplayName.trim(),
+    });
+    if (data && typeof data === 'object') {
+      data = {
+        ...data,
+        recovered: typeof (data as { recovered?: unknown }).recovered === 'boolean'
+          ? (data as { recovered: boolean }).recovered
+          : false,
+        emailDelivery: 'not_requested' as const,
+      };
+    }
+  }
   if (!data || typeof data !== 'object'
     || !isString((data as { code?: unknown }).code)
     || !isString((data as { expiresAt?: unknown }).expiresAt)
-    || !isInvitationRole((data as { role?: unknown }).role)) {
+    || !isInvitationRole((data as { role?: unknown }).role)
+    || typeof (data as { recovered?: unknown }).recovered !== 'boolean'
+    || !['sent', 'failed', 'not_requested'].includes(String((data as { emailDelivery?: unknown }).emailDelivery))) {
     throw new Error('Invalid Household invitation');
   }
   return data as HouseholdInvitation;
+}
+
+function parseInvitationPreview(data: unknown): HouseholdInvitationPreview {
+  if (!data || typeof data !== 'object'
+    || !isString((data as { householdName?: unknown }).householdName)
+    || !isString((data as { inviterDisplayName?: unknown }).inviterDisplayName)
+    || !isInvitationRole((data as { role?: unknown }).role)
+    || !isString((data as { expiresAt?: unknown }).expiresAt)
+    || ((data as { invitationId?: unknown }).invitationId !== undefined
+      && !isString((data as { invitationId?: unknown }).invitationId))) {
+    throw new Error('Invalid Household invitation preview');
+  }
+  return data as HouseholdInvitationPreview;
 }
 
 export async function previewHouseholdInvite(
@@ -237,16 +286,26 @@ export async function previewHouseholdInvite(
   code: string,
 ): Promise<HouseholdInvitationPreview> {
   const data = await callRpc(client, 'preview_kwilt_household_invite', {
-    p_code: code.trim().toUpperCase(),
+    p_code: normalizeHouseholdInviteCode(code),
   });
-  if (!data || typeof data !== 'object'
-    || !isString((data as { householdName?: unknown }).householdName)
-    || !isString((data as { inviterDisplayName?: unknown }).inviterDisplayName)
-    || !isInvitationRole((data as { role?: unknown }).role)
-    || !isString((data as { expiresAt?: unknown }).expiresAt)) {
-    throw new Error('Invalid Household invitation preview');
-  }
-  return data as HouseholdInvitationPreview;
+  return parseInvitationPreview(data);
+}
+
+export async function findPendingHouseholdInviteForMe(
+  client: SupabaseClient,
+): Promise<HouseholdInvitationPreview | null> {
+  const data = await callRpc(client, 'get_kwilt_pending_household_invitation_for_me');
+  return data === null ? null : parseInvitationPreview(data);
+}
+
+export function acceptPendingHouseholdInviteForMe(client: SupabaseClient, input: {
+  invitationId: string;
+  displayName: string;
+}): Promise<HouseholdSnapshot> {
+  return snapshotRpc(client, 'accept_kwilt_pending_household_invitation_for_me', {
+    p_invitation_id: input.invitationId,
+    p_display_name: input.displayName.trim(),
+  });
 }
 
 export function acceptHouseholdMemberInvite(client: SupabaseClient, input: {
@@ -254,7 +313,7 @@ export function acceptHouseholdMemberInvite(client: SupabaseClient, input: {
   displayName: string;
 }): Promise<HouseholdSnapshot> {
   return snapshotRpc(client, 'accept_kwilt_household_member_invite', {
-    p_code: input.code.trim().toUpperCase(),
+    p_code: normalizeHouseholdInviteCode(input.code),
     p_display_name: input.displayName.trim(),
   });
 }

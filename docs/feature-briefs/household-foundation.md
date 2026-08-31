@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-08-26
+last_updated: 2026-08-30
 ---
 
 # Household Foundation
@@ -173,6 +173,16 @@ one existing child membership and can create device-bound managed access. Neithe
 transport activates a capability or supplies Apple guardian authorization.
 
 Charlie sees who invited him, the proposed child role, what Household membership shares, what remains private, and that Screen Time device authorization is a separate later step. He may decline. Kwilt does not reveal to Andrew whether an entered email already has an account, and it does not silently merge an authenticated account with a same-named dependent profile.
+
+### Invitation delivery and recovery
+
+Email, app discovery, QR, shared link, and manual code are transports over one pending invitation identity. Entering an email must attempt real delivery and report the provider outcome truthfully; it must never present an email-bound database row as a sent message.
+
+The authenticated recipient may discover pending invitations only when the invitation's normalized email exactly matches the account's verified email. Discovery returns the same bounded review as a link or code and never exposes account existence to the sender. Acceptance remains explicit.
+
+Creating an invitation for the same Household, role, and normalized email while one is still pending recovers that invitation instead of adding a duplicate row. The recovery may rotate its bootstrap secret, but the receipt must make any replacement explicit and the audit trail must retain one invitation identity.
+
+The sender receipt shows one QR code for the installed-app link, one readable eight-character manual fallback, expiry, factual email status, and one dominant **Share invitation** action. QR and code are bootstrap proofs only; they do not grant membership, activate capabilities, or authorize a child device. See [`docs/design-explorations/household-invite-delivery-recovery/`](../design-explorations/household-invite-delivery-recovery/).
 
 ### Lifecycle
 

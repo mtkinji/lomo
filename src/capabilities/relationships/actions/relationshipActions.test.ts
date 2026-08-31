@@ -39,8 +39,10 @@ function boundary(): jest.Mocked<HouseholdActionBoundary> {
     createInvitation: jest.fn(async (
       _input: Parameters<HouseholdActionBoundary['createInvitation']>[0],
     ) => ({
-      code: 'ABC123', expiresAt: '2026-08-27T00:00:00Z', role: 'caregiver' as const,
+      code: 'ABCD2345', expiresAt: '2026-08-27T00:00:00Z', role: 'caregiver' as const,
+      recovered: false, emailDelivery: 'sent' as const,
     })),
+    findPendingInvitation: jest.fn(async () => null),
     previewInvitation: jest.fn(async (
       _code: Parameters<HouseholdActionBoundary['previewInvitation']>[0],
     ) => ({
@@ -49,6 +51,9 @@ function boundary(): jest.Mocked<HouseholdActionBoundary> {
     })),
     acceptInvitation: jest.fn(async (
       _input: Parameters<HouseholdActionBoundary['acceptInvitation']>[0],
+    ) => familySnapshot),
+    acceptPendingInvitation: jest.fn(async (
+      _input: Parameters<HouseholdActionBoundary['acceptPendingInvitation']>[0],
     ) => familySnapshot),
     setChildCapability: jest.fn(async (
       _input: Parameters<HouseholdActionBoundary['setChildCapability']>[0],
@@ -103,7 +108,7 @@ describe('Relationships and Household actions', () => {
       ownerDisplayName: ' Andrew ', confirmed: true,
     }, store)).resolves.toMatchObject({
       operationId: 'household.invitation.create', status: 'completed', reversible: false,
-      result: { code: 'ABC123', role: 'caregiver' },
+      result: { code: 'ABCD2345', role: 'caregiver' },
     });
     expect(store.createInvitation).toHaveBeenCalledWith({
       householdId: 'household-1', role: 'caregiver', invitedEmail: 'caregiver@example.com',

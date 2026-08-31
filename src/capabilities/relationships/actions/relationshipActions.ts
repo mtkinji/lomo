@@ -19,8 +19,10 @@ export type HouseholdActionBoundary = {
     invitedEmail?: string;
     ownerDisplayName: string;
   }): Promise<HouseholdInvitation>;
+  findPendingInvitation(): Promise<HouseholdInvitationPreview | null>;
   previewInvitation(code: string): Promise<HouseholdInvitationPreview>;
   acceptInvitation(input: { code: string; displayName: string }): Promise<HouseholdSnapshot>;
+  acceptPendingInvitation(input: { invitationId: string; displayName: string }): Promise<HouseholdSnapshot>;
   setChildCapability(input: {
     childMembershipId: string;
     capabilityId: ChildCapabilityId;
@@ -143,6 +145,17 @@ export async function previewHouseholdInvitation(
   };
 }
 
+export async function findPendingHouseholdInvitation(
+  boundary: HouseholdActionBoundary,
+): Promise<HouseholdActionReceipt<HouseholdInvitationPreview | null>> {
+  const result = await boundary.findPendingInvitation();
+  return {
+    operationId: 'household.invitation.preview', status: 'completed',
+    resultRefs: result ? [{ kind: 'household_invitation_preview', id: result.invitationId ?? 'matched' }] : [],
+    reversible: true, result,
+  };
+}
+
 export async function acceptHouseholdInvitation(
   input: { code: string; displayName: string; confirmed: boolean },
   boundary: HouseholdActionBoundary,
@@ -150,6 +163,18 @@ export async function acceptHouseholdInvitation(
   assertConfirmed(input.confirmed);
   const result = await boundary.acceptInvitation({
     code: input.code.trim().toUpperCase(),
+    displayName: input.displayName.trim(),
+  });
+  return snapshotReceipt('household.invitation.accept', result, false);
+}
+
+export async function acceptPendingHouseholdInvitation(
+  input: { invitationId: string; displayName: string; confirmed: boolean },
+  boundary: HouseholdActionBoundary,
+): Promise<HouseholdActionReceipt<HouseholdSnapshot>> {
+  assertConfirmed(input.confirmed);
+  const result = await boundary.acceptPendingInvitation({
+    invitationId: input.invitationId,
     displayName: input.displayName.trim(),
   });
   return snapshotReceipt('household.invitation.accept', result, false);

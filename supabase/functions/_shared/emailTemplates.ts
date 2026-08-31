@@ -323,6 +323,46 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
   return { subject, text, html };
 }
 
+export function buildHouseholdInviteEmail(params: {
+  inviterName: string;
+  householdName: string;
+  role: 'caregiver' | 'child';
+  inviteLink: string;
+  inviteCode: string;
+}): EmailContent {
+  const inviterName = params.inviterName.trim() || 'Someone';
+  const householdName = params.householdName.trim() || 'their Household';
+  const role = params.role === 'child' ? 'child' : 'caregiver';
+  const inviteLink = params.inviteLink.trim();
+  const inviteCode = params.inviteCode.trim();
+  const subject = `${inviterName} invited you to their Household in Kwilt`;
+  const reviewCopy = 'You’ll review what joining shares before you accept.';
+
+  const text = [
+    `${inviterName} invited you to join ${householdName} as a ${role}.`,
+    reviewCopy,
+    'Open invitation:',
+    inviteLink,
+    `Manual code: ${inviteCode}`,
+    'Household membership shares the family roster. Your private Goals, chats, Money, and Activities stay private.',
+  ].join('\n\n');
+
+  const html = renderLayout({
+    title: `${inviterName} invited you`,
+    preheader: `Review an invitation to ${householdName}.`,
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Join <strong>${escapeHtml(householdName)}</strong> as a ${role}.</p>
+      <p style="margin:0 0 18px;color:#6b7280;">${escapeHtml(reviewCopy)} Household membership shares the family roster; your private Kwilt content stays private.</p>
+      ${renderCta(inviteLink, 'Open invitation')}
+      ${renderFallbackLink(inviteLink)}
+      <p style="margin:18px 0 0;color:#6b7280;">Manual code: <strong>${escapeHtml(inviteCode)}</strong></p>
+    `,
+    footerText: 'This invitation expires and can only be accepted by the intended Kwilt account.',
+  });
+
+  return { subject, text, html };
+}
+
 function countLabel(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }

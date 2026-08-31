@@ -7,6 +7,7 @@ import {
   buildHouseholdPlanInviteMessage,
   createCaregiverInvite,
   createHouseholdMemberInvite,
+  findPendingHouseholdInviteForMe,
   getHouseholdSnapshot,
   previewHouseholdInvite,
   removeHouseholdMember,
@@ -29,7 +30,8 @@ const snapshot = {
 
 function clientReturning(data: unknown = snapshot, error: unknown = null) {
   const rpc = jest.fn().mockResolvedValue({ data, error });
-  return { client: { rpc } as unknown as SupabaseClient, rpc };
+  const invoke = jest.fn();
+  return { client: { rpc, functions: { invoke } } as unknown as SupabaseClient, rpc, invoke };
 }
 
 describe('Household data boundary', () => {
@@ -104,12 +106,8 @@ describe('Household data boundary', () => {
   });
 
   it('creates, previews, and accepts a child account invitation', async () => {
-    const { client, rpc } = clientReturning();
+    const { client, rpc, invoke } = clientReturning();
     rpc
-      .mockResolvedValueOnce({
-        data: { code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child' },
-        error: null,
-      })
       .mockResolvedValueOnce({
         data: {
           householdName: 'My household',
@@ -120,13 +118,23 @@ describe('Household data boundary', () => {
         error: null,
       })
       .mockResolvedValueOnce({ data: snapshot, error: null });
+    invoke.mockResolvedValueOnce({
+      data: {
+        code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child',
+        recovered: false, emailDelivery: 'sent',
+      },
+      error: null,
+    });
 
     await expect(createHouseholdMemberInvite(client, {
       householdId: null,
       role: 'child',
       invitedEmail: ' Charlie@Example.com ',
       ownerDisplayName: ' Andrew ',
-    })).resolves.toEqual({ code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child' });
+    })).resolves.toEqual({
+      code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child',
+      recovered: false, emailDelivery: 'sent',
+    });
     await expect(previewHouseholdInvite(client, ' ab12cd ')).resolves.toEqual({
       householdName: 'My household',
       inviterDisplayName: 'Andrew',
@@ -135,19 +143,59 @@ describe('Household data boundary', () => {
     });
     await acceptHouseholdMemberInvite(client, { code: ' ab12cd ', displayName: ' Charlie ' });
 
-    expect(rpc).toHaveBeenNthCalledWith(1, 'create_kwilt_household_member_invite', {
-      p_household_id: null,
-      p_invited_role: 'child',
-      p_invited_email: 'charlie@example.com',
-      p_owner_display_name: 'Andrew',
-    });
-    expect(rpc).toHaveBeenNthCalledWith(2, 'preview_kwilt_household_invite', {
+    expect(invoke).toHaveBeenCalledWith('household-invite-send', { body: {
+      householdId: null,
+      role: 'child',
+      invitedEmail: 'charlie@example.com',
+      ownerDisplayName: 'Andrew',
+    } });
+    expect(rpc).toHaveBeenNthCalledWith(1, 'preview_kwilt_household_invite', {
       p_code: 'AB12CD',
     });
-    expect(rpc).toHaveBeenNthCalledWith(3, 'accept_kwilt_household_member_invite', {
+    expect(rpc).toHaveBeenNthCalledWith(2, 'accept_kwilt_household_member_invite', {
       p_code: 'AB12CD',
       p_display_name: 'Charlie',
     });
+  });
+
+  it('sends an email-bound invitation and returns a truthful reusable receipt', async () => {
+    const { client, invoke } = clientReturning();
+    invoke.mockResolvedValue({
+      data: {
+        code: 'ABCD2345',
+        expiresAt: '2026-09-06T00:00:00Z',
+        role: 'caregiver',
+        recovered: true,
+        emailDelivery: 'sent',
+      },
+      error: null,
+    });
+
+    await expect(createHouseholdMemberInvite(client, {
+      householdId: 'household-1',
+      role: 'caregiver',
+      invitedEmail: ' Blaire@Example.com ',
+      ownerDisplayName: ' Andrew ',
+    })).resolves.toMatchObject({ recovered: true, emailDelivery: 'sent' });
+    expect(invoke).toHaveBeenCalledWith('household-invite-send', { body: {
+      householdId: 'household-1',
+      role: 'caregiver',
+      invitedEmail: 'blaire@example.com',
+      ownerDisplayName: 'Andrew',
+    } });
+  });
+
+  it('discovers the pending invitation for the signed-in email without a code', async () => {
+    const pending = {
+      invitationId: 'invite-1',
+      householdName: 'My household',
+      inviterDisplayName: 'Andrew',
+      role: 'caregiver',
+      expiresAt: '2026-09-06T00:00:00Z',
+    };
+    const { client, rpc } = clientReturning(pending);
+    await expect(findPendingHouseholdInviteForMe(client)).resolves.toEqual(pending);
+    expect(rpc).toHaveBeenCalledWith('get_kwilt_pending_household_invitation_for_me');
   });
 
   it('rejects malformed role-aware invitation responses', async () => {

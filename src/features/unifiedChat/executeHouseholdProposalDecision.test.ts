@@ -54,7 +54,8 @@ function boundary(): CompleteHouseholdActionBoundary {
     })),
     previewMemberRemoval: jest.fn(), removeMember: jest.fn(), listDevices: jest.fn(async () => [device]),
     updateDevice: jest.fn(), revokeDevice: jest.fn(), reconcileDevice: jest.fn(async () => ({ device, requiresNativeCleanup: true })),
-    addDependent: jest.fn(), createInvitation: jest.fn(), previewInvitation: jest.fn(), acceptInvitation: jest.fn(),
+    addDependent: jest.fn(), createInvitation: jest.fn(), findPendingInvitation: jest.fn(),
+    previewInvitation: jest.fn(), acceptInvitation: jest.fn(), acceptPendingInvitation: jest.fn(),
     setChildCapability: jest.fn(), setCaregiverGrant: jest.fn(),
   };
 }

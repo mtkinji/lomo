@@ -15,6 +15,8 @@ const mockAcceptCaregiverInvite = jest.fn();
 const mockCreateHouseholdMemberInvite = jest.fn();
 const mockPreviewHouseholdInvite = jest.fn();
 const mockAcceptHouseholdMemberInvite = jest.fn();
+const mockFindPendingHouseholdInviteForMe = jest.fn();
+const mockAcceptPendingHouseholdInviteForMe = jest.fn();
 const mockResolveHouseholdAvatars = jest.fn();
 const mockRootNavigate = jest.fn();
 
@@ -26,6 +28,8 @@ jest.mock('../../services/backend/supabaseClient', () => ({
   getSupabaseClient: () => ({ rpc: jest.fn() }),
 }));
 
+jest.mock('react-native-qrcode-svg', () => () => null);
+
 jest.mock('./data/household', () => ({
   getHouseholdSnapshot: (...args: unknown[]) => mockGetHouseholdSnapshot(...args),
   addDependentChild: (...args: unknown[]) => mockAddDependentChild(...args),
@@ -36,7 +40,10 @@ jest.mock('./data/household', () => ({
   createHouseholdMemberInvite: (...args: unknown[]) => mockCreateHouseholdMemberInvite(...args),
   previewHouseholdInvite: (...args: unknown[]) => mockPreviewHouseholdInvite(...args),
   acceptHouseholdMemberInvite: (...args: unknown[]) => mockAcceptHouseholdMemberInvite(...args),
+  findPendingHouseholdInviteForMe: (...args: unknown[]) => mockFindPendingHouseholdInviteForMe(...args),
+  acceptPendingHouseholdInviteForMe: (...args: unknown[]) => mockAcceptPendingHouseholdInviteForMe(...args),
   buildHouseholdInviteUrl: (code: string) => `https://go.kwilt.app/open/household/${code.trim().toUpperCase()}`,
+  formatHouseholdInviteCode: (code: string) => code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code,
 }));
 jest.mock('./data/householdAvatars', () => ({
   resolveHouseholdAvatars: (...args: unknown[]) => mockResolveHouseholdAvatars(...args),
@@ -78,7 +85,8 @@ describe('HouseholdSettingsScreen', () => {
     mockCreateCaregiverInvite.mockReset().mockResolvedValue({ code: 'ABC123', expiresAt: '2026-08-04T00:00:00Z' });
     mockAcceptCaregiverInvite.mockReset().mockResolvedValue(familySnapshot);
     mockCreateHouseholdMemberInvite.mockReset().mockResolvedValue({
-      code: 'CHILD12', expiresAt: '2026-08-05T00:00:00Z', role: 'child',
+      code: 'ABCD2345', expiresAt: '2026-08-05T00:00:00Z', role: 'child',
+      recovered: false, emailDelivery: 'sent',
     });
     mockPreviewHouseholdInvite.mockReset().mockResolvedValue({
       householdName: 'My household',
@@ -87,6 +95,8 @@ describe('HouseholdSettingsScreen', () => {
       expiresAt: '2026-08-05T00:00:00Z',
     });
     mockAcceptHouseholdMemberInvite.mockReset().mockResolvedValue(familySnapshot);
+    mockFindPendingHouseholdInviteForMe.mockReset().mockResolvedValue(null);
+    mockAcceptPendingHouseholdInviteForMe.mockReset().mockResolvedValue(familySnapshot);
     mockResolveHouseholdAvatars.mockReset().mockResolvedValue({});
     mockRootNavigate.mockReset();
     screenProps.navigation.navigate.mockReset();
@@ -160,7 +170,7 @@ describe('HouseholdSettingsScreen', () => {
     fireEvent.press(getByText('Add a child'));
     fireEvent.press(getByText('Already uses Kwilt'));
     fireEvent.changeText(getByLabelText('Child account email'), 'charlie@example.com');
-    fireEvent.press(getByText('Create invitation'));
+    fireEvent.press(getByText('Send invitation'));
 
     await waitFor(() => expect(mockCreateHouseholdMemberInvite).toHaveBeenCalledWith(expect.anything(), {
       householdId: null,
@@ -169,12 +179,34 @@ describe('HouseholdSettingsScreen', () => {
       ownerDisplayName: 'Andrew',
     }));
     expect(mockAddDependentChild).not.toHaveBeenCalled();
-    expect(getByText('Child invitation code: CHILD12')).toBeTruthy();
+    expect(getByText('ABCD-2345')).toBeTruthy();
+    expect(getByLabelText('Household invitation QR code')).toBeTruthy();
+    expect(getByText('Email sent. They can also scan this QR code.')).toBeTruthy();
     fireEvent.press(getByText('Share invitation'));
     expect(share).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'https://go.kwilt.app/open/household/CHILD12',
+      url: 'https://go.kwilt.app/open/household/ABCD2345',
       message: expect.stringContaining('not your private Goals, chats, Money, or Activities'),
     }));
+  });
+
+  it('surfaces an email-matched pending invitation without asking for its code', async () => {
+    mockFindPendingHouseholdInviteForMe.mockResolvedValue({
+      invitationId: 'invite-1',
+      householdName: 'My household',
+      inviterDisplayName: 'Blaire',
+      role: 'caregiver',
+      expiresAt: '2026-09-06T00:00:00Z',
+    });
+    const { getByText, queryByLabelText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+
+    await waitFor(() => expect(getByText('Blaire invited you')).toBeTruthy());
+    expect(queryByLabelText('Household invitation code')).toBeNull();
+    fireEvent.press(getByText('Join household'));
+
+    await waitFor(() => expect(mockAcceptPendingHouseholdInviteForMe).toHaveBeenCalledWith(
+      expect.anything(),
+      { invitationId: 'invite-1', displayName: 'Andrew' },
+    ));
   });
 
   it('opens an invitation link at review without joining automatically', async () => {

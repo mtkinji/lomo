@@ -3,9 +3,11 @@ import type { HouseholdActionBoundary } from '../../../capabilities/relationship
 import type { HouseholdManagementBoundary } from './householdManagementActions';
 import {
   acceptHouseholdMemberInvite,
+  acceptPendingHouseholdInviteForMe,
   addDependentChild,
   createHouseholdMemberInvite,
   getHouseholdSnapshot,
+  findPendingHouseholdInviteForMe,
   previewHouseholdMemberRemovalRecord,
   previewHouseholdInvite,
   removeHouseholdMemberReviewedRecord,
@@ -27,8 +29,10 @@ export function createHouseholdActionBoundary(client: SupabaseClient): CompleteH
     read: () => getHouseholdSnapshot(client),
     addDependent: (input) => addDependentChild(client, input),
     createInvitation: (input) => createHouseholdMemberInvite(client, input),
+    findPendingInvitation: () => findPendingHouseholdInviteForMe(client),
     previewInvitation: (code) => previewHouseholdInvite(client, code),
     acceptInvitation: (input) => acceptHouseholdMemberInvite(client, input),
+    acceptPendingInvitation: (input) => acceptPendingHouseholdInviteForMe(client, input),
     setChildCapability: (input) => setChildCapabilityActivation(client, input),
     setCaregiverGrant: (input) => setCaregiverCapabilityGrant(client, input),
     updateMember: (input) => updateHouseholdMemberRecord(client, input),
