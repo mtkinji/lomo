@@ -5,6 +5,7 @@ import {
   plaidBaseUrls,
 } from '../_shared/plaid.ts';
 import { getAuthenticatedUser, isAuthenticationError } from '../_shared/supabase.ts';
+import { resolveServerProAccess } from '../_shared/serverAgentEntitlement.ts';
 import {
   buildPlaidPlatformFields,
   buildPlaidLinkModeFields,
@@ -36,6 +37,13 @@ Deno.serve(async (request) => {
 
   try {
     const { supabase, user } = await getAuthenticatedUser(request);
+    const proAccess = await resolveServerProAccess(supabase, user.id);
+    if (!proAccess.allowed) {
+      return Response.json(
+        { error: 'Kwilt Pro is required for connected Money.', code: 'pro_required' },
+        { status: 402, headers: corsHeaders },
+      );
+    }
     const body = await request.json().catch(() => ({}));
     const connectionId = body && typeof body === 'object' && 'connectionId' in body
       && typeof body.connectionId === 'string' ? body.connectionId.trim() : '';

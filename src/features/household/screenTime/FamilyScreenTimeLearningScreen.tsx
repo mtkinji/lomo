@@ -23,6 +23,7 @@ import {
   useFamilyScreenTimeLearningStore,
 } from './useFamilyScreenTimeLearningStore';
 import { listHouseholdDevices } from '../data/householdDeviceParticipation';
+import { requestFamilyScreenTimeProAccess } from './familyScreenTimeProAccess';
 
 type Props = {
   navigation: {
@@ -127,6 +128,7 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
 
   const activate = () => {
     if (!__DEV__ || deliveryState === 'applying') return;
+    if (!requestFamilyScreenTimeProAccess()) return;
     const policyVersion = activateAgreement(recordKey, new Date().toISOString());
     trackFamilyScreenTime(capture, 'agreement_activated', {
       childMembershipId,
@@ -140,10 +142,12 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
 
   const retryDelivery = () => {
     if (record.desiredPolicyVersion <= 0) return;
+    if (!requestFamilyScreenTimeProAccess()) return;
     void deliverPolicy(record.desiredPolicyVersion);
   };
 
   const openDeviceSetup = () => {
+    if (!requestFamilyScreenTimeProAccess()) return;
     trackFamilyScreenTime(capture, 'setup_opened', {
       childMembershipId,
       entrySurface: 'household',
@@ -168,6 +172,7 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
       return;
     }
     if (summary.nextAction === 'edit') {
+      if (!requestFamilyScreenTimeProAccess()) return;
       const currentStartHour = String(Math.floor(record.rule.startMinute / 60));
       setDraftStartHour(currentStartHour === '15' ? '3' : currentStartHour === '17' ? '5' : '4');
       setDraftLimit(
@@ -182,6 +187,7 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
   };
 
   const saveChanges = () => {
+    if (!requestFamilyScreenTimeProAccess()) return;
     updateAgreement(recordKey, {
       ...record.rule,
       startMinute: (Number(draftStartHour) + 12) * 60,

@@ -3,6 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BillingCadence, EntitlementsSnapshot, ProPlan } from '../services/entitlements';
 import { getEntitlements, identifyRevenueCatUser, purchaseProSku, restorePurchases } from '../services/entitlements';
+import { useAppStore } from './useAppStore';
+import { deactivatePersonalCompositeScreenTimeRule } from '../services/screenTimeProtectionRuntime';
+import { deactivateAdvancedPersonalRulesForConfirmedDowngrade } from '../features/screen-time/runtime/screenTimeMonetizationLifecycle';
 
 export type EntitlementsState = {
   isPro: boolean;
@@ -44,6 +47,16 @@ const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
   isStale: Boolean(snapshot.isStale),
   lastResolvedAppUserID: snapshot.appUserID ?? null,
 });
+
+function applyConfirmedDowngradeIfNeeded(wasPro: boolean, snapshot: EntitlementsSnapshot): void {
+  if (!wasPro || snapshot.isPro || snapshot.isStale) return;
+  void deactivateAdvancedPersonalRulesForConfirmedDowngrade({
+    readSettings: () => useAppStore.getState().screenTimeProtection,
+    persistSettings: (settings) => useAppStore.getState().setScreenTimeProtection(settings),
+    deactivateRule: deactivatePersonalCompositeScreenTimeRule,
+    now: () => new Date().toISOString(),
+  });
+}
 
 let identifyRequestSeq = 0;
 
@@ -96,6 +109,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
             forceRefresh: Boolean(params?.force),
             appUserID: get().identifiedAppUserID,
           });
+          applyConfirmedDowngradeIfNeeded(get().isPro, snapshot);
           set({ ...applySnapshot(snapshot), isRefreshing: false });
           return snapshot;
         } catch (e: any) {
@@ -160,6 +174,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
           if (requestSeq !== identifyRequestSeq || get().identifiedAppUserID !== normalizedAppUserID) {
             return snapshot;
           }
+          applyConfirmedDowngradeIfNeeded(get().isPro, snapshot);
           set({
             ...applySnapshot(snapshot),
             identifiedAppUserID: normalizedAppUserID,
@@ -222,6 +237,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         set({ isRefreshing: true, lastError: null });
         try {
           const snapshot = await restorePurchases(get().identifiedAppUserID);
+          applyConfirmedDowngradeIfNeeded(get().isPro, snapshot);
           set({ ...applySnapshot(snapshot), isRefreshing: false });
           return snapshot;
         } catch (e: any) {

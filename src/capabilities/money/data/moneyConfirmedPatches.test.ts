@@ -3,6 +3,7 @@ import {
   applyConfirmedCategoryPatch,
   applyConfirmedMerchantRulePatch,
   applyConfirmedTransactionPlanRolePatch,
+  applyConfirmedTransactionNotePatch,
   applyConfirmedTransactionPatch,
 } from './moneyConfirmedPatches';
 
@@ -29,6 +30,17 @@ const snapshot = {
 } as MoneySnapshot;
 
 describe('confirmed Money patches', () => {
+  it('applies a confirmed household note without changing financial truth', () => {
+    const result = applyConfirmedTransactionNotePatch(snapshot, {
+      transactionId: 'transaction-1',
+      note: 'Family pictures',
+    });
+
+    expect(result.transactions[0]).toMatchObject({ userNote: 'Family pictures', categoryName: 'Needs review' });
+    expect(result.totals).toEqual(snapshot.totals);
+    expect(result.categories).toBe(snapshot.categories);
+  });
+
   it('updates a confirmed transaction category without replacing the snapshot', () => {
     const result = applyConfirmedTransactionPatch(snapshot, {
       transactionId: 'transaction-1', categoryId: 'groceries', categoryName: 'Groceries',

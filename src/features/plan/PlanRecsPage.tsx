@@ -348,12 +348,6 @@ export function PlanRecsPage({
             iconName={emptyIconName}
             style={{ marginTop: 0 }}
             primaryAction={primaryAction ?? undefined}
-            secondaryAction={!isPro && emptyState.kind === 'nothing_to_recommend' ? {
-              label: 'Unlock Focus Mode with Pro',
-              variant: 'outline',
-              onPress: () => openPaywallInterstitial({ reason: 'focus_mode', source: 'plan_empty_state' }),
-              accessibilityLabel: 'Learn about Focus Mode',
-            } : undefined}
           />
         </View>
       </View>

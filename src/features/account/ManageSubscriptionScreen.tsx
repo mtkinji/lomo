@@ -21,7 +21,6 @@ import {
 } from '../../services/entitlements';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { useAppStore } from '../../store/useAppStore';
-import { FREE_MAX_ACTIVE_GOALS_PER_ARC, FREE_MAX_ARCS_TOTAL } from '../../domain/limits';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
   PRO_GENERATIVE_CREDITS_PER_MONTH,
@@ -32,26 +31,12 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { usePaywallStore } from '../../store/usePaywallStore';
 import { SubscriptionLegalLinks } from '../paywall/SubscriptionLegalLinks';
-import {
-  SUBSCRIPTION_PRICING,
-  getAnnualSavingsPercent,
-  type SubscriptionPlan,
-} from './subscriptionPricing';
+import type { SubscriptionPlan } from './subscriptionPricing';
 
 type BillingCadence = 'annual' | 'monthly';
 type ProPlan = SubscriptionPlan;
 
 const ANNUAL_NUDGE_STREAK_THRESHOLD = 3;
-
-function formatMoney(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-function formatPriceLabel(plan: ProPlan, cadence: BillingCadence): string {
-  const pricing = SUBSCRIPTION_PRICING[plan];
-  const amount = cadence === 'annual' ? pricing.annual : pricing.monthly;
-  return cadence === 'annual' ? `${formatMoney(amount)}/yr` : `${formatMoney(amount)}/mo`;
-}
 
 function formatPriceLabelWithRevenueCat(params: {
   plan: ProPlan;
@@ -63,7 +48,7 @@ function formatPriceLabelWithRevenueCat(params: {
   if (typeof priceString === 'string' && priceString.length > 0) {
     return params.cadence === 'annual' ? `${priceString}/yr` : `${priceString}/mo`;
   }
-  return formatPriceLabel(params.plan, params.cadence);
+  return 'Price unavailable';
 }
 
 function PlanRow({
@@ -141,19 +126,20 @@ export function ManageSubscriptionScreen() {
   const accountAgeDays = firstOpenedAtMs ? Math.floor((Date.now() - firstOpenedAtMs) / (24 * 60 * 60 * 1000)) : 0;
 
   const shouldNudgeAnnual =
-    (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD && effectiveBillingCadence === 'monthly';
+    (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD &&
+    effectiveBillingCadence === 'monthly' &&
+    Boolean(skuPricing?.[getProSku(plan, 'annual')]?.priceString);
 
   // Tenure-based nudge messaging: 30-day and 90-day milestones get more impactful copy.
   const annualNudgeCopy = React.useMemo(() => {
     const savingsLabel = formatPriceLabelWithRevenueCat({ plan, cadence: 'annual', skuPricing });
-    const savingsPercent = getAnnualSavingsPercent(plan);
     if (accountAgeDays >= 90) {
-      return `You\u2019ve been using Kwilt for ${accountAgeDays} days. Lock in annual and save ${savingsPercent}% (${savingsLabel})`;
+      return `You\u2019ve been using Kwilt for ${accountAgeDays} days. See the annual option (${savingsLabel}).`;
     }
     if (accountAgeDays >= 30) {
-      return `One month in and still going \u2014 save ${savingsPercent}% with annual (${savingsLabel})`;
+      return `One month in and still going. See the annual option (${savingsLabel}).`;
     }
-    return `Best value: Annual saves ${savingsPercent}% (${savingsLabel})`;
+    return `See the annual option (${savingsLabel}).`;
   }, [accountAgeDays, plan, skuPricing]);
 
   const currentKey = getMonthKey(new Date());
@@ -169,7 +155,7 @@ export function ManageSubscriptionScreen() {
   const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
 
   React.useEffect(() => {
-    // Best-effort: fetch live pricing from RevenueCat offerings (fallback to hardcoded values).
+    // Store pricing is the only customer-facing price truth.
     getProSkuPricing(identifiedAppUserID)
       .then((next) => setSkuPricing(next))
       .catch(() => setSkuPricing(null));
@@ -220,7 +206,7 @@ export function ManageSubscriptionScreen() {
                   <VStack space="xs">
                     <Heading style={styles.planTitle}>Kwilt Pro</Heading>
                     <Text style={styles.planSubtitle}>
-                      Unlimited arcs + goals. Manage billing and plan changes in the App Store.
+                      Connected Money, advanced Screen Time, and advanced AI. Manage billing in the App Store.
                     </Text>
                   </VStack>
                 </LinearGradient>
@@ -235,15 +221,8 @@ export function ManageSubscriptionScreen() {
                     </HStack>
 
                     <VStack space="xs">
-                      <Text style={styles.tierBullet}>
-                        <RNText style={styles.tierBulletStrong}>{`• ${FREE_MAX_ARCS_TOTAL}`}</RNText>
-                        {` Arc`}
-                        {FREE_MAX_ARCS_TOTAL === 1 ? '' : 's'}
-                      </Text>
-                      <Text style={styles.tierBullet}>
-                        <RNText style={styles.tierBulletStrong}>{`• ${FREE_MAX_ACTIVE_GOALS_PER_ARC}`}</RNText>
-                        {` active goals per Arc`}
-                      </Text>
+                      <Text style={styles.tierBullet}>• Arcs, Goals, planning, Focus, and attachments</Text>
+                      <Text style={styles.tierBullet}>• Basic one-condition Screen Time rules</Text>
                       <Text style={styles.tierBullet}>
                         <RNText style={styles.tierBulletStrong}>{`• ${monthlyLimit}`}</RNText>
                         {` AI credits / month`}
@@ -298,9 +277,9 @@ export function ManageSubscriptionScreen() {
                   <LinearGradient colors={paywallTheme.gradientColors} style={styles.upgradeCard}>
                     <VStack space="xs">
                       <Text style={styles.upgradeKicker}>Kwilt Pro</Text>
-                      <Heading style={styles.upgradeTitle}>Scale your progress</Heading>
+                      <Heading style={styles.upgradeTitle}>Connect the parts that need more power</Heading>
                       <Text style={styles.upgradeBody}>
-                        Unlimited arcs + goals, family plans, longer focus sessions, searchable banner images, and a larger monthly AI budget.
+                        Build budgets from connected accounts, combine Screen Time conditions, coordinate family rules, and use advanced AI actions.
                       </Text>
                     </VStack>
                     <Pressable

@@ -18,6 +18,7 @@ import {
   createChatCompletionStreamAccumulator,
   type ChatCompletionStreamUsage,
 } from '../_shared/aiChatCompletionStream.ts';
+import { resolveServerProAccess } from '../_shared/serverAgentEntitlement.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -326,6 +327,21 @@ Deno.serve(async (req) => {
     const bearer = req.headers.get('authorization') ?? '';
     if (!serviceRole || bearer !== `Bearer ${serviceRole}`) {
       return json(403, { error: { message: 'Unified Chat agent requires trusted server execution', code: 'forbidden' } });
+    }
+  }
+  if (aiJob === 'unified_chat_attachment') {
+    const admin = getSupabaseAdmin();
+    const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!admin || !token) {
+      return json(402, { error: { message: 'Kwilt Pro is required for attachment analysis', code: 'payment_required' } });
+    }
+    const { data: authData, error: authError } = await admin.auth.getUser(token);
+    if (authError || !authData.user) {
+      return json(401, { error: { message: 'Sign in is required', code: 'unauthorized' } });
+    }
+    const proAccess = await resolveServerProAccess(admin, authData.user.id);
+    if (!proAccess.allowed) {
+      return json(402, { error: { message: 'Kwilt Pro is required for attachment analysis', code: 'payment_required' } });
     }
   }
   const isOnboarding = chatMode === 'firstTimeOnboarding';

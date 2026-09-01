@@ -43,6 +43,10 @@ export const UNIFIED_CHAT_BEHAVIOR_EVAL_CASES: readonly UnifiedChatBehaviorEvalC
     'Look into my budgets and transactions. What additional budgets or changes to my existing budgets might I make for a better budget system?',
   ),
   review(
+    'money-system-review-hesitant-question',
+    "I'm not convinced I have ask the right budget categories right now. What do you think about them?",
+  ),
+  review(
     'money-system-review-paraphrase',
     'Review how my spending actually maps to my budgets and recommend a simpler structure.',
   ),

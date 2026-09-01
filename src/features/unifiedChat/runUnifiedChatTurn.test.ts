@@ -99,7 +99,13 @@ function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer
 
 const structuredGroundedAnswer = JSON.stringify({
   answer: 'A smaller next move is available.',
-  facts: ['The attached record is current.'],
+  facts: [{ text: 'The attached record is current.', evidence: ['E1'] }],
+  inference: 'Starting smaller may make follow-through easier.',
+  uncertainty: 'Kwilt did not inspect capabilities outside this request.',
+});
+const structuredGroundedAnswerWithoutEvidence = JSON.stringify({
+  answer: 'A smaller next move is available.',
+  facts: [{ text: 'No matching Kwilt records were available.', evidence: [] }],
   inference: 'Starting smaller may make follow-through easier.',
   uncertainty: 'Kwilt did not inspect capabilities outside this request.',
 });
@@ -284,7 +290,7 @@ describe('runUnifiedChatTurn', () => {
   });
 
   test('persists a confident semantic route before loading bounded evidence', async () => {
-    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
+    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswerWithoutEvidence));
     const routeRequest = jest.fn(async () => ({
       requestClass: 'capability_question' as const,
       participatingCapabilities: ['plan' as const],
@@ -953,7 +959,7 @@ describe('runUnifiedChatTurn', () => {
   test('renders the capability-owned Plan order even when model prose reprioritizes it', async () => {
     const modelAnswer = JSON.stringify({
       answer: 'The Priority 2 item is the most leverage, so do that first.',
-      facts: ['Priority 1 needs a larger window.'],
+      facts: [{ text: 'Priority 1 needs a larger window.', evidence: ['E1'] }],
       inference: 'Priority 2 feels easier.',
       uncertainty: 'Timing is unclear.',
     });
@@ -1039,7 +1045,7 @@ describe('runUnifiedChatTurn', () => {
   });
 
   test('persists explicit text attachments and uses their complete content for that request only', async () => {
-    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
+    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswerWithoutEvidence));
 
     await runUnifiedChatTurn(
       {

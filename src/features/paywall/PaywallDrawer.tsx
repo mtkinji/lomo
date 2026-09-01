@@ -24,25 +24,19 @@ type PaywallBenefit = { title: string };
 
 const PRO_VALUE_ATTAINMENTS: PaywallBenefit[] = [
   {
-    title: '1,000 AI credits / month',
+    title: 'Connected budgets and transaction insights',
   },
   {
-    title: 'Unlimited arcs + goals',
+    title: 'Advanced Screen Time rules with multiple conditions',
   },
   {
-    title: 'Attachments for to-dos',
+    title: 'Family Screen Time coordination',
   },
   {
-    title: 'Focus sessions up to 180 minutes',
+    title: 'More AI capacity and advanced AI actions',
   },
   {
-    title: 'Saved views + advanced filters for to-dos',
-  },
-  {
-    title: 'More banner images + search',
-  },
-  {
-    title: 'AI scheduling + calendar export',
+    title: 'External agent access',
   },
 ];
 
@@ -60,6 +54,46 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         title: 'AI is temporarily unavailable',
         subtitle:
           'Upgrade to Pro for more AI capacity and keep shaping goals with Kwilt Coach.',
+      };
+    case 'pro_money_budgets':
+      return {
+        title: 'Build a budget from your real accounts',
+        subtitle: 'Pro connects your financial accounts so you can plan, review transactions, and keep your household budget current.',
+      };
+    case 'pro_advanced_screen_time_rules':
+      return {
+        title: 'Make Screen Time fit the rule you actually need',
+        subtitle: 'Pro combines time, app use, real-life steps, and budget conditions into one clear rule.',
+      };
+    case 'pro_family_screen_time':
+      return {
+        title: 'Coordinate Screen Time across your household',
+        subtitle: 'Pro lets caregivers create and manage Screen Time agreements for family members.',
+      };
+    case 'pro_advanced_cloud_ai':
+      return {
+        title: 'Give Kwilt more room to help',
+        subtitle: 'Pro adds more AI capacity for planning, reviewing, and working through the details.',
+      };
+    case 'pro_ai_attachment_analysis':
+      return {
+        title: 'Ask Kwilt to work from your files',
+        subtitle: 'Pro can analyze supported attachments and use them as context for your next step.',
+      };
+    case 'pro_ai_scheduling':
+      return {
+        title: 'Turn the plan into real calendar time',
+        subtitle: 'Pro helps place the work into your week so the next step has somewhere to happen.',
+      };
+    case 'pro_background_ai':
+      return {
+        title: 'Let Kwilt keep useful work moving',
+        subtitle: 'Pro can run supported AI work in the background and bring the result back when it is ready.',
+      };
+    case 'pro_external_agent':
+      return {
+        title: 'Connect Kwilt to your other AI tools',
+        subtitle: 'Pro lets approved external agents work with your Kwilt data under your control.',
       };
     case 'limit_goals_per_arc':
       return {

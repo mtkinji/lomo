@@ -82,7 +82,7 @@ describe('runUnifiedChatTurn Phase 6', () => {
   test('persists only inspected image evidence and never transient binary bytes', async () => {
     const response = JSON.stringify({
       answer: 'I found a conflict.',
-      facts: ['The screenshot shows a dentist appointment.'],
+      facts: [{ text: 'The screenshot shows a dentist appointment.', evidence: [] }],
       inference: 'The appointment may overlap another event.',
       uncertainty: 'Only the attached screenshot was inspected.',
     });

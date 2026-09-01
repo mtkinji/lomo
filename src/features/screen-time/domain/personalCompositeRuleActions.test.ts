@@ -12,6 +12,8 @@ const prior: PersonalCompositeScreenTimeRule = {
   setupCompleted: true, connector: 'all', outcome: 'available',
   conditions: [{ id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 }],
   temporaryOpenUntilIso: null,
+  monetizationState: 'active',
+  monetizationChangedAt: null,
   lastUpdated: '2026-08-27T20:00:00.000Z',
 };
 

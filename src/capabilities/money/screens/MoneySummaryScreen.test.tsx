@@ -6,6 +6,7 @@ import type { MoneySnapshot } from '../data/moneySnapshot';
 import { MoneyOnboardingHandoffGuide, MoneySummaryScreen } from './MoneySummaryScreen';
 import type { MoneyOnboardingHandoffState } from '../domain/moneyOnboardingHandoff';
 import { colors, spacing } from '../../../theme';
+import { setProEntitlement } from '../../../test/storeFixtures';
 
 const mockAnswer: NonNullable<MoneySnapshot['livingLimitAnswer']> = {
   state: 'supported', headlineAmountCents: 34296,
@@ -177,6 +178,7 @@ jest.mock('../../../ui/DropdownMenu', () => {
 
 describe('MoneySummaryScreen living limit answer', () => {
   beforeEach(() => {
+    setProEntitlement(true);
     mockSnapshot = initialSnapshot;
     mockMoneyScreenFrameOnRefresh = undefined;
     mockBottomDrawerProps.length = 0;

@@ -37,6 +37,20 @@ describe('UNIFIED_CHAT_BEHAVIOR_EVAL_CASES', () => {
       }
     }
   });
+
+  test('covers a hesitant natural-language review of the current Money categories', () => {
+    expect(UNIFIED_CHAT_BEHAVIOR_EVAL_CASES).toContainEqual(expect.objectContaining({
+      id: 'money-system-review-hesitant-question',
+      prompt: "I'm not convinced I have ask the right budget categories right now. What do you think about them?",
+      expectedRequestClass: 'capability_question',
+      expectedCapabilities: ['money'],
+      expectedToolIds: ['money.read'],
+      expectedAuthorization: 'none',
+      expectedEvidenceScope: 'broad',
+      expectedResponseContract: 'evidence_linked',
+      forbidsWriteTools: true,
+    }));
+  });
 });
 
 const liveTest = process.env.KWILT_RUN_LIVE_AGENT_JUDGMENT_EVALS === '1' ? test : test.skip;

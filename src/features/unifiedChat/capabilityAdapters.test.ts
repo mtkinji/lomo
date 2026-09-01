@@ -123,6 +123,12 @@ describe('Unified Chat capability adapters', () => {
         summary: '$342.96 left for flexible spending this month · $1,157.04 of $1,500 used',
       }),
       expect.objectContaining({
+        capabilityId: 'money',
+        object: { type: 'money_category_review', id: 'current', label: 'Current category review' },
+        authority: 'derived', observedAt: '2026-07-23T17:00:00.000Z',
+        summary: expect.stringMatching(/Period: July 2026.*Coverage: 1 category, 1 current-period transaction.*Needs review: 1.*Outside plan: \$25 across 1 transaction.*Last synced: 2026-07-23T17:00:00.000Z/),
+      }),
+      expect.objectContaining({
       capabilityId: 'money', object: { type: 'money_category', id: 'groceries', label: 'Groceries', secondaryLabel: '$100 spent of $600' },
       authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
       summary: expect.stringContaining('Projected: $300'),
@@ -144,9 +150,13 @@ describe('Unified Chat capability adapters', () => {
     });
     expect(moneyChatAdapter.return.targetFor(sources[1].object)).toMatchObject({
       capabilityId: 'money',
-      route: { name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: 'groceries' } } },
+      route: { name: 'Money', params: { screen: 'MoneySummary' } },
     });
     expect(moneyChatAdapter.return.targetFor(sources[2].object)).toMatchObject({
+      capabilityId: 'money',
+      route: { name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: 'groceries' } } },
+    });
+    expect(moneyChatAdapter.return.targetFor(sources[3].object)).toMatchObject({
       capabilityId: 'money',
       route: { name: 'Money', params: { screen: 'MoneyTransactionDetail', params: { transactionId: 'transaction-private' } } },
     });

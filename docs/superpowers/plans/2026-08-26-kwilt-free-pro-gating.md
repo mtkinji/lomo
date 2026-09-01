@@ -1,5 +1,12 @@
 # Kwilt Free and Pro Gating Implementation Plan
 
+> **Superseded on 2026-08-31:** Use `docs/superpowers/plans/2026-08-31-kwilt-monetization-release-readiness.md`. This file is retained as historical planning context.
+
+> **Invalid assumption in this historical plan:** Kwilt has no manual account or
+> transaction-entry product. Do not implement the Manual Money tasks below; the
+> replacement plan makes Money and Budgets Pro from first setup and offers the
+> one-month full-Pro Apple introductory trial at that moment.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the original Kwilt system, household participation, manual Money, and unlimited on-device AI free forever while reserving Pro for connected Money, Cook Mode, family Screen Time administration, and advanced or costly cloud services.

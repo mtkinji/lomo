@@ -10,6 +10,8 @@ import {
   resolveCookVoiceSpeechConfig,
   sanitizeCookVoiceSpeechText,
 } from '../_shared/cookVoiceSpeech.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { isServerMvpPreviewEnabled, reserveMvpPreviewUsage } from '../_shared/serverMvpPreviewAccess.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +44,9 @@ serve(async (req) => {
   if (error || !data.user) {
     return json(401, { error: { code: 'unauthorized', message: 'Sign in to use conversational voice.' } });
   }
+  if (!isServerMvpPreviewEnabled(Deno.env.get('KWILT_COOK_MODE_PREVIEW_ENABLED'))) {
+    return json(503, { error: { code: 'preview_unavailable', message: 'Cook Mode voice is unavailable.' } });
+  }
 
   let text: string;
   let styleId: 'attentive_progress' | 'thoughtful_progress' | undefined;
@@ -71,6 +76,18 @@ serve(async (req) => {
     styleId = parsed.styleId;
   }
 
+  const reservation = await reserveMvpPreviewUsage(createServiceClient(), {
+    userId: data.user.id,
+    capability: 'cook_mode',
+    perMinute: 20,
+    perUserDay: 120,
+    globalDay: 2500,
+    leaseSeconds: 0,
+  });
+  if (!reservation.allowed) {
+    return json(429, { error: { code: 'preview_limit_reached', message: 'Cook Mode voice has reached its preview limit.' } });
+  }
+
   const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim();
   if (!openAiKey) {
     return json(503, { error: { code: 'provider_unavailable', message: 'Natural voice is unavailable.' } });
@@ -98,6 +115,7 @@ serve(async (req) => {
     if (!upstream.body) {
       return json(502, { error: { code: 'speech_failed', message: 'Natural voice is unavailable.' } });
     }
+    console.info('[mvp-preview-usage]', { capability: 'cook_mode', outcome: 'speech_streamed', characters: text.length });
     return new Response(upstream.body, {
       status: 200,
       headers: {
@@ -110,6 +128,7 @@ serve(async (req) => {
   if (!audio.byteLength) {
     return json(502, { error: { code: 'speech_failed', message: 'Natural voice is unavailable.' } });
   }
+  console.info('[mvp-preview-usage]', { capability: 'cook_mode', outcome: 'speech_generated', characters: text.length });
   return json(200, {
     audioBase64: encodeBase64(audio),
     mimeType: 'audio/mpeg',

@@ -12,7 +12,7 @@ serves:
 briefs:
   - live-conversational-action-runtime
 status: draft
-last_reviewed: 2026-08-07
+last_reviewed: 2026-08-31
 ---
 
 # Live Conversation
@@ -32,8 +32,19 @@ provenance without persisting interim transcript deltas. A new native build and
 signed-device audio/latency verification are still required.
 
 Adds a reusable realtime spoken-conversation channel over Kwilt's shared Agent
-Runtime. Cook Mode is the first proving surface; capability-owned tools,
-permissions, receipts, and fallback behavior remain authoritative.
+Runtime. Capability-owned tools, permissions, receipts, and fallback behavior
+remain authoritative.
+
+## Launch and monetization boundary
+
+Live Conversation launches as an MVP preview available without Pro while its
+server-controlled exposure flag is enabled. It never opens a paywall in this
+launch. Provider-session creation still requires authentication and bounded
+usage/cost safeguards, and the exposure flag must stop both customer entry and
+new provider sessions when disabled. It is not a headline subscription or
+creator claim. A future Pro decision requires evidence of repeated,
+differentiated Kwilt-specific context and controlled-action value; generic
+spoken AI access is not enough.
 
 ## Planned surfaces in this folder
 

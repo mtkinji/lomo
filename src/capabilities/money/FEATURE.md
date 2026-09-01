@@ -10,6 +10,7 @@ serves:
   - jtbd-put-intention-before-impulse
   - jtbd-carry-intentions-into-action
   - jtbd-trust-this-app-with-my-life
+  - jtbd-capture-and-find-meaning
   - jtbd-get-help-without-retelling-my-life
 briefs:
   - budget-settings
@@ -48,10 +49,11 @@ briefs:
   - transaction-display-names
   - transaction-freshness-trust
   - transaction-inventory-date-scope
+  - money-transaction-notes
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-31
 ---
 
 # Money
@@ -88,3 +90,16 @@ explicit transaction-level evidence.
 Money category entry delegates app-rule creation and editing to the canonical
 Screen Time sentence composer with the relevant budget preselected. Source and
 test proof do not replace signed-device proof that the native shield is enforced.
+
+## Monetization boundary
+
+Money and Budgets are a Pro capability from first setup because the usable
+product depends on connected, imported transaction truth. Kwilt does not offer
+manual account or transaction entry and will not add it as a Free substitute.
+
+An eligible person can start the one-month full-Pro Apple introductory trial
+before Plaid initialization. Active trial, paid, and billing-grace states unlock
+connection, import, categories, plans, transaction review/correction, relink,
+refresh, and sync. After confirmed expiration or refund, active Money operations
+and provider sync stop while retained accounts, transactions, and budget history
+remain readable; deletion and required data-management routes remain available.

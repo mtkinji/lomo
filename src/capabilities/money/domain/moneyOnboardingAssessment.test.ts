@@ -1,7 +1,7 @@
 import {
   buildMoneyOnboardingAssessment,
   buildMoneyOnboardingTargetGuidance,
-  getAdditionalInstitutionDecision,
+  getMoneyConnectionDecision,
   getMoneyInstitutionCoverage,
   MONEY_ONBOARDING_DEMO_EVIDENCE,
 } from './moneyOnboardingAssessment';
@@ -51,8 +51,8 @@ describe('Money onboarding assessment', () => {
   });
 
   it('offers Pro only after a free member asks for another institution', () => {
-    expect(getAdditionalInstitutionDecision(false)).toBe('offer_pro');
-    expect(getAdditionalInstitutionDecision(true)).toBe('open_connection');
+    expect(getMoneyConnectionDecision(false)).toBe('offer_pro');
+    expect(getMoneyConnectionDecision(true)).toBe('open_connection');
   });
 
   it('turns the intent into a linked percent and dollar target without asking the user to choose a representation', () => {

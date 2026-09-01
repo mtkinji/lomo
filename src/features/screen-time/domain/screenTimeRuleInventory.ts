@@ -46,6 +46,11 @@ export function buildMyScreenTimeRuleInventory(params: {
 }): ScreenTimeRuleInventoryRow[] {
   return params.personalSettings.personalCompositeRules.map((rule): ScreenTimeRuleInventoryRow => {
     const targetCount = rule.selectedApps.length + rule.selectedCategories.length;
+    const contextLabel = rule.monetizationState === 'deactivation_pending'
+      ? 'Deactivation pending'
+      : rule.monetizationState === 'inactive_subscription_ended'
+        ? 'Inactive — Pro ended'
+        : null;
     return {
       id: rule.id,
       domain: 'personal',
@@ -53,7 +58,7 @@ export function buildMyScreenTimeRuleInventory(params: {
       detail: targetSummary(rule.selectedApps, rule.selectedCategories),
       targetCount,
       enabled: rule.enabled,
-      contextLabel: null,
+      contextLabel,
       destination: { kind: 'personal', ruleId: rule.id },
     };
   }).filter((row) => row.targetCount > 0);

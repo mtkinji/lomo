@@ -3,35 +3,41 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type MoneyFamilyStatus = {
   householdId: string | null;
   householdName: string | null;
-  role: 'owner' | 'member' | null;
+  role: 'owner' | 'caregiver' | null;
   memberCount: number;
 };
 
 export async function getMoneyFamilyStatus(client: SupabaseClient): Promise<MoneyFamilyStatus> {
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError) throw userError;
-  if (!userData.user?.id) throw new Error('Sign in before loading Money household sharing.');
-  const { data: member, error } = await client
-    .from('budget_household_members')
-    .select('household_id,role,budget_households(id,name)')
-    .eq('user_id', userData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
+  const { data, error } = await client.rpc('get_kwilt_household_snapshot');
   if (error) throw error;
-  if (!member) return { householdId: null, householdName: null, role: null, memberCount: 0 };
-  const householdValue = member.budget_households as { id: string; name: string } | Array<{ id: string; name: string }> | null;
-  const household = Array.isArray(householdValue) ? householdValue[0] : householdValue;
-  const { count, error: countError } = await client
-    .from('budget_household_members')
-    .select('id', { count: 'exact', head: true })
-    .eq('household_id', member.household_id)
-    .eq('status', 'active');
-  if (countError) throw countError;
+  if (!data || typeof data !== 'object') {
+    throw new Error('Money received an invalid Household snapshot.');
+  }
+  const snapshot = data as {
+    household?: { id?: unknown; name?: unknown } | null;
+    currentMembershipId?: unknown;
+    members?: Array<{ id?: unknown; role?: unknown }>;
+  };
+  if (snapshot.household == null) {
+    return { householdId: null, householdName: null, role: null, memberCount: 0 };
+  }
+  const householdId = typeof snapshot.household.id === 'string' ? snapshot.household.id : '';
+  const householdName = typeof snapshot.household.name === 'string' ? snapshot.household.name : '';
+  const currentMembershipId = typeof snapshot.currentMembershipId === 'string'
+    ? snapshot.currentMembershipId
+    : '';
+  const members = Array.isArray(snapshot.members) ? snapshot.members : [];
+  const currentMember = members.find((member) => member.id === currentMembershipId);
+  const adultMembers = members.filter((member) => member.role === 'owner' || member.role === 'caregiver');
+  if (!householdId || !householdName || !currentMember
+    || (currentMember.role !== 'owner' && currentMember.role !== 'caregiver')) {
+    throw new Error('Money requires an active adult Household membership.');
+  }
   return {
-    householdId: member.household_id,
-    householdName: household?.name ?? 'Kwilt household',
-    role: member.role,
-    memberCount: count ?? 1,
+    householdId,
+    householdName,
+    role: currentMember.role,
+    memberCount: adultMembers.length,
   };
 }
 

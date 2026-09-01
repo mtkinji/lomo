@@ -37,6 +37,7 @@ import { useMoneyNavigationAvailabilityStore } from '../runtime/useMoneyNavigati
 import { createMoneyControlActions } from '../actions/moneyControlActions';
 import { createMoneyControlActionBoundary } from '../actions/moneyControlActionBoundary';
 import { shouldSyncConnectedMoneyActivity } from '../domain/demoMoneyEnvironment';
+import { assertMoneyProAccess } from '../runtime/moneyProAccess';
 
 type MoneyDataContextValue = MoneyDataState & {
   userId: string | null;
@@ -53,6 +54,7 @@ type MoneyDataContextValue = MoneyDataState & {
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
   setTransactionPlanRoleOverride: (transactionId: string, planRoleOverride: 'protected' | 'flexible' | null) => Promise<void>;
   setTransactionPlanCoverage: (transactionId: string, savedResourceCents: number) => Promise<void>;
+  setTransactionNote: (transactionId: string, note: string) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
   savingCategoryOrder: boolean;
@@ -192,6 +194,7 @@ export function MoneyDataProvider({
   }, [acceptSnapshot, capture, normalizedUserId, refreshInBackground, repository, resolvedRepository, snapshotCache]);
 
   const reconcileGovernedPlanFoundation = useCallback(async () => {
+    assertMoneyProAccess();
     await resolvedRepository.ensureGovernedPlanFoundation();
     const snapshot = await resolvedRepository.loadSnapshot();
     acceptSnapshot(snapshot);
@@ -201,6 +204,7 @@ export function MoneyDataProvider({
     trigger: ConnectedMoneyActivityTrigger;
     sync: boolean;
   }) => {
+    if (input.sync) assertMoneyProAccess();
     const version = ++mutationVersionRef.current;
     dispatch({ type: 'load' });
     try {
@@ -240,6 +244,7 @@ export function MoneyDataProvider({
     transactionId: string,
     mutation: () => Promise<ConfirmedTransactionWrite>,
   ) => {
+    assertMoneyProAccess();
     setReviewingTransactionId(transactionId);
     try {
       const result = await mutation();
@@ -279,6 +284,7 @@ export function MoneyDataProvider({
     transactionId: string,
     mutation: () => ReturnType<MoneyRepository['loadSnapshot']>,
   ) => {
+    assertMoneyProAccess();
     setReviewingTransactionId(transactionId);
     try {
       const version = ++mutationVersionRef.current;
@@ -297,6 +303,7 @@ export function MoneyDataProvider({
     transactionId: string,
     mutation: () => Promise<ConfirmedMerchantRuleWrite>,
   ) => {
+    assertMoneyProAccess();
     setReviewingTransactionId(transactionId);
     try {
       const result = await mutation();
@@ -407,6 +414,28 @@ export function MoneyDataProvider({
     [resolvedRepository, reviewBroadTransaction],
   );
 
+  const setTransactionNote = useCallback(async (transactionId: string, note: string) => {
+    assertMoneyProAccess();
+    setReviewingTransactionId(transactionId);
+    try {
+      const result = await resolvedRepository.setTransactionNote(transactionId, note);
+      dispatch({
+        type: 'confirmed_transaction_note_patch',
+        patch: { transactionId: result.transactionId, note: result.note },
+      });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
+    } catch (error) {
+      dispatch({
+        type: 'failure',
+        message: error instanceof Error ? error.message : 'The transaction note could not be saved.',
+      });
+      throw error;
+    } finally {
+      setReviewingTransactionId(null);
+    }
+  }, [refreshInBackground, resolvedRepository]);
+
   const saveMerchantRule = useCallback(
     (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewMerchantRule(
       input.transactionId,
@@ -416,6 +445,7 @@ export function MoneyDataProvider({
   );
 
   const createCategory = useCallback(async (input: CategoryPlanInput) => {
+    assertMoneyProAccess();
     setSavingCategory(true);
     try {
       const result = await resolvedRepository.createCategory(input);
@@ -433,6 +463,7 @@ export function MoneyDataProvider({
   }, [acceptSnapshot, resolvedRepository]);
 
   const reorderCategories = useCallback(async (categoryIds: string[]) => {
+    assertMoneyProAccess();
     setSavingCategoryOrder(true);
     try {
       const result = await resolvedRepository.reorderCategories(categoryIds);
@@ -451,6 +482,7 @@ export function MoneyDataProvider({
   }, [refreshInBackground, resolvedRepository]);
 
   const applyCategoryMutation = useCallback(async (mutation: () => Promise<ConfirmedCategoryWrite>) => {
+    assertMoneyProAccess();
     setSavingCategory(true);
     try {
       const result = await mutation();
@@ -481,6 +513,7 @@ export function MoneyDataProvider({
     budgetCents: number,
     funding?: Parameters<typeof previewLivingPlanOverride>[3],
   ) => {
+    assertMoneyProAccess();
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
     if (!category) throw new Error('This category is no longer available.');
     const client = getSupabaseClient();
@@ -508,6 +541,7 @@ export function MoneyDataProvider({
     input: Parameters<MoneyRepository['updateCategoryPlan']>[1],
     preview?: ReadyLivingPlanOverridePreview,
   ) => {
+    assertMoneyProAccess();
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
     const hasFundingChange = input.fundingRhythm != null
       || 'expectedNeedCents' in input
@@ -590,6 +624,7 @@ export function MoneyDataProvider({
     reviewTransactionMeaning,
       setTransactionPlanRoleOverride,
       setTransactionPlanCoverage,
+      setTransactionNote,
     saveMerchantRule,
     savingCategory,
     savingCategoryOrder,
@@ -600,7 +635,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     disconnectConnection,
     previewCategoryPlanAmount,
-  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionNote, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -12,6 +12,8 @@ import {
   ConnectedToolsScreen,
   ConnectKwiltAppScreen,
 } from './ConnectedToolsScreen';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { usePaywallStore } from '../../store/usePaywallStore';
 
 jest.mock('../../ui/layout/AppShell', () => {
   const React = require('react');
@@ -88,6 +90,8 @@ const recentAction = {
 
 describe('ConnectedToolsScreen', () => {
   beforeEach(() => {
+    useEntitlementsStore.setState({ isPro: true });
+    usePaywallStore.getState().close();
     fetchConnectionsMock.mockReset();
     revokeConnectionMock.mockReset().mockResolvedValue(undefined);
     (Clipboard.setStringAsync as jest.Mock).mockClear();
@@ -98,6 +102,22 @@ describe('ConnectedToolsScreen', () => {
     navModule.__navMocks.navigate.mockReset();
     navModule.__navMocks.reset.mockReset();
     navModule.__navMocks.route.params = {};
+  });
+
+  it('opens the Pro explanation instead of setup for a Free user', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    fetchConnectionsMock.mockResolvedValue({ connections: [], actions: [] });
+    const { getByLabelText } = renderWithProviders(<ConnectedToolsScreen />);
+    await waitFor(() => expect(fetchConnectionsMock).toHaveBeenCalled());
+
+    fireEvent.press(getByLabelText('Set up Kwilt in Claude'));
+
+    expect(navModule.__navMocks.navigate).not.toHaveBeenCalled();
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_external_agent',
+      source: 'settings',
+    });
   });
 
   afterEach(() => {

@@ -198,6 +198,50 @@ describe('buildRunContext', () => {
     expect(result.coverage).toMatchObject({ consideredCount: 130, includedCount: 120, omittedCount: 10 });
   });
 
+  test('uses a Money review digest instead of attaching raw transactions to a broad category-structure review', () => {
+    const inventory: CapabilityEvidenceSource[] = [
+      {
+        capabilityId: 'money',
+        object: { type: 'money_category_review', id: 'current', label: 'Current category review' },
+        searchableText: 'money budget category structure merge split irregular review',
+        summary: 'Derived transaction and category patterns.', authority: 'derived',
+        observedAt: '2026-08-31T12:00:00.000Z',
+      },
+      ...Array.from({ length: 2 }, (_, index): CapabilityEvidenceSource => ({
+        capabilityId: 'money',
+        object: { type: 'money_category', id: `category-${index + 1}`, label: `Category ${index + 1}` },
+        searchableText: 'money budget category current month',
+        summary: 'Current category totals.', authority: 'authoritative',
+        observedAt: '2026-08-31T12:00:00.000Z',
+      })),
+      ...Array.from({ length: 5 }, (_, index): CapabilityEvidenceSource => ({
+        capabilityId: 'money',
+        object: { type: 'money_transaction', id: `transaction-${index + 1}`, label: `Merchant ${index + 1}` },
+        searchableText: 'money transaction merchant current',
+        summary: 'Current transaction.', authority: 'authoritative',
+        observedAt: '2026-08-31T12:00:00.000Z',
+      })),
+    ];
+
+    const result = buildRunContext({
+      prompt: "I'm not convinced I have ask the right budget categories right now. What do you think about them?",
+      policy: {
+        requestClass: 'capability_question', participatingCapabilities: ['money'], usePrivateContext: true,
+        clarification: null, policyReason: 'bounded-capability-evidence-request',
+      },
+      sources: inventory,
+      evidenceScope: 'broad',
+    });
+
+    expect(result.evidence.map((item) => item.object.type)).toEqual([
+      'money_category_review', 'money_category', 'money_category',
+    ]);
+    expect(result.omissions).toHaveLength(5);
+    expect(result.omissions.every((item) => item.reason === 'Summarized into the Money category review digest.')).toBe(true);
+    expect(result.coverage).toMatchObject({ consideredCount: 8, includedCount: 3, omittedCount: 5 });
+    expect(result.coverage.note).toMatch(/transaction patterns are summarized/i);
+  });
+
   test('grounds a bulk Money category action in the complete bounded category inventory', () => {
     const categorySources: CapabilityEvidenceSource[] = [
       'Dress and Grooming',

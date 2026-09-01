@@ -1,6 +1,6 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../../test/renderWithProviders';
-import { resetAllStores } from '../../../test/storeFixtures';
+import { resetAllStores, setProEntitlement } from '../../../test/storeFixtures';
 import { useAppStore } from '../../../store/useAppStore';
 import { FamilyScreenTimeLearningScreen } from './FamilyScreenTimeLearningScreen';
 import {
@@ -35,6 +35,7 @@ const recordKey = familyScreenTimeLearningKey('user-1', 'child-1');
 describe('FamilyScreenTimeLearningScreen', () => {
   beforeEach(() => {
     resetAllStores();
+    setProEntitlement(true);
     resetFamilyScreenTimeLearningStoreForTests();
     useAppStore.getState().setAuthIdentity({ userId: 'user-1', email: 'a@example.com', name: 'Andrew' });
     screenProps.navigation.navigate.mockReset();

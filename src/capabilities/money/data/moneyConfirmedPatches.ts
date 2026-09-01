@@ -22,6 +22,11 @@ export type ConfirmedTransactionPlanRolePatch = {
   planRoleOverride: MoneyCategoryPlanRole | null;
 };
 
+export type ConfirmedTransactionNotePatch = {
+  transactionId: string;
+  note: string | null;
+};
+
 export type ConfirmedMerchantRulePatch = {
   transactionId: string;
   categoryId: string | null;
@@ -66,6 +71,20 @@ export function applyConfirmedTransactionPlanRolePatch(
     generatedAt: new Date().toISOString(),
     transactions: snapshot.transactions.map((transaction) => transaction.id === patch.transactionId
       ? { ...transaction, planRoleOverride: patch.planRoleOverride }
+      : transaction),
+  };
+}
+
+export function applyConfirmedTransactionNotePatch(
+  snapshot: MoneySnapshot,
+  patch: ConfirmedTransactionNotePatch,
+): MoneySnapshot {
+  if (!snapshot.transactions.some((transaction) => transaction.id === patch.transactionId)) return snapshot;
+  return {
+    ...snapshot,
+    generatedAt: new Date().toISOString(),
+    transactions: snapshot.transactions.map((transaction) => transaction.id === patch.transactionId
+      ? { ...transaction, userNote: patch.note }
       : transaction),
   };
 }

@@ -21,3 +21,32 @@ test('preserves a single public first-person answer', () => {
     'I need no more information. I can create it now.',
   )).toBe('I need no more information. I can create it now.');
 });
+
+test('preserves a public first-person opening before supporting paragraphs', () => {
+  expect(sanitizeVisibleAssistantText([
+    'I can review how your current categories line up with recent spending.',
+    '',
+    '- Categories to merge or split',
+    '- Missing irregular-expense funds',
+    '',
+    'I will ask for more information only if the evidence cannot answer something important.',
+  ].join('\n'))).toBe([
+    'I can review how your current categories line up with recent spending.',
+    '',
+    '- Categories to merge or split\n- Missing irregular-expense funds',
+    '',
+    'I will ask for more information only if the evidence cannot answer something important.',
+  ].join('\n'));
+});
+
+test('preserves a public opening that refers to the user request', () => {
+  expect(sanitizeVisibleAssistantText([
+    'I can help with that request using the Money evidence Kwilt already has.',
+    '',
+    'Your current category structure has two overlaps worth reviewing.',
+  ].join('\n'))).toBe([
+    'I can help with that request using the Money evidence Kwilt already has.',
+    '',
+    'Your current category structure has two overlaps worth reviewing.',
+  ].join('\n'));
+});

@@ -5,6 +5,7 @@ import {
   buildTodoActionGrounding,
   buildCreateCalendarContinuation,
   buildTurnResponseGrounding,
+  buildBoundedEvidencePrompt,
   selectAgentJudgmentTools,
   selectSubjectSafeRuntimeTools,
 } from './turnExecutionPhase';
@@ -98,12 +99,30 @@ test('grounds evidence-linked reasoning and no-change truth without capability-s
     'Lead with the useful conclusion.',
     'Name the material observations that support it.',
     'Distinguish observation from inference and state meaningful coverage limits.',
+    'Do not replace the analysis with a checklist of what you could inspect.',
+    'Ask only for information that materially blocks a better answer.',
     'Do not prepare, imply, or claim a change; this turn has no action authority.',
   ]) expect(grounding).toContain(line);
 
   expect(buildTurnResponseGrounding({
     authorization: 'explicit_request', evidenceScope: 'focused', responseContract: 'evidence_linked',
   })).not.toContain('this turn has no action authority');
+});
+
+test('assigns short model-only references to bounded evidence without exposing object ids', () => {
+  const prompt = buildBoundedEvidencePrompt({
+    evidence: [{
+      id: 'money:money_category:category-private-uuid', capabilityId: 'money',
+      object: { type: 'money_category', id: 'category-private-uuid', label: 'Groceries' },
+      summary: 'Planned: $600 · Spent: $425', authority: 'authoritative', freshness: 'current',
+      observedAt: '2026-08-31T12:00:00.000Z', includedBecause: 'Included in broad review.', sufficient: true,
+    }],
+    omissions: [],
+    coverage: { sufficient: true, consideredCount: 1, includedCount: 1, omittedCount: 0, note: 'Selected 1 record.' },
+  }, 'capability_question');
+
+  expect(prompt).toContain('[Evidence E1] Groceries');
+  expect(prompt).not.toContain('category-private-uuid');
 });
 
 test('grounds all-matching semantics without naming a capability-specific bulk action', () => {

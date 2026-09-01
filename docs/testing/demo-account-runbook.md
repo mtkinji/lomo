@@ -53,6 +53,14 @@ npm run demo-accounts:preflight
 
 Each successful command prints a redacted JSON receipt containing aliases, auth user IDs, fixture version, actions, counts, and verification status. It never prints emails, passwords, keys, or sessions. Store the receipt in the release evidence location, not in a public artifact.
 
+## Recorded live evidence
+
+- [`2026-08-31-review-household-v1.md`](../delivery-evidence/demo-accounts/2026-08-31-review-household-v1.md)
+  records the first production provisioning, Plaid Sandbox hydration, credential
+  and privacy preflight, Simulator boundary, credential custody, and remaining
+  release gates. It is redacted and contains no usable credentials or provider
+  secrets.
+
 ## Reset safety
 
 - Do not reset during an active App Review window.

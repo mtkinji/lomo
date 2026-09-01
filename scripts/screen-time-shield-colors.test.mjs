@@ -63,6 +63,17 @@ test('the shield extension bundles and declares the Inter font it uses', () => {
   assert.match(rendered, /<string>KwiltShieldInterBlack\.ttf<\/string>/);
 });
 
+test('the shield extension preserves parchment when the host app uses dark appearance', () => {
+  const rendered = infoPlist({
+    displayName: 'KwiltShieldConfiguration',
+    extensionPointIdentifier: 'com.apple.ManagedSettingsUI.shield-configuration-service',
+    principalClass: 'Test.Extension',
+  });
+
+  assert.match(rendered, /<key>UIUserInterfaceStyle<\/key><string>Light<\/string>/);
+  assert.match(rendered, /<key>NSExtensionOverridesHostUIAppearance<\/key><true\/>/);
+});
+
 test('shield actions preserve the reason for an exact in-app handoff', () => {
   assert.match(generator, /handoffRestrictionsKey = "kwilt_screen_time_handoff_restrictions_v2"/);
   assert.match(generator, /JSONEncoder\(\)\.encode\(restrictions\)/);

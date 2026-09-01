@@ -824,12 +824,20 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
 }
 
 function infoPlist({ displayName, extensionPointIdentifier, principalClass, fonts = [] }) {
+  const preservesParchmentAppearance =
+    extensionPointIdentifier === 'com.apple.ManagedSettingsUI.shield-configuration-service';
   const fontEntries = fonts.length
     ? `  <key>UIAppFonts</key>
   <array>
 ${fonts.map((font) => `    <string>${font}</string>`).join('\n')}
   </array>
 `
+    : '';
+  const appearanceEntry = preservesParchmentAppearance
+    ? '  <key>UIUserInterfaceStyle</key><string>Light</string>\n'
+    : '';
+  const hostAppearanceEntry = preservesParchmentAppearance
+    ? '    <key>NSExtensionOverridesHostUIAppearance</key><true/>\n'
     : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -844,9 +852,9 @@ ${fonts.map((font) => `    <string>${font}</string>`).join('\n')}
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-${fontEntries}  <key>NSExtension</key>
+${fontEntries}${appearanceEntry}  <key>NSExtension</key>
   <dict>
-    <key>NSExtensionPointIdentifier</key><string>${extensionPointIdentifier}</string>
+${hostAppearanceEntry}    <key>NSExtensionPointIdentifier</key><string>${extensionPointIdentifier}</string>
     <key>NSExtensionPrincipalClass</key><string>${principalClass}</string>
   </dict>
 </dict>

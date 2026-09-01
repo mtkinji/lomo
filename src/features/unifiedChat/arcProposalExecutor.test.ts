@@ -2,7 +2,6 @@ import type { Activity, Arc, Goal, GoalDraft } from '../../domain/types';
 import type { UnifiedChatProposal } from './types';
 import {
   applyApprovedArcProposal,
-  ArcMutationConflictError,
   undoAppliedArcProposal,
 } from './arcProposalExecutor';
 
@@ -45,15 +44,17 @@ test('creates a deterministic Arc only after entitlement validation and removes 
   expect(arcs).toEqual([]);
 });
 
-test('refuses Arc creation when the native free-tier limit is reached', () => {
-  const store = boundary({ arcs: [before], isPro: false });
+test('allows Arc creation for free users with an existing Arc', () => {
+  let arcs = [before];
+  const store = boundary({ arcs, setArcs: (next) => { arcs = next; }, isPro: false });
   expect(() => applyApprovedArcProposal({
     proposal: proposal({
       type: 'create_arc', targetId: null,
       payload: { name: 'Curious maker', expectedUpdatedAt: null },
     }),
     store,
-  })).toThrow(ArcMutationConflictError);
+  })).not.toThrow();
+  expect(arcs).toHaveLength(2);
 });
 
 test('updates explicit Arc fields and restores the whole prior Arc', () => {

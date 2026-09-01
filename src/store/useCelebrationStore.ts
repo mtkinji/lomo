@@ -8,7 +8,6 @@ import {
   recordShowUpStreakMilestone,
   isShowUpStreakMilestone,
 } from '../services/milestones';
-import { openPaywallInterstitial } from '../services/paywall';
 import { localDateKey } from './streakProtection';
 import { consumeOpenedFromWidget } from '../services/analytics/widgetAttribution';
 import { track } from '../services/analytics/analytics';
@@ -766,15 +765,6 @@ export function recordShowUpWithCelebration(options?: {
         celebrateStreakRepairOpportunity(nextBreakState.brokenStreakLength!);
       }, 500);
 
-      // Pro upsell: for free users, shields would have prevented this break
-      if (!useEntitlementsStore.getState().isPro && prevGrace.shieldsAvailable === 0) {
-        setTimeout(() => {
-          openPaywallInterstitial({
-            reason: 'pro_only_streak_shields',
-            source: 'streak_break',
-          });
-        }, 1500);
-      }
     } else if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
       streakSoundMoment = 'savedByGrace';
       setTimeout(() => {
@@ -818,34 +808,6 @@ export function recordShowUpWithCelebration(options?: {
         message: `Streak milestone! +${STREAK_MILESTONE_BONUS_CREDITS} bonus AI credits`,
         variant: 'credits',
       });
-    }
-
-    // Time-limited Pro previews at streak milestones (free users only).
-    const ent = useEntitlementsStore.getState();
-    if (!ent.isPro && !ent.isProToolsTrial) {
-      if (nextStreak === 7) {
-        useAppStore.getState().setProPreview({
-          feature: 'focus_mode',
-          expiresAtMs: Date.now() + 24 * 60 * 60 * 1000,
-        });
-        setTimeout(() => {
-          useToastStore.getState().showToast({
-            message: 'Streak reward! Focus Mode unlocked for 24 hours',
-            variant: 'credits',
-          });
-        }, 2000);
-      } else if (nextStreak === 14) {
-        useAppStore.getState().setProPreview({
-          feature: 'saved_views',
-          expiresAtMs: Date.now() + 72 * 60 * 60 * 1000,
-        });
-        setTimeout(() => {
-          useToastStore.getState().showToast({
-            message: 'Streak reward! Saved Views unlocked for 3 days',
-            variant: 'credits',
-          });
-        }, 2000);
-      }
     }
 
     // Widget-to-streak attribution: if this session was opened from a widget,

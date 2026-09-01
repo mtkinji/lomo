@@ -37,6 +37,17 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
+  test('routes a hesitant review of current budget categories through private Money evidence', () => {
+    expect(classifyUnifiedChatRequest({
+      prompt: "I'm not convinced I have ask the right budget categories right now. What do you think about them?",
+    })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+      policyReason: 'bounded-capability-evidence-request',
+    });
+  });
+
   test('treats asking what to add to tomorrow as a recommendation, not authorization', () => {
     expect(classifyUnifiedChatRequest({
       prompt: 'What should I add to my plan tomorrow?',

@@ -3,7 +3,7 @@ const INTERNAL_TAG_PATTERN =
 const INTERNAL_SECTION_HEADING_PATTERN =
   /^(?:internal\s+(?:agent\s+)?(?:dialog|monologue|notes?)|reasoning|analysis|scratchpad|thinking|chain[-\s]of[-\s]thought|private\s+notes?|plan)\s*[:\-]/i;
 const LEADING_INTERNAL_PARAGRAPH_PATTERN =
-  /^(?:(?:i|we)\s+(?:need|should|will|can|want|have|am going|'ll|will need)\b|(?:the\s+)?user\s+(?:wants|asked|is asking|needs|said|provided)\b)/i;
+  /^(?:(?:i|we)\s+(?:need|should|will|can|want|have|am going|'ll|will need)\b[^\n]{0,240}\b(?:the\s+user|user's|private\s+(?:context|records?)|tool\s+calls?|scratchpad)\b|(?:the\s+)?user\s+(?:wants|asked|is asking|needs|said|provided)\b)/i;
 const INTERNAL_OBJECT_ID_PAREN_PATTERN =
   /\s*\((?:activity|goal|arc|chapter|proposal|run|thread|message)_[a-z0-9_-]+\)/gi;
 

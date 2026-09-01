@@ -104,6 +104,7 @@ describe('projectMoneySnapshot', () => {
             name: 'Neighborhood Market',
             merchant_name: 'Neighborhood Market',
             original_description: 'NEIGHBORHOOD MARKET 0042',
+            user_note: 'Family pictures',
             authorized_date: '2026-07-19',
             amount_cents: 12500,
             direction: 'outflow',
@@ -176,6 +177,7 @@ describe('projectMoneySnapshot', () => {
     ]);
     expect(snapshot.transactions.find((transaction) => transaction.id === 'transaction-1')).toMatchObject({
       originalDescription: 'NEIGHBORHOOD MARKET 0042',
+      userNote: 'Family pictures',
       authorizedDate: '2026-07-19',
       accountMask: '1042',
       accountType: 'depository',

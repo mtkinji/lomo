@@ -8,6 +8,7 @@ import type {
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatTurnActionContract } from './turnContract';
 import type { AgentJudgmentEvidenceScope } from './agentJudgment';
+import { isMoneyCategoryStructureReview } from './moneyReviewIntent';
 
 const STOP_WORDS = new Set([
   'and',
@@ -116,9 +117,19 @@ export function buildRunContext({
         source,
       ] as const),
   ).values()];
+  const usesMoneyReviewDigest = isBroadReview &&
+    participating.has('money') &&
+    isMoneyCategoryStructureReview(prompt) &&
+    participatingSources.some((source) => source.object.type === 'money_category_review');
+  const summarizedSources = usesMoneyReviewDigest
+    ? participatingSources.filter((source) => source.object.type === 'money_transaction')
+    : [];
+  const selectionSources = usesMoneyReviewDigest
+    ? participatingSources.filter((source) => source.object.type !== 'money_transaction')
+    : participatingSources;
   const targetQueryTokens = tokens(actionContract?.targetQuery ?? prompt);
   const typeOverlap = new Map<string, number>();
-  for (const source of participatingSources) {
+  for (const source of selectionSources) {
     const objectTypeTokens = tokens(source.object.type);
     let overlap = 0;
     for (const token of targetQueryTokens) if (objectTypeTokens.has(token)) overlap += 1;
@@ -130,24 +141,24 @@ export function buildRunContext({
       .filter(([, overlap]) => strongestTypeOverlap > 0 && overlap === strongestTypeOverlap)
       .map(([objectType]) => objectType),
   );
-  const contentMatches = participatingSources.filter((source) => overlapCount(targetQueryTokens, source) > 0);
+  const contentMatches = selectionSources.filter((source) => overlapCount(targetQueryTokens, source) > 0);
   const requiresPastDueActivities = /\b(?:past[- ]due|overdue)\b/i.test(actionContract?.targetQuery ?? prompt) &&
     participating.has('todos');
   const pastDueActivityMatches = requiresPastDueActivities
-    ? participatingSources.filter((source) =>
+    ? selectionSources.filter((source) =>
         source.capabilityId === 'todos' &&
         source.object.type === 'activity' &&
         /\bpast-due\b/i.test(source.searchableText))
     : [];
   const considered = !isAllMatching
-    ? participatingSources
+    ? selectionSources
     : requiresPastDueActivities
       ? pastDueActivityMatches
     : matchingTypes.size > 0
-      ? participatingSources.filter((source) => matchingTypes.has(source.object.type))
+      ? selectionSources.filter((source) => matchingTypes.has(source.object.type))
       : contentMatches.length > 0
         ? contentMatches
-        : participatingSources;
+        : selectionSources;
   const evidenceBudget = maxEvidence ?? (isAllMatching ? considered.length : isBroadReview ? 120 : 6);
   const perCapabilityBudget = maxPerCapability ?? (isAllMatching
     ? considered.length
@@ -157,11 +168,12 @@ export function buildRunContext({
   const ranked = considered.map((source) => {
     const isExplicit = explicit.has(source.object.id);
     const overlap = overlapCount(promptTokens, source);
+    const isReviewDigest = usesMoneyReviewDigest && source.object.type === 'money_category_review';
     return {
       source,
       isExplicit,
       overlap,
-      score: (isExplicit ? 1000 : 0) + overlap,
+      score: (isExplicit ? 1000 : 0) + (isReviewDigest ? 500 : 0) + overlap,
       observedAtMs: source.observedAt ? new Date(source.observedAt).getTime() || 0 : 0,
     };
   });
@@ -174,7 +186,16 @@ export function buildRunContext({
   );
 
   const evidence: EvidenceRefDraft[] = [];
-  const omissions: EvidenceOmission[] = [];
+  const omissions: EvidenceOmission[] = summarizedSources.map((source) => ({
+    capabilityId: source.capabilityId,
+    objectType: source.object.type,
+    objectId: source.object.id,
+    label: source.object.label,
+    authority: source.authority,
+    freshness: freshness(source.observedAt, now),
+    observedAt: source.observedAt ?? null,
+    reason: 'Summarized into the Money category review digest.',
+  }));
   const perCapability = new Map<string, number>();
 
   for (const candidate of ranked) {
@@ -241,16 +262,19 @@ export function buildRunContext({
   }
 
   const sufficient = evidence.length > 0;
+  const consideredCount = considered.length + summarizedSources.length;
   return {
     evidence: evidence.map((item) => ({ ...item, sufficient })),
     omissions,
     coverage: {
       sufficient,
-      consideredCount: considered.length,
+      consideredCount,
       includedCount: evidence.length,
       omittedCount: omissions.length,
       note: sufficient
-        ? `Selected ${evidence.length} of ${considered.length} bounded Kwilt records.`
+        ? usesMoneyReviewDigest
+          ? `Selected ${evidence.length} of ${consideredCount} bounded Kwilt records; transaction patterns are summarized in the Money category review digest.`
+          : `Selected ${evidence.length} of ${consideredCount} bounded Kwilt records.`
         : 'Kwilt did not find relevant evidence in the participating capabilities.',
     },
   };

@@ -15,6 +15,7 @@ export type PersonalCompositeRuleActionBoundary = {
   persistSettings(settings: ScreenTimeProtectionSettings): void | Promise<void>;
   activateRule(rule: PersonalCompositeScreenTimeRule): Promise<boolean>;
   deactivateRule(rule: PersonalCompositeScreenTimeRule): Promise<boolean>;
+  requireProForRule?(rule: PersonalCompositeScreenTimeRule): void;
 };
 
 export type PersonalCompositeRuleSummary = {
@@ -79,6 +80,8 @@ export async function savePersonalCompositeScreenTimeRule(input: {
     candidate.id !== normalized.id && fingerprint(candidate) === fingerprint(normalized)
   ));
   if (duplicate) throw new Error('duplicate_personal_screen_time_rule');
+
+  if (normalized.enabled) boundary.requireProForRule?.(normalized);
 
   if (prior?.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_composite_rule_deactivation_failed');

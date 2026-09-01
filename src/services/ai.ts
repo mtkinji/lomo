@@ -12,6 +12,7 @@ import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../sto
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
+import { getAccessToken } from './backend/auth';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import { buildKwiltChatSystemPrompt } from '../features/ai/chatVoicePrompt';
@@ -3295,6 +3296,10 @@ export async function inspectUnifiedChatAttachments(
   attachments: readonly UnifiedChatAttachment[],
   signal?: AbortSignal,
 ): Promise<UnifiedChatAttachmentInspectionResult[]> {
+  if (!useEntitlementsStore.getState().isPro) {
+    openPaywallInterstitial({ reason: 'pro_ai_attachment_analysis', source: 'activity_detail_ai' });
+    throw new Error('Kwilt Pro is required to inspect attachments.');
+  }
   const apiKey = resolveOpenAiApiKey();
   if (!apiKey) throw new Error('AI proxy not configured');
   const response = await fetchWithTimeout(
@@ -3522,6 +3527,8 @@ async function fetchWithTimeout(
       }
       const isPro = Boolean(useEntitlementsStore.getState?.().isPro);
       headers.set('x-kwilt-is-pro', isPro ? 'true' : 'false');
+      const accessToken = await getAccessToken().catch(() => null);
+      if (accessToken?.trim()) headers.set('Authorization', `Bearer ${accessToken.trim()}`);
       headers.set('x-kwilt-client', 'kwilt-mobile');
       nextOptions = { ...options, headers };
     }

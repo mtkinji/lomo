@@ -46,6 +46,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     reviewTransactionMeaning,
     setTransactionPlanRoleOverride,
     setTransactionPlanCoverage,
+    setTransactionNote,
     reviewingTransactionId,
     refresh,
     saveMerchantRule,
@@ -69,12 +70,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [dismissedRuleCategoryId, setDismissedRuleCategoryId] = useState<string | null>(null);
   const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
   const [splitEditorOpen, setSplitEditorOpen] = useState(false);
+  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [partialRuleMatch, setPartialRuleMatch] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [pendingChoice, setPendingChoice] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
+  const noteChanged = Boolean(transaction && noteDraft.trim() !== (transaction.userNote ?? ''));
   const categories = snapshot?.categories ?? [];
   const currentCategory = transaction?.categoryId
     ? categories.find((category) => category.id === transaction.categoryId || category.sourceId === transaction.categoryId)
@@ -316,6 +320,23 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     }
   };
 
+  const openNoteEditor = () => {
+    if (!transaction) return;
+    setNoteDraft(transaction.userNote ?? '');
+    setReviewError(null);
+    setNoteEditorOpen(true);
+  };
+
+  const saveNote = async () => {
+    if (!transaction) return;
+    const changed = await runReview(() => setTransactionNote(transaction.id, noteDraft));
+    if (changed) setNoteEditorOpen(false);
+  };
+
+  const closeNoteEditor = () => {
+    if (!saving) setNoteEditorOpen(false);
+  };
+
   const openSplitEditor = () => {
     if (!transaction) return;
     const mode: TransactionSplitMode = transaction.allocations?.length ? 'replace' : 'create';
@@ -372,6 +393,24 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           </View>
 
           <PaymentSourceCard transaction={transaction} />
+
+          <View style={styles.noteSection}>
+            <Text style={styles.sectionLabel}>Note</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={transaction.userNote ? `Edit transaction note: ${transaction.userNote}` : 'Add a note to this transaction'}
+              disabled={saving}
+              onPress={openNoteEditor}
+              style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.categoryFieldCopy}>
+                <Text numberOfLines={3} style={[styles.noteValue, !transaction.userNote ? styles.categoryPlaceholder : null]}>
+                  {transaction.userNote ?? 'Add a note'}
+                </Text>
+              </View>
+              <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Category</Text>
@@ -473,7 +512,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         onClose={saving ? undefined : () => void dismissRuleOffer()}
         scrim="light"
         snapPoints={['42%']}
-        visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}
+        visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen && !noteEditorOpen}
       >
         <View style={styles.ruleGuideCopy}>
           <Text style={styles.ruleGuideTitle}>Use {ruleOfferCategory?.name} next time?</Text>
@@ -486,6 +525,46 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <Button loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
         </View>
       </BottomGuide>
+
+      <BottomDrawer
+        visible={noteEditorOpen}
+        onClose={closeNoteEditor}
+        dismissable={!saving}
+        snapPoints={['54%']}
+        keyboardBehavior="resize"
+        footer={{
+          primaryAction: {
+            label: !noteDraft.trim() && transaction.userNote ? 'Remove note' : 'Save note',
+            loading: saving,
+            loadingLabel: 'Saving note…',
+            disabled: saving || !noteChanged,
+            onPress: () => void saveNote(),
+          },
+        }}
+      >
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close transaction note"
+            onClose={closeNoteEditor}
+            title="Transaction note"
+            variant="withClose"
+          />
+          <Input
+            accessibilityLabel="Transaction note"
+            editable={!saving}
+            label="Note"
+            maxLength={500}
+            multiline
+            multilineMaxHeight={180}
+            multilineMinHeight={112}
+            placeholder="Family pictures"
+            value={noteDraft}
+            onChangeText={setNoteDraft}
+          />
+          <Text style={styles.drawerCopy}>Everyone in this Money household can see this note. It does not change the bank description, category, or plan.</Text>
+          {reviewError ? <Text accessibilityLiveRegion="polite" style={styles.errorText}>{reviewError}</Text> : null}
+        </BottomDrawerScrollView>
+      </BottomDrawer>
 
       <BottomDrawer
         visible={coverageOpen}
@@ -875,6 +954,8 @@ const styles = StyleSheet.create({
   sourceDescriptionField: { gap: spacing.md },
   sourceDescriptionBlock: { minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   sourceDescription: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' },
+  noteSection: { gap: spacing.md },
+  noteValue: { color: colors.textPrimary, fontFamily: fonts.regular, fontSize: 15, lineHeight: 21 },
   paymentCard: { minHeight: 184, justifyContent: 'space-between', borderRadius: 18, padding: spacing.lg, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 7 } },
   cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardChip: { width: 36, height: 27, borderRadius: 6 },

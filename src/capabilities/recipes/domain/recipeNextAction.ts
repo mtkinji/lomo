@@ -70,9 +70,16 @@ export function deriveRecipeNextActions(input: {
   activeCook: boolean;
   isInPlan: boolean;
   planState: MealPlanState;
+  cookAvailable?: boolean;
 }): { recommendedAction: RecipeNextAction; menuActions: RecipeNextAction[] } {
   const planMembershipAction = input.isInPlan ? removeFromPlan : addToPlan;
   const canCompilePlan = input.isInPlan && input.planState === 'finalized';
+
+  if (input.cookAvailable === false) {
+    return input.isInPlan
+      ? { recommendedAction: reviewMealPlan, menuActions: [removeFromPlan] }
+      : { recommendedAction: addToPlan, menuActions: [] };
+  }
 
   if (input.activeCook) {
     return {

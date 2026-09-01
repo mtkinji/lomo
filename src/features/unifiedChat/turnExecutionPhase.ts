@@ -169,6 +169,8 @@ export function buildTurnResponseGrounding({
     'Lead with the useful conclusion.',
     'Name the material observations that support it.',
     'Distinguish observation from inference and state meaningful coverage limits.',
+    'Do not replace the analysis with a checklist of what you could inspect.',
+    'Before asking for more input, make every concrete observation the authorized evidence currently supports. Ask only for information that materially blocks a better answer.',
     evidenceScope === 'broad'
       ? 'Compare the authorized evidence as a system or pattern review; do not reduce the answer to a few lexical matches.'
       : 'Stay focused on the authorized records that materially answer the request.',
@@ -244,16 +246,12 @@ function groundingSummary(
     );
   }
   if (usePrivateContext) {
-    const evidence = context.evidence.length > 0
-      ? context.evidence.map((item) => {
-          const machineReference = requestClass === 'capability_action'
-            ? ` Machine reference: targetId=${item.object.id}; expectedUpdatedAt=${item.observedAt ?? 'unknown'}.`
-            : '';
-          return `- ${item.object.label}: ${item.summary} [${item.authority}; ${item.freshness}; ${item.includedBecause}]${machineReference}`;
-        }).join('\n')
-      : '- No relevant Kwilt records were found.';
+    const evidence = buildBoundedEvidencePrompt(context, requestClass);
     parts.push(
       'Use only the following bounded Kwilt evidence. Distinguish stored facts from inference.',
+      context.evidence.length > 0
+        ? 'For every factual observation, copy one or more bracketed short evidence references into that fact’s evidence field. Never show these references in answer, fact text, inference, or uncertainty prose.'
+        : 'No evidence references are available. State that no relevant records were found and use an empty evidence list for that fact.',
       evidence,
       `Kwilt coverage: ${context.coverage.note}`,
     );
@@ -296,6 +294,19 @@ function groundingSummary(
   const attachmentContext = buildUnifiedChatAttachmentContext(attachments);
   if (attachmentContext) parts.push(attachmentContext);
   return parts.join('\n\n');
+}
+
+export function buildBoundedEvidencePrompt(
+  context: BuiltRunContext,
+  requestClass: UnifiedChatRequestPolicy['requestClass'],
+): string {
+  if (context.evidence.length === 0) return '- No relevant Kwilt records were found.';
+  return context.evidence.map((item, index) => {
+    const machineReference = requestClass === 'capability_action'
+      ? ` Machine reference: targetId=${item.object.id}; expectedUpdatedAt=${item.observedAt ?? 'unknown'}.`
+      : '';
+    return `- [Evidence E${index + 1}] ${item.object.label}: ${item.summary} [${item.authority}; ${item.freshness}; ${item.includedBecause}]${machineReference}`;
+  }).join('\n');
 }
 
 export type ExecuteUnifiedChatTurnPhaseInput = {
@@ -834,7 +845,10 @@ export async function executeUnifiedChatTurnPhase(
   let parsedActionResponse = expectsActivityProposal
     ? parseActivityActionResponse(response)
     : null;
-  let groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
+  const groundedAnswerEvidenceRefs = input.context.evidence.map((_, index) => `E${index + 1}`);
+  let groundedAnswer = expectsGroundedAnswer
+    ? parseGroundedAnswer(response, { allowedEvidenceRefs: groundedAnswerEvidenceRefs })
+    : null;
   let artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
   const malformedStructuredResponse =
     (expectsActivityProposal && !parsedActionResponse) ||
@@ -866,7 +880,9 @@ export async function executeUnifiedChatTurnPhase(
       // The validation below preserves the typed-output boundary when repair is exhausted.
     }
     parsedActionResponse = expectsActivityProposal ? parseActivityActionResponse(response) : null;
-    groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
+    groundedAnswer = expectsGroundedAnswer
+      ? parseGroundedAnswer(response, { allowedEvidenceRefs: groundedAnswerEvidenceRefs })
+      : null;
     artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
   }
   if (

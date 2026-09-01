@@ -54,7 +54,7 @@ export function getMoneyInstitutionCoverage(accounts: MoneyOnboardingAccountEvid
   }));
 }
 
-export function getAdditionalInstitutionDecision(isPro: boolean): 'open_connection' | 'offer_pro' {
+export function getMoneyConnectionDecision(isPro: boolean): 'open_connection' | 'offer_pro' {
   return isPro ? 'open_connection' : 'offer_pro';
 }
 

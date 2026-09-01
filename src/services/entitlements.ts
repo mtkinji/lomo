@@ -209,7 +209,7 @@ async function applyAdminOverride(snapshot: EntitlementsSnapshot): Promise<Entit
     return { ...snapshot, isPro: true, isProToolsTrial: false, checkedAt, source: 'admin' };
   }
   if (tier === 'trial') {
-    return { ...snapshot, isPro: false, isProToolsTrial: true, checkedAt, source: 'admin' };
+    return { ...snapshot, isPro: false, isProToolsTrial: false, checkedAt, source: 'admin' };
   }
   // free
   return { ...snapshot, isPro: false, isProToolsTrial: false, checkedAt, source: 'admin' };
@@ -244,8 +244,10 @@ function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): 
 }
 
 function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
-  const active = customerInfo?.entitlements?.active ?? {};
-  return Boolean((active as any).pro_tools_trial);
+  // Historical compatibility only. App Store introductory periods use the
+  // same active `pro` entitlement and receive full Pro access.
+  void customerInfo;
+  return false;
 }
 
 function normalizeAppUserID(raw: string | null | undefined): string | null {

@@ -19,6 +19,7 @@ import {
   type UnifiedChatRequestPolicy,
 } from './requestPolicy';
 import type { UnifiedChatThreadAggregate } from './types';
+import { isMoneyCategoryStructureReview } from './moneyReviewIntent';
 
 export type {
   ResolvedUnifiedChatTurnContract,
@@ -31,6 +32,7 @@ const RETRY_PATTERN = /\b(?:retry|try\s+(?:that|it|this)?\s*again)\b/i;
 const CORRECTION_PATTERN =
   /(?:\bi meant\b|\bclose,?\s+but\b|\binstead\s+of\b|\b(?:move|put)\b[^.!?]{0,100}\b(?:front|beginning|end)\b|\b(?:correct|change)\s+(?:that|it|those|them)\b)/i;
 const ALL_MATCHING_PATTERN = /\b(?:all|every|each|everything|remaining)\b|\bthe\s+rest\s+of\b/i;
+const BROAD_REVIEW_PATTERN = /\b(?:compare|across|overall|system|structure|pattern|review)\b/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -81,6 +83,22 @@ function actionFromOperations(
   };
 }
 
+function fallbackEvidenceScope(
+  prompt: string,
+  requestPolicy: UnifiedChatRequestPolicy,
+): AgentJudgmentEvidenceScope {
+  if (!requestPolicy.usePrivateContext) return 'none';
+  if (requestPolicy.requestClass !== 'capability_question' && requestPolicy.requestClass !== 'general_with_kwilt_context') {
+    return 'focused';
+  }
+  if (BROAD_REVIEW_PATTERN.test(prompt)) return 'broad';
+  if (
+    requestPolicy.participatingCapabilities.includes('money') &&
+    isMoneyCategoryStructureReview(prompt)
+  ) return 'broad';
+  return 'focused';
+}
+
 export function buildUnifiedChatTurnContract({
   prompt,
   requestPolicy,
@@ -122,7 +140,7 @@ export function buildUnifiedChatTurnContract({
       (requestPolicy.requestClass === 'capability_action' ? 'explicit_request' : 'none'),
     evidenceScope: agentJudgment?.evidenceScope ??
       (preservesPrevious ? previous?.contract.evidenceScope : null) ??
-      (requestPolicy.usePrivateContext ? 'focused' : 'none'),
+      fallbackEvidenceScope(prompt, requestPolicy),
     responseContract: agentJudgment?.responseContract ??
       (preservesPrevious ? previous?.contract.responseContract : null) ??
       (requestPolicy.usePrivateContext ? 'evidence_linked' : 'direct'),

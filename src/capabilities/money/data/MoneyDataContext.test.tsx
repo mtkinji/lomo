@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { MoneyDataProvider, useMoneyData } from './MoneyDataContext';
@@ -6,6 +6,7 @@ import type { MoneyRepository } from './moneyRepository';
 import type { MoneySnapshot } from './moneySnapshot';
 import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
 import { reconcileConnectedMoneyActivity } from '../runtime/reconcileConnectedMoneyActivity';
+import { setProEntitlement } from '../../../test/storeFixtures';
 
 jest.mock('../runtime/moneyGlanceableState', () => ({ syncMoneyGlanceableState: jest.fn() }));
 jest.mock('../runtime/reconcileConnectedMoneyActivity', () => ({ reconcileConnectedMoneyActivity: jest.fn() }));
@@ -68,6 +69,19 @@ function ReorderProbe() {
   );
 }
 
+function NoteProbe() {
+  const { reviewingTransactionId, setTransactionNote, snapshot: currentSnapshot } = useMoneyData();
+  return (
+    <View>
+      <Text>{reviewingTransactionId ? 'saving-note' : 'note-ready'}</Text>
+      <Text>{currentSnapshot?.transactions[0]?.userNote ?? 'no-note'}</Text>
+      <Pressable accessibilityRole="button" onPress={() => { void setTransactionNote('transaction-1', 'Family pictures'); }}>
+        <Text>Save note</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function ConnectedRefreshProbe() {
   const { error, reconcileConnectedActivity: refreshConnectedActivity, snapshot: currentSnapshot } = useMoneyData();
   return (
@@ -93,7 +107,10 @@ function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
 }
 
 describe('MoneyDataProvider merchant-rule confirmation', () => {
-  beforeEach(() => jest.mocked(reconcileConnectedMoneyActivity).mockReset());
+  beforeEach(() => {
+    jest.mocked(reconcileConnectedMoneyActivity).mockReset();
+    setProEntitlement(true);
+  });
 
   it('reconciles the governed plan after a persisted transaction review', () => {
     const source = require('fs').readFileSync(require('path').join(__dirname, 'MoneyDataContext.tsx'), 'utf8');
@@ -103,6 +120,39 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
     );
 
     expect(reviewBoundedTransaction).toContain("reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')");
+  });
+
+  it('shows a confirmed household note before the broader snapshot refresh finishes', async () => {
+    const backgroundRefresh = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn()
+        .mockResolvedValueOnce(snapshot)
+        .mockImplementationOnce(() => backgroundRefresh.promise),
+      setTransactionNote: jest.fn().mockResolvedValue({
+        confirmedAt: '2026-08-31T20:00:00.000Z',
+        transactionId: 'transaction-1',
+        note: 'Family pictures',
+      }),
+    } as unknown as MoneyRepository;
+    const screen = render(
+      <MoneyDataProvider repository={repository}>
+        <NoteProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('no-note');
+    fireEvent.press(screen.getByRole('button', { name: 'Save note' }));
+
+    await screen.findByText('Family pictures');
+    expect(screen.getByText('note-ready')).toBeTruthy();
+    expect(repository.setTransactionNote).toHaveBeenCalledWith('transaction-1', 'Family pictures');
+
+    await act(async () => {
+      backgroundRefresh.resolve({
+        ...snapshot,
+        transactions: [{ ...snapshot.transactions[0], userNote: 'Family pictures' }],
+      });
+    });
   });
 
   it('keeps the last snapshot visible and surfaces a connected-refresh failure', async () => {

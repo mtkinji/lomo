@@ -20,6 +20,8 @@ describe('personalCompositeScreenTimeRule', () => {
       { id: 'under-limit', type: 'daily_usage', operator: 'below', minutes: 15 },
     ],
     temporaryOpenUntilIso: null,
+    monetizationState: 'active' as const,
+    monetizationChangedAt: null,
     lastUpdated: '2026-08-27T23:00:00.000Z',
   };
 

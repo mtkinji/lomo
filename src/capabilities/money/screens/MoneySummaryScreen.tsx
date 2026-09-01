@@ -67,6 +67,7 @@ import { InventoryControlGroup } from '../../../ui/InventoryControlGroup';
 import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
+import { requestMoneyProAccess } from '../runtime/moneyProAccess';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
@@ -204,6 +205,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
 
   const connectAccount = useCallback(async () => {
     if (accountConnectionPending) return;
+    if (!requestMoneyProAccess('money_connect_account')) return;
     setAccountSourcesOpen(false);
     setAccountConnectionPending(true);
     setAccountConnectionMessage(null);

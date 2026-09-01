@@ -34,7 +34,6 @@ import {
 } from '../../ui/layout/ObjectDetailMediaShell';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { KwiltAiQuotaExceededError } from '../../services/ai';
 import {
@@ -94,7 +93,6 @@ export function ActivityDetailRefresh(props: any) {
   const [isTagsInputFocused, setIsTagsInputFocused] = React.useState(false);
   // IMPORTANT: hooks must be called unconditionally at the top level.
   // Do not call Zustand hooks inside conditional render branches / IIFEs.
-  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
   // Match the effective page gutter used by Arc/Goal pages:
   // Arcs/Goals often run `AppShell fullBleedCanvas` and then apply `spacing.xl` internally.
   // ActivityDetail uses AppShell default gutter (`spacing.sm`), so we add the delta.
@@ -1754,7 +1752,7 @@ export function ActivityDetailRefresh(props: any) {
 
               <View style={{ marginTop: spacing.lg }}>
                 {(() => {
-                  const canUseAttachments = Boolean(isPro || isProToolsTrial);
+                  const canUseAttachments = true;
                   const attachments = (((activity as any)?.attachments ?? []) as any[]).filter(Boolean);
                   const count = attachments.length;
                   const label = 'Add attachments';

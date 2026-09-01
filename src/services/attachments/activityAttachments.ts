@@ -12,10 +12,8 @@ import { getAiProxyBaseUrl, getSupabasePublishableKey, getSupabaseUrl } from '..
 import { getImagePickerMediaTypesAll } from '../../utils/imagePickerMediaTypes';
 import { getInstallId } from '../installId';
 import { ensureSignedInWithPrompt, getAccessToken } from '../backend/auth';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
-import { openPaywallInterstitial } from '../paywall';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../edgeFunctions';
 import { createPreparedAudioRecorder } from '../audioRecorder';
 import { uploadFileToSignedUrl } from '../files/uploadFileToSignedUrl';
@@ -50,11 +48,6 @@ async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
   } catch {
     // best-effort
   }
-
-  // Server-side enforcement prefers `kwilt_pro_entitlements`, but some environments
-  // optionally allow trusting this header. Keep it consistent with AI proxy requests.
-  const isPro = Boolean(useEntitlementsStore.getState().isPro);
-  headers.set('x-kwilt-is-pro', isPro ? 'true' : 'false');
 
   if (requireAuth) {
     const token = (await getAccessToken())?.trim();
@@ -200,13 +193,6 @@ async function initUpload(params: {
 
 export async function addPhotoOrVideoToActivity(activity: Activity): Promise<void> {
   try {
-    const ent = useEntitlementsStore.getState();
-    const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-    if (!canUseAttachments) {
-      openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-      return;
-    }
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
     if (!permission?.granted) {
       Alert.alert('Permission required', 'Please allow photo library access to add attachments.');
@@ -300,13 +286,6 @@ export async function addPhotoOrVideoToActivity(activity: Activity): Promise<voi
 }
 
 export async function addDocumentToActivity(activity: Activity): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
-
   // Dynamic require to keep the app compiling even if the dependency isn't installed yet.
   let DocumentPicker: any = null;
   try {
@@ -404,13 +383,6 @@ export function audioRecordingDurationSeconds(durationMillis: unknown): number |
 }
 
 export async function startAudioRecording(): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || (ent as any).isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
-
   const permission = await requestRecordingPermissionsAsync().catch(() => null);
   if (!permission?.granted) {
     Alert.alert('Permission required', 'Please allow microphone access to record audio.');
@@ -543,12 +515,6 @@ export async function stopAudioRecordingAndAttachToActivity(activity: Activity):
 }
 
 export async function openAttachment(attachmentId: string): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
   const base = getEdgeFunctionUrl('attachments-get-download-url');
   if (!base) throw new Error('Attachments service not configured');
 
@@ -579,12 +545,6 @@ export async function openAttachment(attachmentId: string): Promise<void> {
 }
 
 export async function getAttachmentDownloadUrl(attachmentId: string): Promise<string> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    throw new Error('Attachments are Pro');
-  }
   const base = getEdgeFunctionUrl('attachments-get-download-url');
   if (!base) throw new Error('Attachments service not configured');
 
@@ -614,12 +574,6 @@ export async function getAttachmentDownloadUrl(attachmentId: string): Promise<st
 }
 
 export async function deleteAttachment(params: { activityId: string; attachmentId: string }): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
   const base = getEdgeFunctionUrl('attachments-delete');
   if (!base) throw new Error('Attachments service not configured');
 
@@ -655,12 +609,6 @@ export async function setAttachmentSharedWithGoalMembers(params: {
   attachmentId: string;
   sharedWithGoalMembers: boolean;
 }): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
   const base = getEdgeFunctionUrl('attachments-set-share');
   if (!base) throw new Error('Attachments service not configured');
 

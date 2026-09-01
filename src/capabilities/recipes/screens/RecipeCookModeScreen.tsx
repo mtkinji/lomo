@@ -46,10 +46,12 @@ import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
 import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
 import { cookModeEducationCache } from "../data/cookModeEducationCache";
 import { KwiltLoader } from '../../../ui/KwiltLoader';
+import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeCookMode">;
 const LANDSCAPE_INGREDIENT_RAIL_WIDTH = 300;
 export function RecipeCookModeScreen({ navigation, route }: Props) {
+  const cookModePreviewEnabled = useFeatureFlag('kwilt-preview-cook-mode', true);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const personalRecipes = useRecipeStore((state) => state.recipes);
@@ -57,6 +59,15 @@ export function RecipeCookModeScreen({ navigation, route }: Props) {
     personalRecipes,
     route.params.recipeId,
     STARTER_RECIPE_PROJECTIONS,
+  );
+  if (!cookModePreviewEnabled) return (
+    <AppShell>
+      <PageHeader title="Cook Mode" onPressBack={() => navigation.goBack()} />
+      <View style={styles.center}>
+        <Text>Cook Mode is unavailable right now. Your recipe is still available.</Text>
+        <Button variant="outline" onPress={() => navigation.goBack()}>Back to recipe</Button>
+      </View>
+    </AppShell>
   );
   if (!projection)
     return (
