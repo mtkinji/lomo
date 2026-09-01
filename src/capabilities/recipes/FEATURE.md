@@ -27,7 +27,7 @@ briefs:
   - online-grocery-cart-concierge
   - trusted-recipe-product-picks
 status: draft
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-31
 ---
 
 # Recipes
@@ -37,3 +37,14 @@ capture/import review, clean cooking, copy/collaboration sharing, the global
 Kwilt-authored catalog, and explicit public publication boundaries.
 It also owns the explainable catalog recommendation selector used by Recipes
 discovery and by Meal Plan when it requests Recipe ideas.
+
+## Cook Mode launch boundary
+
+Cook Mode launches as an MVP preview available without Pro while its
+server-controlled exposure flag is enabled. It never opens a paywall in this
+launch. Provider-backed speech/AI still requires authentication and bounded
+usage/cost safeguards, and the flag must stop customer entry and new provider
+work when disabled. It is not a headline subscription or creator claim. A
+future Pro decision requires evidence of repeated value and sustainable cost.
+Recipe reading, ingredients, method, scaling, planning, and grocery workflows
+remain Free and independent of Cook Mode.

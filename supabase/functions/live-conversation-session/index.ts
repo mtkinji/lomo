@@ -7,6 +7,8 @@ import {
   parseLiveConversationSessionRequest,
   summarizeOpenAiError,
 } from '../_shared/liveConversationSession.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { isServerMvpPreviewEnabled, reserveMvpPreviewUsage } from '../_shared/serverMvpPreviewAccess.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -33,9 +35,23 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) return json(401, { error: { code: 'unauthorized', message: 'Sign in to start a conversation.' } });
+  if (!isServerMvpPreviewEnabled(Deno.env.get('KWILT_LIVE_CONVERSATION_PREVIEW_ENABLED'))) {
+    return json(503, { error: { code: 'preview_unavailable', message: 'Conversation mode is unavailable.' } });
+  }
 
   const parsed = parseLiveConversationSessionRequest(await req.json().catch(() => null));
   if (!parsed) return json(400, { error: { code: 'invalid_request', message: 'The conversation could not be started.' } });
+  const reservation = await reserveMvpPreviewUsage(createServiceClient(), {
+    userId: data.user.id,
+    capability: 'live_conversation',
+    perMinute: 5,
+    perUserDay: 5,
+    globalDay: 100,
+    leaseSeconds: 15 * 60,
+  });
+  if (!reservation.allowed) {
+    return json(429, { error: { code: 'preview_limit_reached', message: 'Conversation mode has reached its preview limit.' } });
+  }
   const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim();
   const safetySecret = Deno.env.get('LIVE_CONVERSATION_SAFETY_SECRET')?.trim() ?? openAiKey;
   if (!openAiKey || !safetySecret) return json(503, { error: { code: 'provider_unavailable', message: 'Conversation mode is unavailable.' } });
@@ -70,5 +86,6 @@ serve(async (req) => {
       },
     });
   }
+  console.info('[mvp-preview-usage]', { capability: 'live_conversation', outcome: 'session_minted', model });
   return json(200, { clientSecret: clientSecret.value, expiresAt: clientSecret.expiresAt, model });
 });

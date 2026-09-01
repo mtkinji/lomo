@@ -385,18 +385,16 @@ describe('useAppStore object lifecycles', () => {
     expect(state.activities.find((a) => a.id === 'act-1')?.goalId).toBe('goal-1');
   });
 
-  it('free-tier arc limit counts total arcs, even if archived', () => {
+  it('allows free users to create Arcs regardless of archived Arcs', () => {
     const isPro = false;
     const a1 = arc({ id: 'arc-1', status: 'archived' });
     expect(canCreateArc({ isPro, arcs: [a1] })).toEqual({
-      ok: false,
-      reason: 'limit_arcs_total',
+      ok: true,
       count: 1,
-      limit: 1,
     });
   });
 
-  it('free-tier goal limit counts non-archived goals (completed still counts unless archived)', () => {
+  it('allows free users to create goals while reporting the active count', () => {
     const isPro = false;
     const arcId = 'arc-1';
 
@@ -410,11 +408,10 @@ describe('useAppStore object lifecycles', () => {
     expect(canCreateGoalInArc({ isPro, goals, arcId })).toEqual({
       ok: true,
       activeCount: 2,
-      limit: 3,
     });
   });
 
-  it('free-tier goal limit blocks creating the 4th non-archived goal in an arc', () => {
+  it('allows free users to create additional goals in an Arc', () => {
     const isPro = false;
     const arcId = 'arc-1';
 
@@ -425,10 +422,8 @@ describe('useAppStore object lifecycles', () => {
     ];
 
     expect(canCreateGoalInArc({ isPro, goals, arcId })).toEqual({
-      ok: false,
-      reason: 'limit_goals_per_arc',
+      ok: true,
       activeCount: 3,
-      limit: 3,
     });
   });
 });

@@ -27,6 +27,7 @@ type ExpectedVersion = { expectedUpdatedAt: string };
 export type MoneyControlActionBoundary = {
   loadSnapshot(): Promise<MoneySnapshot>;
   requireFreshAuthentication(): Promise<boolean>;
+  requireProAccess?(): void;
   updateCategoryPlan(
     categoryId: string,
     input: { budgetCents: number },
@@ -164,6 +165,21 @@ export function createMoneyControlActions(boundary: MoneyControlActionBoundary) 
   };
 
   const mutate = <T>(requestId: string, confirmed: boolean, execute: () => Promise<T>): Promise<T> => {
+    const id = requestId.trim();
+    if (!id) return Promise.reject(new Error('money_request_id_required'));
+    const existing = requests.get(id);
+    if (existing) return existing as Promise<T>;
+    const operation = (async () => {
+      requireConfirmation(confirmed);
+      await authorize();
+      boundary.requireProAccess?.();
+      return execute();
+    })();
+    requests.set(id, operation);
+    return operation;
+  };
+
+  const mutateSafety = <T>(requestId: string, confirmed: boolean, execute: () => Promise<T>): Promise<T> => {
     const id = requestId.trim();
     if (!id) return Promise.reject(new Error('money_request_id_required'));
     const existing = requests.get(id);
@@ -323,7 +339,7 @@ export function createMoneyControlActions(boundary: MoneyControlActionBoundary) 
     disconnectConnection(input: {
       requestId: string; confirmed: boolean; connectionId: string; expectedUpdatedAt: string;
     }) {
-      return mutate(input.requestId, input.confirmed, async () => {
+      return mutateSafety(input.requestId, input.confirmed, async () => {
         const snapshot = await boundary.loadSnapshot();
         const connection = (snapshot.connections ?? []).find((candidate) => candidate.id === input.connectionId.trim());
         if (!connection) throw new MoneyTargetNotFoundError();

@@ -84,6 +84,33 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
 }
 
 describe('createMoneyRepository transaction review', () => {
+  it('persists a normalized household note without changing financial fields', async () => {
+    const { client, calls } = createClient();
+
+    await expect(createMoneyRepository(client).setTransactionNote('transaction-1', '  Family pictures  '))
+      .resolves.toMatchObject({ transactionId: 'transaction-1', note: 'Family pictures' });
+
+    const write = calls.find((call) => call.table === 'budget_transactions' && call.update?.user_note === 'Family pictures');
+    expect(write).toMatchObject({
+      update: { user_note: 'Family pictures' },
+      filters: [['id', 'transaction-1']],
+    });
+    expect(write?.update).not.toHaveProperty('budget_id');
+    expect(write?.update).not.toHaveProperty('money_meaning');
+  });
+
+  it('removes an empty household note and rejects an unbounded note before writing', async () => {
+    const { client, calls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.setTransactionNote('transaction-1', '   ');
+    await expect(repository.setTransactionNote('transaction-1', 'a'.repeat(501))).rejects.toThrow('500 characters');
+
+    expect(calls.find((call) => call.update && Object.hasOwn(call.update, 'user_note'))?.update)
+      .toEqual({ user_note: null });
+    expect(calls.filter((call) => call.update && Object.hasOwn(call.update, 'user_note'))).toHaveLength(1);
+  });
+
   it('persists user-declared saved-money coverage without changing category or meaning', async () => {
     const { client, calls } = createClient();
 
@@ -156,6 +183,7 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_policy_version');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_governed');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('plan_role_override');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('user_note');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transactions')?.orders).toEqual([
       ['date', { ascending: false }],

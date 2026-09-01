@@ -49,7 +49,7 @@ import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHan
 import {
   buildMoneyOnboardingAssessment,
   buildMoneyOnboardingTargetGuidance,
-  getAdditionalInstitutionDecision,
+  getMoneyConnectionDecision,
   getMoneyInstitutionCoverage,
   MONEY_ONBOARDING_DEMO_EVIDENCE,
   type MoneyOnboardingAssessment,
@@ -145,7 +145,7 @@ export function MoneySetupExperience({
   const insets = useSafeAreaInsets();
   const { reconcileConnectedActivity, refresh, snapshot, status } = useMoneyData();
   const entitlementIsPro = useEntitlementsStore((state) => state.isPro);
-  const isProMember = demoScenario ? false : entitlementIsPro;
+  const isProMember = demoScenario ? true : entitlementIsPro;
   const [step, setStep] = useState<SetupStep>(() => getMoneyOnboardingInitialStep(source, null));
   const [livingPercent, setLivingPercent] = useState(70);
   const [householdSize, setHouseholdSize] = useState<number | null>(null);
@@ -271,6 +271,7 @@ export function MoneySetupExperience({
   };
 
   const prepareConnection = useCallback(async () => {
+    if (!isProMember) return null;
     if (plaidSessionRef.current) return plaidSessionRef.current;
     if (plaidPreparationRef.current) return plaidPreparationRef.current;
 
@@ -290,7 +291,7 @@ export function MoneySetupExperience({
     } finally {
       plaidPreparationRef.current = null;
     }
-  }, []);
+  }, [isProMember]);
 
   async function analyzeAccounts() {
     if (busy || !userId) return;
@@ -336,8 +337,8 @@ export function MoneySetupExperience({
 
   useEffect(() => {
     if (demoScenario || step !== 'account' || !userId || snapshot?.accounts.length || connectionPhase !== 'unprepared') return;
-    void prepareConnection().catch(() => undefined);
-  }, [connectionPhase, demoScenario, prepareConnection, snapshot?.accounts.length, step, userId]);
+    if (isProMember) void prepareConnection().catch(() => undefined);
+  }, [connectionPhase, demoScenario, isProMember, prepareConnection, snapshot?.accounts.length, step, userId]);
 
   useEffect(() => {
     if (demoScenario || step !== 'account' || !userId || !snapshot?.accounts.length || accountAutoAdvanceStarted.current) return;
@@ -347,6 +348,10 @@ export function MoneySetupExperience({
 
   const connectAccount = async () => {
     if (!userId || connectionOpenStarted.current || connectionPhase === 'presented' || connectionPhase === 'exchanging') return;
+    if (!isProMember) {
+      openPaywallInterstitial({ reason: 'pro_money_budgets', source: 'money_onboarding_add_institution' });
+      return;
+    }
     connectionOpenStarted.current = true;
     setConnectionError(null);
     try {
@@ -365,6 +370,7 @@ export function MoneySetupExperience({
         setConnectionPhase('unprepared');
       }
       const session = await prepareConnection();
+      if (!session) return;
       const result = await session.open({ onPhaseChange: setConnectionPhase });
       plaidSessionRef.current = null;
       if (result.status === 'cancelled') {
@@ -430,9 +436,9 @@ export function MoneySetupExperience({
   };
 
   const addInstitution = () => {
-    if (getAdditionalInstitutionDecision(isProMember) === 'offer_pro') {
+    if (getMoneyConnectionDecision(isProMember) === 'offer_pro') {
       openPaywallInterstitial({
-        reason: 'pro_only_additional_financial_institution',
+        reason: 'pro_money_budgets',
         source: 'money_onboarding_add_institution',
       });
       return;

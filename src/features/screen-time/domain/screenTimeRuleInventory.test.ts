@@ -75,6 +75,32 @@ describe('buildMyScreenTimeRuleInventory', () => {
     })).toEqual<ScreenTimeRuleInventoryRow[]>([]);
   });
 
+  it('explains when a preserved advanced rule is inactive after Pro ends', () => {
+    const rows = buildMyScreenTimeRuleInventory({
+      personalSettings: {
+        personalCompositeRules: [{
+          id: 'preserved-rule',
+          selectionId: 'social',
+          selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+          selectedCategories: [],
+          enabled: false,
+          setupCompleted: true,
+          connector: 'all',
+          outcome: 'available',
+          conditions: [
+            { id: 'focus', type: 'focus_active', operator: 'is_not', value: true },
+            { id: 'time', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 },
+          ],
+          lastUpdated: '2026-08-31T12:00:00.000Z',
+          monetizationState: 'inactive_subscription_ended',
+        }],
+      },
+    });
+
+    expect(rows[0]?.contextLabel).toBe('Inactive — Pro ended');
+    expect(rows[0]?.enabled).toBe(false);
+  });
+
   it('omits records that do not yet select apps or categories', () => {
     expect(buildMyScreenTimeRuleInventory({
       personalSettings: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,

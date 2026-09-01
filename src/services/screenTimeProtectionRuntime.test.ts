@@ -38,7 +38,12 @@ describe('screenTimeProtectionRuntime', () => {
     await expect(reconcileScreenTimeRestrictionsForSettings({
       settings, focusSessionActive: true, now, bridge,
     })).resolves.toEqual([]);
-    expect(bridge.applyComposite).toHaveBeenCalledWith({ ...rule, temporaryOpenUntilIso: null }, {
+    expect(bridge.applyComposite).toHaveBeenCalledWith({
+      ...rule,
+      temporaryOpenUntilIso: null,
+      monetizationState: 'active',
+      monetizationChangedAt: null,
+    }, {
       focusActive: true, realStepComplete: false,
     });
   });

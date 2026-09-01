@@ -128,11 +128,16 @@ test('reviews a broad Money inventory including transactions for a budget-system
   });
 
   expect(result.context.evidence.filter((item) => item.object.type === 'money_category')).toHaveLength(12);
-  expect(result.context.evidence.filter((item) => item.object.type === 'money_transaction')).toHaveLength(80);
-  expect(result.context.coverage).toMatchObject({ consideredCount: 92, includedCount: 92, omittedCount: 0 });
+  expect(result.context.evidence.filter((item) => item.object.type === 'money_category_review')).toHaveLength(1);
+  expect(result.context.evidence.filter((item) => item.object.type === 'money_transaction')).toHaveLength(0);
+  expect(result.context.omissions.filter((item) => item.objectType === 'money_transaction')).toHaveLength(80);
+  expect(result.context.coverage).toMatchObject({ consideredCount: 93, includedCount: 13, omittedCount: 80 });
   expect(persistRunEvidence).toHaveBeenCalledWith(expect.objectContaining({
     evidence: expect.arrayContaining([
-      expect.objectContaining({ objectType: 'money_transaction', objectId: 'transaction-1' }),
+      expect.objectContaining({
+        objectType: 'money_transaction', objectId: 'transaction-1', selectionStatus: 'omitted',
+        selectionReason: 'Summarized into the Money category review digest.',
+      }),
     ]),
   }));
 });

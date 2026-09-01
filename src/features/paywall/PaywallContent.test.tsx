@@ -98,8 +98,9 @@ describe('PaywallContent', () => {
       />,
     );
     expect(getByText('What Pro adds')).toBeTruthy();
-    expect(getByText('1,000 AI credits / month')).toBeTruthy();
-    expect(getByText('Unlimited arcs + goals')).toBeTruthy();
+    expect(getByText('Connected budgets and transaction insights')).toBeTruthy();
+    expect(getByText('Advanced Screen Time rules with multiple conditions')).toBeTruthy();
+    expect(getByText('More AI capacity and advanced AI actions')).toBeTruthy();
   });
 
   it('Upgrade button calls onUpgrade override when provided', () => {

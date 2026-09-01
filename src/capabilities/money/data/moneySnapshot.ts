@@ -85,6 +85,7 @@ export type MoneyTransactionRow = {
   name: string;
   merchant_name: string | null;
   original_description?: string | null;
+  user_note?: string | null;
   authorized_date?: string | null;
   amount_cents: number;
   direction: 'inflow' | 'outflow';
@@ -162,6 +163,7 @@ export type MoneyTransaction = {
   accountName: string;
   institutionName: string;
   originalDescription?: string;
+  userNote?: string | null;
   authorizedDate?: string | null;
   accountMask?: string | null;
   accountType?: string | null;
@@ -546,6 +548,7 @@ function projectTransaction(
     accountName: account?.official_name?.trim() || account?.name.trim() || 'Unknown account',
     institutionName: connection?.institution_name?.trim() || 'Linked institution',
     originalDescription: transaction.original_description?.trim() || transaction.name.trim() || transaction.merchant_name?.trim() || 'Transaction',
+    userNote: transaction.user_note?.trim() || null,
     authorizedDate: transaction.authorized_date ?? null,
     accountMask: account?.mask?.trim() || null,
     accountType: account?.type ?? null,

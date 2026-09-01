@@ -1,10 +1,9 @@
-// Kwilt: Attachments init upload (Pro-gated)
+// Kwilt: Attachments init upload
 //
 // POST / -> { attachment, upload: { signedUrl, token? } }
 //
 // This function:
 // - verifies the caller (Supabase JWT)
-// - verifies Pro entitlement server-side (prefers `kwilt_pro_entitlements`)
 // - creates an `activity_attachments` row
 // - returns a signed upload URL for the storage object
 
@@ -16,7 +15,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-is-pro, x-kwilt-client',
+    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-client',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -80,50 +79,6 @@ async function requireUser(req: Request): Promise<
   return { ok: true, userId: String(data.user.id) };
 }
 
-async function isProForQuotaKey(admin: any, quotaKey: string): Promise<{ isPro: boolean; expiresAt: string | null }> {
-  const { data, error } = await admin
-    .from('kwilt_pro_entitlements')
-    .select('is_pro, is_pro_tools_trial, expires_at')
-    .eq('quota_key', quotaKey)
-    .maybeSingle();
-  if (error || !data) return { isPro: false, expiresAt: null };
-  const isPro = Boolean((data as any).is_pro) || Boolean((data as any).is_pro_tools_trial);
-  const expiresAt = typeof (data as any).expires_at === 'string' ? ((data as any).expires_at as string) : null;
-  if (!isPro) return { isPro: false, expiresAt };
-  if (expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now()) {
-    return { isPro: false, expiresAt };
-  }
-  return { isPro: true, expiresAt };
-}
-
-async function requirePro(req: Request, admin: any, userId: string): Promise<
-  | { ok: true }
-  | { ok: false; response: Response }
-> {
-  const installId = (req.headers.get('x-kwilt-install-id') ?? '').trim();
-  const trustClient = (Deno.env.get('KWILT_ATTACHMENTS_TRUST_CLIENT_PRO') ?? '').trim().toLowerCase() === 'true';
-  const clientIsPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
-
-  // Preferred: server-side entitlement table (supports `user:` and `install:` quota keys).
-  const userKey = `user:${userId}`;
-  const userStatus = await isProForQuotaKey(admin, userKey);
-  if (userStatus.isPro) return { ok: true };
-
-  if (installId) {
-    const installKey = `install:${installId}`;
-    const installStatus = await isProForQuotaKey(admin, installKey);
-    if (installStatus.isPro) return { ok: true };
-  }
-
-  // Optional escape hatch for dev environments (disabled by default).
-  if (trustClient && clientIsPro) return { ok: true };
-
-  return {
-    ok: false,
-    response: json(402, { error: { message: 'Attachments are a Pro feature', code: 'payment_required' } }),
-  };
-}
-
 type InitUploadBody = {
   activityId?: unknown;
   goalId?: unknown;
@@ -150,9 +105,6 @@ serve(async (req) => {
 
   const who = await requireUser(req);
   if (!who.ok) return who.response;
-
-  const pro = await requirePro(req, admin, who.userId);
-  if (!pro.ok) return pro.response;
 
   const body = (await req.json().catch(() => null)) as InitUploadBody | null;
   const activityId = typeof body?.activityId === 'string' ? body.activityId.trim() : '';

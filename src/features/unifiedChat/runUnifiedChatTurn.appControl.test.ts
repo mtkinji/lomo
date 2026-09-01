@@ -46,7 +46,8 @@ test('normalizes conversational turns around authoritative outcomes', () => {
 
 test('reports official tomorrow Plan items separately from recommendations', async () => {
   const { repository, send } = harness(jest.fn(async () => JSON.stringify({
-    answer: 'Model prose is not authoritative.', facts: ['The Plan snapshot is current.'],
+    answer: 'Model prose is not authoritative.',
+    facts: [{ text: 'The Plan snapshot is current.', evidence: ['E1'] }],
     inference: 'Nothing else is inferred.', uncertainty: 'No other capabilities were checked.',
   })));
   await runUnifiedChatTurn(

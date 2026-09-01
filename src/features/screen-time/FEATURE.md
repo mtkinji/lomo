@@ -14,7 +14,7 @@ briefs:
   - rule-based-screen-time-contextual-unlock
   - screen-time-rule-governance
 status: shipping
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-31
 ---
 
 # Screen Time
@@ -37,3 +37,16 @@ collapsing their distinct visibility or authority.
 - Family authority remains distinct from Apple authorization and device delivery.
 - Children can act on a requirement or request caregiver help, but cannot approve
   their own temporary access.
+- The Free/Pro boundary is based on Kwilt-created rule sophistication and
+  coordination: basic one-condition personal rules remain Free; compound,
+  Kwilt-linked, and family-coordinated rules use the canonical Pro policy.
+- Free surfaces make those Pro outcomes discoverable contextually from rule
+  overview, builder, post-save, detail, family-learning, and Chat paths without
+  interrupting basic-rule completion or discarding a draft.
+- Turning off auto-renew preserves Pro until the paid-through date. Confirmed
+  expiration/refund deactivates every advanced personal and family rule as a
+  whole, preserves a readable dormant definition, and clears native enforcement
+  through acknowledged device receipts.
+- Dormant paid rules never auto-convert to one Free condition or auto-reactivate
+  after Restore/resubscription. An offline affected device remains
+  **Deactivation pending** until release is acknowledged.

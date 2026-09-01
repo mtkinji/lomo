@@ -188,10 +188,7 @@ export function resolveHybridRequestPolicy({
   }
   if (
     deterministicPolicy.requestClass === 'capability_question' &&
-    semanticRoute.requestClass === 'capability_action' &&
-    (DETERMINISTIC_POLICY_INVARIANT_REASONS.has(deterministicPolicy.policyReason) ||
-      (deterministicPolicy.participatingCapabilities.length === 1 &&
-        deterministicPolicy.participatingCapabilities[0] === 'plan'))
+    semanticRoute.requestClass === 'capability_action'
   ) {
     return deterministicPolicy;
   }

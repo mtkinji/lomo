@@ -40,10 +40,11 @@ describe('Arc capability actions', () => {
     expect(ui.arcs()).toEqual([arc]);
   });
 
-  it('enforces Arc limits before persistence', () => {
+  it('allows free users to create additional Arcs', () => {
     const existing = [0, 1, 2].map((index) => arcFixture({ id: `arc-${index}` }));
-    const { store } = harness({ arcs: existing, isPro: false });
-    expect(() => createArc({ arc: arcFixture({ id: 'arc-new' }) }, store)).toThrow('Arc limit');
+    const state = harness({ arcs: existing, isPro: false });
+    expect(() => createArc({ arc: arcFixture({ id: 'arc-new' }) }, state.store)).not.toThrow();
+    expect(state.arcs()).toHaveLength(4);
   });
 
   it('requires the reviewed version for update', () => {

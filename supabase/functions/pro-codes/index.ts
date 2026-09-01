@@ -19,6 +19,12 @@ import {
   deriveFounderAlertFromRevenueCatEvent,
   recordFounderAlertEvent,
 } from '../_shared/founderAlerts.ts';
+import {
+  EMPTY_SUBSCRIPTION_PROJECTION,
+  reduceSubscriptionLifecycle,
+  type SubscriptionProjection,
+} from '../_shared/subscriptionLifecycle.ts';
+import { handleCreatorCampaignRoute, recordCreatorSubscriptionEvent } from '../_shared/creatorAcquisition.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -451,16 +457,26 @@ serve(async (req) => {
   const installId = (req.headers.get('x-kwilt-install-id') ?? '').trim();
   const quotaKey = installId ? `install:${installId}` : '';
 
+  if (route === '/creator/resolve' || route === '/creator/claim') {
+    const result = await handleCreatorCampaignRoute({
+      route, admin, installId, body: await req.json().catch(() => null),
+      userId: route === '/creator/claim' ? (await getUserFromBearer(req))?.userId ?? null : null,
+      pilotFlag: Deno.env.get('KWILT_CREATOR_PILOT_ENABLED'),
+      attributionPepper: Deno.env.get('KWILT_CREATOR_ATTRIBUTION_PEPPER'),
+    });
+    return json(result?.status ?? 404, (result?.body ?? { error: { code: 'not_found' } }) as JsonValue);
+  }
+
   if (route === '/webhook/revenuecat') {
     // RevenueCat webhook receiver (server-to-server).
     // Configure RevenueCat to POST here and set `REVENUECAT_WEBHOOK_SECRET` in function secrets.
     const secret = (Deno.env.get('REVENUECAT_WEBHOOK_SECRET') ?? '').trim();
-    if (secret) {
-      const auth = (req.headers.get('authorization') ?? '').trim();
-      const ok = auth.toLowerCase() === `bearer ${secret}`.toLowerCase();
-      if (!ok) {
-        return json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } });
-      }
+    if (!secret) {
+      return json(503, { error: { message: 'Webhook is not configured', code: 'provider_unavailable' } });
+    }
+    const auth = (req.headers.get('authorization') ?? '').trim();
+    if (auth !== `Bearer ${secret}`) {
+      return json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } });
     }
 
     const payload = await req.json().catch(() => null);
@@ -476,6 +492,10 @@ serve(async (req) => {
 
     const type = typeof event?.type === 'string' ? event.type.trim() : '';
     const productId = typeof event?.product_id === 'string' ? event.product_id.trim() : '';
+    const eventId = typeof event?.id === 'string' ? event.id.trim() : '';
+    if (!eventId || !type) {
+      return json(400, { error: { message: 'Missing event identity', code: 'bad_request' } });
+    }
 
     // Normalize expiry time if present.
     let expiresAt: string | null = null;
@@ -493,52 +513,102 @@ serve(async (req) => {
     }
 
     const nowIso = new Date().toISOString();
-    const isExpired = Boolean(expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now());
+    const occurredAtMs = typeof event?.event_timestamp_ms === 'number'
+      ? event.event_timestamp_ms
+      : typeof event?.purchased_at_ms === 'number'
+        ? event.purchased_at_ms
+        : Date.now();
+    const occurredAt = new Date(occurredAtMs).toISOString();
+    const environment = typeof event?.environment === 'string' ? event.environment : null;
 
-    // Best-effort pro inference based on event type. RevenueCat sources-of-truth are their dashboards;
-    // we keep this conservative and rely on expiry if provided.
-    const positiveTypes = new Set([
-      'INITIAL_PURCHASE',
-      'RENEWAL',
-      'UNCANCELLATION',
-      'NON_RENEWING_PURCHASE',
-      'PRODUCT_CHANGE',
-      'TEST',
-      'SUBSCRIPTION_PAUSED',
-      'SUBSCRIPTION_RESUMED',
-      'BILLING_ISSUE',
-    ]);
-    const negativeTypes = new Set(['CANCELLATION', 'EXPIRATION', 'REFUND', 'TRANSFER']);
-    let isPro = false;
-    if (negativeTypes.has(type)) {
-      isPro = false;
-    } else if (positiveTypes.has(type)) {
-      isPro = true;
-    } else {
-      // Unknown event; keep current state if possible by not forcing false.
-      // We'll upsert with whatever we can infer; default false.
-      isPro = false;
+    const { error: ledgerError } = await admin.from('kwilt_revenuecat_events').insert({
+      event_id: eventId,
+      occurred_at: occurredAt,
+      revenuecat_app_user_id: appUserIdRaw,
+      aliases: Array.isArray(event?.aliases) ? event.aliases.filter((value: unknown) => typeof value === 'string').slice(0, 20) : [],
+      transaction_id: typeof event?.transaction_id === 'string' ? event.transaction_id : null,
+      original_transaction_id: typeof event?.original_transaction_id === 'string' ? event.original_transaction_id : null,
+      product_id: productId || null,
+      entitlement_ids: Array.isArray(event?.entitlement_ids) ? event.entitlement_ids.filter((value: unknown) => typeof value === 'string').slice(0, 20) : [],
+      period_type: typeof event?.period_type === 'string' ? event.period_type : null,
+      expires_at: expiresAt,
+      environment,
+      event_type: type,
+      price: typeof event?.price === 'number' ? event.price : null,
+      currency: typeof event?.currency === 'string' ? event.currency : null,
+      tax_percentage: typeof event?.tax_percentage === 'number' ? event.tax_percentage : null,
+      commission_percentage: typeof event?.commission_percentage === 'number' ? event.commission_percentage : null,
+      offer_code: typeof event?.offer_code === 'string' ? event.offer_code : null,
+      presented_offering_id: typeof event?.presented_offering_id === 'string' ? event.presented_offering_id : null,
+      is_family_share: typeof event?.is_family_share === 'boolean' ? event.is_family_share : null,
+      parsed_payload: { store: event?.store ?? null, transferred_from: event?.transferred_from ?? null },
+    });
+    if (ledgerError) {
+      if ((ledgerError as { code?: string }).code !== '23505') {
+        return json(503, { error: { message: 'Unable to persist webhook event', code: 'provider_unavailable' } });
+      }
     }
 
-    if (isExpired) {
-      isPro = false;
-    }
+    const { data: currentRow } = await admin
+      .from('kwilt_revenuecat_subscriptions')
+      .select('is_pro,will_renew,access_state,expires_at,latest_provider_event_at,latest_provider_event_id,last_event_type')
+      .eq('revenuecat_app_user_id', appUserIdRaw)
+      .maybeSingle();
+    const current: SubscriptionProjection = currentRow ? {
+      isPro: currentRow.is_pro === true,
+      willRenew: typeof currentRow.will_renew === 'boolean' ? currentRow.will_renew : null,
+      accessState: currentRow.access_state ?? 'expired',
+      expiresAt: currentRow.expires_at ?? null,
+      latestEventAt: currentRow.latest_provider_event_at ?? null,
+      latestEventId: currentRow.latest_provider_event_id ?? null,
+      lastEventType: currentRow.last_event_type ?? null,
+    } : EMPTY_SUBSCRIPTION_PROJECTION;
+    const projection = reduceSubscriptionLifecycle(current, {
+      id: eventId,
+      type,
+      occurredAt,
+      expiresAt,
+    });
 
     const { error } = await admin.from('kwilt_revenuecat_subscriptions').upsert(
       {
         revenuecat_app_user_id: appUserIdRaw,
-        is_pro: Boolean(isPro),
+        is_pro: projection.isPro,
         product_id: productId || null,
-        expires_at: expiresAt,
-        last_event_type: type || null,
+        expires_at: projection.expiresAt,
+        will_renew: projection.willRenew,
+        access_state: projection.accessState,
+        latest_provider_event_at: projection.latestEventAt,
+        latest_provider_event_id: projection.latestEventId,
+        environment,
+        cleanup_status: projection.accessState === 'expired' || projection.accessState === 'refunded'
+          ? 'disabled'
+          : 'not_scheduled',
+        last_event_type: projection.lastEventType,
         last_event_at: nowIso,
         updated_at: nowIso,
-        raw: payload as any,
+        raw: null,
       },
       { onConflict: 'revenuecat_app_user_id' },
     );
     if (error) {
       return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
+    }
+
+    if ((projection.accessState === 'expired' || projection.accessState === 'refunded')
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(appUserIdRaw)) {
+      const { error: familyDeactivationError } = await admin.rpc('kwilt_deactivate_family_screen_time_for_user', {
+        p_user_id: appUserIdRaw,
+        p_reason: projection.accessState,
+        p_provider_event_id: eventId,
+      });
+      if (familyDeactivationError) {
+        return json(503, { error: { message: 'Unable to project downgrade safety', code: 'provider_unavailable' } });
+      }
+    }
+
+    if (!(await recordCreatorSubscriptionEvent(admin, event, { eventId, type, environment, appUserId: appUserIdRaw }))) {
+      return json(503, { error: { message: 'Unable to project creator commission', code: 'provider_unavailable' } });
     }
 
     const founderAlert = deriveFounderAlertFromRevenueCatEvent(event, {

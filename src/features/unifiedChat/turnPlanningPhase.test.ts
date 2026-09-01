@@ -191,6 +191,44 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     });
   });
 
+  it('rejects a coherent Money write judgment for a category inventory question', async () => {
+    const mistakenActionJudgment: AgentJudgment = {
+      ...dentistJudgment,
+      userJob: 'Review the current Money categories on device',
+      desiredOutcome: 'Open the Money category review flow',
+      requestClass: 'capability_action',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+      authorization: 'explicit_request',
+      evidenceScope: 'focused',
+      responseContract: 'evidence_linked',
+      executionMode: 'single_tool',
+      constraints: [],
+      steps: [{
+        sequence: 1,
+        objective: 'Open private Money category review',
+        toolId: 'money.category.update',
+        dependsOn: null,
+      }],
+      reason: 'The request mentions the user’s budget categories.',
+    };
+
+    const result = await plan({
+      prompt: 'What are my budget categories?',
+      requestJudgment: async () => mistakenActionJudgment,
+    });
+
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+      policyReason: 'bounded-capability-evidence-request',
+    });
+    expect(result.agentJudgment).toBeNull();
+    expect(result.judgmentSource).toBe('deterministic_fallback');
+    expect(result.turnContract).toMatchObject({ authorization: 'none', action: null });
+  });
+
   it('rejects a write plan that has no interpreted action authority', async () => {
     const unauthorized = { ...dentistJudgment, authorization: 'none' as const };
     const result = await plan({ requestJudgment: async () => unauthorized });

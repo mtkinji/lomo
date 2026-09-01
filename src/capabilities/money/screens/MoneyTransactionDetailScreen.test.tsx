@@ -3,6 +3,18 @@ import path from 'path';
 import './MoneyTransactionDetailScreen';
 
 describe('MoneyTransactionDetailScreen drawer headers', () => {
+  it('keeps a household note separate from the provider description and financial decisions', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<Text style={styles.sectionLabel}>Note</Text>');
+    expect(source).toContain("transaction.userNote ?? 'Add a note'");
+    expect(source).toContain('title="Transaction note"');
+    expect(source).toContain('Everyone in this Money household can see this note.');
+    expect(source).toContain('setTransactionNote(transaction.id, noteDraft)');
+    expect(source).toContain("placeholder=\"Family pictures\"");
+    expect(source).not.toContain('captureMoneyMutation(capture, { operation: \'transaction_note\'');
+  });
+
   it('uses one shared heading without eyebrow labels', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 
@@ -88,7 +100,7 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain("import { BottomGuide } from '../../../ui/BottomGuide';");
-    expect(source).toContain('visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}');
+    expect(source).toContain('visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen && !noteEditorOpen}');
     expect(source).toContain('Use {ruleOfferCategory?.name} next time?');
     expect(source).toContain('Review rule');
     expect(source).toContain('scrim="light"');

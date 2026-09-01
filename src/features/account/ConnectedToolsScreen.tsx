@@ -25,6 +25,8 @@ import {
   type ExternalConnection,
 } from '../../services/externalConnections';
 import { createConnectedToolActions } from './actions/connectedToolActions';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 const connectedToolActions = createConnectedToolActions({
   load: fetchExternalConnections,
@@ -248,6 +250,7 @@ export function ConnectedToolsScreen() {
   const [connections, setConnections] = useState<ExternalConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const isPro = useEntitlementsStore((state) => state.isPro);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -286,6 +289,10 @@ export function ConnectedToolsScreen() {
 
   const openDestination = useCallback((app: ConnectableApp, appConnections: ExternalConnection[]) => {
     if (appConnections.length === 0) {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_external_agent', source: 'settings' });
+        return;
+      }
       navigation.navigate('SettingsConnectKwiltApp', { app });
       return;
     }
@@ -305,7 +312,7 @@ export function ConnectedToolsScreen() {
         { text: 'Cancel', style: 'cancel' as const },
       ],
     );
-  }, [navigation]);
+  }, [isPro, navigation]);
 
   return (
     <SettingsPage onBack={handleBack} title="Apps & connections">

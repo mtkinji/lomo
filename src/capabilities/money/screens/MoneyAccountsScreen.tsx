@@ -30,6 +30,7 @@ import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
 import { startMoneyPlaidLink, startMoneyPlaidRepair } from '../native/moneyPlaidLink';
+import { requestMoneyProAccess } from '../runtime/moneyProAccess';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
 type AccountSort = 'name' | 'transactions_high' | 'status';
@@ -95,6 +96,7 @@ export function MoneyAccountsSurface({
 
   const connectAccount = async () => {
     if (connectionAction) return;
+    if (!requestMoneyProAccess('money_connect_account')) return;
     signalMoneyChoice();
     setConnectionAction('linking');
     setConnectionTone('neutral');
@@ -118,6 +120,7 @@ export function MoneyAccountsSurface({
 
   const syncAccounts = async () => {
     if (connectionAction) return;
+    if (!requestMoneyProAccess('money_sync')) return;
     signalMoneyChoice();
     setConnectionAction('syncing');
     setConnectionTone('neutral');
@@ -140,6 +143,7 @@ export function MoneyAccountsSurface({
 
   const repairConnection = async (connection: MoneyConnection) => {
     if (connectionAction) return;
+    if (!requestMoneyProAccess('money_connect_account')) return;
     signalMoneyChoice();
     setConnectionAction('linking');
     setConnectionTone('neutral');

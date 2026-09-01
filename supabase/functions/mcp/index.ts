@@ -51,6 +51,7 @@ import {
   normalizeStoredOAuthScope,
   verifyPkceChallenge,
 } from '../_shared/externalMcpOAuth.ts';
+import { resolveServerProAccess } from '../_shared/serverAgentEntitlement.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
@@ -796,6 +797,11 @@ async function handleAuthorizeApprove(req: Request) {
     return json(200, { redirect_to: destination.toString() });
   }
 
+  const proAccess = await resolveServerProAccess(admin, who.userId);
+  if (!proAccess.allowed) {
+    return json(402, { error: 'payment_required', error_description: 'Kwilt Pro is required for external connectors' });
+  }
+
   const scope = normalizeRequestedOAuthScope(body.scope);
   if (!scope) return json(400, { error: 'invalid_scope' });
 
@@ -910,6 +916,9 @@ async function handleToken(req: Request) {
     return json(400, { error: 'unsupported_grant_type' });
   }
 
+  const proAccess = await resolveServerProAccess(admin, userId);
+  if (!proAccess.allowed) return json(402, { error: 'payment_required' });
+
   const accessToken = randomToken('kwilt_mcp', 32);
   const refreshToken = randomToken('kwilt_refresh', 32);
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -972,6 +981,10 @@ async function handleMcp(req: Request) {
   const auth = await requireExternalToken(req);
   if (!auth.ok) return auth.response;
   const body = (await req.json().catch(() => null)) as JsonRpcRequest | null;
+  const proAccess = await resolveServerProAccess(auth.admin, auth.context.userId);
+  if (!proAccess.allowed) {
+    return json(200, rpcError(rpcId(body?.id), -32002, 'Kwilt Pro is required for external connectors'));
+  }
   const id = rpcId(body?.id);
   const method = asString(body?.method);
   if (!body || body.jsonrpc !== '2.0' || !method) return json(200, rpcError(id, -32600, 'Invalid Request'));

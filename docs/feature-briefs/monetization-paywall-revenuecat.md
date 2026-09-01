@@ -15,9 +15,11 @@ related_briefs:
   - brief-kwilt-money-capability-integration
   - brief-plaid-transaction-backed-meter
   - brief-screen-time-controls
+  - brief-screen-time-rule-governance
   - brief-unified-chat
+  - brief-creator-acquisition-pilot
 owner: andrew
-last_updated: 2026-08-26
+last_updated: 2026-08-31
 ---
 
 # Kwilt Free and Pro monetization contract
@@ -26,7 +28,15 @@ last_updated: 2026-08-26
 
 Kwilt has grown from a goal and to-do system into a broader household life system spanning Plan, Money, Food, Chores, Games, Screen Time, Explore, and AI. The original paywall was designed around structural scarcity: one Arc, three active Goals per Arc, and a collection of non-AI feature locks. Those boundaries now make the free product feel artificially constrained without creating a strong reason to subscribe.
 
-The commercial model should instead protect a complete free product and charge for value that is both meaningfully differentiated and costly to keep delivering. That means core organization, participation, and on-device intelligence stay free forever. Pro is the full-app service tier for ongoing financial connectivity, guided Cook Mode, family Screen Time administration, and advanced or cloud-intensive AI.
+The commercial model should instead protect a complete free product and charge
+for value that is meaningfully differentiated, materially costly to keep
+delivering, or both. That means core organization, participation, a useful
+personal Screen Time baseline, and on-device intelligence stay free forever.
+The launch Pro offer is led by ongoing financial connectivity and Kwilt's
+advanced cross-domain personal and family Screen Time system. Cook Mode and
+Live Conversation create variable cost, but launch as available MVP previews
+without a feature-level Pro gate. Their cost, exposure, and future commercial
+classification are managed separately from the current subscription promise.
 
 This brief replaces the old structural-limit and `pro_tools_trial` proposal. It keeps the existing RevenueCat `pro` entitlement and the existing `isPro` boolean as the canonical full-Pro access signal.
 
@@ -57,7 +67,9 @@ This brief primarily protects step 10 of `job-flow-nina-trust-ai-with-my-life-sy
 - Free Kwilt must complete the core job. A person can capture, organize, review, and participate without running into an object cap or a configuration paywall.
 - Pro should appear at a high-intent moment when the person asks Kwilt to maintain an external connection, administer another person's device experience, or perform materially more expensive intelligence work.
 - A trial should let the person experience the actual paid product. It should not be a separate partial tier with different object rules.
-- Downgrade behavior must preserve agency, history, readability, export, and safety controls.
+- Downgrade behavior must preserve agency, history, readability, export, and
+  access to safety-reducing controls. Paid Screen Time enforcement ends when
+  the entitlement ends, but the rule definition remains inspectable.
 
 ## Design
 
@@ -82,32 +94,80 @@ The following capabilities do not check `isPro` and do not open a feature-specif
 - Streak protections and recovery behavior that existed in the original Kwilt system.
 - Household creation, membership, invitations, and capability activation.
 - Goal sharing and accountability.
-- Personal Screen Time rules and device-local enforcement.
-- Food: Recipe discovery, personal Recipes, imports, editing, scaling, Meal Plans, Groceries, sharing, retailer handoff, and related non-Cook workflows.
+- Screen Time authorization, privacy-preserving app selection, rule inventory,
+  shield explanations, recovery, and device-local enforcement.
+- Unlimited basic personal Screen Time rules with one standard condition:
+  **Focus is running**, **time of day**, or **daily usage allowance**.
+- Reading, disabling, deleting, loosening, releasing, and cleaning up every Screen
+  Time rule regardless of subscription state.
+- Food: Recipe discovery, personal Recipes, imports, editing, scaling, Meal Plans,
+  Groceries, sharing, retailer handoff, and other launch-ready workflows.
 - Chores.
 - Games.
 - Explore.
-- Manual Money: manually created accounts, transactions, categories, plans, corrections, review, reading, and export.
+- A clear explanation of how Money works before purchase, plus readable retained
+  Money history and data-management access after Pro ends. Kwilt does not offer
+  manual account or transaction entry.
 - Unlimited on-device AI on supported devices for locally eligible jobs. Local attempts never consume cloud credits.
 - A free monthly allowance of 50 successful user-initiated cloud AI actions for standard cloud assistance.
 
 “Free” does not mean unbounded abuse. Universal technical safeguards may limit request size, burst rate, attachment size, or malicious usage as long as they apply honestly and do not masquerade as a Pro feature gate.
 
+### Free MVP previews
+
+Cook Mode and Live Conversation are available to Free and Pro accounts in their
+current MVP states while their server-controlled exposure flags are enabled.
+They do not check `isPro`, do not open a paywall, and are not promised as
+permanent Free features. Authenticated provider requests still use bounded
+rate, usage, and global-cost safeguards. Either capability can be hidden with
+its exposure flag if quality, reliability, or cost becomes unacceptable; an
+off flag produces an honest unavailable state, not an upgrade prompt.
+
 ### Kwilt Pro
 
 The existing `pro` entitlement unlocks all of the following:
 
-- Connected Money, including unlimited connected financial institutions and accounts. There is no published numeric connection cap; provider safety and abuse controls remain internal.
-- Cook Mode, including guided cue progression, timers, session resume, hands-free controls, and Cook learning.
-- Family Screen Time administration and prerequisite-based family automation. Personal Screen Time remains free.
+- Money and Budgets, including the first financial-account connection, imported
+  accounts and transactions, categories, budget plans, transaction review and
+  correction, relink, refresh, and ongoing sync. There is no published numeric
+  connection cap; provider safety and abuse controls remain internal.
+- Advanced personal Screen Time rules: two or more conditions with an explicit
+  AND/OR connector, plus Kwilt-linked conditions such as **a real step is
+  complete** and **a Money review is required**.
+- Family Screen Time coordination and automation, including child-scoped
+  schedules, usage allowances, responsibility prerequisites, prerequisite-app
+  conditions, caregiver changes through Chat, cross-device policy delivery,
+  desired/applied receipts, and temporary caregiver overrides. A useful basic
+  personal Screen Time system remains Free.
 - Advanced cloud AI modes, including deep planning, cross-capability reasoning, AI attachment analysis, and other cloud-only intelligence jobs designated by the canonical generation-job policy.
 - AI scheduling and auto-scheduling assistance. Manual scheduling and calendar export remain free.
-- Live AI conversation.
 - Background and proactive AI work.
 - External AI connectors and agent surfaces, including desktop or MCP access when offered to customers.
 - A monthly allowance of 1,000 successful user-initiated cloud AI actions.
 
 This is not an “unlimited everything” promise. Cloud work remains metered to protect service quality and unit economics. On-device work remains unlimited for Free and Pro.
+
+### Launch offer hierarchy
+
+The launch offer has two customer-facing hero pillars:
+
+1. **Money and Budgets** — connected transaction truth and an actively
+   maintained household budget.
+2. **Advanced Screen Time** — Kwilt's compound and unique control conditions,
+   including real-step and Money-linked rules, plus family coordination.
+
+Advanced cloud AI, scheduling, background work, and external agents are
+supporting Pro inclusions rather than headline reasons to subscribe.
+
+Cook Mode and Live Conversation sit outside the launch Free/Pro value
+hierarchy as Free MVP previews. Keep them out of headline paywall, pricing, App
+Store subscription-benefit, and creator claims because neither is a strong
+purchase reason yet. Track repeated use and provider cost, and retain a remote
+exposure flag for each. Moving either capability to Pro later requires a new,
+explicit contract decision; it must not happen accidentally through a quota or
+feature flag. Voice alone is not differentiated paid value, so Conversation's
+future value case should still be grounded in Kwilt-specific context,
+controlled actions, and trustworthy return to the life system.
 
 ### Capability and AI boundaries
 
@@ -129,11 +189,16 @@ The AI billing boundary is based on the work requested, not whichever provider h
 Kwilt offers one Apple introductory free trial for Kwilt Pro:
 
 - Duration: one month, using Apple's one-month period rather than a custom 30-day timer.
-- Purchase path: an Apple auto-renewable subscription through RevenueCat. Apple presents the purchase confirmation and payment method; Kwilt does not collect card details directly.
+- Purchase path: an Apple auto-renewable subscription through RevenueCat. At
+  signup, Apple presents the subscription confirmation and uses the payment
+  method on the person's Apple Account. Kwilt never sees or stores card details.
 - Renewal: the subscription automatically renews at the displayed standard price unless the customer cancels through Apple.
 - Eligibility: one introductory offer per Apple subscription group. All Individual and Family, monthly and annual products live in the same group and expose the same one-month offer to eligible customers.
 - Access: the introductory period activates the normal RevenueCat `pro` entitlement, so `isPro === true` and the customer experiences the full paid product.
-- Entry: the first high-intent Pro action can introduce the same full-app trial. Money, Cook Mode, Family Screen Time, advanced AI, and Live Conversation do not have separate trials.
+- Entry: the first high-intent Pro action can introduce the same full-app trial.
+  Money, advanced personal Screen Time, Family Screen Time, and eligible
+  advanced service work do not have separate trials. Free MVP previews do not
+  become trial benefits merely because they create provider cost.
 - Ineligible customers see a normal Subscribe CTA with the live price and cadence; trial copy is never shown from hardcoded assumptions.
 
 The old `pro_tools_trial` concept is retired. It must not appear in customer copy, RevenueCat offerings, client access decisions, server entitlement decisions, or analytics segmentation.
@@ -162,26 +227,74 @@ A paywall appears only after a person intentionally asks for paid value:
 
 | Intent | Free behavior before intent | Paid boundary | Paywall promise |
 | --- | --- | --- | --- |
-| Connect a financial account | Manual Money remains fully usable | Before Plaid Link token creation or native Plaid initialization | Start the full Kwilt Pro trial to keep financial accounts connected and fresh |
-| Start or resume Cook Mode | Recipe detail, ingredients, and method remain readable | Before creating, restoring, or opening a Cook Session | Start the full Kwilt Pro trial for guided, resumable cooking |
-| Administer a child's Screen Time | Household membership and personal Screen Time remain usable | Before family setup, selection, policy delivery, or mutation | Start the full Kwilt Pro trial for family Screen Time administration |
-| Run advanced cloud AI | On-device AI and the free standard cloud allowance remain usable | Before a hard-Pro cloud job, or when the free cloud allowance is exhausted | Start the full Kwilt Pro trial for advanced intelligence and a larger cloud budget |
-| Start Live Conversation or background AI | Typed local/basic assistance remains usable | Before session/provider initialization or background scheduling | Start the full Kwilt Pro trial for live or proactive assistance |
+| Start Money or build a budget | The person can understand the outcome and connection/privacy requirements; retained history stays readable after downgrade | Before Plaid Link token creation, native Plaid initialization, or an active Money mutation | Try Kwilt Pro for one month to build a budget from real transaction truth |
+| Build an advanced personal Screen Time rule | Basic one-condition personal rules remain usable | Before adding a second condition, choosing a Kwilt-linked condition, or saving an advanced draft | Get Kwilt Pro for rules that connect Screen Time to the rest of your life |
+| Coordinate a child's Screen Time | Household membership, basic personal Screen Time, existing family-rule reading, and safety-reducing actions remain usable | Before child enrollment, family selection, first policy delivery, creation, tightening, extension, or a caregiver override | Get Kwilt Pro for family coordination, automation, and trustworthy device delivery |
+| Run advanced cloud AI | On-device AI and the free standard cloud allowance remain usable | Before a hard-Pro cloud job, or when the free cloud allowance is exhausted | Get Kwilt Pro for advanced intelligence and a larger cloud budget |
+| Start background or proactive AI | Typed local/basic assistance remains usable | Before background scheduling or provider initialization | Get Kwilt Pro for proactive help that keeps working after the current turn |
 
 Deep links, restored navigation state, Chat actions, and background entry points must pass the same central access policy. Hiding a button is not enforcement.
 
-### Connected Money lifecycle
+### Free-to-Pro Screen Time journey
 
-Manual and connected Money share the same reading surfaces, but only the connection lifecycle is paid:
+Free Screen Time must be useful without hiding the more capable Pro system.
+Upgrade paths appear in the normal course of building and reviewing rules, not
+as generic launch interruptions:
 
-1. A free person can create and use Manual Money indefinitely.
-2. Tapping `Connect financial accounts` opens the contextual Kwilt Pro paywall before Kwilt requests a Plaid Link token.
-3. Starting the introductory offer activates `pro`; the person can then connect unlimited institutions and accounts.
-4. During an active trial, paid subscription, or Apple billing grace period, connection, refresh, relink, and sync remain available.
-5. Turning off auto-renew does not revoke access immediately. Access continues through the entitlement expiration date.
-6. After confirmed entitlement expiration, new Link, relink, and transaction refresh stop. Kwilt disconnects Plaid Items server-side to stop ongoing provider cost.
-7. Imported accounts and transactions remain readable, editable, categorizable, and exportable. Manual entries continue to work. Connected surfaces show the last successful refresh time and an honest `Connection paused` state.
-8. Restore or resubscribe reactivates Pro. Reconnection may require the person to complete Plaid Link again; Kwilt never implies that a disconnected provider session is still live.
+1. **Rules overview:** show useful advanced examples and family coordination as
+   secondary, clearly Pro-labeled possibilities beside the person's working
+   basic rules.
+2. **Basic rule builder:** keep premium condition rows visible and labeled
+   **Pro**. A tap previews the concrete rule the person could make, then opens
+   the contextual interstitial before the draft becomes invalid or enforcement
+   changes.
+3. **After first value:** after a basic rule is saved successfully, offer a
+   secondary **Make this rule smarter** path to add another condition, connect
+   it to a real step or Money review, or coordinate it for a child. Do not
+   interrupt the save confirmation.
+4. **Rule detail:** show the same secondary advanced actions for an existing
+   basic rule, with the person's current rule and intended addition carried
+   into the paywall explanation.
+5. **Family learning/setup:** let a caregiver understand the outcome and device
+   requirements before asking for payment. Open the contextual interstitial
+   before enrollment, selection, or policy delivery begins.
+6. **Chat:** allow Kwilt to propose and preview a typed advanced rule, then
+   require Pro before executing or projecting it.
+
+Every path preserves the draft and return destination across purchase or
+Restore. StoreKit supplies live price, cadence, and introductory eligibility.
+The app does not use arbitrary rule quotas, blank paywalls, repeated launch
+nags, or paywalls that appear only after work is lost.
+
+### Money and Budgets lifecycle
+
+Money is a Pro capability because its useful product is built on connected,
+imported transaction truth. Kwilt does not create a separate manual-transaction
+product as the Free fallback:
+
+1. A Free person can understand what Money will do, what it connects, and how
+   financial data is handled before purchasing.
+2. Tapping the first Money setup action opens the contextual Kwilt Pro paywall
+   before Kwilt requests a Plaid Link token or initializes native Plaid.
+3. An eligible person can confirm the Apple auto-renewable subscription and
+   start the one-month full-Pro introductory trial. Apple manages the payment
+   method; Kwilt does not collect card details.
+4. During an active trial, paid subscription, or Apple billing grace period,
+   the full Money product is available: connection, imported accounts and
+   transactions, categories, budget plans, review/correction, refresh, relink,
+   and sync.
+5. Turning off auto-renew does not revoke access immediately. Access continues
+   through the entitlement expiration date.
+6. After confirmed entitlement expiration, active Money operations stop. New
+   Link, relink, and transaction refresh are rejected, and Kwilt disconnects
+   Plaid Items server-side to stop ongoing provider cost.
+7. Previously imported accounts, transactions, and budget history remain
+   readable with honest last-refresh and `Connection paused` states. Deletion
+   and required data-management routes remain available, but editing categories,
+   plans, or transaction classifications requires active Pro.
+8. Restore or resubscribe reactivates Pro. Reconnection may require the person
+   to complete Plaid Link again; Kwilt never implies that a disconnected
+   provider session is still live.
 
 RevenueCat webhooks and a durable subscription mirror must be reliable before Plaid cleanup is automated. The current absence of a subscription mirror row for the known production purchase is a reporting/integration gap, not evidence that the purchase failed.
 
@@ -189,10 +302,32 @@ RevenueCat webhooks and a durable subscription mirror must be reliable before Pl
 
 When Pro ends:
 
-- All free data and features remain fully usable; no Arc, Goal, To-do, view, attachment, Food, Chore, Game, Explore, household, or manual Money content is locked.
-- Existing connected Money history remains. Refresh and new connections stop only after confirmed entitlement expiry, not at cancellation time.
-- An active Cook Session may be completed, exited, and saved; a new or completed session cannot be started or resumed without Pro.
-- Existing family Screen Time state remains visible. Release, disable, and other safety-reducing actions always remain available. Creating, tightening, or extending family controls requires Pro.
+- All Free data and features remain fully usable; no Arc, Goal, To-do, view,
+  attachment, Food, Chore, Game, Explore, or household content is locked.
+- Existing Money history remains readable. Refresh, new connections, and active
+  Money editing stop only after confirmed entitlement expiry, not at
+  cancellation time.
+- Cook Mode and Live Conversation do not change at subscription expiry while
+  they remain Free MVP previews. Their independent exposure and cost-safety
+  policies still apply.
+- Basic personal rules continue normally.
+- Confirmed expiration or refund deactivates every advanced personal and family
+  rule as a whole. Kwilt does not silently convert a compound rule to one Free
+  condition or let paid enforcement continue indefinitely.
+- The rule definition remains visible in a dormant
+  **Inactive because Pro ended** state for explanation, deletion, audit, and a
+  future reviewed restart. Desired enforcement is cleared and native
+  release/cleanup is queued for every affected device.
+- Until the device acknowledges that release, the app shows
+  **Deactivation pending** and the last acknowledged device state. It never
+  claims that an offline device has stopped enforcing a rule merely because the
+  server requested cleanup.
+- Restore or resubscribe does not silently reactivate dormant rules. The person
+  or caregiver reviews each rule and deliberately turns it back on after Pro is
+  active.
+- Reading, deleting, release, and cleanup remain available without Pro. New
+  advanced authoring, child enrollment, delivery, tightening, extension, or a
+  caregiver override requires Pro.
 - In-flight AI work may finish. New work follows the Free AI policy.
 - Restore purchases and subscription management remain available at all times.
 
@@ -224,8 +359,44 @@ Preserve the existing paywall-to-purchase funnel and add lifecycle and provider-
 - `money_connection_paused`
 - `money_connection_disconnected`
 - `ai_job_completed`, with job, route, provider, billing class, fallback reason, entitlement state, and user-credit cost
+- `mvp_preview_started`, `mvp_preview_completed`,
+  `mvp_preview_cost_guarded`, and `mvp_preview_unavailable`, with only the
+  bounded capability ID, flag state, success class, duration/usage bucket, and
+  server cost category.
 
-Every purchase event carries the originating paywall reason and source so conversion can be compared across connected Money, Cook Mode, Family Screen Time, advanced AI, and Live Conversation.
+Every purchase event carries the originating paywall reason and source so
+conversion can be compared across Money and Budgets, advanced personal Screen
+Time, Family Screen Time, and eligible advanced service work.
+
+Screen Time analytics additionally carry only bounded enums such as rule access
+class, condition types, condition count, scope, mutation class, entry surface,
+and desired/applied outcome. They never carry selected app identities, child
+names, responsibility titles, generated rule sentences, Money category names,
+or Apple tokens.
+
+### Screen Time packaging and App Review posture
+
+Apple App Review Guideline 4.10 says apps may not monetize built-in operating
+system capabilities, including Screen Time APIs. Current App Store precedent
+also includes paid products such as Jomo and Opal that provide a meaningful
+free blocking baseline and charge for developer-created rule systems,
+automation, history, strictness, and family plans. Kwilt therefore treats this
+as a review-sensitive packaging boundary rather than a categorical ban.
+
+Kwilt does not sell Apple authorization, the native picker, raw device
+enforcement, rule visibility, shield explanations, or release. It sells the
+developer-created layer that composes several pieces of Kwilt truth into an
+advanced rule, coordinates an authorized Household across devices, accepts
+reviewed caregiver changes through Chat, and proves desired-versus-applied
+delivery. Customer and App Review copy must describe that value as **advanced
+rules**, **conditions connected to Kwilt**, and **family coordination**—never
+as “unlock Screen Time,” “pay to block apps,” or access to an Apple API.
+
+The release evidence ledger must include the Family Controls distribution
+entitlement, the exact Free/Pro demonstration account states, App Review notes,
+and a remotely controlled fallback that removes Screen Time from the marketed
+benefit list and makes advanced Screen Time authoring Free without blocking the
+rest of the Pro release.
 
 ### Retired gates
 
@@ -238,7 +409,7 @@ Remove these paywall reasons and all their call sites:
 - attachments.
 - view configurations, saved views, filters, and sorting.
 - streak shields.
-- “additional financial institution”; connected Money is now the boundary from the first connection.
+- “additional financial institution”; Money and Budgets are now Pro from first setup.
 
 Do not replace these with generic screen-level `isPro` checks. Their capabilities are explicitly Free.
 
@@ -260,21 +431,59 @@ Primary measures:
 - Free activation and four-week retained use do not decline after removing structural gates.
 - No retired-gate paywall events appear in production.
 - Paywall view → trial start, trial start → paid renewal, and paid month-one retention can be segmented by entry reason.
-- Connected Money, Cook Mode, Family Screen Time, advanced AI, and Live Conversation each have observable trial-start and conversion rates.
-- Cloud AI and Plaid provider cost per active Free, trial, and paid user stays within the gross-margin target.
+- Money and Budgets, advanced personal Screen Time, Family Screen Time, and any
+  marketed advanced service work each have observable trial-start and
+  conversion rates.
+- Cloud AI, Plaid, Cook Mode, and Live Conversation provider cost per active
+  Free, trial, and paid user stays within the gross-margin target. Cook and Live
+  usage/cost reporting remains separate from the hero-pillar conversion
+  denominator until either becomes marketable.
 - On-device eligible jobs show high local completion with zero user-credit cost; fallback is observable but remains free to the person.
-- Expired or cancelled customers retain readable data and all Free capabilities.
+- Expired or cancelled customers retain readable data and all Free capabilities;
+  expired/refunded customers have no active Pro Screen Time enforcement.
 - RevenueCat dashboard state, the server subscription mirror, and client `isPro` agree for the known production subscriber and all Sandbox lifecycle cases.
 
 ## Acceptance criteria
 
 - A signed-out or Free user can create more than one Arc, more than three Goals in an Arc, unlimited To-dos, and multiple custom views without seeing a paywall.
-- Free users can use attachments, all Focus durations, calendar export, banners, Food, Chores, Games, Explore, goal sharing, household membership, and personal Screen Time without a Pro check.
+- Free users can use attachments, all Focus durations, calendar export,
+  banners, Food, Chores, Games, Explore, goal sharing, household membership,
+  and the defined basic personal Screen Time rules without a Pro check.
 - On-device AI never consumes a cloud credit, including Kwilt-selected cloud fallback for a locally eligible job.
 - Standard cloud AI enforces 50 successful user actions per month for Free; Pro enforces 1,000. Failed or internal calls do not consume user credits.
-- Manual Money works without Pro. Every path that creates, relinks, or refreshes a Plaid connection requires server-confirmed Pro.
+- There is no manual-account or manual-transaction product. The first Money
+  setup action offers the full-Pro one-month introductory trial when Apple
+  reports eligibility, and every connection, active budget/category mutation,
+  transaction review/correction, relink, refresh, and sync path requires
+  server-confirmed Pro.
+- After confirmed expiration, previously imported Money and budget history
+  remains readable while active Money operations are blocked and the provider
+  connection is paused safely.
 - Pro permits unlimited connected institutions and accounts.
-- Cook Mode and Family Screen Time administration require Pro at both navigation and mutation/provider boundaries.
+- Advanced personal Screen Time authoring and restrictive Family Screen Time
+  administration require Pro at both navigation and trusted mutation/provider
+  boundaries.
+- Cook Mode and Live Conversation are available without Pro while their MVP
+  exposure flags are enabled. They never open a paywall in this launch, remain
+  absent from headline subscription/store/creator claims, and can be hidden
+  remotely without changing entitlement.
+- Free and Pro receive the same enabled Cook/Conversation preview. Provider
+  work requires authentication and bounded usage/cost safeguards; disabling a
+  flag stops new UI, stale-link, Chat-tool, and direct provider entry with an
+  honest unavailable state and no upsell.
+- A Free person can create unlimited one-condition personal rules using Focus,
+  time of day, or a daily usage allowance; adding a second condition, an AND/OR
+  connector, a real-step condition, or a Money condition opens the contextual
+  Pro interstitial before the draft becomes unsavable or enforcement changes.
+- Free Screen Time exposes contextual, secondary upgrade paths from the rules
+  overview, builder, successful basic-rule save, rule detail, family learning,
+  and Chat. Each path previews the specific paid outcome, preserves work across
+  purchase/Restore, and returns to the intended action.
+- Reading and every safety-reducing Screen Time action remain available without
+  Pro. At confirmed expiration/refund, advanced personal and family rules are
+  deactivated as whole rules, remain readable as dormant definitions, and show
+  **Deactivation pending** until native release receipts arrive.
+- Resubscription never silently reactivates a dormant Screen Time rule.
 - An Apple introductory offer activates `pro` and therefore all Pro features; no customer-facing partial trial exists.
 - Cancellation preserves access until expiration; configured billing grace preserves access; confirmed expiration invokes paid-service cleanup without deleting customer data.
 - The known production purchase can be reconciled across RevenueCat, webhook delivery, subscription mirror, and the client's `isPro` state before release.
@@ -284,6 +493,9 @@ Primary measures:
 
 - After enough real usage, should the 50/1,000 cloud-action allowances change, or should selected jobs use weighted costs? This is a pricing experiment, not an implementation blocker.
 - Which future connector and background-agent jobs merit hard Pro access versus inclusion in the metered standard cloud allowance? New jobs must declare this explicitly in the canonical generation-job contract.
+- What repeated-use, differentiated-value, and provider-margin evidence would
+  justify keeping Cook/Conversation Free, moving either to Pro, or retiring it?
+  No threshold is required before the no-paywall MVP launch.
 
 ## References
 

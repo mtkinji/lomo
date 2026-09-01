@@ -429,6 +429,7 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
   evidence: {
     list: (snapshot) => [
       ...(snapshot.livingLimitAnswer ? [moneyPlanLimitEvidence(snapshot)] : []),
+      moneyCategoryReviewEvidence(snapshot),
       ...snapshot.categories.map((category): CapabilityEvidenceSource => ({
       capabilityId: 'money',
       object: {
@@ -508,7 +509,7 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       capabilityId: 'money',
       object: { type: object.type, id: object.id },
       label: object.label,
-      route: object.type === 'money_plan_limit' ? {
+      route: object.type === 'money_plan_limit' || object.type === 'money_category_review' ? {
         name: 'Money',
         params: { screen: 'MoneySummary' },
       } : object.type === 'money_transaction' ? {
@@ -521,6 +522,69 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
     }),
   },
 };
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function moneyCategoryReviewEvidence(snapshot: MoneyChatSnapshot): CapabilityEvidenceSource {
+  const periodId = snapshot.generatedAt.slice(0, 7);
+  const currentTransactions = snapshot.transactions.filter((transaction) => transaction.date.startsWith(periodId));
+  const reserveCategories = snapshot.categories.filter((category) => category.fundingRhythm === 'reserve');
+  const projectedOverPlan = snapshot.categories.filter((category) => category.forecast.projectedOverageCents > 0);
+  const inactiveCategories = snapshot.categories.filter((category) => category.transactionCount === 0);
+  const merchantCounts = new Map<string, { label: string; count: number }>();
+  for (const transaction of currentTransactions) {
+    if (transaction.direction !== 'outflow') continue;
+    const key = transaction.merchantName.trim().toLocaleLowerCase();
+    if (!key) continue;
+    const current = merchantCounts.get(key);
+    merchantCounts.set(key, {
+      label: current?.label ?? transaction.merchantName.trim(),
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+  const repeatedMerchants = [...merchantCounts.values()]
+    .filter(({ count }) => count > 1)
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .slice(0, 6);
+  const categoryNames = (categories: typeof snapshot.categories) => categories
+    .slice(0, 6)
+    .map((category) => category.name)
+    .join(', ');
+  const observedAt = snapshot.lastSyncedAt ?? snapshot.generatedAt;
+  return {
+    capabilityId: 'money',
+    object: { type: 'money_category_review', id: 'current', label: 'Current category review' },
+    searchableText: 'money budget categories category structure system review merge split irregular reserve sinking fund transaction patterns current month',
+    summary: compact([
+      `Period: ${snapshot.periodLabel}`,
+      `Coverage: ${countLabel(snapshot.categories.length, 'category', 'categories')}, ${countLabel(currentTransactions.length, 'current-period transaction')}`,
+      `Planned: ${formatMoney(snapshot.totals.plannedCents)}`,
+      `Spent: ${formatMoney(snapshot.totals.spentCents)}`,
+      `Remaining: ${formatMoney(snapshot.totals.remainingCents)}`,
+      `Needs review: ${snapshot.totals.needsReviewCount}`,
+      snapshot.outsidePlan.transactionCount > 0
+        ? `Outside plan: ${formatMoney(snapshot.outsidePlan.spentCents)} across ${countLabel(snapshot.outsidePlan.transactionCount, 'transaction')}`
+        : 'Outside plan: none',
+      reserveCategories.length > 0
+        ? `Reserve-style categories: ${categoryNames(reserveCategories)}`
+        : 'Reserve-style categories: none',
+      projectedOverPlan.length > 0
+        ? `Projected over plan: ${categoryNames(projectedOverPlan)}`
+        : 'Projected over plan: none',
+      inactiveCategories.length > 0
+        ? `No current activity: ${categoryNames(inactiveCategories)}`
+        : 'No current activity: none',
+      repeatedMerchants.length > 0
+        ? `Repeated merchants: ${repeatedMerchants.map(({ label, count }) => `${label} (${count})`).join(', ')}`
+        : 'Repeated merchants: none',
+      `Last synced: ${snapshot.lastSyncedAt ?? 'unavailable'}`,
+    ]),
+    authority: 'derived',
+    observedAt,
+  };
+}
 
 function moneyPlanLimitEvidence(snapshot: MoneyChatSnapshot): CapabilityEvidenceSource {
   const answer = snapshot.livingLimitAnswer!;
@@ -845,6 +909,7 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'chapter') return chaptersChatAdapter.return.targetFor(object);
   if (object.type === 'profile') return profileChatAdapter.return.targetFor(object);
   if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
+  if (object.type === 'money_category_review') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'money_transaction') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'family_screen_time_child') return screenTimeChatAdapter.return.targetFor(object);
   if (object.type === 'personal_screen_time_device') return screenTimeChatAdapter.return.targetFor(object);

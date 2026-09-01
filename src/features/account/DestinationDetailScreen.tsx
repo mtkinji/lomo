@@ -15,6 +15,8 @@ import {
   type ExecutionTargetRow,
 } from '../../services/executionTargets/executionTargets';
 import { executionTargetActions } from './actions/executionTargetActionsBoundary';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsDestinationDetail'>;
 type Rt = RouteProp<SettingsStackParamList, 'SettingsDestinationDetail'>;
@@ -139,6 +141,10 @@ export function DestinationDetailScreen() {
   };
 
   const handleSaveCursor = async () => {
+    if (!useEntitlementsStore.getState().isPro) {
+      openPaywallInterstitial({ reason: 'pro_external_agent', source: 'settings' });
+      return;
+    }
     const missing = missingCursorFields(cursorDraft);
     if (missing.length > 0) {
       Alert.alert('Missing info', `Please fill: ${missing.join(', ')}`);
@@ -184,6 +190,10 @@ export function DestinationDetailScreen() {
 
   const handleToggleEnabled = async () => {
     if (!target) return;
+    if (!target.is_enabled && !useEntitlementsStore.getState().isPro) {
+      openPaywallInterstitial({ reason: 'pro_external_agent', source: 'settings' });
+      return;
+    }
     try {
       setLoading(true);
       await executionTargetActions.update({

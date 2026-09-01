@@ -20,6 +20,7 @@ import { PageHeader } from "../../../ui/layout/PageHeader";
 import { ObjectDetailMediaShell } from "../../../ui/layout/ObjectDetailMediaShell";
 import { Heading, Text } from "../../../ui/Typography";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
+import { useFeatureFlag } from "../../../services/analytics/useFeatureFlag";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
 import type { MealPlanProjection } from "../../meal-planning/data/mealPlanningRepository";
@@ -459,6 +460,7 @@ export function RecipeHomeView({
 
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeHome">;
 export function RecipeHomeScreen({ navigation, route }: Props) {
+  const cookModePreviewEnabled = useFeatureFlag('kwilt-preview-cook-mode', true);
   const personalRecipes = useRecipeStore((state) => state.recipes);
   const projection = resolveAvailableRecipe(
     personalRecipes,
@@ -738,9 +740,14 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     activeCook: Boolean(activeCook),
     isInPlan,
     planState: activePlan?.state ?? null,
+    cookAvailable: cookModePreviewEnabled,
   });
-  const openCook = () =>
-    activeCook
+  const openCook = () => {
+    if (!cookModePreviewEnabled) {
+      useToastStore.getState().showToast({ message: 'Cook Mode is unavailable right now.', variant: 'default' });
+      return;
+    }
+    return activeCook
       ? navigation.navigate("RecipeCookMode", {
           recipeId: projection.recipe.id,
           recipeScaleMultiplier: multiplier,
@@ -750,6 +757,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           recipeScaleMultiplier: multiplier,
           ...(route.params.source === 'meal_plan' ? { source: 'meal_plan' as const } : {}),
         });
+  };
   const compileIngredients = async (scope: "recipe" | "meal_plan") => {
     if (actionBusy) return;
     setActionBusy(true);

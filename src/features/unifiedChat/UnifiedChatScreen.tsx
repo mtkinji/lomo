@@ -145,6 +145,7 @@ import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProp
 import { executeMoneyControlProposalDecision } from './executeMoneyControlProposalDecision';
 import { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
 import { createMoneyControlActionBoundary } from '../../capabilities/money/actions/moneyControlActionBoundary';
+import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
 import { executeMealPreferenceProposalDecision } from './executeMealPreferenceProposalDecision';
 import { executeMealPlanProposalDecision } from './executeMealPlanProposalDecision';
@@ -208,6 +209,7 @@ export function UnifiedChatScreen({
   const config = useMemo(getUnifiedChatConfig, []);
   const repository = useMemo(() => createUnifiedChatRepository(), []);
   const moneyRepository = useMemo(() => createMoneyRepository(), []);
+  const liveConversationPreviewEnabled = useFeatureFlag('kwilt-preview-live-conversation', true);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
   const freshFirstSendRequestIdRef = useRef<string | null>(null);
@@ -224,6 +226,7 @@ export function UnifiedChatScreen({
   const consumedLaunchContext = useRef<string | null>(null);
   const voiceTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const liveConversation = useRef<LiveConversationConnection | null>(null);
+  const liveConversationPreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationAutoStartRef = useRef(false);
   const conversationAssistantCountRef = useRef(0);
   const conversationLatencyRef = useRef<ActiveConversationLatency | null>(null);
@@ -544,6 +547,7 @@ export function UnifiedChatScreen({
   }, [freshEntry, widgetLaunchId]);
 
   useEffect(() => () => {
+    if (liveConversationPreviewTimer.current) clearTimeout(liveConversationPreviewTimer.current);
     clearVoiceTimer();
     void cancelUnifiedChatVoiceRecording();
     void liveConversation.current?.stop();
@@ -557,6 +561,8 @@ export function UnifiedChatScreen({
   const stopConversation = useCallback(async () => {
     conversationActivationFeedback.stop();
     clearVoiceTimer();
+    if (liveConversationPreviewTimer.current) clearTimeout(liveConversationPreviewTimer.current);
+    liveConversationPreviewTimer.current = null;
     const current = liveConversation.current;
     liveConversation.current = null;
     conversationTurnFinalizerRef.current?.reset();
@@ -572,6 +578,8 @@ export function UnifiedChatScreen({
     const failedConnection = liveConversation.current;
     liveConversation.current = null;
     clearVoiceTimer();
+    if (liveConversationPreviewTimer.current) clearTimeout(liveConversationPreviewTimer.current);
+    liveConversationPreviewTimer.current = null;
     conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.fail();
     conversationProgressSpeech.stop();
@@ -581,6 +589,10 @@ export function UnifiedChatScreen({
 
   const startConversation = useCallback(async () => {
     if (liveConversation.current || voice.state === 'connecting') return;
+    if (!liveConversationPreviewEnabled) {
+      setVoice({ state: 'error', elapsedSeconds: 0, levels: [], message: 'Conversation mode is unavailable right now.' });
+      return;
+    }
     conversationActivationFeedback.begin();
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
@@ -604,6 +616,12 @@ export function UnifiedChatScreen({
               ? current
               : { ...current, elapsedSeconds: current.elapsedSeconds + 1 });
           }, 1000);
+          liveConversationPreviewTimer.current = setTimeout(() => {
+            if (liveConversation.current?.sessionId !== connection.sessionId) return;
+            void connection.stop();
+            liveConversation.current = null;
+            setVoice({ state: 'error', elapsedSeconds: 10 * 60, levels: [], message: 'This preview session has ended. You can start another later.' });
+          }, 10 * 60_000);
         },
         onEvent: (event) => {
           conversationTurnFinalizerRef.current?.handle(event);
@@ -667,7 +685,7 @@ export function UnifiedChatScreen({
       setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
         message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
     }
-  }, [clearVoiceTimer, failConversation, publishConversationLatency, voice.state]);
+  }, [clearVoiceTimer, failConversation, liveConversationPreviewEnabled, publishConversationLatency, voice.state]);
 
   useEffect(() => {
     if (routeParams?.mode !== 'conversation' || !surfaceReady || conversationAutoStartRef.current) return;

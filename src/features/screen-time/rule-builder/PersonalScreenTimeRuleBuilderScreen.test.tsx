@@ -4,6 +4,8 @@ import { Alert } from 'react-native';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { resetAllStores } from '../../../test/storeFixtures';
 import { useAppStore } from '../../../store/useAppStore';
+import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
+import { usePaywallStore } from '../../../store/usePaywallStore';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../../services/screenTimeProtection';
 import {
   consumeLastPersonalCompositeActivationFailure,
@@ -110,6 +112,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
     });
     useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved' } });
+    useEntitlementsStore.setState({ isPro: true });
   });
 
   it('starts with one self-explanatory app-selection action and no setup helper copy', () => {
@@ -143,6 +146,25 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     expect(screen.queryByText('Make Social available')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add rule' }).props.accessibilityState.disabled).toBe(true);
     expect(screen.queryByText('What will happen')).toBeNull();
+  });
+
+  it('lets Free build a basic rule and preserves the draft when another condition asks for Pro', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_advanced_screen_time_rules',
+      source: 'screen_time_add_condition',
+    });
+    expect(screen.getByRole('button', { name: 'Condition: Time' })).toBeTruthy();
   });
 
   it('turns Money context into a prefilled budget sentence in the same composer', async () => {

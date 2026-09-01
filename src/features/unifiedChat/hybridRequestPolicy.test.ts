@@ -73,6 +73,28 @@ describe('resolveHybridRequestPolicy', () => {
     })).toEqual(deterministicPolicy);
   });
 
+  it('does not let model judgment turn a Money inventory question into authorization', () => {
+    const prompt = 'What are my budget categories?';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(deterministicPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+    });
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: route({
+        requestClass: 'capability_action',
+        participatingCapabilities: ['money'],
+        usePrivateContext: true,
+        reason: 'The user wants to review private Money categories on device.',
+      }),
+      allowAdditionalCapabilities: true,
+    })).toEqual(deterministicPolicy);
+  });
+
   it('lets semantic planning interpret a Money recommendation without granting action authority', () => {
     const prompt = 'Review how my spending maps to my budgets and recommend a simpler structure.';
     const deterministicPolicy = classifyUnifiedChatRequest({ prompt });

@@ -44,6 +44,8 @@ const SELF_MONEY_APP_CONTROL_PATTERN =
   /\b(?:for me|my (?:phone|device)|on this (?:phone|device))\b[\s\S]*\b(?:block|pause|restrict|shield)\b|\b(?:block|pause|restrict|shield)\b[\s\S]*\b(?:apps?|amazon|shopping)\b[\s\S]*\b(?:budget|spend(?:ing|ings)?|over budget|ahead of pace|time of (?:the )?month)\b/i;
 const ACTION_PATTERN =
   /\b(move|put|rename|reschedule|schedule|mark|complete|create|add|make|remember|update|change|delete|remove|remind me|call me|turn|enable|disable|open|manage)\b/i;
+const GOAL_PARTNER_UPDATE_PATTERN =
+  /\b(?:tell|notify|send|share)\b[^.!?]{0,100}\bgoal\s+partners?\b/i;
 const AMBIGUOUS_ACTION_TARGET_PATTERN =
   /\b(?:change|move|rename|reschedule|schedule|mark|complete|update|delete|remove|open|manage)\s+(?:it|this|that|these|those)\b/i;
 const CONTEXT_REFERENCE_PATTERN =
@@ -130,10 +132,15 @@ function uniqueCapabilities(
   return [...new Set(values)];
 }
 
+function hasExplicitActionIntent(prompt: string): boolean {
+  const actionCandidate = prompt.replace(/\bnext move\b/gi, '');
+  return ACTION_PATTERN.test(actionCandidate) || GOAL_PARTNER_UPDATE_PATTERN.test(actionCandidate);
+}
+
 function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
   const capabilities: UnifiedChatCapabilityId[] = [];
   const personal = /\b(my|our|i have|i've|unfinished)\b/i.test(prompt);
-  const action = ACTION_PATTERN.test(prompt.replace(/\bnext move\b/gi, ''));
+  const action = hasExplicitActionIntent(prompt);
   const moneyLimitRequest = /\b(?:income|living|spending)\s+limit\b|\b(?:plan|budget)\b[^.!?]{0,40}\b\d{1,3}%\s+(?:income\s+|spending\s+|living\s+)?limit\b/i.test(prompt);
   if (/\b(?:meal plan|plan(?:ning)?\s+(?:our\s+|my\s+)?(?:meals?|dinners?)|dinners?\s+(?:for|this|next)|meals?\s+(?:for|this|next))\b/i.test(prompt)) {
     capabilities.push('meal_planning');
@@ -313,8 +320,7 @@ export function classifyUnifiedChatRequest({
       policyReason: 'day-plan-status',
     };
   }
-  const actionCandidate = normalizedPrompt.replace(/\bnext move\b/gi, '');
-  const isAction = ACTION_PATTERN.test(actionCandidate);
+  const isAction = hasExplicitActionIntent(normalizedPrompt);
   if (isAction) {
     const explicitlyNeedsExistingData = /\b(my|our|i have|i've|unfinished)\b/i.test(normalizedPrompt);
     if (capabilities.length === 0) {

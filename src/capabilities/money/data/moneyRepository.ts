@@ -31,6 +31,7 @@ import {
 } from './moneyMutations';
 import { loadMoneyPlanProjection } from './moneyPlanProjection';
 import { canReadSandboxMoneyData } from '../domain/demoMoneyEnvironment';
+import { normalizeTransactionNote } from '../domain/transactionNote';
 
 type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -63,6 +64,12 @@ export type ConfirmedTransactionPlanRoleWrite = {
   confirmedAt: string;
   transactionId: string;
   planRoleOverride: MoneyCategoryPlanRole | null;
+};
+
+export type ConfirmedTransactionNoteWrite = {
+  confirmedAt: string;
+  transactionId: string;
+  note: string | null;
 };
 
 export type ConfirmedCategoryWrite = {
@@ -132,6 +139,7 @@ export interface MoneyRepository {
   }): Promise<MoneySnapshot>;
   reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput, version?: { expectedUpdatedAt: string }): Promise<ConfirmedTransactionWrite>;
   setTransactionPlanRoleOverride(transactionId: string, planRoleOverride: MoneyCategoryPlanRole | null, version?: { expectedUpdatedAt: string }): Promise<ConfirmedTransactionPlanRoleWrite>;
+  setTransactionNote(transactionId: string, note: string): Promise<ConfirmedTransactionNoteWrite>;
   reviewTransferPair(input: {
     transactionIds: [string, string];
     expectedUpdatedAt: string;
@@ -219,6 +227,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 name,
                 merchant_name,
                 original_description,
+                user_note,
                 authorized_date,
                 amount_cents,
                 direction,
@@ -413,6 +422,27 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
         transactionId: normalizedTransactionId,
         planRoleOverride,
+      };
+    },
+    async setTransactionNote(transactionId, note) {
+      const normalizedTransactionId = transactionId.trim();
+      if (!normalizedTransactionId) throw new Error('Choose a transaction before adding a note.');
+      const normalizedNote = normalizeTransactionNote(note);
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const updatedRows = await readPart<Array<{ id: string; updated_at?: string }>>(
+        'transaction note',
+        db
+          .from('budget_transactions')
+          .update({ user_note: normalizedNote })
+          .eq('id', normalizedTransactionId)
+          .select('id,updated_at'),
+      );
+      requireConfirmedRows('transaction note', updatedRows, 1);
+      return {
+        confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
+        transactionId: normalizedTransactionId,
+        note: normalizedNote,
       };
     },
     async reviewTransferPair(input) {

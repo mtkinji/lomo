@@ -11,6 +11,7 @@ import {
   previewLivingPlanOverride,
 } from '../runtime/livingPlanReconciliation';
 import { applyGovernedMoneyBudgetUpdate } from './moneyBudgetControlBoundary';
+import { assertMoneyProAccess } from '../runtime/moneyProAccess';
 
 export function createMoneyControlActionBoundary(
   repository?: MoneyRepository,
@@ -18,6 +19,7 @@ export function createMoneyControlActionBoundary(
   const getRepository = () => repository ?? createMoneyRepository();
   return {
     loadSnapshot: () => getRepository().loadSnapshot(),
+    requireProAccess: assertMoneyProAccess,
     async requireFreshAuthentication() {
       const privacy = await loadMoneyPrivacyLockSettings();
       if (!privacy.enabled) return true;

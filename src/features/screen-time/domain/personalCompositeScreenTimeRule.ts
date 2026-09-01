@@ -26,6 +26,8 @@ export type PersonalCompositeScreenTimeRule = {
   conditions: PersonalRuleCondition[];
   temporaryOpenUntilIso?: string | null;
   lastUpdated: string | null;
+  monetizationState?: 'active' | 'inactive_subscription_ended' | 'deactivation_pending';
+  monetizationChangedAt?: string | null;
 };
 
 export type PersonalCompositeRuleValidationIssue =
@@ -182,6 +184,14 @@ export function normalizePersonalCompositeScreenTimeRule(value: unknown): Person
       ? new Date(value.temporaryOpenUntilIso).toISOString()
       : null,
     lastUpdated: timestamp,
+    monetizationState: value.monetizationState === 'inactive_subscription_ended'
+      || value.monetizationState === 'deactivation_pending'
+      ? value.monetizationState
+      : 'active',
+    monetizationChangedAt: typeof value.monetizationChangedAt === 'string'
+      && Number.isFinite(Date.parse(value.monetizationChangedAt))
+      ? new Date(value.monetizationChangedAt).toISOString()
+      : null,
   };
 }
 

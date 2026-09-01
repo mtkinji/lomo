@@ -38,6 +38,14 @@ const moneyPolicy = {
   policyReason: 'semantic-route:bulk category rename',
 };
 
+const moneyQuestionPolicy = {
+  requestClass: 'capability_question' as const,
+  participatingCapabilities: ['money' as const],
+  usePrivateContext: true,
+  clarification: null,
+  policyReason: 'bounded-capability-evidence-request',
+};
+
 describe('Unified Chat Turn Contract', () => {
   test('derives all-matching target scope independently of capability metadata', () => {
     expect(buildUnifiedChatTurnContract({
@@ -82,6 +90,34 @@ describe('Unified Chat Turn Contract', () => {
       evidenceScope: 'focused',
       responseContract: 'evidence_linked',
     });
+  });
+
+  test('uses broad Money evidence for a category-structure review when semantic judgment is unavailable', () => {
+    expect(buildUnifiedChatTurnContract({
+      prompt: "I'm not convinced I have ask the right budget categories right now. What do you think about them?",
+      requestPolicy: moneyQuestionPolicy,
+      agentJudgment: null,
+      previous: null,
+    })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      authorization: 'none',
+      evidenceScope: 'broad',
+      responseContract: 'evidence_linked',
+      action: null,
+    });
+  });
+
+  test.each([
+    'How is my grocery budget looking?',
+    'What was the latest charge from Alpine Market?',
+  ])('keeps a narrow Money question focused without semantic judgment: %s', (prompt) => {
+    expect(buildUnifiedChatTurnContract({
+      prompt,
+      requestPolicy: moneyQuestionPolicy,
+      agentJudgment: null,
+      previous: null,
+    }).evidenceScope).toBe('focused');
   });
 
   test.each([
