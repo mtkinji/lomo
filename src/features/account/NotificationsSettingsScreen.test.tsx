@@ -52,7 +52,8 @@ jest.mock('@react-native-community/datetimepicker', () => {
         {
           accessibilityRole: 'button',
           accessibilityLabel: 'Mock time picker',
-          onPress: () => onChange({ type: 'set' }, new Date(2026, 0, 1, 14, 0, 0, 0)),
+          onPress: () =>
+            onChange({ type: 'set' }, new Date(2026, 0, 1, 14, 0, 0, 0)),
         },
         React.createElement(Text, null, 'Mock time picker'),
       ),
@@ -70,10 +71,14 @@ describe('NotificationsSettingsScreen', () => {
   beforeEach(() => {
     jest.useRealTimers();
     resetAllStores();
-    jest.spyOn(NotificationService, 'syncOsPermissionStatus').mockResolvedValue('authorized');
-    jest.spyOn(NotificationService, 'applySettings').mockImplementation(async (next: any) => {
-      useAppStore.getState().setNotificationPreferences(next);
-    });
+    jest
+      .spyOn(NotificationService, 'syncOsPermissionStatus')
+      .mockResolvedValue('authorized');
+    jest
+      .spyOn(NotificationService, 'applySettings')
+      .mockImplementation(async (next: any) => {
+        useAppStore.getState().setNotificationPreferences(next);
+      });
   });
 
   afterEach(() => {
@@ -81,11 +86,17 @@ describe('NotificationsSettingsScreen', () => {
   });
 
   it('exposes one named switch control for each toggle row', () => {
-    const { getAllByRole, getByRole } = renderWithProviders(<NotificationsSettingsScreen />);
+    const { getAllByRole, getByRole } = renderWithProviders(
+      <NotificationsSettingsScreen />,
+    );
 
-    expect(getByRole('switch', { name: 'Notifications from Kwilt' })).toBeTruthy();
+    expect(
+      getByRole('switch', { name: 'Notifications from Kwilt' }),
+    ).toBeTruthy();
     expect(getByRole('switch', { name: 'To-do reminders' })).toBeTruthy();
-    expect(getByRole('switch', { name: 'Household meal planning' })).toBeTruthy();
+    expect(
+      getByRole('switch', { name: 'Household meal planning' }),
+    ).toBeTruthy();
     expect(getAllByRole('switch')).toHaveLength(9);
   });
 
@@ -101,16 +112,18 @@ describe('NotificationsSettingsScreen', () => {
     fireEvent.press(getByRole('switch', { name: 'Household meal planning' }));
 
     await waitFor(() => {
-      expect(NotificationService.applySettings).toHaveBeenCalledWith(expect.objectContaining({
-        allowHouseholdMealPlanPush: false,
-      }));
+      expect(NotificationService.applySettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHouseholdMealPlanPush: false,
+        }),
+      );
     });
   });
 
   it.each([
     {
       label: 'daily show-up',
-      openLabel: 'Change daily reminder time',
+      openLabel: 'Daily show-up time',
       saveLabel: 'Save daily show-up time',
       expected: {
         allowDailyShowUp: true,
@@ -120,7 +133,7 @@ describe('NotificationsSettingsScreen', () => {
     },
     {
       label: 'daily focus',
-      openLabel: 'Change daily focus reminder time',
+      openLabel: 'Daily focus time',
       saveLabel: 'Save daily focus time',
       expected: {
         allowDailyFocus: true,
@@ -131,7 +144,7 @@ describe('NotificationsSettingsScreen', () => {
     },
     {
       label: 'goal nudges',
-      openLabel: 'Change goal nudge time',
+      openLabel: 'Goal nudge time',
       saveLabel: 'Save goal nudges time',
       expected: {
         allowGoalNudges: true,
@@ -139,41 +152,46 @@ describe('NotificationsSettingsScreen', () => {
         notificationsEnabled: true,
       },
     },
-  ])('auto-saves $label time changes and keeps Done available to close the picker', async ({ openLabel, saveLabel, expected }) => {
-    useAppStore.getState().setNotificationPreferences({
-      notificationsEnabled: true,
-      osPermissionStatus: 'authorized',
-      allowActivityReminders: true,
-      allowDailyShowUp: true,
-      dailyShowUpTime: '08:00',
-      allowPlanKickoff: true,
-      planKickoffCadence: 'daily',
-      planKickoffWeeklyDay: 1,
-      allowDailyFocus: true,
-      dailyFocusTime: '20:30',
-      dailyFocusTimeMode: 'auto',
-      allowGoalNudges: true,
-      goalNudgeTime: '16:00',
-      allowStreakAndReactivation: true,
-    });
+  ])(
+    'auto-saves $label time changes and keeps Done available to close the picker',
+    async ({ openLabel, saveLabel, expected }) => {
+      useAppStore.getState().setNotificationPreferences({
+        notificationsEnabled: true,
+        osPermissionStatus: 'authorized',
+        allowActivityReminders: true,
+        allowDailyShowUp: true,
+        dailyShowUpTime: '08:00',
+        allowPlanKickoff: true,
+        planKickoffCadence: 'daily',
+        planKickoffWeeklyDay: 1,
+        allowDailyFocus: true,
+        dailyFocusTime: '20:30',
+        dailyFocusTimeMode: 'auto',
+        allowGoalNudges: true,
+        goalNudgeTime: '16:00',
+        allowStreakAndReactivation: true,
+      });
 
-    const { getByLabelText, queryByTestId } = renderWithProviders(<NotificationsSettingsScreen />);
-
-    fireEvent.press(getByLabelText(openLabel));
-    fireEvent.press(getByLabelText('Mock time picker'));
-
-    await waitFor(() => {
-      expect(NotificationService.applySettings).toHaveBeenCalledWith(
-        expect.objectContaining(expected),
+      const { getByLabelText, queryByTestId } = renderWithProviders(
+        <NotificationsSettingsScreen />,
       );
-    });
 
-    expect(queryByTestId('bottom-drawer')).toBeTruthy();
-    await act(async () => {
-      fireEvent.press(getByLabelText(saveLabel));
-    });
-    await waitFor(() => {
-      expect(queryByTestId('bottom-drawer')).toBeNull();
-    });
-  });
+      fireEvent.press(getByLabelText(openLabel));
+      fireEvent.press(getByLabelText('Mock time picker'));
+
+      await waitFor(() => {
+        expect(NotificationService.applySettings).toHaveBeenCalledWith(
+          expect.objectContaining(expected),
+        );
+      });
+
+      expect(queryByTestId('bottom-drawer')).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(getByLabelText(saveLabel));
+      });
+      await waitFor(() => {
+        expect(queryByTestId('bottom-drawer')).toBeNull();
+      });
+    },
+  );
 });

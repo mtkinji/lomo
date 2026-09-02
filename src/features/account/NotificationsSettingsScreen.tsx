@@ -1,18 +1,30 @@
-import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, AppState, ScrollView, StyleSheet, View, Platform, Switch } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { Alert, AppState, StyleSheet, View, Platform } from 'react-native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { AppShell } from '../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
-import { PageHeader } from '../../ui/layout/PageHeader';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Text, VStack } from '../../ui/primitives';
+import { SmallSetPickerField } from '../../ui/PickerFields';
+import {
+  SettingsDivider,
+  SettingsGroup,
+  SettingsPage,
+  SettingsRow,
+  SettingsToggleRow,
+} from '../../ui/SettingsSurface';
 import { NotificationService } from '../../services/NotificationService';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { createMealPlanAttentionRepository } from '../../capabilities/meal-planning/data/mealPlanAttentionRepository';
@@ -30,13 +42,19 @@ type NotificationsSettingsNavigationProp = NativeStackNavigationProp<
 
 type PlanKickoffCadence = 'daily' | 'weekdays' | 'weekly';
 
-const PLAN_KICKOFF_CADENCE_OPTIONS: Array<{ value: PlanKickoffCadence; label: string }> = [
+const PLAN_KICKOFF_CADENCE_OPTIONS: Array<{
+  value: PlanKickoffCadence;
+  label: string;
+}> = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekdays', label: 'Weekdays' },
   { value: 'weekly', label: 'Weekly' },
 ];
 
-const WEEKDAY_OPTIONS: Array<{ value: 0 | 1 | 2 | 3 | 4 | 5 | 6; label: string }> = [
+const WEEKDAY_OPTIONS: Array<{
+  value: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  label: string;
+}> = [
   { value: 1, label: 'Monday' },
   { value: 2, label: 'Tuesday' },
   { value: 3, label: 'Wednesday' },
@@ -50,34 +68,60 @@ type TimePickerTarget = 'dailyShowUp' | 'dailyFocus' | 'goalNudge';
 
 export function NotificationsSettingsScreen() {
   const navigation = useNavigation<NotificationsSettingsNavigationProp>();
-  const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsNotifications'>>();
+  const route =
+    useRoute<RouteProp<SettingsStackParamList, 'SettingsNotifications'>>();
   const preferences = useAppStore((state) => state.notificationPreferences);
-  const setPreferences = useAppStore((state) => state.setNotificationPreferences);
+  const setPreferences = useAppStore(
+    (state) => state.setNotificationPreferences,
+  );
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
-  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
-  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
-  const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
-  const [timePickerDraft, setTimePickerDraft] = useState<Date>(() => new Date());
+  const locationOfferPreferences = useAppStore(
+    (state) => state.locationOfferPreferences,
+  );
+  const setLocationOfferPreferences = useAppStore(
+    (state) => state.setLocationOfferPreferences,
+  );
+  const [timePickerTarget, setTimePickerTarget] =
+    useState<TimePickerTarget | null>(null);
+  const [timePickerDraft, setTimePickerDraft] = useState<Date>(
+    () => new Date(),
+  );
   const requestedReview = useMemo(() => {
     if (!route.params?.fields) return null;
-    try { return buildNotificationPreferenceReview(preferences, route.params.fields); } catch { return null; }
+    try {
+      return buildNotificationPreferenceReview(
+        preferences,
+        route.params.fields,
+      );
+    } catch {
+      return null;
+    }
   }, [preferences, route.params?.fields]);
 
   const applyRequestedReview = useCallback(async () => {
     if (!requestedReview) return;
     if (requestedReview.requiresNativePermission) {
-      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('activity');
       if (!granted) return;
       requestedReview.next.osPermissionStatus = 'authorized';
     }
     const prior = preferences;
     await NotificationService.applySettings(requestedReview.next);
-    if (userId && requestedReview.changedFields.includes('allowHouseholdMealPlanPush')) {
+    if (
+      userId &&
+      requestedReview.changedFields.includes('allowHouseholdMealPlanPush')
+    ) {
       try {
-        await createMealPlanAttentionRepository().setPushEnabled(requestedReview.next.allowHouseholdMealPlanPush !== false);
+        await createMealPlanAttentionRepository().setPushEnabled(
+          requestedReview.next.allowHouseholdMealPlanPush !== false,
+        );
       } catch {
         await NotificationService.applySettings(prior);
-        Alert.alert('Preference not saved', 'Check your connection and try again.');
+        Alert.alert(
+          'Preference not saved',
+          'Check your connection and try again.',
+        );
         return;
       }
     }
@@ -97,11 +141,15 @@ export function NotificationsSettingsScreen() {
   };
 
   const dailyShowUpTimeLabel = useMemo(() => {
-    return formatTimeLabel(preferences.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME);
+    return formatTimeLabel(
+      preferences.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME,
+    );
   }, [preferences.dailyShowUpTime]);
 
   const dailyFocusTimeLabel = useMemo(() => {
-    return formatTimeLabel(preferences.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME);
+    return formatTimeLabel(
+      preferences.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME,
+    );
   }, [preferences.dailyFocusTime]);
 
   const goalNudgeTimeLabel = useMemo(() => {
@@ -122,14 +170,22 @@ export function NotificationsSettingsScreen() {
 
   const planKickoffWeeklyDay: 0 | 1 | 2 | 3 | 4 | 5 | 6 = useMemo(() => {
     const raw = preferences.planKickoffWeeklyDay;
-    if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 && raw <= 6) {
+    if (
+      typeof raw === 'number' &&
+      Number.isFinite(raw) &&
+      raw >= 0 &&
+      raw <= 6
+    ) {
       return raw as 0 | 1 | 2 | 3 | 4 | 5 | 6;
     }
     return 1;
   }, [preferences.planKickoffWeeklyDay]);
 
   const planKickoffWeeklyDayLabel = useMemo(() => {
-    return WEEKDAY_OPTIONS.find((option) => option.value === planKickoffWeeklyDay)?.label ?? 'Monday';
+    return (
+      WEEKDAY_OPTIONS.find((option) => option.value === planKickoffWeeklyDay)
+        ?.label ?? 'Monday'
+    );
   }, [planKickoffWeeklyDay]);
 
   const osStatusLabel = useMemo(() => {
@@ -163,19 +219,23 @@ export function NotificationsSettingsScreen() {
   }, [locationOfferPreferences.osPermissionStatus]);
 
   const remindersEnabled = preferences.notificationsEnabled;
-  const activityRemindersEnabled = remindersEnabled && preferences.allowActivityReminders;
+  const activityRemindersEnabled =
+    remindersEnabled && preferences.allowActivityReminders;
   const dailyShowUpEnabled = remindersEnabled && preferences.allowDailyShowUp;
   const dailyFocusEnabled = remindersEnabled && preferences.allowDailyFocus;
   const goalNudgesEnabled = remindersEnabled && preferences.allowGoalNudges;
-  const streakAndReactivationEnabled = remindersEnabled && preferences.allowStreakAndReactivation;
-  const householdMealPlanningEnabled = remindersEnabled && preferences.allowHouseholdMealPlanPush !== false;
+  const streakAndReactivationEnabled =
+    remindersEnabled && preferences.allowStreakAndReactivation;
+  const householdMealPlanningEnabled =
+    remindersEnabled && preferences.allowHouseholdMealPlanPush !== false;
   const locationPromptsEnabled = Boolean(locationOfferPreferences.enabled);
   const planKickoffEnabled = preferences.allowPlanKickoff !== false;
 
   const planKickoffSummary = useMemo(() => {
     if (!planKickoffEnabled) return 'Off';
     if (planKickoffCadence === 'weekdays') return 'Weekdays';
-    if (planKickoffCadence === 'weekly') return `Weekly · ${planKickoffWeeklyDayLabel}`;
+    if (planKickoffCadence === 'weekly')
+      return `Weekly · ${planKickoffWeeklyDayLabel}`;
     return 'Daily';
   }, [planKickoffCadence, planKickoffEnabled, planKickoffWeeklyDayLabel]);
 
@@ -193,7 +253,8 @@ export function NotificationsSettingsScreen() {
         syncPermissionLabels();
       });
       if (userId) {
-        void createMealPlanAttentionRepository().getPushEnabled()
+        void createMealPlanAttentionRepository()
+          .getPushEnabled()
           .then((enabled) => {
             setPreferences((current) => ({
               ...current,
@@ -209,7 +270,8 @@ export function NotificationsSettingsScreen() {
   const handleToggleGlobal = async () => {
     const turningOn = !preferences.notificationsEnabled;
     if (turningOn) {
-      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('activity');
       if (!granted) {
         return;
       }
@@ -226,10 +288,15 @@ export function NotificationsSettingsScreen() {
     await NotificationService.applySettings(next);
     if (!userId) return;
     try {
-      await createMealPlanAttentionRepository().setPushEnabled(next.allowHouseholdMealPlanPush);
+      await createMealPlanAttentionRepository().setPushEnabled(
+        next.allowHouseholdMealPlanPush,
+      );
     } catch {
       await NotificationService.applySettings(preferences);
-      Alert.alert('Preference not saved', 'Check your connection and try again.');
+      Alert.alert(
+        'Preference not saved',
+        'Check your connection and try again.',
+      );
     }
   };
 
@@ -237,13 +304,21 @@ export function NotificationsSettingsScreen() {
     const currentlyEnabled = Boolean(locationOfferPreferences.enabled);
     const nextEnabled = !currentlyEnabled;
     if (!nextEnabled) {
-      setLocationOfferPreferences((current) => ({ ...current, enabled: false }));
+      setLocationOfferPreferences((current) => ({
+        ...current,
+        enabled: false,
+      }));
       return;
     }
 
     // If turning on, only persist enabled when "Always" access is actually granted.
-    await LocationPermissionService.ensurePermissionWithRationale('location_offers');
-    const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable');
+    await LocationPermissionService.ensurePermissionWithRationale(
+      'location_offers',
+    );
+    const nextStatus =
+      await LocationPermissionService.syncOsPermissionStatus().catch(
+        () => 'unavailable',
+      );
     if (nextStatus === 'unavailable') {
       Alert.alert(
         'Location not available',
@@ -258,7 +333,8 @@ export function NotificationsSettingsScreen() {
 
   const handleToggleActivityReminders = async () => {
     if (!preferences.notificationsEnabled) {
-      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('activity');
       if (!granted) {
         return;
       }
@@ -281,7 +357,8 @@ export function NotificationsSettingsScreen() {
 
   const handleToggleDailyShowUp = async () => {
     if (!preferences.notificationsEnabled || !preferences.allowDailyShowUp) {
-      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('daily');
       if (!granted) {
         return;
       }
@@ -299,7 +376,8 @@ export function NotificationsSettingsScreen() {
 
   const handleToggleDailyFocus = async () => {
     if (!preferences.notificationsEnabled || !preferences.allowDailyFocus) {
-      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('daily');
       if (!granted) {
         return;
       }
@@ -318,12 +396,14 @@ export function NotificationsSettingsScreen() {
 
   const handleToggleGoalNudges = async () => {
     if (!preferences.notificationsEnabled || !preferences.allowGoalNudges) {
-      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('daily');
       if (!granted) {
         return;
       }
     }
-    const nextTime = (preferences as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME;
+    const nextTime =
+      (preferences as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME;
     const next = {
       ...preferences,
       notificationsEnabled: true,
@@ -334,8 +414,12 @@ export function NotificationsSettingsScreen() {
   };
 
   const handleToggleStreakAndReactivation = async () => {
-    if (!preferences.notificationsEnabled || !preferences.allowStreakAndReactivation) {
-      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+    if (
+      !preferences.notificationsEnabled ||
+      !preferences.allowStreakAndReactivation
+    ) {
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('daily');
       if (!granted) {
         return;
       }
@@ -351,12 +435,15 @@ export function NotificationsSettingsScreen() {
   const handleToggleHouseholdMealPlanning = async () => {
     const nextEnabled = !householdMealPlanningEnabled;
     if (nextEnabled && !preferences.notificationsEnabled) {
-      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      const granted =
+        await NotificationService.ensurePermissionWithRationale('activity');
       if (!granted) return;
     }
     const next = {
       ...preferences,
-      notificationsEnabled: nextEnabled ? true : preferences.notificationsEnabled,
+      notificationsEnabled: nextEnabled
+        ? true
+        : preferences.notificationsEnabled,
       allowHouseholdMealPlanPush: nextEnabled,
     };
     await NotificationService.applySettings(next);
@@ -365,7 +452,10 @@ export function NotificationsSettingsScreen() {
       await createMealPlanAttentionRepository().setPushEnabled(nextEnabled);
     } catch {
       await NotificationService.applySettings(preferences);
-      Alert.alert('Preference not saved', 'Check your connection and try again.');
+      Alert.alert(
+        'Preference not saved',
+        'Check your connection and try again.',
+      );
     }
   };
 
@@ -404,7 +494,9 @@ export function NotificationsSettingsScreen() {
     }));
   };
 
-  const handleSetPlanKickoffWeeklyDay = (weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6) => {
+  const handleSetPlanKickoffWeeklyDay = (
+    weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6,
+  ) => {
     setPreferences((current) => ({
       ...current,
       allowPlanKickoff: true,
@@ -436,7 +528,12 @@ export function NotificationsSettingsScreen() {
           : DEFAULT_DAILY_SHOW_UP_TIME;
     const date = new Date();
     const [h, m] = fallback.split(':');
-    date.setHours(Number.parseInt(h ?? '8', 10), Number.parseInt(m ?? '0', 10), 0, 0);
+    date.setHours(
+      Number.parseInt(h ?? '8', 10),
+      Number.parseInt(m ?? '0', 10),
+      0,
+      0,
+    );
     return date;
   };
 
@@ -455,7 +552,11 @@ export function NotificationsSettingsScreen() {
     return 'Daily show-up time';
   }, [timePickerTarget]);
 
-  const applyTimePickerDate = async (target: TimePickerTarget, date: Date, closeAfterSave = false) => {
+  const applyTimePickerDate = async (
+    target: TimePickerTarget,
+    date: Date,
+    closeAfterSave = false,
+  ) => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const time = `${hours}:${minutes}`;
@@ -475,12 +576,12 @@ export function NotificationsSettingsScreen() {
               allowGoalNudges: true,
               goalNudgeTime: time,
             }
-        : {
-            ...preferences,
-            notificationsEnabled: true,
-            allowDailyShowUp: true,
-            dailyShowUpTime: time,
-          };
+          : {
+              ...preferences,
+              notificationsEnabled: true,
+              allowDailyShowUp: true,
+              dailyShowUpTime: time,
+            };
     await NotificationService.applySettings(next);
     if (closeAfterSave) {
       closeTimePicker();
@@ -510,482 +611,284 @@ export function NotificationsSettingsScreen() {
   };
 
   return (
-    <AppShell>
-      <View style={styles.screen}>
-        <PageHeader
-          title="Notifications"
-          onPressBack={handleNavigateBack}
-        />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {requestedReview ? (
-            <View style={styles.card}>
-              <VStack space="sm">
-                <Text style={styles.sectionTitle}>Review chat request</Text>
-                <Text style={styles.rowSubtitle}>
-                  {requestedReview.changedFields.length} notification setting{requestedReview.changedFields.length === 1 ? '' : 's'} will change.
-                  {requestedReview.requiresNativePermission ? ' iOS will ask for permission after you continue.' : ''}
-                </Text>
-                <Button label="Apply these changes" onPress={() => { void applyRequestedReview(); }} />
-              </VStack>
-            </View>
-          ) : null}
-          <View style={styles.card}>
-            <VStack space="sm">
-              <Text style={styles.sectionTitle}>Notifications</Text>
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="Notifications from Kwilt"
-                  accessibilityState={{ checked: preferences.notificationsEnabled }}
-                  onPress={handleToggleGlobal}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Notifications from Kwilt</Text>
-                    <Text style={styles.rowSubtitle}>{osStatusLabel}</Text>
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={preferences.notificationsEnabled}
-                  onValueChange={() => {
-                    void handleToggleGlobal();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <VStack space="sm">
-              <Text style={styles.sectionTitle}>Reminders</Text>
-
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="To-do reminders"
-                  accessibilityState={{ checked: activityRemindersEnabled }}
-                  onPress={handleToggleActivityReminders}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>To-do reminders</Text>
-                    {!activityRemindersEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={activityRemindersEnabled}
-                  onValueChange={() => {
-                    void handleToggleActivityReminders();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="Household meal planning"
-                  accessibilityState={{ checked: householdMealPlanningEnabled }}
-                  onPress={handleToggleHouseholdMealPlanning}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Household meal planning</Text>
-                    <Text style={styles.rowSubtitle}>
-                      {householdMealPlanningEnabled ? 'When there are new meal ideas to weigh in on' : 'Off'}
-                    </Text>
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={householdMealPlanningEnabled}
-                  onValueChange={() => { void handleToggleHouseholdMealPlanning(); }}
-                  trackColor={{ false: colors.shellAlt, true: colors.textPrimary }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.rowPressable}>
-                  <Pressable
-                    style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="switch"
-                    accessibilityLabel="Daily show-up reminder"
-                    accessibilityState={{ checked: dailyShowUpEnabled }}
-                    onPress={handleToggleDailyShowUp}
-                  >
-                    <VStack>
-                      <Text style={styles.rowTitle}>Daily show-up</Text>
-                      {!dailyShowUpEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
-                    </VStack>
-                  </Pressable>
-                  {dailyShowUpEnabled && (
-                    <Pressable
-                      onPress={() => {
-                        openTimePicker('dailyShowUp');
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Change daily reminder time"
-                      hitSlop={8}
-                    >
-                      <Text style={styles.timeLabel}>Time · {dailyShowUpTimeLabel}</Text>
-                    </Pressable>
-                  )}
-                </View>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={dailyShowUpEnabled}
-                  onValueChange={() => {
-                    void handleToggleDailyShowUp();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.rowPressable}>
-                  <Pressable
-                    style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="switch"
-                    accessibilityLabel="Daily focus reminder"
-                    accessibilityState={{ checked: dailyFocusEnabled }}
-                    onPress={handleToggleDailyFocus}
-                  >
-                    <VStack>
-                      <Text style={styles.rowTitle}>Daily focus</Text>
-                      {!dailyFocusEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
-                    </VStack>
-                  </Pressable>
-                  {dailyFocusEnabled && (
-                    <Pressable
-                      onPress={() => {
-                        openTimePicker('dailyFocus');
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Change daily focus reminder time"
-                      hitSlop={8}
-                    >
-                      <Text style={styles.timeLabel}>Time · {dailyFocusTimeLabel}</Text>
-                    </Pressable>
-                  )}
-                </View>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={dailyFocusEnabled}
-                  onValueChange={() => {
-                    void handleToggleDailyFocus();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.rowPressable}>
-                  <Pressable
-                    style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="switch"
-                    accessibilityLabel="Goal nudges"
-                    accessibilityState={{ checked: goalNudgesEnabled }}
-                    onPress={handleToggleGoalNudges}
-                  >
-                    <VStack>
-                      <Text style={styles.rowTitle}>Goal nudges</Text>
-                      {!goalNudgesEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
-                    </VStack>
-                  </Pressable>
-                  {goalNudgesEnabled ? (
-                    <Pressable
-                      onPress={() => {
-                        openTimePicker('goalNudge');
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Change goal nudge time"
-                      hitSlop={8}
-                    >
-                      <Text style={styles.timeLabel}>Time · {goalNudgeTimeLabel}</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={goalNudgesEnabled}
-                  onValueChange={() => {
-                    void handleToggleGoalNudges();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="Streak and comeback reminders"
-                  accessibilityState={{ checked: streakAndReactivationEnabled }}
-                  onPress={handleToggleStreakAndReactivation}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Streak & comeback</Text>
-                    {!streakAndReactivationEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={streakAndReactivationEnabled}
-                  onValueChange={() => {
-                    void handleToggleStreakAndReactivation();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <VStack space="sm">
-              <Text style={styles.sectionTitle}>Prompts</Text>
-
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="Plan your day prompts"
-                  accessibilityState={{ checked: planKickoffEnabled }}
-                  onPress={handleTogglePlanKickoff}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Plan your day prompts</Text>
-                    <Text style={styles.rowSubtitle}>{planKickoffSummary}</Text>
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={planKickoffEnabled}
-                  onValueChange={handleTogglePlanKickoff}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-
-              {planKickoffEnabled ? (
-                <VStack space="sm">
-                  <View style={styles.optionWrap}>
-                    {PLAN_KICKOFF_CADENCE_OPTIONS.map((option) => {
-                      const selected = planKickoffCadence === option.value;
-                      return (
-                        <Pressable
-                          key={option.value}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Set plan kickoff frequency to ${option.label}`}
-                          onPress={() => handleSetPlanKickoffCadence(option.value)}
-                          style={[styles.optionChip, selected && styles.optionChipSelected]}
-                        >
-                          <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{option.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {planKickoffCadence === 'weekly' ? (
-                    <VStack space="xs">
-                      <View style={styles.optionWrap}>
-                        {WEEKDAY_OPTIONS.map((option) => {
-                          const selected = planKickoffWeeklyDay === option.value;
-                          return (
-                            <Pressable
-                              key={option.value}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Set weekly plan kickoff day to ${option.label}`}
-                              onPress={() => handleSetPlanKickoffWeeklyDay(option.value)}
-                              style={[styles.optionChip, selected && styles.optionChipSelected]}
-                            >
-                              <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>
-                                {option.label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </VStack>
-                  ) : null}
-                </VStack>
-              ) : null}
-
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="switch"
-                  accessibilityLabel="Location prompts"
-                  accessibilityState={{ checked: locationPromptsEnabled }}
-                  onPress={handleToggleLocationOffers}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Location prompts</Text>
-                    <Text style={styles.rowSubtitle}>
-                      {locationPromptsEnabled ? locationOsStatusLabel : 'Off'}
-                    </Text>
-                  </VStack>
-                </Pressable>
-                <Switch
-                  accessible={false}
-                  importantForAccessibility="no"
-                  value={locationPromptsEnabled}
-                  onValueChange={() => {
-                    void handleToggleLocationOffers();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-              <Text style={styles.helperText}>Plan your day prompts appear in app, not as push notifications.</Text>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <VStack space="sm">
-              <Text style={styles.sectionTitle}>Email digest</Text>
-              <Pressable
-                style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                accessibilityRole="button"
-                accessibilityLabel="Open Weekly Chapters settings"
-                onPress={() => {
-                  (navigation as any).navigate('SettingsWeeklyChapters');
-                }}
-              >
-                <VStack>
-                  <Text style={styles.rowTitle}>Weekly Chapters</Text>
-                  <Text style={styles.rowSubtitle}>Manage your weekly Chapter email and Apple Health summaries.</Text>
-                </VStack>
-              </Pressable>
-            </VStack>
-          </View>
-        </ScrollView>
-
-        <BottomDrawer
-          visible={timePickerTarget !== null}
-          onClose={closeTimePicker}
-          snapPoints={Platform.OS === 'ios' ? ['48%'] : ['42%']}
-          keyboardAvoidanceEnabled={false}
-          dynamicSizing
-        >
-          <BottomDrawerHeader
-            title={timePickerTitle}
-            variant="navbar"
-            leftAction={
-              <Button
-                variant="ghost"
-                size="sm"
-                accessibilityLabel={`Cancel ${timePickerTitle.toLowerCase()}`}
-                onPress={closeTimePicker}
-              >
-                Cancel
-              </Button>
-            }
-            rightAction={
-              <Button
-                variant="link"
-                size="sm"
-                accessibilityLabel={`Save ${timePickerTitle.toLowerCase()}`}
-                onPress={() => void handleSaveTimePicker()}
-              >
-                Done
-              </Button>
-            }
-          />
-          <VStack space="md" style={styles.timePickerSheetContent}>
-            <Text style={styles.helperText}>Choose when this reminder should appear.</Text>
-            <View style={styles.timePickerContainer}>
-              <DateTimePicker
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                value={timePickerDraft}
-                onChange={handleTimeChange}
-              />
-            </View>
+    <SettingsPage title="Notifications" onBack={handleNavigateBack}>
+      {requestedReview ? (
+        <SettingsGroup title="Review chat request">
+          <VStack space="md" style={styles.reviewContent}>
+            <Text style={styles.supportingText}>
+              {requestedReview.changedFields.length} notification setting
+              {requestedReview.changedFields.length === 1 ? '' : 's'} will
+              change.
+              {requestedReview.requiresNativePermission
+                ? ' iOS will ask for permission after you continue.'
+                : ''}
+            </Text>
+            <Button
+              label="Apply these changes"
+              onPress={() => {
+                void applyRequestedReview();
+              }}
+            />
           </VStack>
-        </BottomDrawer>
-      </View>
-    </AppShell>
+        </SettingsGroup>
+      ) : null}
+
+      <SettingsGroup title="Permission">
+        <SettingsToggleRow
+          title="Notifications from Kwilt"
+          description={osStatusLabel}
+          enabled={preferences.notificationsEnabled}
+          onPress={() => {
+            void handleToggleGlobal();
+          }}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Reminders"
+        footer="Choose only the reminders that help you follow through. You can change these anytime."
+      >
+        <SettingsToggleRow
+          title="To-do reminders"
+          description="Reminders you set for individual to-dos"
+          enabled={activityRemindersEnabled}
+          onPress={() => {
+            void handleToggleActivityReminders();
+          }}
+        />
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Household meal planning"
+          description="When there are new meal ideas to weigh in on"
+          enabled={householdMealPlanningEnabled}
+          onPress={() => {
+            void handleToggleHouseholdMealPlanning();
+          }}
+        />
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Daily show-up"
+          description={
+            dailyShowUpEnabled
+              ? `Every day at ${dailyShowUpTimeLabel}`
+              : 'A gentle invitation to return to your day'
+          }
+          enabled={dailyShowUpEnabled}
+          onPress={() => {
+            void handleToggleDailyShowUp();
+          }}
+        />
+        {dailyShowUpEnabled ? (
+          <>
+            <SettingsDivider />
+            <SettingsRow
+              title="Daily show-up time"
+              value={dailyShowUpTimeLabel}
+              onPress={() => openTimePicker('dailyShowUp')}
+            />
+          </>
+        ) : null}
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Daily focus"
+          description={
+            dailyFocusEnabled
+              ? `Every day at ${dailyFocusTimeLabel}`
+              : 'A prompt to protect time for what matters'
+          }
+          enabled={dailyFocusEnabled}
+          onPress={() => {
+            void handleToggleDailyFocus();
+          }}
+        />
+        {dailyFocusEnabled ? (
+          <>
+            <SettingsDivider />
+            <SettingsRow
+              title="Daily focus time"
+              value={dailyFocusTimeLabel}
+              onPress={() => openTimePicker('dailyFocus')}
+            />
+          </>
+        ) : null}
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Goal nudges"
+          description={
+            goalNudgesEnabled
+              ? `Every day at ${goalNudgeTimeLabel}`
+              : 'A tiny next step for an active goal'
+          }
+          enabled={goalNudgesEnabled}
+          onPress={() => {
+            void handleToggleGoalNudges();
+          }}
+        />
+        {goalNudgesEnabled ? (
+          <>
+            <SettingsDivider />
+            <SettingsRow
+              title="Goal nudge time"
+              value={goalNudgeTimeLabel}
+              onPress={() => openTimePicker('goalNudge')}
+            />
+          </>
+        ) : null}
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Streak & comeback"
+          description="Gentle support for keeping momentum or starting again"
+          enabled={streakAndReactivationEnabled}
+          onPress={() => {
+            void handleToggleStreakAndReactivation();
+          }}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="In-app prompts"
+        footer="Plan your day prompts appear inside Kwilt, not as push notifications."
+      >
+        <SettingsToggleRow
+          title="Plan your day prompts"
+          description={planKickoffSummary}
+          enabled={planKickoffEnabled}
+          onPress={handleTogglePlanKickoff}
+        />
+        {planKickoffEnabled ? (
+          <>
+            <SettingsDivider />
+            <SmallSetPickerField
+              title="Prompt frequency"
+              placeholder="Choose a frequency"
+              accessibilityLabel="Plan your day prompt frequency"
+              allowDeselect={false}
+              options={PLAN_KICKOFF_CADENCE_OPTIONS}
+              value={planKickoffCadence}
+              onValueChange={(value) =>
+                handleSetPlanKickoffCadence(value as PlanKickoffCadence)
+              }
+              renderTrigger={({ selectedLabel, onPress }) => (
+                <SettingsRow
+                  title="Frequency"
+                  value={selectedLabel}
+                  onPress={onPress}
+                />
+              )}
+            />
+            {planKickoffCadence === 'weekly' ? (
+              <>
+                <SettingsDivider />
+                <SmallSetPickerField
+                  title="Prompt day"
+                  placeholder="Choose a day"
+                  accessibilityLabel="Weekly plan prompt day"
+                  allowDeselect={false}
+                  options={WEEKDAY_OPTIONS.map((option) => ({
+                    value: String(option.value),
+                    label: option.label,
+                  }))}
+                  value={String(planKickoffWeeklyDay)}
+                  onValueChange={(value) =>
+                    handleSetPlanKickoffWeeklyDay(
+                      Number(value) as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+                    )
+                  }
+                  renderTrigger={({ selectedLabel, onPress }) => (
+                    <SettingsRow
+                      title="Day"
+                      value={selectedLabel}
+                      onPress={onPress}
+                    />
+                  )}
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
+        <SettingsDivider />
+        <SettingsToggleRow
+          title="Location prompts"
+          description={
+            locationPromptsEnabled
+              ? locationOsStatusLabel
+              : 'Suggestions that depend on where you are'
+          }
+          enabled={locationPromptsEnabled}
+          onPress={() => {
+            void handleToggleLocationOffers();
+          }}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup title="Email">
+        <SettingsRow
+          title="Weekly Chapters"
+          value="Manage"
+          onPress={() => {
+            (navigation as any).navigate('SettingsWeeklyChapters');
+          }}
+        />
+      </SettingsGroup>
+
+      <BottomDrawer
+        visible={timePickerTarget !== null}
+        onClose={closeTimePicker}
+        snapPoints={Platform.OS === 'ios' ? ['48%'] : ['42%']}
+        keyboardAvoidanceEnabled={false}
+        dynamicSizing
+      >
+        <BottomDrawerHeader
+          title={timePickerTitle}
+          variant="navbar"
+          leftAction={
+            <Button
+              variant="ghost"
+              size="sm"
+              accessibilityLabel={`Cancel ${timePickerTitle.toLowerCase()}`}
+              onPress={closeTimePicker}
+            >
+              Cancel
+            </Button>
+          }
+          rightAction={
+            <Button
+              variant="link"
+              size="sm"
+              accessibilityLabel={`Save ${timePickerTitle.toLowerCase()}`}
+              onPress={() => void handleSaveTimePicker()}
+            >
+              Done
+            </Button>
+          }
+        />
+        <VStack space="md" style={styles.timePickerSheetContent}>
+          <Text style={styles.helperText}>
+            Choose when this reminder should appear.
+          </Text>
+          <View style={styles.timePickerContainer}>
+            <DateTimePicker
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              value={timePickerDraft}
+              onChange={handleTimeChange}
+            />
+          </View>
+        </VStack>
+      </BottomDrawer>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
+  reviewContent: {
+    padding: spacing.md,
   },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingBottom: spacing['2xl'],
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontFamily: typography.bodySm.fontFamily,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.canvas,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  rowPressable: {
-    flex: 1,
-  },
-  rowPressed: {
-    backgroundColor: colors.shellAlt,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-  },
-  rowTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  rowSubtitle: {
-    ...typography.bodySm,
+  supportingText: {
     color: colors.textSecondary,
   },
   helperText: {
-    ...typography.bodySm,
-    color: colors.muted,
-  },
-  timeLabel: {
-    ...typography.bodySm,
-    color: colors.accent,
-    marginTop: 4,
+    color: colors.textSecondary,
   },
   timePickerContainer: {
     paddingVertical: spacing.xs,
@@ -997,55 +900,5 @@ const styles = StyleSheet.create({
   },
   timePickerSheetContent: {
     paddingBottom: spacing.lg,
-  },
-  optionWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  optionChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  optionChipSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.shellAlt,
-  },
-  optionChipText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  optionChipTextSelected: {
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  toggle: {
-    width: 42,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.shellAlt,
-    paddingHorizontal: 2,
-    justifyContent: 'center',
-  },
-  toggleOn: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: colors.canvas,
-    alignSelf: 'flex-start',
-  },
-  toggleThumbOn: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.canvas,
   },
 });

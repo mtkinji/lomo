@@ -2,6 +2,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { usePaywallStore } from '../store/usePaywallStore';
 import type { ProPaywallReason } from '../domain/proAccessPolicy';
+import type { PaywallResumeIntentKind } from '../store/usePaywallStore';
 
 export type PaywallReason =
   | 'generative_quota_exceeded'
@@ -33,6 +34,10 @@ const RETIRED_PAYWALL_REASONS: ReadonlySet<PaywallReason> = new Set([
   'pro_only_additional_financial_institution',
   'pro_only_ai_scheduling',
 ]);
+
+export function isRetiredPaywallReason(reason: PaywallReason): reason is RetiredPaywallReason {
+  return RETIRED_PAYWALL_REASONS.has(reason);
+}
 
 export type PaywallSource =
   | 'goals_create_manual'
@@ -83,10 +88,14 @@ export type PaywallSource =
  * We use a paywall interstitial for context-specific value messaging, then route
  * into Settings as the canonical "purchase control surface" until RevenueCat is wired.
  */
-export function openPaywallInterstitial(params: { reason: PaywallReason; source: PaywallSource }) {
+export function openPaywallInterstitial(params: {
+  reason: PaywallReason;
+  source: PaywallSource;
+  resumeIntent?: { kind: PaywallResumeIntentKind };
+}) {
   // Compatibility boundary: older screens may still ask for a retired paywall,
   // but Free capabilities must never be blocked while those call sites age out.
-  if (RETIRED_PAYWALL_REASONS.has(params.reason)) return;
+  if (isRetiredPaywallReason(params.reason)) return;
 
   // Preferred UX: open an in-context full-height drawer (no navigation jump).
   try {

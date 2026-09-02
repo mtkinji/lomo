@@ -29,27 +29,21 @@ import {
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
-import { usePaywallStore } from '../../store/usePaywallStore';
+import {
+  getUpgradeResumeDestination,
+  usePaywallStore,
+  type PaywallResumeIntent,
+} from '../../store/usePaywallStore';
 import { SubscriptionLegalLinks } from '../paywall/SubscriptionLegalLinks';
-import type { SubscriptionPlan } from './subscriptionPricing';
+import { formatStorePriceLabel, type SubscriptionPlan } from './subscriptionPricing';
+import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type BillingCadence = 'annual' | 'monthly';
 type ProPlan = SubscriptionPlan;
 
 const ANNUAL_NUDGE_STREAK_THRESHOLD = 3;
-
-function formatPriceLabelWithRevenueCat(params: {
-  plan: ProPlan;
-  cadence: BillingCadence;
-  skuPricing: Record<string, { priceString?: string }> | null;
-}): string {
-  const sku = getProSku(params.plan, params.cadence);
-  const priceString = params.skuPricing?.[sku]?.priceString;
-  if (typeof priceString === 'string' && priceString.length > 0) {
-    return params.cadence === 'annual' ? `${priceString}/yr` : `${priceString}/mo`;
-  }
-  return 'Price unavailable';
-}
 
 function PlanRow({
   title,
@@ -100,12 +94,31 @@ export function ManageSubscriptionScreen() {
   const firstOpenedAtMs = useAppStore((state) => state.firstOpenedAtMs);
   const [pricingDrawerVisible, setPricingDrawerVisible] = React.useState(false);
   const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string; introPrice?: { priceString: string; type?: string; periodNumberOfUnits?: number; periodUnit?: string } }> | null>(null);
+  const [pricingLoadState, setPricingLoadState] = React.useState<'loading' | 'ready' | 'unavailable'>('loading');
 
   // Habit-formation optimized defaults: lower-commitment entry point.
   const [billingCadence, setBillingCadence] = React.useState<BillingCadence>('monthly');
   const [plan, setPlan] = React.useState<ProPlan>('individual');
   const [actualBillingCadence, setActualBillingCadence] = React.useState<BillingCadence | null>(null);
   const pendingOpenDrawerRef = React.useRef(false);
+
+  const returnToPaidIntent = React.useCallback((resumeIntent: PaywallResumeIntent | null) => {
+    if (!resumeIntent) return;
+    requestAnimationFrame(() => {
+      if (getUpgradeResumeDestination(resumeIntent) === 'money') {
+        if (rootNavigationRef.isReady()) rootNavigationRef.navigate('Money');
+        return;
+      }
+      if (navigation.canGoBack()) navigation.goBack();
+    });
+  }, [navigation]);
+
+  const completeUpgrade = React.useCallback((snapshot: { isPro: boolean }) => {
+    if (!snapshot.isPro) return null;
+    const resumeIntent = usePaywallStore.getState().completeUpgrade();
+    returnToPaidIntent(resumeIntent);
+    return resumeIntent;
+  }, [returnToPaidIntent]);
 
   const handleBack = React.useCallback(() => {
     // If this screen was opened as the root of a stack (e.g. from a paywall overlay),
@@ -130,9 +143,23 @@ export function ManageSubscriptionScreen() {
     effectiveBillingCadence === 'monthly' &&
     Boolean(skuPricing?.[getProSku(plan, 'annual')]?.priceString);
 
+  const individualPriceLabel = formatStorePriceLabel(
+    skuPricing?.[getProSku('individual', billingCadence)]?.priceString,
+    billingCadence,
+  );
+  const familyPriceLabel = formatStorePriceLabel(
+    skuPricing?.[getProSku('family', billingCadence)]?.priceString,
+    billingCadence,
+  );
+  const pricesReadyForCadence = Boolean(individualPriceLabel && familyPriceLabel);
+
   // Tenure-based nudge messaging: 30-day and 90-day milestones get more impactful copy.
   const annualNudgeCopy = React.useMemo(() => {
-    const savingsLabel = formatPriceLabelWithRevenueCat({ plan, cadence: 'annual', skuPricing });
+    const savingsLabel = formatStorePriceLabel(
+      skuPricing?.[getProSku(plan, 'annual')]?.priceString,
+      'annual',
+    );
+    if (!savingsLabel) return 'See annual pricing.';
     if (accountAgeDays >= 90) {
       return `You\u2019ve been using Kwilt for ${accountAgeDays} days. See the annual option (${savingsLabel}).`;
     }
@@ -154,15 +181,27 @@ export function ManageSubscriptionScreen() {
     generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
   const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
 
+  const loadPricing = React.useCallback(async () => {
+    setPricingLoadState('loading');
+    try {
+      const next = await getProSkuPricing(identifiedAppUserID);
+      setSkuPricing(next);
+      setPricingLoadState(
+        Object.values(next).some((entry) => Boolean(entry.priceString)) ? 'ready' : 'unavailable',
+      );
+    } catch {
+      setSkuPricing(null);
+      setPricingLoadState('unavailable');
+    }
+  }, [identifiedAppUserID]);
+
   React.useEffect(() => {
     // Store pricing is the only customer-facing price truth.
-    getProSkuPricing(identifiedAppUserID)
-      .then((next) => setSkuPricing(next))
-      .catch(() => setSkuPricing(null));
+    void loadPricing();
     getActiveBillingCadence(identifiedAppUserID)
       .then((cadence) => setActualBillingCadence(cadence))
       .catch(() => setActualBillingCadence(null));
-  }, [identifiedAppUserID]);
+  }, [identifiedAppUserID, loadPricing]);
 
   React.useEffect(() => {
     // Record intent to open; we’ll actually open when the screen is focused to avoid
@@ -273,14 +312,12 @@ export function ManageSubscriptionScreen() {
             <VStack space="sm">
               {!isPro ? (
                 <>
-                  <Text style={styles.sectionLabel}>Upgrade to Kwilt Pro</Text>
+                  <Text style={styles.sectionLabel}>Kwilt Pro</Text>
                   <LinearGradient colors={paywallTheme.gradientColors} style={styles.upgradeCard}>
                     <VStack space="xs">
                       <Text style={styles.upgradeKicker}>Kwilt Pro</Text>
-                      <Heading style={styles.upgradeTitle}>Connect the parts that need more power</Heading>
-                      <Text style={styles.upgradeBody}>
-                        Build budgets from connected accounts, combine Screen Time conditions, coordinate family rules, and use advanced AI actions.
-                      </Text>
+                      <Heading style={styles.upgradeTitle}>{PRO_UPGRADE_INVITATION.title}</Heading>
+                      <Text style={styles.upgradeBody}>{PRO_UPGRADE_INVITATION.body}</Text>
                     </VStack>
                     <Pressable
                       accessibilityRole="button"
@@ -288,7 +325,7 @@ export function ManageSubscriptionScreen() {
                       onPress={() => setPricingDrawerVisible(true)}
                       style={styles.upgradeCta}
                     >
-                      <Text style={styles.upgradeCtaLabel}>Upgrade to Kwilt Pro</Text>
+                      <Text style={styles.upgradeCtaLabel}>View plans and pricing</Text>
                     </Pressable>
                   </LinearGradient>
                 </>
@@ -332,8 +369,9 @@ export function ManageSubscriptionScreen() {
                 onPress={() => {
                   capture(AnalyticsEvent.RestoreStarted);
                   restore()
-                    .then(() => {
+                    .then((snapshot) => {
                       capture(AnalyticsEvent.RestoreSucceeded);
+                      completeUpgrade(snapshot);
                       Alert.alert('Restored', 'We refreshed your subscription status.');
                     })
                     .catch((e: any) => {
@@ -374,57 +412,65 @@ export function ManageSubscriptionScreen() {
         >
           <VStack space="md">
             <Heading style={styles.drawerTitle}>Choose your plan</Heading>
-
-            <View style={styles.segmentRow}>
-              <SegmentedControl<BillingCadence>
-                value={billingCadence}
-                onChange={setBillingCadence}
-                options={[
-                  { value: 'annual', label: 'Annual' },
-                  { value: 'monthly', label: 'Monthly' },
-                ]}
-              />
-            </View>
-
-            {shouldNudgeAnnual ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="See annual pricing"
-                onPress={() => setBillingCadence('annual')}
-                style={styles.annualNudge}
-              >
-                <Text style={styles.annualNudgeText}>
-                  {annualNudgeCopy}
+            {pricingLoadState === 'loading' ? (
+              <View style={styles.pricingState}>
+                <KwiltLoader accessible accessibilityLabel="Loading prices from Apple" size="large" />
+                <Text style={[styles.drawerSubtitle, styles.pricingStateText]}>Loading prices from Apple…</Text>
+              </View>
+            ) : pricingLoadState === 'unavailable' || !pricesReadyForCadence ? (
+              <VStack space="sm" style={styles.pricingState}>
+                <Heading variant="sm">Plans aren’t available right now</Heading>
+                <Text style={[styles.drawerSubtitle, styles.pricingStateText]}>
+                  Kwilt couldn’t load current prices from Apple. Check your connection and try again.
                 </Text>
-              </Pressable>
-            ) : null}
+                <Button variant="outline" onPress={() => void loadPricing()}>
+                  <Text style={styles.buttonLabel}>Try again</Text>
+                </Button>
+              </VStack>
+            ) : (
+              <>
+                <View style={styles.segmentRow}>
+                  <SegmentedControl<BillingCadence>
+                    value={billingCadence}
+                    onChange={setBillingCadence}
+                    options={[
+                      { value: 'annual', label: 'Annual' },
+                      { value: 'monthly', label: 'Monthly' },
+                    ]}
+                  />
+                </View>
 
-            <VStack space="sm">
-              <PlanRow
-                title="Individual"
-                subtitle="Kwilt Pro for one person"
-                priceLabel={formatPriceLabelWithRevenueCat({
-                  plan: 'individual',
-                  cadence: billingCadence,
-                  skuPricing,
-                })}
-                selected={plan === 'individual'}
-                onPress={() => setPlan('individual')}
-              />
-              <PlanRow
-                title="Family"
-                subtitle="Family Sharing enabled (up to 6 people)"
-                priceLabel={formatPriceLabelWithRevenueCat({
-                  plan: 'family',
-                  cadence: billingCadence,
-                  skuPricing,
-                })}
-                selected={plan === 'family'}
-                onPress={() => setPlan('family')}
-              />
-            </VStack>
+                {shouldNudgeAnnual ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="See annual pricing"
+                    onPress={() => setBillingCadence('annual')}
+                    style={styles.annualNudge}
+                  >
+                    <Text style={styles.annualNudgeText}>
+                      {annualNudgeCopy}
+                    </Text>
+                  </Pressable>
+                ) : null}
 
-            <Button
+                <VStack space="sm">
+                  <PlanRow
+                    title="Individual"
+                    subtitle="Kwilt Pro for one person"
+                    priceLabel={individualPriceLabel as string}
+                    selected={plan === 'individual'}
+                    onPress={() => setPlan('individual')}
+                  />
+                  <PlanRow
+                    title="Family"
+                    subtitle="Family Sharing enabled (up to 6 people)"
+                    priceLabel={familyPriceLabel as string}
+                    selected={plan === 'family'}
+                    onPress={() => setPlan('family')}
+                  />
+                </VStack>
+
+                <Button
               disabled={isRefreshing}
               onPress={() => {
                 const purchaseSku = getProSku(plan, billingCadence);
@@ -440,24 +486,26 @@ export function ManageSubscriptionScreen() {
                   Date.now() - upsellState.upsellTappedAtMs <= 30 * 60 * 1000;
                 const upsellReason = upsellFresh ? upsellState.upsellReason : null;
                 const upsellSource = upsellFresh ? upsellState.upsellSource : null;
+                const upgradeEntrySource = upsellFresh ? upsellState.directEntrySource : null;
                 const purchaseProps = {
                   plan,
                   cadence: billingCadence,
                   sku: purchaseSku,
                   paywall_reason: upsellReason,
                   paywall_source: upsellSource,
+                  upgrade_entry_source: upgradeEntrySource,
                 };
                 capture(AnalyticsEvent.PurchaseStarted, {
                   ...purchaseProps,
                   is_trial: isTrial,
                 });
                 purchase({ plan, cadence: billingCadence })
-                  .then(() => {
+                  .then((snapshot) => {
                     capture(AnalyticsEvent.PurchaseSucceeded, purchaseProps);
                     if (isTrial) {
                       capture(AnalyticsEvent.FreeTrialStarted, purchaseProps);
                     }
-                    usePaywallStore.getState().clearUpsellContext();
+                    completeUpgrade(snapshot);
                     setPricingDrawerVisible(false);
                     Alert.alert(
                       isTrial ? 'Trial started' : 'Welcome to Pro',
@@ -486,22 +534,24 @@ export function ManageSubscriptionScreen() {
                     refreshEntitlements({ force: true }).catch(() => undefined);
                   });
               }}
-            >
-              <Text style={styles.buttonLabelOnCta}>
-                {isRefreshing
-                  ? 'Working\u2026'
-                  : (() => {
-                      const sku = getProSku(plan, billingCadence);
-                      const intro = skuPricing?.[sku]?.introPrice;
-                      if (intro?.type === 'FREE_TRIAL' || intro?.priceString === '$0.00') {
-                        const n = intro.periodNumberOfUnits ?? 7;
-                        const unit = (intro.periodUnit ?? 'DAY').toLowerCase();
-                        return `Start ${n}-${unit} free trial`;
-                      }
-                      return 'Upgrade to Kwilt Pro';
-                    })()}
-              </Text>
-            </Button>
+                >
+                  <Text style={styles.buttonLabelOnCta}>
+                    {isRefreshing
+                      ? 'Working\u2026'
+                      : (() => {
+                          const sku = getProSku(plan, billingCadence);
+                          const intro = skuPricing?.[sku]?.introPrice;
+                          if (intro?.type === 'FREE_TRIAL' || intro?.priceString === '$0.00') {
+                            const n = intro.periodNumberOfUnits ?? 7;
+                            const unit = (intro.periodUnit ?? 'DAY').toLowerCase();
+                            return `Start ${n}-${unit} free trial`;
+                          }
+                          return 'Upgrade to Kwilt Pro';
+                        })()}
+                  </Text>
+                </Button>
+              </>
+            )}
             <SubscriptionLegalLinks />
           </VStack>
         </BottomDrawerScrollView>
@@ -723,6 +773,13 @@ const styles = StyleSheet.create({
   pricingDrawerContent: {
     paddingBottom: spacing['2xl'],
     paddingTop: spacing.sm,
+  },
+  pricingState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  pricingStateText: {
+    textAlign: 'center',
   },
   drawerTitle: {
     ...typography.titleLg,

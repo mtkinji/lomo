@@ -39,4 +39,16 @@ describe('Focus Live Activity timer source', () => {
     expect(source).toContain('.frame(minWidth: 88, alignment: .trailing)');
     expect(source).toContain('.frame(maxWidth: .infinity, alignment: .leading)');
   });
+
+  test('recreates a persisted Live Activity after its widget extension build is replaced', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'plugins/withAppleEcosystemIntegrations.js'),
+      'utf8',
+    );
+
+    expect(source).toContain('public var presentationVersion: String? = nil');
+    expect(source).toContain('private var currentPresentationVersion: String');
+    expect(source).toContain('state.presentationVersion == currentPresentationVersion');
+    expect(source).toContain('presentationVersion: currentPresentationVersion');
+  });
 });

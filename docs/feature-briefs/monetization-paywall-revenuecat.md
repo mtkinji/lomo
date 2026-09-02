@@ -227,11 +227,17 @@ A paywall appears only after a person intentionally asks for paid value:
 
 | Intent | Free behavior before intent | Paid boundary | Paywall promise |
 | --- | --- | --- | --- |
-| Start Money or build a budget | The person can understand the outcome and connection/privacy requirements; retained history stays readable after downgrade | Before Plaid Link token creation, native Plaid initialization, or an active Money mutation | Try Kwilt Pro for one month to build a budget from real transaction truth |
-| Build an advanced personal Screen Time rule | Basic one-condition personal rules remain usable | Before adding a second condition, choosing a Kwilt-linked condition, or saving an advanced draft | Get Kwilt Pro for rules that connect Screen Time to the rest of your life |
-| Coordinate a child's Screen Time | Household membership, basic personal Screen Time, existing family-rule reading, and safety-reducing actions remain usable | Before child enrollment, family selection, first policy delivery, creation, tightening, extension, or a caregiver override | Get Kwilt Pro for family coordination, automation, and trustworthy device delivery |
-| Run advanced cloud AI | On-device AI and the free standard cloud allowance remain usable | Before a hard-Pro cloud job, or when the free cloud allowance is exhausted | Get Kwilt Pro for advanced intelligence and a larger cloud budget |
-| Start background or proactive AI | Typed local/basic assistance remains usable | Before background scheduling or provider initialization | Get Kwilt Pro for proactive help that keeps working after the current turn |
+| Start Money or build a budget | The person can understand the outcome and connection/privacy requirements; retained history stays readable after downgrade | Before Plaid Link token creation, native Plaid initialization, or an active Money mutation | Check your plan before you spend: real transactions keep it current, selected apps can wait for a review, and the person decides whether to continue |
+| Build an advanced personal Screen Time rule | Basic one-condition personal rules remain usable | Before adding a second condition, choosing a Kwilt-linked condition, or saving an advanced draft | Combine the exact conditions the person needs and let them choose whether all or any conditions count |
+| Coordinate a child's Screen Time | Household membership, basic personal Screen Time, existing family-rule reading, and safety-reducing actions remain usable | Before child enrollment, family selection, first policy delivery, creation, tightening, extension, or a caregiver override | Set a clear family agreement and retain proof of which rule each device received |
+| Run advanced cloud AI | On-device AI and the free standard cloud allowance remain usable | Before a hard-Pro cloud job, or when the free cloud allowance is exhausted | Name the requested outcome, the context Kwilt will use, and the review point before anything changes |
+| Start background or proactive AI | Typed local/basic assistance remains usable | Before background scheduling or provider initialization | Let Kwilt finish supported work while the person moves on, then return the result for review |
+
+Each contextual offer must state the requested outcome, the mechanism that
+produces it, and the control the person retains. Its CTA is **View Pro plans**.
+Localized price, cadence, Family Sharing, and introductory eligibility appear
+only in the Apple-backed plan chooser. A contextual offer must not imply trial
+eligibility or immediate purchase.
 
 Deep links, restored navigation state, Chat actions, and background entry points must pass the same central access policy. Hiding a button is not enforcement.
 

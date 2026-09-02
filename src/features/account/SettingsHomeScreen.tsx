@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,7 +15,9 @@ import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { Badge } from '../../ui/Badge';
 import { Icon } from '../../ui/Icon';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import {
   SettingsDivider,
@@ -27,6 +29,10 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { Heading, Text, VStack } from '../../ui/primitives';
 import { persistImageUri } from '../../utils/persistImageUri';
 import { removeAvatar, resolveSelfAvatar, uploadAvatar } from '../household/data/householdAvatars';
+import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { usePaywallStore } from '../../store/usePaywallStore';
 
 type SettingsNavigationProp = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
 type SettingsRoute = Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
@@ -100,12 +106,21 @@ export function SettingsHomeScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const { capture } = useAnalytics();
   const navigation = useNavigation<SettingsNavigationProp>();
   const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
   const [canonicalAvatarUrl, setCanonicalAvatarUrl] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isPro) {
+        capture(AnalyticsEvent.UpgradeEntryViewed, { source: 'settings_home' });
+      }
+    }, [capture, isPro]),
+  );
 
   useEffect(() => {
     if (!authIdentity?.userId) { setCanonicalAvatarUrl(null); return; }
@@ -303,12 +318,6 @@ export function SettingsHomeScreen() {
       onPress: () => navigation.navigate('SettingsProfile'),
     },
     {
-      id: 'subscriptions',
-      title: 'Subscription',
-      value: isPro ? 'Kwilt Pro' : 'Free',
-      onPress: () => navigation.navigate('SettingsManageSubscription'),
-    },
-    {
       id: 'legalPrivacy',
       title: 'Legal & privacy',
       onPress: () => navigation.navigate('SettingsLegalPrivacy'),
@@ -362,7 +371,49 @@ export function SettingsHomeScreen() {
             </Pressable>
             <Text style={styles.profileHeaderTitle} numberOfLines={1}>{displayName}</Text>
             <Text style={styles.profileHeaderSubtitle} numberOfLines={1}>{profileSubtitle}</Text>
+            <View style={styles.profilePlanRow}>
+              <Badge
+                variant={isPro ? 'info' : 'secondary'}
+                style={[styles.planBadge, !isPro ? styles.freePlanBadge : null]}
+                textStyle={[styles.planBadgeText, !isPro ? styles.freePlanBadgeText : null]}
+              >
+                {isPro ? 'Kwilt Pro' : 'Free plan'}
+              </Badge>
+              {isPro ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage Kwilt Pro plan"
+                  onPress={() => navigation.navigate('SettingsManageSubscription')}
+                  style={styles.managePlanAction}
+                >
+                  <Text style={styles.managePlanActionText}>Manage plan</Text>
+                  <Icon name="chevronRight" size={16} color={colors.textPrimary} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
+
+          {!isPro ? (
+            <OpportunityCard
+              title={PRO_UPGRADE_INVITATION.title}
+              body={PRO_UPGRADE_INVITATION.body}
+              ctaLabel="View Pro plans"
+              ctaAccessibilityLabel="View Kwilt Pro plans"
+              ctaVariant="inverse"
+              ctaLeadingIconName={null}
+              tone="brand"
+              shadow="single"
+              elevation="raised"
+              onPressCta={() => {
+                capture(AnalyticsEvent.UpgradeEntryTapped, { source: 'settings_home' });
+                usePaywallStore.getState().setDirectUpsellContext({ source: 'settings_home' });
+                navigation.navigate('SettingsManageSubscription', {
+                  openPricingDrawer: true,
+                  openPricingDrawerNonce: Date.now(),
+                });
+              }}
+            />
+          ) : null}
 
           {SETTINGS_SECTIONS.map((section) => (
             <SettingsGroup key={section.id} title={section.title}>
@@ -476,6 +527,38 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     marginTop: spacing.xs,
     color: colors.textSecondary,
+  },
+  profilePlanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  planBadge: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  planBadgeText: {
+    fontFamily: fonts.semibold,
+  },
+  freePlanBadge: {
+    backgroundColor: colors.turmeric100,
+  },
+  freePlanBadgeText: {
+    color: colors.turmeric900,
+  },
+  managePlanAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+  },
+  managePlanActionText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   sheetContent: {
     gap: spacing.lg,

@@ -35,3 +35,28 @@
 - If webhook processing fails after the immutable insert, return a retryable error. Reducers and receipts must remain idempotent.
 - Keep Plaid cleanup disabled until active, cancelled, expired, refunded, reactivated, and account-deletion cohorts reconcile exactly. Deletion requires separate approval.
 - Keep creator payouts manual. Reconcile provider transactions, holds, refunds, and payout items before approval.
+
+## Release reconciliation gate
+
+Before enabling a monetization rollout, use a disposable RevenueCat Sandbox
+customer and record the build, Kwilt user ID, RevenueCat app user ID, product,
+event IDs, and timestamps. Do not record Apple credentials.
+
+For initial purchase, renewal, cancellation, billing issue/grace, expiration,
+refund, and reactivation:
+
+1. Confirm RevenueCat delivered the event successfully and retries did not
+   create a second ledger row.
+2. Confirm `kwilt_revenuecat_events` contains the immutable event with the
+   expected customer, product, environment, and occurrence time.
+3. Confirm `kwilt_revenuecat_subscriptions` reflects the latest non-stale event,
+   including `is_pro`, paid-through time, renewal state, and access state.
+4. Confirm the app agrees after foreground refresh, force-quit/relaunch, and
+   sign-out/sign-in.
+5. For expiration and refund, confirm downgrade behavior is customer-safe and
+   advanced Screen Time restrictions do not remain silently enforced.
+6. Record any delivery-to-projection delay and investigate missing, stale, or
+   contradictory states before rollout.
+
+Source tests and a local reducer pass are necessary but do not satisfy this
+gate. The gate requires evidence from the linked Sandbox webhook and database.

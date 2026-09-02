@@ -27,3 +27,5 @@ Helps Nina understand paid limits and upgrades without making Kwilt feel manipul
 ## Notes
 
 Paywall messaging should explain capacity and trust boundaries, especially around AI credits and limits. It should not use dark patterns that undermine `jtbd-trust-this-app-with-my-life`.
+
+Contextual upgrade prompts are invitations, not purchase surfaces. They lead with one reason-specific outcome and one plan-choice action; pricing, the complete inclusion set, and subscription legal links remain on the plan-selection surface. Money is the first visual-first pilot: its immersive Pine drawer pairs project-owned editorial photography with a compact, high-contrast product proof that selected spending apps can wait while the user checks the plan and decides.

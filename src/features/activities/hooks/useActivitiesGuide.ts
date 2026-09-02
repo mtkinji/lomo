@@ -1,6 +1,5 @@
 import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
-import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { useCoachmarkHost } from '../../../ui/hooks/useCoachmarkHost';
 import type { View, TextInput } from 'react-native';
 
@@ -52,8 +51,6 @@ export function useActivitiesGuide({
   const setHasDismissedActivitiesListGuide = useAppStore(
     (state) => state.setHasDismissedActivitiesListGuide,
   );
-  const isPro = useEntitlementsStore((state) => state.isPro);
-
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
 
   const guideVariant = hasActivities ? 'full' : 'empty';
@@ -84,32 +81,26 @@ export function useActivitiesGuide({
     if (guideVariant === 'empty') {
       return {
         title: 'Start here',
-        body: 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+        body: 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Views, Filters, and Sort help when the list grows.',
       };
     }
     if (activitiesGuideStep === 0) {
       return {
-        title: isPro ? 'Views = saved setups' : 'Pro Tools: Views',
-        body: isPro
-          ? 'Views save your Filter + Sort (and whether completed items show). Create a few like "This week" or "Starred only."'
-          : 'Upgrade to Pro to save Views (Filter + Sort) so you can switch contexts without reconfiguring your list.',
+        title: 'Views = saved setups',
+        body: 'Views save your Filter + Sort (and whether completed items show). Create a few like "This week" or "Starred only."',
       };
     }
     if (activitiesGuideStep === 1) {
       return {
-        title: isPro ? 'Filter the list' : 'Pro Tools: Filters',
-        body: isPro
-          ? 'Switch between All, Active, Completed, or Starred. Swipe right on a to-do to star it.'
-          : 'Upgrade to Pro to filter your to-dos list (All, Active, Completed, Starred).',
+        title: 'Filter the list',
+        body: 'Switch between All, Active, Completed, or Starred. Swipe right on a to-do to star it.',
       };
     }
     return {
-      title: isPro ? 'Sort changes the order' : 'Pro Tools: Sort',
-      body: isPro
-        ? 'Try Priority when the list grows. Manual keeps your custom ordering.'
-        : 'Upgrade to Pro to sort by title, due date, or Kwilt priority when the list grows.',
+      title: 'Sort changes the order',
+      body: 'Try Priority when the list grows. Manual keeps your custom ordering.',
     };
-  }, [activitiesGuideStep, guideVariant, isPro]);
+  }, [activitiesGuideStep, guideVariant]);
 
   return {
     guideVariant,

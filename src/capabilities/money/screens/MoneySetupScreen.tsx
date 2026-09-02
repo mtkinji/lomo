@@ -8,6 +8,10 @@ import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { usePaywallStore } from '../../../store/usePaywallStore';
+import { useToastStore } from '../../../store/useToastStore';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 import { colors, radii, spacing, typography } from '../../../theme';
 import { Button, IconButton } from '../../../ui/Button';
 import { Icon, type IconName } from '../../../ui/Icon';
@@ -144,8 +148,10 @@ export function MoneySetupExperience({
 }) {
   const insets = useSafeAreaInsets();
   const { reconcileConnectedActivity, refresh, snapshot, status } = useMoneyData();
+  const { capture } = useAnalytics();
   const entitlementIsPro = useEntitlementsStore((state) => state.isPro);
   const isProMember = demoScenario ? true : entitlementIsPro;
+  const readyResumeIntent = usePaywallStore((state) => state.readyResumeIntent);
   const [step, setStep] = useState<SetupStep>(() => getMoneyOnboardingInitialStep(source, null));
   const [livingPercent, setLivingPercent] = useState(70);
   const [householdSize, setHouseholdSize] = useState<number | null>(null);
@@ -177,6 +183,19 @@ export function MoneySetupExperience({
   useEffect(() => () => {
     experienceMounted.current = false;
   }, []);
+
+  useEffect(() => {
+    if (!isProMember || readyResumeIntent?.kind !== 'money_connect_account') return;
+    const consumed = usePaywallStore.getState().consumeReadyResumeIntent('money_connect_account');
+    if (!consumed) return;
+    capture(AnalyticsEvent.UpgradeIntentResumed, {
+      kind: consumed.kind,
+      source: 'money',
+    });
+    useToastStore.getState().showToast({
+      message: 'Kwilt Pro is ready. Connect your account to continue.',
+    });
+  }, [capture, isProMember, readyResumeIntent]);
 
   useEffect(() => {
     const load = async () => {
@@ -349,7 +368,11 @@ export function MoneySetupExperience({
   const connectAccount = async () => {
     if (!userId || connectionOpenStarted.current || connectionPhase === 'presented' || connectionPhase === 'exchanging') return;
     if (!isProMember) {
-      openPaywallInterstitial({ reason: 'pro_money_budgets', source: 'money_onboarding_add_institution' });
+      openPaywallInterstitial({
+        reason: 'pro_money_budgets',
+        source: 'money_onboarding_add_institution',
+        resumeIntent: { kind: 'money_connect_account' },
+      });
       return;
     }
     connectionOpenStarted.current = true;
@@ -440,6 +463,7 @@ export function MoneySetupExperience({
       openPaywallInterstitial({
         reason: 'pro_money_budgets',
         source: 'money_onboarding_add_institution',
+        resumeIntent: { kind: 'money_connect_account' },
       });
       return;
     }

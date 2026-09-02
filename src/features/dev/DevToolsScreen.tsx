@@ -1387,21 +1387,33 @@ export function DevToolsScreen() {
                 <Button
                   variant="secondary"
                   onPress={() =>
-                    openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' })
+                    openPaywallInterstitial({ reason: 'pro_money_budgets', source: 'money_connect_account' })
                   }
                   style={styles.cardAction}
                 >
-                  <ButtonLabel size="md">Paywall: Arc limit</ButtonLabel>
+                  <ButtonLabel size="md">Paywall: Money</ButtonLabel>
                 </Button>
                 <Button
                   variant="secondary"
                   onPress={() =>
-                    openPaywallInterstitial({ reason: 'limit_goals_per_arc', source: 'goals_create_manual' })
+                    openPaywallInterstitial({ reason: 'pro_advanced_screen_time_rules', source: 'screen_time_add_condition' })
                   }
                   style={styles.cardAction}
                 >
-                  <ButtonLabel size="md">Paywall: Goal limit</ButtonLabel>
+                  <ButtonLabel size="md">Paywall: Screen Time</ButtonLabel>
                 </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_family_screen_time', source: 'screen_time_family' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: Family Screen Time</ButtonLabel>
+                </Button>
+              </HStack>
+
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
                 <Button
                   variant="secondary"
                   onPress={() =>
@@ -1414,11 +1426,47 @@ export function DevToolsScreen() {
                 <Button
                   variant="secondary"
                   onPress={() =>
-                    openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' })
+                    openPaywallInterstitial({ reason: 'pro_advanced_cloud_ai', source: 'goals_create_ai' })
                   }
                   style={styles.cardAction}
                 >
-                  <ButtonLabel size="md">Paywall: Image library</ButtonLabel>
+                  <ButtonLabel size="md">Paywall: Cloud AI</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_ai_attachment_analysis', source: 'activity_detail_ai' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: AI file</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_ai_scheduling', source: 'goals_create_ai' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: AI scheduling</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_background_ai', source: 'goals_create_ai' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: Background AI</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_external_agent', source: 'settings' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: External AI</ButtonLabel>
                 </Button>
               </HStack>
 

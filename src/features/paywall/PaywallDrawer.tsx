@@ -1,9 +1,9 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { PaywallReason, PaywallSource } from '../../services/paywall';
-import { openPaywallPurchaseEntry } from '../../services/paywall';
+import { isRetiredPaywallReason, openPaywallPurchaseEntry } from '../../services/paywall';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Icon } from '../../ui/Icon';
 import { IconButton } from '../../ui/Button';
@@ -18,148 +18,127 @@ import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, ge
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
-import { SubscriptionLegalLinks } from './SubscriptionLegalLinks';
+import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
 
-type PaywallBenefit = { title: string };
+type PaywallCopy = {
+  title: string;
+  subtitle: string;
+  benefits?: readonly string[];
+};
 
-const PRO_VALUE_ATTAINMENTS: PaywallBenefit[] = [
-  {
-    title: 'Connected budgets and transaction insights',
-  },
-  {
-    title: 'Advanced Screen Time rules with multiple conditions',
-  },
-  {
-    title: 'Family Screen Time coordination',
-  },
-  {
-    title: 'More AI capacity and advanced AI actions',
-  },
-  {
-    title: 'External agent access',
-  },
-];
+function getPaywallCopy(reason: PaywallReason): PaywallCopy | null {
+  // A retired boundary is part of the complete Free product. Even if an old
+  // caller mounts this component directly, it must not turn into an offer.
+  if (isRetiredPaywallReason(reason)) return null;
 
-function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
   // Keep messaging value-oriented and context-specific.
   switch (reason) {
     case 'generative_quota_exceeded':
       return {
         title: 'You’re out of AI credits',
         subtitle:
-          'Upgrade to Pro for more monthly AI credits so you can keep shaping goals in Kwilt.',
+          'Pro includes 1,000 AI credits each month for planning, scheduling, and file analysis.',
+        benefits: [
+          'Get 1,000 AI credits each month',
+          'Move from an idea to a workable plan',
+          'Ask Kwilt to work from supported files',
+        ],
       };
     case 'ai_quota_exceeded':
       return {
         title: 'AI is temporarily unavailable',
         subtitle:
-          'Upgrade to Pro for more AI capacity and keep shaping goals with Kwilt Coach.',
+          'Pro includes 1,000 AI credits each month for planning, scheduling, and file analysis.',
+        benefits: [
+          'Get 1,000 AI credits each month',
+          'Move from an idea to a workable plan',
+          'Ask Kwilt to work from supported files',
+        ],
       };
     case 'pro_money_budgets':
       return {
-        title: 'Build a budget from your real accounts',
-        subtitle: 'Pro connects your financial accounts so you can plan, review transactions, and keep your household budget current.',
+        title: 'Know what’s left. Stay in control.',
+        subtitle: 'Kwilt keeps your plan current and can pause selected spending apps until you decide.',
+        benefits: [
+          'Real transactions keep your plan up to date',
+          'Selected apps wait for a budget check',
+          'You decide whether to continue',
+        ],
       };
     case 'pro_advanced_screen_time_rules':
       return {
-        title: 'Make Screen Time fit the rule you actually need',
-        subtitle: 'Pro combines time, app use, real-life steps, and budget conditions into one clear rule.',
+        title: 'Make Screen Time fit the rule you need',
+        subtitle: 'Combine conditions so selected apps open only when the rule you chose is satisfied.',
+        benefits: [
+          'Use Focus, time, and daily app use together',
+          'Require a completed step or budget review',
+          'Choose whether all or any conditions count',
+        ],
       };
     case 'pro_family_screen_time':
       return {
-        title: 'Coordinate Screen Time across your household',
-        subtitle: 'Pro lets caregivers create and manage Screen Time agreements for family members.',
+        title: 'Make Screen Time a family agreement',
+        subtitle: 'Set clear rules for a child and make caregiver changes without losing track of what each device received.',
+        benefits: [
+          'Set schedules and daily app limits',
+          'Put responsibilities before selected apps',
+          'See whether each device received the latest rule',
+        ],
       };
     case 'pro_advanced_cloud_ai':
       return {
-        title: 'Give Kwilt more room to help',
-        subtitle: 'Pro adds more AI capacity for planning, reviewing, and working through the details.',
+        title: 'Plan across more than one part of life',
+        subtitle: 'Let Kwilt work across goals, calendar, Money, and other context you choose.',
+        benefits: [
+          'Work through complicated tradeoffs',
+          'Turn the plan into next steps',
+          'Get 1,000 cloud AI credits each month',
+        ],
       };
     case 'pro_ai_attachment_analysis':
       return {
-        title: 'Ask Kwilt to work from your files',
-        subtitle: 'Pro can analyze supported attachments and use them as context for your next step.',
+        title: 'Turn this file into a useful next step',
+        subtitle: 'Let Kwilt read a supported attachment and use it with the context you choose.',
+        benefits: [
+          'Pull useful details from supported files',
+          'Use them in planning or scheduling',
+          'Review the result before anything changes',
+        ],
       };
     case 'pro_ai_scheduling':
       return {
-        title: 'Turn the plan into real calendar time',
-        subtitle: 'Pro helps place the work into your week so the next step has somewhere to happen.',
+        title: 'Give this work a place in your week',
+        subtitle: 'Kwilt finds workable calendar time. You review the plan before it is saved.',
+        benefits: [
+          'Work around existing commitments',
+          'Place next steps into open time',
+          'Approve the schedule before it is saved',
+        ],
       };
     case 'pro_background_ai':
       return {
-        title: 'Let Kwilt keep useful work moving',
-        subtitle: 'Pro can run supported AI work in the background and bring the result back when it is ready.',
+        title: 'Let Kwilt finish while you move on',
+        subtitle: 'Leave this screen. Kwilt brings the result back when it is ready.',
+        benefits: [
+          'Keep using Kwilt while the work runs',
+          'Return to the finished result',
+          'Review the result before anything changes',
+        ],
       };
     case 'pro_external_agent':
       return {
-        title: 'Connect Kwilt to your other AI tools',
-        subtitle: 'Pro lets approved external agents work with your Kwilt data under your control.',
-      };
-    case 'limit_goals_per_arc':
-      return {
-        title: 'Make room for the goals that matter right now',
-        subtitle:
-          'Life isn’t three goals at a time. Pro removes the cap so you can keep building—without deleting progress or constantly shuffling.',
-      };
-    case 'limit_arcs_total':
-      return {
-        title: 'Make room for more than one direction',
-        subtitle:
-          'Your life can hold more than one meaningful thread. Pro lets you run multiple arcs so your goals don’t have to compete for space.',
-      };
-    case 'pro_only_unsplash_banners':
-      return {
-        title: 'Make your arcs feel unmistakably yours',
-        subtitle:
-          'Pro adds a wider banner library and search so each arc has a visual that pulls you back in.',
-      };
-    case 'pro_only_focus_mode':
-      return {
-        title: 'Go deep when it’s time to work',
-        subtitle:
-          'Pro adds longer focus sessions so you can do real work, not just get started. Protect your attention and finish what you begin.',
-      };
-    case 'pro_only_attachments':
-      return {
-        title: 'Keep everything for a to-do in one place',
-        subtitle:
-          'Attachments are part of Pro Tools—add photos, documents, and recordings right on the to-do so execution stays frictionless.',
-      };
-    case 'pro_only_calendar_export':
-      return {
-        title: 'Make your plan show up in your real life',
-        subtitle:
-          'Get your to-dos into your calendar so your intentions become commitments—and your days feel aligned instead of reactive.',
-      };
-    case 'pro_only_views_filters':
-      return {
-        title: 'Turn your to-dos list into a tool',
-        subtitle:
-          'Pro Tools adds saved views plus filtering and sorting so you can focus on what matters right now without losing your place.',
-      };
-    case 'pro_only_ai_scheduling':
-      return {
-        title: 'Turn motivation into a realistic weekly plan',
-        subtitle:
-          'Pro Tools helps you schedule to-dos into your life so progress doesn’t depend on willpower or perfect timing.',
-      };
-    case 'pro_only_streak_shields':
-      return {
-        title: 'Grace for the weeks that get away',
-        subtitle:
-          'Upgrade and we\u2019ll bring your streak back. Pro also adds Streak Shields for the weeks when life gets crowded.',
-      };
-    case 'pro_only_additional_financial_institution':
-      return {
-        title: 'See more of your financial life',
-        subtitle:
-          'Your first institution is included. Pro lets Kwilt connect additional institutions so your plan can reflect more of your household money.',
+        title: 'Bring Kwilt into the AI tools you use',
+        subtitle: 'Let a supported tool work with the Kwilt context and permissions you choose.',
+        benefits: [
+          'Choose what the tool can access',
+          'Let it read or propose changes',
+          'Review changes before they are applied',
+        ],
       };
     default:
       return {
-        title: 'Build a system you’ll actually stick with',
-        subtitle:
-          'Pro removes limits and adds tools that make follow-through easier, even when life gets busy.',
+        title: 'This action requires Kwilt Pro',
+        subtitle: 'Open plans to see the current Pro features and price.',
       };
   }
 }
@@ -176,7 +155,15 @@ export function PaywallContent(props: {
   const isPro = useEntitlementsStore((s) => s.isPro);
   const generativeCredits = useAppStore((s) => s.generativeCredits);
   const bonusGenerativeCredits = useAppStore((s) => s.bonusGenerativeCredits);
-  const copy = useMemo(() => getPaywallCopy(reason, source), [reason, source]);
+  const copy = useMemo(() => getPaywallCopy(reason), [reason]);
+  const isMoneyHero = reason === 'pro_money_budgets';
+  const upgradeCtaLabel = isMoneyHero
+    ? 'Upgrade to Pro to check before you spend'
+    : 'View Pro plans';
+  const valueAttainments = useMemo(
+    () => (copy?.benefits ?? PRO_UPGRADE_INVITATION.benefits).map((title) => ({ title })),
+    [copy?.benefits],
+  );
 
   const quotaSubtitle = useMemo(() => {
     const currentKey = getMonthKey(new Date());
@@ -202,32 +189,69 @@ export function PaywallContent(props: {
   ]);
 
   useEffect(() => {
+    if (isRetiredPaywallReason(reason)) return;
     capture(AnalyticsEvent.PaywallViewed, { reason, source });
   }, [capture, reason, source]);
 
+  if (!copy) return null;
+
   return (
-    <View style={styles.surface}>
+    <View style={[styles.surface, isMoneyHero ? styles.moneySurface : null]}>
       {showHeader ? (
-      <View style={styles.headerRow}>
-        <View style={styles.brandRow}>
-          <BrandLockup
-            logoSize={26}
-            wordmarkSize="sm"
-            color={colors.textPrimary}
-            style={styles.brandLockup}
-          />
-          <Text style={styles.brandSeparator}>|</Text>
-          <Text style={styles.brandPro}>Pro</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.brandRow}>
+            <BrandLockup
+              logoSize={26}
+              wordmarkSize="sm"
+              color={isMoneyHero ? colors.parchment : colors.textPrimary}
+              logoVariant={isMoneyHero ? 'parchment' : 'default'}
+              style={styles.brandLockup}
+            />
+            <Text style={[styles.brandSeparator, isMoneyHero ? styles.moneyHeaderText : null]}>|</Text>
+            <Text style={[styles.brandPro, isMoneyHero ? styles.moneyHeaderText : null]}>Pro</Text>
+          </View>
+          <IconButton
+            accessibilityLabel="Close paywall"
+            variant={isMoneyHero ? 'inverse' : 'outline'}
+            onPress={onClose}
+          >
+            <Icon
+              name="close"
+              size={18}
+              color={isMoneyHero ? paywallTheme.ctaForeground : colors.textPrimary}
+            />
+          </IconButton>
         </View>
-        <IconButton accessibilityLabel="Close paywall" variant="outline" onPress={onClose}>
-          <Icon name="close" size={18} color={colors.textPrimary} />
-        </IconButton>
-      </View>
       ) : null}
 
       {/* Hero card = the full-color moment */}
-      <LinearGradient colors={paywallTheme.gradientColors} style={styles.heroGradient}>
-        <View style={styles.heroCard}>
+      <LinearGradient
+        colors={paywallTheme.gradientColors}
+        style={[styles.heroGradient, isMoneyHero ? styles.moneyHeroGradient : null]}
+      >
+        {isMoneyHero ? (
+          <View style={styles.moneyVisual}>
+            <Image
+              source={require('../../../assets/images/paywall/money-control-hero-v1.jpg')}
+              resizeMode="cover"
+              style={styles.moneyVisualImage}
+              accessible
+              accessibilityLabel="A parent checking their phone before a household purchase"
+            />
+          </View>
+        ) : null}
+        <View style={[styles.heroCard, isMoneyHero ? styles.moneyHeroCard : null]}>
+          {isMoneyHero ? (
+            <View style={styles.moneyProofCard}>
+              <View style={styles.moneyProofIcon}>
+                <Icon name="pause" size={18} color={colors.parchment} />
+              </View>
+              <View style={styles.moneyProofCopy}>
+                <Text style={styles.moneyProofTitle}>Spending app paused</Text>
+                <Text style={styles.moneyProofBody}>Check what’s left, then decide.</Text>
+              </View>
+            </View>
+          ) : null}
           <VStack space="xs">
             <Heading style={styles.title}>{copy.title}</Heading>
             {reason === 'generative_quota_exceeded' && !isPro ? (
@@ -273,7 +297,7 @@ export function PaywallContent(props: {
             <>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Upgrade to Pro"
+                accessibilityLabel={upgradeCtaLabel}
                 onPress={() => {
                   capture(AnalyticsEvent.PaywallUpgradeCtaTapped, { reason, source });
                   // Stash upsell context so ManageSubscriptionScreen can stamp
@@ -292,7 +316,7 @@ export function PaywallContent(props: {
                 }}
                 style={styles.primaryCta}
               >
-                <Text style={styles.primaryCtaLabel}>Upgrade</Text>
+                <Text style={styles.primaryCtaLabel}>{upgradeCtaLabel}</Text>
               </Pressable>
 
               <Pressable
@@ -303,7 +327,6 @@ export function PaywallContent(props: {
               >
                 <Text style={styles.secondaryCtaLabel}>Not now</Text>
               </Pressable>
-              <SubscriptionLegalLinks tone="inverse" style={styles.legalLinks} />
             </>
           ) : (
             <Pressable
@@ -319,11 +342,11 @@ export function PaywallContent(props: {
       </LinearGradient>
 
       {/* Pro value units (consistent across paywall reasons) - only show for non-pro users */}
-      {!isPro ? (
+      {!isPro && !isMoneyHero ? (
         <View style={styles.valueSection}>
-          <Text style={styles.sectionLabel}>What Pro adds</Text>
+          <Text style={styles.sectionLabel}>With Pro</Text>
           <VStack space="sm">
-            {PRO_VALUE_ATTAINMENTS.map((benefit) => (
+            {valueAttainments.map((benefit) => (
               <View key={benefit.title} style={styles.valueRow}>
                 <Icon name="check" size={18} color={colors.accent} />
                 <Text style={styles.valueText}>{benefit.title}</Text>
@@ -374,9 +397,9 @@ export function PaywallDrawerHost() {
       snapPoints={['100%']}
       dismissable
       enableContentPanningGesture
-      sheetStyle={styles.sheet}
+      sheetStyle={[styles.sheet, reason === 'pro_money_budgets' ? styles.moneySheet : null]}
       handleContainerStyle={styles.paywallHandleContainer}
-      handleStyle={styles.paywallHandle}
+      handleStyle={[styles.paywallHandle, reason === 'pro_money_budgets' ? styles.moneyPaywallHandle : null]}
     >
       <PaywallContent reason={reason} source={source} onClose={close} />
     </BottomDrawer>
@@ -396,9 +419,9 @@ export function PaywallDrawerScreenFallback(props: {
       snapPoints={['100%']}
       dismissable
       enableContentPanningGesture
-      sheetStyle={styles.sheet}
+      sheetStyle={[styles.sheet, reason === 'pro_money_budgets' ? styles.moneySheet : null]}
       handleContainerStyle={styles.paywallHandleContainer}
-      handleStyle={styles.paywallHandle}
+      handleStyle={[styles.paywallHandle, reason === 'pro_money_budgets' ? styles.moneyPaywallHandle : null]}
     >
       <PaywallContent reason={reason} source={source} onClose={onClose} />
     </BottomDrawer>
@@ -409,6 +432,9 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: colors.canvas,
   },
+  moneySheet: {
+    backgroundColor: colors.accent, // @kwilt-brand-moment: the Money upgrade invitation is an immersive Pro brand moment.
+  },
   // Keep a small grab region so dismiss-drag works reliably.
   paywallHandleContainer: {
     paddingTop: spacing.sm,
@@ -417,10 +443,16 @@ const styles = StyleSheet.create({
   paywallHandle: {
     opacity: 0.55,
   },
+  moneyPaywallHandle: {
+    backgroundColor: colors.parchment,
+  },
   surface: {
     flex: 1,
     padding: spacing.xs,
     backgroundColor: colors.canvas,
+  },
+  moneySurface: {
+    backgroundColor: colors.accent, // @kwilt-brand-moment: the Money upgrade invitation is an immersive Pro brand moment.
   },
   headerRow: {
     flexDirection: 'row',
@@ -448,6 +480,9 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     color: colors.accent,
   },
+  moneyHeaderText: {
+    color: colors.parchment,
+  },
   heroGradient: {
     borderRadius: paywallTheme.cornerRadius,
     borderWidth: 1,
@@ -457,6 +492,56 @@ const styles = StyleSheet.create({
   heroCard: {
     padding: paywallTheme.padding,
     backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  moneyHeroGradient: {
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.accent, // @kwilt-brand-moment: the Money upgrade invitation is an immersive Pro brand moment.
+  },
+  moneyHeroCard: {
+    paddingTop: spacing.md,
+    backgroundColor: 'transparent',
+  },
+  moneyVisual: {
+    height: 252,
+    borderRadius: paywallTheme.cornerRadius,
+    backgroundColor: colors.parchment,
+    overflow: 'hidden',
+  },
+  moneyVisualImage: {
+    width: '100%',
+    height: '100%',
+  },
+  moneyProofCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    marginBottom: spacing.md,
+    backgroundColor: colors.parchment,
+  },
+  moneyProofIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent, // @kwilt-brand-moment: the pause mark makes Kwilt's spending control concrete.
+  },
+  moneyProofCopy: {
+    flex: 1,
+    gap: 1,
+  },
+  moneyProofTitle: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  moneyProofBody: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   title: {
     ...typography.titleLg,
@@ -471,29 +556,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     backgroundColor: paywallTheme.ctaBackground,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 14,
     alignItems: 'center',
   },
   primaryCtaLabel: {
-    ...typography.body,
+    ...typography.bodySm,
     fontFamily: fonts.semibold,
     color: paywallTheme.ctaForeground,
+    textAlign: 'center',
   },
   secondaryCta: {
     marginTop: spacing.sm,
     paddingVertical: spacing.sm,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: paywallTheme.ctaBorder,
     alignItems: 'center',
   },
   secondaryCtaLabel: {
     ...typography.body,
     color: paywallTheme.foreground,
     opacity: 0.92,
-  },
-  legalLinks: {
-    marginTop: spacing.md,
   },
   valueSection: {
     marginTop: spacing.lg,

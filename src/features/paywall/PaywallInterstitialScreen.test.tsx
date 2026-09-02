@@ -9,7 +9,7 @@ jest.mock('@react-navigation/native', () => {
     ...actual,
     useNavigation: () => ({ goBack }),
     useRoute: () => ({
-      params: { reason: 'limit_arcs_total', source: 'arcs_create' },
+      params: { reason: 'pro_money_budgets', source: 'money_connect_account' },
     }),
     __testGoBack: goBack,
   };
@@ -27,7 +27,7 @@ describe('PaywallInterstitialScreen', () => {
 
   it('renders the underlying paywall content for the route params', () => {
     const { getByText } = renderWithProviders(<PaywallInterstitialScreen />);
-    expect(getByText('Make room for more than one direction')).toBeTruthy();
+    expect(getByText('Know what’s left. Stay in control.')).toBeTruthy();
   });
 
   it('calls navigation.goBack when the close button is pressed', () => {

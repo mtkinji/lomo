@@ -1692,33 +1692,27 @@ export function ActivitiesScreen() {
       return {
         title: 'Start here',
         body: isKanbanLayout
-          ? 'Use “Add card” in a column to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.'
-          : 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+          ? 'Use “Add card” in a column to add your first to-do. Then use Plan to schedule it for Today. Views, Filters, and Sort help when the board grows.'
+          : 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Views, Filters, and Sort help when the list grows.',
       };
     }
     if (activitiesGuideStep === 0) {
       return {
-        title: isPro ? 'Save a View' : 'Views (Pro)',
-        body: isPro
-          ? 'A View remembers your Filter + Sort. Try “This week” or “Starred only.”'
-          : 'Save Filter + Sort combos so you can switch contexts fast.',
+        title: 'Save a View',
+        body: 'A View remembers your Filter + Sort. Try “This week” or “Starred only.”',
       };
     }
     if (activitiesGuideStep === 1) {
       return {
-        title: isPro ? 'Filter' : 'Filter (Pro)',
-        body: isPro
-          ? 'Show All, Active, Completed, or just ★ Starred items.'
-          : 'Narrow the list to Active, Completed, or Starred.',
+        title: 'Filter',
+        body: 'Show All, Active, Completed, or just ★ Starred items.',
       };
     }
     return {
-      title: isPro ? 'Sort' : 'Sort (Pro)',
-      body: isPro
-        ? 'Use Priority for Kwilt’s current order, due date for schedule order, or Manual for your own arrangement.'
-        : 'Order by title, due date, or Kwilt priority.',
+      title: 'Sort',
+      body: 'Use Priority for Kwilt’s current order, due date for schedule order, or Manual for your own arrangement.',
     };
-  }, [activitiesGuideStep, guideVariant, isKanbanLayout, isPro]);
+  }, [activitiesGuideStep, guideVariant, isKanbanLayout]);
 
   const activityById = React.useMemo(() => {
     const map = new Map<string, Activity>();

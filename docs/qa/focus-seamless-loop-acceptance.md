@@ -35,7 +35,7 @@ The native diagnostics requirement is `underrunCount = 0`, no `lastErrorCode`, a
 
 ## Android hardware gate
 
-Compile with JDK 17, then repeat the physical matrix on at least one current Android device. Android parity remains pending until this gate passes; the Expo rollback transport remains available through `EXPO_PUBLIC_FOCUS_LOOP_TRANSPORT=expo-only`.
+Compile with JDK 17, then repeat the physical matrix on at least one current Android device. Android parity remains pending until this gate passes. `EXPO_PUBLIC_FOCUS_LOOP_TRANSPORT=expo-only` remains a diagnostic escape hatch, but it is not an acceptable seamless-loop release configuration because end-of-file replay can be audible.
 
 Status: Expo autolinking and `:kwilt-seamless-loop:compileDebugKotlin` passed against SDK 36/JDK 17 on 2026-08-13; Android hardware listening remains pending.
 
@@ -43,6 +43,6 @@ Status: Expo autolinking and `:kwilt-seamless-loop:compileDebugKotlin` passed ag
 
 - TestFlight: repeat Deep Work Drift, Canyon Spring, Cedar Workshop, background, interruption, and Bluetooth route-change checks from the signed distribution build.
 - Production: promote only after TestFlight acceptance; monitor native error/underrun breadcrumbs by immutable `assetKey` and transport name.
-- Rollback: set `EXPO_PUBLIC_FOCUS_LOOP_TRANSPORT=expo-only` in the next update if native transport regressions appear. `native-only` is a diagnostic mode, not the default rollout.
+- Playback policy: production defaults to `native-only`. If native PCM preparation fails, stop and capture the error instead of silently switching to the known-gapful Expo transport. `expo-only` is restricted to diagnosis and explicit emergency builds; it does not satisfy the seamless-loop acceptance gate.
 
 Status: TestFlight and production proof pending.

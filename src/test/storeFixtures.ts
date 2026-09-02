@@ -81,7 +81,11 @@ export function resetAllStores(): void {
     lastDismissedSource: null,
     upsellReason: null,
     upsellSource: null,
+    directEntrySource: null,
     upsellTappedAtMs: null,
+    currentResumeIntent: null,
+    pendingResumeIntent: null,
+    readyResumeIntent: null,
   });
   useToastStore.setState({
     id: 0,

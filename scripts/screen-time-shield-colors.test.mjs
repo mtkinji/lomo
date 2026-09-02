@@ -26,25 +26,24 @@ test('every Kwilt shield uses parchment, dark text, and the standard Sumi primar
   assert.doesNotMatch(generator, /quiltBlue|0\.106, green: 0\.157, blue: 0\.227/);
 });
 
-test('the shield builds one local Kwilt pause treatment from the blocked app name', () => {
+test('the shield layers the system restriction hourglass behind Kwilt', () => {
   assert.match(generator, /private enum KwiltShieldArtwork/);
-  assert.match(generator, /static func icon\(appName: String\) -> UIImage/);
-  assert.match(generator, /let appPrefix = String\(trimmed\.prefix\(2\)\)/);
-  assert.match(generator, /let monogram = String\(appPrefix\.prefix\(1\)\)\.uppercased\(\) \+ String\(appPrefix\.dropFirst\(\)\)\.lowercased\(\)/);
-  assert.match(generator, /let blockedTile = CGRect\(x: 48, y: 38, width: 112, height: 112\)/);
-  assert.match(generator, /context\.rotate\(by: -8 \* \.pi \/ 180\)/);
+  assert.match(generator, /static func icon\(\) -> UIImage/);
+  assert.match(generator, /private static let restrictionBlue = UIColor\(red: 0\.0, green: 0\.478, blue: 1\.0, alpha: 1\.0\)/);
+  assert.match(generator, /let blockedTile = CGRect\(x: 54, y: 42, width: 112, height: 112\)/);
+  assert.match(generator, /context\.rotate\(by: -7 \* \.pi \/ 180\)/);
   assert.match(generator, /private static let parchment = UIColor\(red: 0\.980, green: 0\.969, blue: 0\.929, alpha: 1\.0\)/);
   assert.match(generator, /private static let parchmentDarker = UIColor\(red: 0\.965, green: 0\.902, blue: 0\.784, alpha: 1\.0\)/);
   assert.match(generator, /parchmentDarker\.setFill\(\)/);
-  assert.match(generator, /\.foregroundColor: sumi/);
-  assert.match(generator, /UIFont\(name: "Inter-Black", size: 42\)/);
-  assert.match(generator, /x: blockedTile\.midX - monogramSize\.width \/ 2/);
-  assert.doesNotMatch(generator, /visibleMonogramCenterX/);
+  assert.match(generator, /UIImage\(systemName: "hourglass"/);
+  assert.match(generator, /\.withTintColor\(restrictionBlue, renderingMode: \.alwaysOriginal\)/);
+  assert.match(generator, /x: blockedTile\.minX \+ 3, y: blockedTile\.midY - 25, width: 42, height: 50/);
+  assert.doesNotMatch(generator, /monogram|appPrefix/);
   assert.match(generator, /offset: CGSize\(width: -3, height: 6\),\n        blur: 16,\n        color: UIColor\.black\.withAlphaComponent\(0\.28\)\.cgColor/);
   assert.match(generator, /UIImage\(named: "KwiltShieldAppIcon"\)/);
   assert.match(generator, /\.withTintColor\(pine, renderingMode: \.alwaysOriginal\)/);
   assert.doesNotMatch(generator, /UIBezierPath\(roundedRect: kwiltTile\.insetBy/);
-  assert.match(generator, /icon: KwiltShieldArtwork\.icon\(appName: appName\)/);
+  assert.match(generator, /icon: KwiltShieldArtwork\.icon\(\)/);
   assert.match(generator, /UIColor\.black\.setFill\(\)/);
   assert.doesNotMatch(generator, /private static let coral/);
   assert.ok(generator.indexOf('parchmentDarker.setFill()') < generator.indexOf('let kwiltTile ='));

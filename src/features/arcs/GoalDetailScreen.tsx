@@ -124,7 +124,6 @@ import {
 } from '../activities/activityDatePickerDefaults';
 import {
   useQuickAddDockController,
-  type QuickAddAiAction,
   type QuickAddPlaceRecommendation,
 } from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
@@ -409,18 +408,7 @@ export function GoalDetailScreen() {
   const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
     useState<QuickAddPlaceRecommendation | null>(null);
-  const effectiveQuickAddAiActions = useMemo(
-    () =>
-      isPro
-        ? quickAddAiActions
-        : quickAddAiActions.filter((action) => action !== 'cover_image'),
-    [isPro, quickAddAiActions]
-  );
-
-  const handleLockedQuickAddAiActionPress = useCallback((action: QuickAddAiAction) => {
-    if (action !== 'cover_image') return;
-    openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'activity_banner_sheet' });
-  }, []);
+  const effectiveQuickAddAiActions = quickAddAiActions;
 
   const findQuickAddCoverImageWithAI = useCallback(
     async (params: {
@@ -437,10 +425,10 @@ export function GoalDetailScreen() {
         existingTags: params.existingTags,
         goals,
         arcs,
-        canUseUnsplash: isPro,
+        canUseUnsplash: true,
       });
     },
-    [arcs, goals, isPro]
+    [arcs, goals]
   );
 
   const handleUseQuickAddLocationTrigger = useCallback(async () => {
@@ -2885,8 +2873,6 @@ export function GoalDetailScreen() {
                           onCollapse={collapseQuickAdd}
                           selectedAiActions={effectiveQuickAddAiActions}
                           onSelectedAiActionsChange={setQuickAddAiActions}
-                          lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
-                          onLockedAiActionPress={handleLockedQuickAddAiActionPress}
                           placeReceipt={pendingQuickAddLocationRecommendation}
                           onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
                           onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
@@ -2940,8 +2926,6 @@ export function GoalDetailScreen() {
                           onCollapse={collapseQuickAdd}
                           selectedAiActions={effectiveQuickAddAiActions}
                           onSelectedAiActionsChange={setQuickAddAiActions}
-                          lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
-                          onLockedAiActionPress={handleLockedQuickAddAiActionPress}
                           placeReceipt={pendingQuickAddLocationRecommendation}
                           onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
                           onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
@@ -3937,11 +3921,7 @@ export function GoalDetailScreen() {
         arcName={goal.title}
         arcNarrative={goal.description}
         arcGoalTitles={goalActivities.map((activity) => activity.title)}
-        canUseUnsplash={isPro}
-        onRequestUpgrade={() => {
-          setThumbnailSheetVisible(false);
-          setTimeout(() => openPaywallPurchaseEntry(), 360);
-        }}
+        canUseUnsplash
         heroSeed={heroSeed}
         hasHero={Boolean(goalHeroUri)}
         loading={heroImageLoading}

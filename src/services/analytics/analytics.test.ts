@@ -50,4 +50,16 @@ describe('sanitizeAnalyticsProps', () => {
       duration_bucket: 'under_1s',
     });
   });
+
+  it('keeps bounded monetization attribution without allowing free-form content', () => {
+    expect(sanitizeAnalyticsProps({
+      paywall_reason: 'pro_money_budgets',
+      paywall_source: 'money_onboarding_add_institution',
+      upgrade_entry_source: 'settings_home',
+    })).toEqual({
+      paywall_reason: 'pro_money_budgets',
+      paywall_source: 'money_onboarding_add_institution',
+      upgrade_entry_source: 'settings_home',
+    });
+  });
 });

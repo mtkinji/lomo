@@ -31,8 +31,8 @@ describe('GoalDetailScreen hook order', () => {
     dockBlocks.forEach((block) => {
       expect(block).toContain('selectedAiActions={effectiveQuickAddAiActions}');
       expect(block).toContain('onSelectedAiActionsChange={setQuickAddAiActions}');
-      expect(block).toContain('lockedAiActions={isPro ? undefined : { cover_image: \'Pro\' }}');
-      expect(block).toContain('onLockedAiActionPress={handleLockedQuickAddAiActionPress}');
+      expect(block).not.toContain('lockedAiActions=');
+      expect(block).not.toContain('onLockedAiActionPress=');
       expect(block).toContain('onInlineChatPress={() => setGoalChatVisible(true)}');
       expect(block).toContain('inlineChatAccessibilityLabel="Chat about this goal"');
       expect(block).toContain('inlineSurfaceProminent={goalDockProminent}');

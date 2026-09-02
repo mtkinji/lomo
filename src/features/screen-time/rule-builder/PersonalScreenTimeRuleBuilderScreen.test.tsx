@@ -21,6 +21,7 @@ import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBui
 const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
 const mockLoadMoneySnapshot = jest.fn();
+const mockCapture = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -42,7 +43,7 @@ jest.mock('../../../services/screenTimeProtectionRuntime', () => ({
 jest.mock('../../../capabilities/money/data/moneyRepository', () => ({
   createMoneyRepository: () => ({ loadSnapshot: (...args: unknown[]) => mockLoadMoneySnapshot(...args) }),
 }));
-jest.mock('../../../services/analytics/useAnalytics', () => ({ useAnalytics: () => ({ capture: jest.fn() }) }));
+jest.mock('../../../services/analytics/useAnalytics', () => ({ useAnalytics: () => ({ capture: mockCapture }) }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'rule-uuid' }));
 jest.mock('expo-device', () => ({ isDevice: true }));
 jest.mock('@react-native-community/datetimepicker', () => {
@@ -111,6 +112,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     mockLoadMoneySnapshot.mockReset().mockResolvedValue({
       categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
     });
+    mockCapture.mockReset();
     useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved' } });
     useEntitlementsStore.setState({ isPro: true });
   });
@@ -163,8 +165,25 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       visible: true,
       reason: 'pro_advanced_screen_time_rules',
       source: 'screen_time_add_condition',
+      currentResumeIntent: expect.objectContaining({ kind: 'screen_time_add_condition' }),
     });
     expect(screen.getByRole('button', { name: 'Condition: Time' })).toBeTruthy();
+
+    act(() => {
+      usePaywallStore.getState().setUpsellContext({
+        reason: 'pro_advanced_screen_time_rules',
+        source: 'screen_time_add_condition',
+      });
+      usePaywallStore.getState().close();
+      usePaywallStore.getState().completeUpgrade();
+      useEntitlementsStore.setState({ isPro: true });
+    });
+
+    expect(await screen.findByRole('radio', { name: 'Time of day' })).toBeTruthy();
+    expect(mockCapture).toHaveBeenCalledWith('upgrade_intent_resumed', {
+      kind: 'screen_time_add_condition',
+      source: 'screen_time',
+    });
   });
 
   it('turns Money context into a prefilled budget sentence in the same composer', async () => {

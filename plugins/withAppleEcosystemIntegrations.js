@@ -949,6 +949,7 @@ public struct KwiltFocusAttributes: ActivityAttributes {
     public var mode: String? = "running"
     public var remainingMs: Int64? = nil
     public var colorKey: String? = "pine"
+    public var presentationVersion: String? = nil
   }
 
   public var activityId: String
@@ -976,6 +977,10 @@ class KwiltLiveActivity: NSObject {
 #if canImport(ActivityKit)
   @available(iOS 16.1, *)
   private static var current: Activity<KwiltFocusAttributes>?
+
+  private var currentPresentationVersion: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+  }
 #endif
 
 #if canImport(ActivityKit)
@@ -997,7 +1002,8 @@ class KwiltLiveActivity: NSObject {
       sessionId: sessionId,
       mode: normalizedMode,
       remainingMs: normalizedMode == "paused" ? remainingMs.int64Value : nil,
-      colorKey: colorKey
+      colorKey: colorKey,
+      presentationVersion: currentPresentationVersion
     )
     return ActivityContent(state: state, staleDate: nil)
   }
@@ -1010,6 +1016,7 @@ class KwiltLiveActivity: NSObject {
     startedAtMs: NSNumber
   ) -> Bool {
     let state = activity.content.state
+    guard state.presentationVersion == currentPresentationVersion else { return false }
     if state.sessionId == sessionId {
       return true
     }
@@ -1031,6 +1038,7 @@ class KwiltLiveActivity: NSObject {
       "endAtMs": state.endAtMs,
       "remainingMs": state.remainingMs ?? 0,
       "colorKey": state.colorKey ?? "pine",
+      "presentationVersion": state.presentationVersion ?? "",
       "activityState": String(describing: activity.activityState),
     ]
   }
@@ -1072,7 +1080,8 @@ class KwiltLiveActivity: NSObject {
           let state = KwiltFocusAttributes.ContentState(
             title: title,
             startedAtMs: startedAtMs.int64Value,
-            endAtMs: endAtMs.int64Value
+            endAtMs: endAtMs.int64Value,
+            presentationVersion: self.currentPresentationVersion
           )
           if #available(iOS 16.2, *) {
             let content = ActivityContent(state: state, staleDate: nil)
@@ -1201,7 +1210,8 @@ class KwiltLiveActivity: NSObject {
         let state = KwiltFocusAttributes.ContentState(
           title: title,
           startedAtMs: startedAtMs.int64Value,
-          endAtMs: endAtMs.int64Value
+          endAtMs: endAtMs.int64Value,
+          presentationVersion: self.currentPresentationVersion
         )
         if #available(iOS 16.2, *) {
           await current.update(ActivityContent(state: state, staleDate: nil))

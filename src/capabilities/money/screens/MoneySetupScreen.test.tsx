@@ -2,6 +2,10 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
 import { renderWithProviders } from '../../../test/renderWithProviders';
+import { resetAllStores } from '../../../test/storeFixtures';
+import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
+import { usePaywallStore } from '../../../store/usePaywallStore';
+import { useToastStore } from '../../../store/useToastStore';
 import { KWILT_REFRESH_COMPLETION_MS, KwiltLoader } from '../../../ui/KwiltLoader';
 import { buildMoneyOnboardingFollowThrough } from '../domain/moneyOnboardingFollowThrough';
 import {
@@ -23,9 +27,12 @@ import {
 } from './MoneySetupScreen';
 
 const mockUseMoneyData = jest.fn();
+const mockPrepareMoneyPlaidLink = jest.fn();
+const mockCapture = jest.fn();
 
 jest.mock('../native/moneyPlaidLink', () => ({
   startMoneyPlaidLink: jest.fn(),
+  prepareMoneyPlaidLink: (...args: unknown[]) => mockPrepareMoneyPlaidLink(...args),
 }));
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => mockUseMoneyData(),
@@ -33,8 +40,17 @@ jest.mock('../data/MoneyDataContext', () => ({
 jest.mock('../../../navigation/CapabilityShellContext', () => ({
   useCapabilityShell: () => ({ openMenu: jest.fn() }),
 }));
+jest.mock('../../../services/analytics/useAnalytics', () => ({
+  useAnalytics: () => ({ capture: mockCapture }),
+}));
 
 describe('MoneySetupExperience entry resolution', () => {
+  beforeEach(() => {
+    resetAllStores();
+    mockPrepareMoneyPlaidLink.mockReset();
+    mockCapture.mockReset();
+  });
+
   it('keeps onboarding hidden while existing Money state is still loading', () => {
     mockUseMoneyData.mockReturnValue({
       error: null,
@@ -88,6 +104,46 @@ describe('MoneySetupExperience entry resolution', () => {
       });
     });
     expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('returns a completed upgrade to the preserved setup step without opening Plaid', () => {
+    mockUseMoneyData.mockReturnValue({
+      error: null,
+      reconcileConnectedActivity: jest.fn(),
+      refresh: jest.fn(async () => undefined),
+      snapshot: null,
+      status: 'loading',
+    });
+    useEntitlementsStore.setState({ isPro: true });
+    usePaywallStore.setState({
+      readyResumeIntent: {
+        kind: 'money_connect_account',
+        requestedAtMs: Date.now(),
+      },
+    });
+
+    const screen = renderWithProviders(
+      <MoneySetupExperience
+        mode="automatic"
+        navigation={{ replace: jest.fn() } as never}
+        requestedPlace="MoneySummary"
+        source="capability-menu"
+      />,
+    );
+
+    expect(usePaywallStore.getState().readyResumeIntent).toBeNull();
+    expect(useToastStore.getState().message).toBe(
+      'Kwilt Pro is ready. Connect your account to continue.',
+    );
+    expect(mockCapture).toHaveBeenCalledWith('upgrade_intent_resumed', {
+      kind: 'money_connect_account',
+      source: 'money',
+    });
+    expect(mockPrepareMoneyPlaidLink).not.toHaveBeenCalled();
+    screen.unmount();
+    act(() => {
+      resetAllStores();
+    });
   });
 });
 

@@ -242,24 +242,21 @@ private enum KwiltShieldCopy {
 
 private enum KwiltShieldArtwork {
   private static let pine = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
+  private static let restrictionBlue = UIColor(red: 0.0, green: 0.478, blue: 1.0, alpha: 1.0)
   private static let parchment = UIColor(red: 0.980, green: 0.969, blue: 0.929, alpha: 1.0)
   private static let parchmentDarker = UIColor(red: 0.965, green: 0.902, blue: 0.784, alpha: 1.0)
-  private static let sumi = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
 
-  static func icon(appName: String) -> UIImage {
-    let trimmed = appName.trimmingCharacters(in: .whitespacesAndNewlines)
-    let appPrefix = String(trimmed.prefix(2))
-    let monogram = String(appPrefix.prefix(1)).uppercased() + String(appPrefix.dropFirst()).lowercased()
+  static func icon() -> UIImage {
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: 236, height: 176))
 
     return renderer.image { rendererContext in
       let context = rendererContext.cgContext
 
-      // The interrupted app leans behind Kwilt, like something gently set aside.
-      let blockedTile = CGRect(x: 48, y: 38, width: 112, height: 112)
+      // Apple's restriction state sits behind Kwilt, which explains and owns the pause.
+      let blockedTile = CGRect(x: 54, y: 42, width: 112, height: 112)
       context.saveGState()
       context.translateBy(x: blockedTile.midX, y: blockedTile.midY)
-      context.rotate(by: -8 * .pi / 180)
+      context.rotate(by: -7 * .pi / 180)
       context.translateBy(x: -blockedTile.midX, y: -blockedTile.midY)
       context.setShadow(
         offset: CGSize(width: 0, height: 5),
@@ -269,22 +266,12 @@ private enum KwiltShieldArtwork {
       parchmentDarker.setFill()
       UIBezierPath(roundedRect: blockedTile, cornerRadius: 28).fill()
       context.setShadow(offset: .zero, blur: 0, color: nil)
-
-      let monogramText = monogram.isEmpty ? "•" : monogram
-      let monogramFont = UIFont(name: "Inter-Black", size: 42)
-        ?? UIFont.systemFont(ofSize: 42, weight: .black)
-      let attributes: [NSAttributedString.Key: Any] = [
-        .font: monogramFont,
-        .foregroundColor: sumi,
-      ]
-      let monogramSize = (monogramText as NSString).size(withAttributes: attributes)
-      (monogramText as NSString).draw(
-        at: CGPoint(
-          x: blockedTile.midX - monogramSize.width / 2,
-          y: blockedTile.midY - monogramSize.height / 2 - 1
-        ),
-        withAttributes: attributes
-      )
+      let hourglassConfiguration = UIImage.SymbolConfiguration(pointSize: 42, weight: .semibold)
+      UIImage(systemName: "hourglass", withConfiguration: hourglassConfiguration)?
+        .withTintColor(restrictionBlue, renderingMode: .alwaysOriginal)
+        .draw(in: CGRect(
+          x: blockedTile.minX + 3, y: blockedTile.midY - 25, width: 42, height: 50
+        ))
       context.restoreGState()
 
       // Kwilt owns the foreground because Kwilt is applying the pause.
@@ -358,7 +345,7 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
     return ShieldConfiguration(
       backgroundBlurStyle: nil,
       backgroundColor: parchment,
-      icon: KwiltShieldArtwork.icon(appName: appName),
+      icon: KwiltShieldArtwork.icon(),
       title: ShieldConfiguration.Label(text: title, color: sumi),
       subtitle: ShieldConfiguration.Label(text: subtitle, color: detailColor),
       primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: UIColor.white),

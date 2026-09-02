@@ -1,6 +1,29 @@
 import { create } from 'zustand';
 import type { PaywallReason, PaywallSource } from '../services/paywall';
 
+export type UpgradeEntrySource = 'settings_home' | 'more';
+
+export type PaywallResumeIntentKind =
+  | 'money_connect_account'
+  | 'screen_time_add_condition'
+  | 'screen_time_choose_condition'
+  | 'screen_time_review_rule';
+
+export type PaywallResumeIntent = {
+  kind: PaywallResumeIntentKind;
+  requestedAtMs: number;
+};
+
+export function getUpgradeResumeDestination(
+  resumeIntent: PaywallResumeIntent,
+): 'money' | 'previous' {
+  return resumeIntent.kind === 'money_connect_account' ? 'money' : 'previous';
+}
+
+type NewPaywallResumeIntent = Omit<PaywallResumeIntent, 'requestedAtMs'>;
+
+const UPSELL_CONTEXT_TTL_MS = 30 * 60 * 1000;
+
 export type PaywallState = {
   visible: boolean;
   reason: PaywallReason | null;
@@ -23,14 +46,25 @@ export type PaywallState = {
    */
   upsellReason: PaywallReason | null;
   upsellSource: PaywallSource | null;
+  directEntrySource: UpgradeEntrySource | null;
   upsellTappedAtMs: number | null;
-  open: (params: { reason: PaywallReason; source: PaywallSource }) => void;
+  currentResumeIntent: PaywallResumeIntent | null;
+  pendingResumeIntent: PaywallResumeIntent | null;
+  readyResumeIntent: PaywallResumeIntent | null;
+  open: (params: {
+    reason: PaywallReason;
+    source: PaywallSource;
+    resumeIntent?: NewPaywallResumeIntent;
+  }) => void;
   close: () => void;
   setUpsellContext: (params: { reason: PaywallReason; source: PaywallSource }) => void;
+  setDirectUpsellContext: (params: { source: UpgradeEntrySource }) => void;
+  completeUpgrade: () => PaywallResumeIntent | null;
+  consumeReadyResumeIntent: (kind: PaywallResumeIntentKind) => PaywallResumeIntent | null;
   clearUpsellContext: () => void;
 };
 
-export const usePaywallStore = create<PaywallState>((set) => ({
+export const usePaywallStore = create<PaywallState>((set, get) => ({
   visible: false,
   reason: null,
   source: null,
@@ -39,8 +73,21 @@ export const usePaywallStore = create<PaywallState>((set) => ({
   lastDismissedSource: null,
   upsellReason: null,
   upsellSource: null,
+  directEntrySource: null,
   upsellTappedAtMs: null,
-  open: ({ reason, source }) => set({ visible: true, reason, source }),
+  currentResumeIntent: null,
+  pendingResumeIntent: null,
+  readyResumeIntent: null,
+  open: ({ reason, source, resumeIntent }) => set({
+    visible: true,
+    reason,
+    source,
+    directEntrySource: null,
+    pendingResumeIntent: null,
+    currentResumeIntent: resumeIntent
+      ? { ...resumeIntent, requestedAtMs: Date.now() }
+      : null,
+  }),
   close: () =>
     set((prev) => ({
       visible: false,
@@ -49,11 +96,57 @@ export const usePaywallStore = create<PaywallState>((set) => ({
       lastDismissedSource: prev.source,
       reason: null,
       source: null,
+      currentResumeIntent: null,
     })),
   setUpsellContext: ({ reason, source }) =>
-    set({ upsellReason: reason, upsellSource: source, upsellTappedAtMs: Date.now() }),
+    set((state) => ({
+      upsellReason: reason,
+      upsellSource: source,
+      directEntrySource: null,
+      upsellTappedAtMs: Date.now(),
+      pendingResumeIntent: state.currentResumeIntent,
+      currentResumeIntent: null,
+    })),
+  setDirectUpsellContext: ({ source }) => set({
+    upsellReason: null,
+    upsellSource: null,
+    directEntrySource: source,
+    upsellTappedAtMs: Date.now(),
+    currentResumeIntent: null,
+    pendingResumeIntent: null,
+  }),
+  completeUpgrade: () => {
+    const pending = get().pendingResumeIntent;
+    const fresh = pending && Date.now() - pending.requestedAtMs <= UPSELL_CONTEXT_TTL_MS
+      ? pending
+      : null;
+    set({
+      upsellReason: null,
+      upsellSource: null,
+      directEntrySource: null,
+      upsellTappedAtMs: null,
+      pendingResumeIntent: null,
+      readyResumeIntent: fresh,
+    });
+    return fresh;
+  },
+  consumeReadyResumeIntent: (kind) => {
+    const ready = get().readyResumeIntent;
+    if (!ready) return null;
+    if (Date.now() - ready.requestedAtMs > UPSELL_CONTEXT_TTL_MS) {
+      set({ readyResumeIntent: null });
+      return null;
+    }
+    if (ready.kind !== kind) return null;
+    set({ readyResumeIntent: null });
+    return ready;
+  },
   clearUpsellContext: () =>
-    set({ upsellReason: null, upsellSource: null, upsellTappedAtMs: null }),
+    set({
+      upsellReason: null,
+      upsellSource: null,
+      directEntrySource: null,
+      upsellTappedAtMs: null,
+      pendingResumeIntent: null,
+    }),
 }));
-
-

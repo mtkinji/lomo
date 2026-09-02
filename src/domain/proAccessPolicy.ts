@@ -9,6 +9,18 @@ export const PRO_CAPABILITIES = [
   'external_agent',
 ] as const;
 
+export const PRO_UPGRADE_INVITATION = {
+  title: 'Check your plan before you spend.',
+  body: 'Kwilt Pro keeps your budget current, can pause selected spending apps for a quick review, and includes 1,000 AI credits each month.',
+  moreSubtitle: 'A current budget, spending-app check-ins, multi-condition Screen Time rules, and 1,000 AI credits each month.',
+  benefits: [
+    'Keep a monthly budget current with real transactions',
+    'Pause selected spending apps until you review the plan',
+    'Combine Screen Time conditions around Focus, time, completed steps, and Money',
+    'Use 1,000 AI credits each month for planning, scheduling, and file analysis',
+  ],
+} as const;
+
 export type ProCapability = (typeof PRO_CAPABILITIES)[number];
 
 export const PRO_PAYWALL_REASONS = {

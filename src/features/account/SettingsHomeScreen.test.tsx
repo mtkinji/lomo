@@ -1,9 +1,10 @@
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockResolveSelfAvatar = jest.fn();
 const mockUploadAvatar = jest.fn();
 const mockRemoveAvatar = jest.fn();
 const mockLaunchImageLibrary = jest.fn();
+const mockCapture = jest.fn();
 
 jest.mock('../household/data/householdAvatars', () => ({
   resolveSelfAvatar: (...args: unknown[]) => mockResolveSelfAvatar(...args),
@@ -76,6 +77,10 @@ jest.mock('../../services/entitlements', () => {
   };
 });
 
+jest.mock('../../services/analytics/useAnalytics', () => ({
+  useAnalytics: () => ({ capture: mockCapture }),
+}));
+
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   const navigate = jest.fn();
@@ -84,6 +89,7 @@ jest.mock('@react-navigation/native', () => {
   return {
     ...actual,
     useNavigation: () => ({ navigate, getParent }),
+    useFocusEffect: (effect: () => void | (() => void)) => effect(),
     __navMocks: { navigate, rootNavigate, getParent },
   };
 });
@@ -91,6 +97,7 @@ jest.mock('@react-navigation/native', () => {
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { SettingsHomeScreen } from './SettingsHomeScreen';
 
 const navModule = require('@react-navigation/native') as {
@@ -106,6 +113,7 @@ describe('SettingsHomeScreen planning group', () => {
     mockUploadAvatar.mockReset();
     mockRemoveAvatar.mockReset();
     mockLaunchImageLibrary.mockReset();
+    mockCapture.mockReset();
     jest.restoreAllMocks();
   });
 
@@ -136,11 +144,62 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText('Meal preferences')).toBeTruthy();
     expect(getByText('Budget')).toBeTruthy();
     expect(getByText('Profile & account')).toBeTruthy();
-    expect(getByText('Subscription')).toBeTruthy();
+    expect(queryByText('Subscription')).toBeNull();
     expect(queryByText('Privacy lock')).toBeNull();
     expect(queryByText('Household access')).toBeNull();
     expect(queryByText('Money privacy')).toBeNull();
     expect(queryByText('Money household')).toBeNull();
+  });
+
+  it('separates Free status from a benefit-led Pro invitation and opens pricing directly', () => {
+    const { getByLabelText, getByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Free plan')).toBeTruthy();
+    expect(getByText('Check your plan before you spend.')).toBeTruthy();
+    expect(getByText(
+      'Kwilt Pro keeps your budget current, can pause selected spending apps for a quick review, and includes 1,000 AI credits each month.',
+    )).toBeTruthy();
+    expect(getByText('View Pro plans')).toBeTruthy();
+
+    fireEvent.press(getByLabelText('View Kwilt Pro plans'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith(
+      'SettingsManageSubscription',
+      expect.objectContaining({
+        openPricingDrawer: true,
+        openPricingDrawerNonce: expect.any(Number),
+      }),
+    );
+    expect(mockCapture).toHaveBeenCalledWith('upgrade_entry_tapped', {
+      source: 'settings_home',
+    });
+  });
+
+  it('records the visible Free upgrade invitation without showing it to Pro members', async () => {
+    const screen = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(mockCapture).toHaveBeenCalledWith('upgrade_entry_viewed', {
+      source: 'settings_home',
+    });
+
+    mockCapture.mockClear();
+    await act(async () => {
+      useEntitlementsStore.setState({ isPro: true });
+    });
+    screen.rerender(<SettingsHomeScreen />);
+    expect(mockCapture).not.toHaveBeenCalledWith('upgrade_entry_viewed', expect.anything());
+  });
+
+  it('shows Pro members their plan status and management path without an upgrade invitation', () => {
+    useEntitlementsStore.setState({ isPro: true });
+    const { getByLabelText, getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Kwilt Pro')).toBeTruthy();
+    expect(getByText('Manage plan')).toBeTruthy();
+    expect(queryByText('Let Kwilt carry more of the household load')).toBeNull();
+    expect(queryByText('View Pro plans')).toBeNull();
+
+    fireEvent.press(getByLabelText('Manage Kwilt Pro plan'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsManageSubscription');
   });
 
   it('uses the cross-domain Screen Time label at the Settings root', () => {

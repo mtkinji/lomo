@@ -2,7 +2,7 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { NavigationProp } from '@react-navigation/native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -14,6 +14,10 @@ import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUp
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { RootDrawerParamList, MoreStackParamList } from '../../navigation/RootNavigator';
 import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
+import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { usePaywallStore } from '../../store/usePaywallStore';
 
 type MoreNavigation = NavigationProp<MoreStackParamList> & NavigationProp<RootDrawerParamList>;
 
@@ -55,6 +59,7 @@ export function MoreScreen() {
   const navigation = useNavigation<MoreNavigation>();
   const insets = useSafeAreaInsets();
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const { capture } = useAnalytics();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
@@ -66,6 +71,14 @@ export function MoreScreen() {
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
   const repairWindowActive = useRepairWindowActive(streakBreakState);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isPro) {
+        capture(AnalyticsEvent.UpgradeEntryViewed, { source: 'more' });
+      }
+    }, [capture, isPro]),
+  );
 
   return (
     <AppShell>
@@ -108,10 +121,12 @@ export function MoreScreen() {
             <>
               <View style={styles.divider} />
               <MoreRow
-                title="Upgrade to Kwilt Pro"
-                subtitle="Unlock more planning power, custom AI, and advanced workflows."
+                title="View Kwilt Pro plans"
+                subtitle={PRO_UPGRADE_INVITATION.moreSubtitle}
                 icon="sparkles"
                 onPress={() => {
+                  capture(AnalyticsEvent.UpgradeEntryTapped, { source: 'more' });
+                  usePaywallStore.getState().setDirectUpsellContext({ source: 'more' });
                   navigation.navigate('Settings', {
                     screen: 'SettingsManageSubscription',
                     params: {

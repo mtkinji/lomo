@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Crypto from 'expo-crypto';
@@ -57,6 +57,7 @@ import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import { canSavePersonalRule, conditionRequiresPro } from '../domain/screenTimeAccessPolicy';
 import { isAdvancedScreenTimePaywallEnabled } from '../runtime/screenTimeMonetizationFlag';
+import { usePaywallStore, type PaywallResumeIntentKind } from '../../../store/usePaywallStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
@@ -143,6 +144,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const readyResumeIntent = usePaywallStore((state) => state.readyResumeIntent);
   const normalized = useMemo(() => normalizeScreenTimeProtectionSettings(settings), [settings]);
   const existingRule = useMemo(() => {
     if (!props.params.ruleId) return null;
@@ -211,14 +213,40 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     setAppsConfirmed(next.selectedApps.length + next.selectedCategories.length > 0);
   };
 
-  const requestAdvancedRuleAccess = (source: 'screen_time_rule_builder' | 'screen_time_add_condition') => {
+  const requestAdvancedRuleAccess = (
+    source: 'screen_time_rule_builder' | 'screen_time_add_condition',
+    resumeIntent: PaywallResumeIntentKind,
+  ) => {
     if (isPro || !isAdvancedScreenTimePaywallEnabled()) return true;
-    openPaywallInterstitial({ reason: 'pro_advanced_screen_time_rules', source });
+    openPaywallInterstitial({
+      reason: 'pro_advanced_screen_time_rules',
+      source,
+      resumeIntent: { kind: resumeIntent },
+    });
     return false;
   };
 
+  useEffect(() => {
+    if (!isPro || !readyResumeIntent) return;
+    if (
+      readyResumeIntent.kind !== 'screen_time_add_condition'
+      && readyResumeIntent.kind !== 'screen_time_choose_condition'
+      && readyResumeIntent.kind !== 'screen_time_review_rule'
+    ) return;
+    const consumed = usePaywallStore.getState().consumeReadyResumeIntent(readyResumeIntent.kind);
+    if (!consumed) return;
+    capture(AnalyticsEvent.UpgradeIntentResumed, {
+      kind: consumed.kind,
+      source: 'screen_time',
+    });
+    if (consumed.kind === 'screen_time_add_condition' || consumed.kind === 'screen_time_choose_condition') {
+      setActiveConditionId(null);
+      setDrawer('condition');
+    }
+  }, [capture, isPro, readyResumeIntent]);
+
   const openCondition = (conditionId?: string) => {
-    if (!conditionId && conditions.length > 0 && !requestAdvancedRuleAccess('screen_time_add_condition')) return;
+    if (!conditionId && conditions.length > 0 && !requestAdvancedRuleAccess('screen_time_add_condition', 'screen_time_add_condition')) return;
     setActiveConditionId(conditionId ?? null);
     setDrawer('condition');
   };
@@ -237,7 +265,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
   const chooseConditionType = async (type: PersonalRuleCondition['type']) => {
     const replacing = Boolean(activeConditionId);
     if ((!replacing && conditions.length > 0) || conditionRequiresPro({ type })) {
-      if (!requestAdvancedRuleAccess('screen_time_rule_builder')) return;
+      if (!requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_choose_condition')) return;
     }
     if (type === 'budget') {
       const snapshot = await createMoneyRepository().loadSnapshot().catch(() => null);
@@ -334,7 +362,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       lastUpdated: new Date().toISOString(),
     };
     if (!canSavePersonalRule({ rule, isPro: isPro || !isAdvancedScreenTimePaywallEnabled() })) {
-      requestAdvancedRuleAccess('screen_time_rule_builder');
+      requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule');
       return;
     }
     setSaving(true);
@@ -353,7 +381,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     } catch (error) {
       setSaving(false);
       if (error instanceof Error && error.message === 'screen_time_advanced_rule_pro_required') {
-        requestAdvancedRuleAccess('screen_time_rule_builder');
+        requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule');
         return;
       }
       if (!Device.isDevice) {
@@ -496,7 +524,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
                 {conditions.map((condition, index) => (
                   <View key={condition.id} style={styles.conditionBlock}>
                     {index > 0 ? <RuleSentencePickerField accessibilityLabel={`Change ${connector === 'all' ? 'AND' : 'OR'} connector`}
-                      onPress={() => { if (requestAdvancedRuleAccess('screen_time_rule_builder')) setDrawer('connector'); }} value={connector === 'all' ? 'AND' : 'OR'} style={styles.connectorField} /> : null}
+                      onPress={() => { if (requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule')) setDrawer('connector'); }} value={connector === 'all' ? 'AND' : 'OR'} style={styles.connectorField} /> : null}
                     <PersonalRuleConditionRow condition={condition} onEditField={() => void openConditionField(condition)}
                       onEditOperator={() => openOperator(condition)} onEditValue={() => openValue(condition)} />
                   </View>

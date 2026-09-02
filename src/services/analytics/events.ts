@@ -178,6 +178,9 @@ export const AnalyticsEvent = {
 
   // Monetization / paywall (MVP)
   PaywallViewed: 'paywall_viewed',
+  UpgradeEntryViewed: 'upgrade_entry_viewed',
+  UpgradeEntryTapped: 'upgrade_entry_tapped',
+  UpgradeIntentResumed: 'upgrade_intent_resumed',
   // Intent signal between paywall_viewed and purchase_started: user tapped the
   // Upgrade CTA on the paywall interstitial (before seeing the pricing drawer).
   // Enables a 5-step upsell funnel broken down by `source` (the feature gate
