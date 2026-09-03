@@ -30,14 +30,14 @@ async function main() {
     projectRef,
     clientId,
     clientSecret: generated.clientSecret,
-    deletionHashSecret: randomBytes(32).toString('hex'),
-    deletionTokenEncryptionSecret: randomBytes(32).toString('hex'),
   });
   await updateSupabaseEdgeFunctionSecrets({
     accessToken,
     projectRef,
     clientId,
     clientSecret: generated.clientSecret,
+    deletionHashSecret: randomBytes(32).toString('hex'),
+    deletionTokenEncryptionSecret: randomBytes(32).toString('hex'),
   });
   await recordAppleSecretRotation({
     monitorUrl: requireEnv('KWILT_SECRET_MONITOR_URL'),

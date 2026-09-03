@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -171,6 +172,16 @@ test('updateSupabaseEdgeFunctionSecrets never rotates existing deletion encrypti
     { name: 'APPLE_AUTH_CLIENT_ID', value: 'com.example.auth' },
     { name: 'APPLE_AUTH_CLIENT_SECRET', value: 'header.payload.signature' },
   ]);
+});
+
+test('rotation orchestration supplies one-time deletion secret material to the Edge Function secret sync', async () => {
+  const source = await readFile(new URL('./rotate-apple-auth-secret.mjs', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /updateSupabaseEdgeFunctionSecrets\(\{[\s\S]*?deletionHashSecret:\s*randomBytes\(32\)\.toString\('hex'\)[\s\S]*?deletionTokenEncryptionSecret:\s*randomBytes\(32\)\.toString\('hex'\)[\s\S]*?\}\)/,
+  );
+  const authUpdateCall = source.match(/updateSupabaseAppleSecret\(\{([\s\S]*?)\}\);/)?.[1] ?? '';
+  assert.doesNotMatch(authUpdateCall, /deletionHashSecret/);
 });
 
 test('recordAppleSecretRotation authenticates the narrow monitor callback', async () => {
