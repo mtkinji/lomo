@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from 'jsr:@std/assert@1';
-import { chooseSafetyFollowup, submitUgcReport, UgcReportError } from './report.ts';
+import { chooseSafetyFollowup, resolveModerationEmail, submitUgcReport, UgcReportError } from './report.ts';
 
 function repository(overrides: Partial<Parameters<typeof submitUgcReport>[2]> = {}) {
   return {
@@ -172,4 +172,9 @@ Deno.test('operator alert failure does not lose persisted intake', async () => {
     repository({ alert: async () => { throw new Error('mail unavailable'); } }),
   );
   assertEquals(result.status, 'submitted');
+});
+
+Deno.test('moderation alerts fall back to the published Kwilt support mailbox', () => {
+  assertEquals(resolveModerationEmail(undefined), 'support@kwilt.app');
+  assertEquals(resolveModerationEmail(' moderation@kwilt.app '), 'moderation@kwilt.app');
 });

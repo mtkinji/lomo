@@ -16,6 +16,10 @@ export type UgcSafetyFollowup =
   | { kind: 'manage_household'; reporterRole: 'owner' | 'caregiver' }
   | { kind: 'guest_scope' };
 
+export function resolveModerationEmail(configured: string | undefined): string {
+  return configured?.trim() || 'support@kwilt.app';
+}
+
 type HouseholdMembershipBoundary = {
   householdId: string;
   role: 'owner' | 'caregiver' | 'child';

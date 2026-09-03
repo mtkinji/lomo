@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
 import { parseUgcReportRequest } from '../_shared/ugcSafety.ts';
 import {
+  resolveModerationEmail,
   submitUgcReport,
   chooseSafetyFollowup,
   UgcReportError,
@@ -288,8 +289,8 @@ function repository(admin: SupabaseClient): UgcReportRepository {
 
     async alert(row) {
       const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
-      const to = (Deno.env.get('UGC_MODERATION_EMAIL') ?? '').trim();
-      if (!resendKey || !to) return;
+      const to = resolveModerationEmail(Deno.env.get('UGC_MODERATION_EMAIL'));
+      if (!resendKey) return;
       const from = (Deno.env.get('INVITE_EMAIL_FROM') ?? 'no-reply@mail.kwilt.app').trim();
       const subject = `[${row.priority.toUpperCase()}] Kwilt UGC report ${row.id}`;
       const text = [
