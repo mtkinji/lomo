@@ -100,7 +100,7 @@ async function revokeGoogle(admin: AdminClient, accountId: string): Promise<Prov
   const payload = data?.token_payload as { access?: EncryptedToken; refresh?: EncryptedToken | null } | null;
   const encrypted = payload?.refresh ?? payload?.access;
   if (!encrypted) return 'already_absent';
-  const token = await decryptToken(requiredEnv('CALENDAR_TOKEN_ENCRYPTION_SECRET'), encrypted);
+  const token = await decryptToken(requiredEnv('CALENDAR_TOKEN_SECRET'), encrypted);
   if (!token) throw new Error('calendar_token_decrypt_failed');
   const response = await fetch('https://oauth2.googleapis.com/revoke', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -1,3 +1,4 @@
+-- Version reconciled to the production migration history after deployment.
 create table public.kwilt_ugc_reports (
   id uuid primary key default gen_random_uuid(),
   reporter_user_id uuid not null references auth.users(id) on delete restrict,

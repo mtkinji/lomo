@@ -120,6 +120,58 @@ export async function updateSupabaseAppleSecret({
   }
 }
 
+export async function updateSupabaseEdgeFunctionSecrets({
+  accessToken,
+  projectRef,
+  clientId,
+  clientSecret,
+  deletionHashSecret,
+  deletionTokenEncryptionSecret,
+  fetchImpl = fetch,
+}) {
+  const url = `https://api.supabase.com/v1/projects/${encodeURIComponent(requiredText(projectRef, 'Supabase project ref'))}/secrets`;
+  const authorization = `Bearer ${requiredText(accessToken, 'Supabase access token')}`;
+  const currentResponse = await fetchImpl(url, {
+    method: 'GET',
+    headers: { authorization },
+  });
+  const current = await readJson(currentResponse);
+  if (!currentResponse.ok || !Array.isArray(current)) {
+    throw new Error(`Supabase Edge Function secret inventory failed (${currentResponse.status})`);
+  }
+  const currentNames = new Set(current.map((secret) => secret?.name).filter(Boolean));
+  const secrets = [
+    { name: 'APPLE_AUTH_CLIENT_ID', value: requiredText(clientId, 'Apple client ID') },
+    { name: 'APPLE_AUTH_CLIENT_SECRET', value: requiredText(clientSecret, 'Apple client secret') },
+  ];
+  if (!currentNames.has('ACCOUNT_DELETION_HASH_SECRET')) {
+    secrets.push({
+      name: 'ACCOUNT_DELETION_HASH_SECRET',
+      value: requiredText(deletionHashSecret, 'Account deletion hash secret'),
+    });
+  }
+  if (!currentNames.has('ACCOUNT_DELETION_TOKEN_ENCRYPTION_SECRET')) {
+    secrets.push({
+      name: 'ACCOUNT_DELETION_TOKEN_ENCRYPTION_SECRET',
+      value: requiredText(deletionTokenEncryptionSecret, 'Account deletion token encryption secret'),
+    });
+  }
+  const response = await fetchImpl(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        authorization,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(secrets),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Supabase Edge Function secret update failed (${response.status})`);
+  }
+}
+
 export async function recordAppleSecretRotation({
   monitorUrl,
   monitorSecret,

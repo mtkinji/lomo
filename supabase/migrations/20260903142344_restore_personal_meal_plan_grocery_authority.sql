@@ -1,3 +1,4 @@
+-- Version reconciled to the production migration history after deployment.
 -- Restore the server-only authority used when an individual Meal Plan sends
 -- recipes to its person-owned Grocery list. The original individual-first
 -- migration is retained under pending-migrations after hosted-history

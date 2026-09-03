@@ -1,9 +1,11 @@
 import {
   buildAppleClientSecret,
   recordAppleSecretRotation,
+  updateSupabaseEdgeFunctionSecrets,
   updateSupabaseAppleSecret,
   validateAppleClientSecret,
 } from './apple-auth-secret-rotation-lib.mjs';
+import { randomBytes } from 'node:crypto';
 
 function requireEnv(name) {
   const value = (process.env[name] ?? '').trim();
@@ -21,9 +23,19 @@ async function main() {
   });
 
   await validateAppleClientSecret({ clientSecret: generated.clientSecret, clientId });
+  const accessToken = requireEnv('SUPABASE_ACCESS_TOKEN');
+  const projectRef = requireEnv('SUPABASE_PROJECT_REF');
   await updateSupabaseAppleSecret({
-    accessToken: requireEnv('SUPABASE_ACCESS_TOKEN'),
-    projectRef: requireEnv('SUPABASE_PROJECT_REF'),
+    accessToken,
+    projectRef,
+    clientId,
+    clientSecret: generated.clientSecret,
+    deletionHashSecret: randomBytes(32).toString('hex'),
+    deletionTokenEncryptionSecret: randomBytes(32).toString('hex'),
+  });
+  await updateSupabaseEdgeFunctionSecrets({
+    accessToken,
+    projectRef,
     clientId,
     clientSecret: generated.clientSecret,
   });
@@ -40,6 +52,7 @@ async function main() {
       clientId,
       issuedAt: generated.issuedAt,
       expiresAt: generated.expiresAt,
+      edgeFunctionSecretSynchronized: true,
       monitorRecorded: true,
     })}\n`,
   );

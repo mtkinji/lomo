@@ -1,3 +1,4 @@
+-- Version reconciled to the production migration history after deployment.
 -- Durable, service-role-only account deletion state. The raw user id is cleared
 -- on completion; subject_hash is produced by the Edge Function with a server secret.
 create table public.kwilt_account_deletion_operations (
@@ -131,7 +132,8 @@ as $$
 declare
   v_person_id uuid;
   v_membership public.kwilt_household_memberships;
-  v_successor public.kwilt_household_memberships;
+  v_successor_membership_id uuid;
+  v_successor_person_id uuid;
   v_successor_user_id uuid;
   v_transferred_households integer := 0;
   v_deleted_households integer := 0;
@@ -171,8 +173,8 @@ begin
       order by membership.joined_at, membership.id
       for update
     loop
-      select candidate, binding.user_id
-        into v_successor, v_successor_user_id
+      select candidate.id, candidate.person_id, binding.user_id
+        into v_successor_membership_id, v_successor_person_id, v_successor_user_id
       from public.kwilt_household_memberships candidate
       join public.kwilt_people person on person.id = candidate.person_id and person.kind = 'adult'
       join public.kwilt_person_auth_bindings binding
@@ -183,7 +185,7 @@ begin
       order by candidate.joined_at, candidate.id
       limit 1;
 
-      if v_successor.id is null then
+      if v_successor_membership_id is null then
         v_households_to_delete := pg_catalog.array_append(v_households_to_delete, v_membership.household_id);
         select v_dependents_to_delete || coalesce(pg_catalog.array_agg(person.id), '{}'::uuid[])
           into v_dependents_to_delete
@@ -198,7 +200,7 @@ begin
         if v_membership.role = 'owner' then
           update public.kwilt_household_memberships
             set role = 'owner', updated_at = now()
-            where id = v_successor.id;
+            where id = v_successor_membership_id;
         end if;
 
         update public.kwilt_households
@@ -223,14 +225,14 @@ begin
         -- Shared meal-planning artifacts remain with the surviving Household,
         -- but all live stewardship moves to the authenticated adult successor.
         update public.kwilt_meal_plans
-          set organizer_membership_id = v_successor.id,
-              organizer_person_id = v_successor.person_id,
+          set organizer_membership_id = v_successor_membership_id,
+              organizer_person_id = v_successor_person_id,
               updated_at = now()
           where household_id = v_membership.household_id
             and organizer_person_id = v_person_id;
 
         update public.kwilt_meal_plan_candidates candidate
-          set suggested_by_person_id = v_successor.person_id
+          set suggested_by_person_id = v_successor_person_id
           from public.kwilt_meal_plans plan
           where candidate.plan_id = plan.id
             and plan.household_id = v_membership.household_id
@@ -252,27 +254,27 @@ begin
             and reaction.person_id = v_person_id;
 
         update public.kwilt_meal_planner_preferences
-          set updated_by_person_id = v_successor.person_id, updated_at = now()
+          set updated_by_person_id = v_successor_person_id, updated_at = now()
           where household_id = v_membership.household_id
             and updated_by_person_id = v_person_id;
 
         delete from public.kwilt_person_food_needs
           where household_id = v_membership.household_id and person_id = v_person_id;
         update public.kwilt_person_food_needs
-          set created_by_person_id = v_successor.person_id, updated_at = now()
+          set created_by_person_id = v_successor_person_id, updated_at = now()
           where household_id = v_membership.household_id
             and created_by_person_id = v_person_id;
 
         update public.kwilt_guest_meal_feedback_invites invite
-          set created_by_person_id = v_successor.person_id
+          set created_by_person_id = v_successor_person_id
           from public.kwilt_meal_plans plan
           where invite.plan_id = plan.id
             and plan.household_id = v_membership.household_id
             and invite.created_by_person_id = v_person_id;
 
         update public.kwilt_meal_plan_candidates candidate
-          set sent_by_person_id = case when candidate.sent_by_person_id = v_person_id then v_successor.person_id else candidate.sent_by_person_id end,
-              resolved_by_person_id = case when candidate.resolved_by_person_id = v_person_id then v_successor.person_id else candidate.resolved_by_person_id end
+          set sent_by_person_id = case when candidate.sent_by_person_id = v_person_id then v_successor_person_id else candidate.sent_by_person_id end,
+              resolved_by_person_id = case when candidate.resolved_by_person_id = v_person_id then v_successor_person_id else candidate.resolved_by_person_id end
           from public.kwilt_meal_plans plan
           where candidate.plan_id = plan.id
             and plan.household_id = v_membership.household_id
@@ -280,7 +282,8 @@ begin
         v_transferred_households := v_transferred_households + 1;
       end if;
 
-      v_successor := null;
+      v_successor_membership_id := null;
+      v_successor_person_id := null;
       v_successor_user_id := null;
     end loop;
 

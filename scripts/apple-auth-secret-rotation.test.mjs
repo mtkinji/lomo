@@ -6,6 +6,7 @@ import {
   APPLE_MAX_CLIENT_SECRET_LIFETIME_SECONDS,
   buildAppleClientSecret,
   recordAppleSecretRotation,
+  updateSupabaseEdgeFunctionSecrets,
   updateSupabaseAppleSecret,
   validateAppleClientSecret,
 } from './apple-auth-secret-rotation-lib.mjs';
@@ -104,6 +105,72 @@ test('updateSupabaseAppleSecret changes only the Apple secret and verifies provi
   });
 
   assert.deepEqual(requestBody, { external_apple_secret: 'header.payload.signature' });
+});
+
+test('updateSupabaseEdgeFunctionSecrets keeps Apple deletion revocation synchronized', async () => {
+  let requestBody;
+  let requestCount = 0;
+  const fetchImpl = async (url, options) => {
+    assert.equal(url, 'https://api.supabase.com/v1/projects/project-ref/secrets');
+    assert.equal(options.headers.authorization, 'Bearer management-token');
+    requestCount += 1;
+    if (options.method === 'GET') {
+      return new Response(JSON.stringify([{ name: 'CALENDAR_TOKEN_SECRET' }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    assert.equal(options.method, 'POST');
+    requestBody = JSON.parse(options.body);
+    return new Response('{}', { status: 201, headers: { 'content-type': 'application/json' } });
+  };
+
+  await updateSupabaseEdgeFunctionSecrets({
+    accessToken: 'management-token',
+    projectRef: 'project-ref',
+    clientId: 'com.example.auth',
+    clientSecret: 'header.payload.signature',
+    deletionHashSecret: 'hash-secret',
+    deletionTokenEncryptionSecret: 'token-secret',
+    fetchImpl,
+  });
+
+  assert.equal(requestCount, 2);
+  assert.deepEqual(requestBody, [
+    { name: 'APPLE_AUTH_CLIENT_ID', value: 'com.example.auth' },
+    { name: 'APPLE_AUTH_CLIENT_SECRET', value: 'header.payload.signature' },
+    { name: 'ACCOUNT_DELETION_HASH_SECRET', value: 'hash-secret' },
+    { name: 'ACCOUNT_DELETION_TOKEN_ENCRYPTION_SECRET', value: 'token-secret' },
+  ]);
+});
+
+test('updateSupabaseEdgeFunctionSecrets never rotates existing deletion encryption material', async () => {
+  let requestBody;
+  const fetchImpl = async (_url, options) => {
+    if (options.method === 'GET') {
+      return new Response(JSON.stringify([
+        { name: 'ACCOUNT_DELETION_HASH_SECRET' },
+        { name: 'ACCOUNT_DELETION_TOKEN_ENCRYPTION_SECRET' },
+      ]), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    requestBody = JSON.parse(options.body);
+    return new Response('{}', { status: 201, headers: { 'content-type': 'application/json' } });
+  };
+
+  await updateSupabaseEdgeFunctionSecrets({
+    accessToken: 'management-token',
+    projectRef: 'project-ref',
+    clientId: 'com.example.auth',
+    clientSecret: 'header.payload.signature',
+    deletionHashSecret: 'must-not-replace-hash-secret',
+    deletionTokenEncryptionSecret: 'must-not-replace-token-secret',
+    fetchImpl,
+  });
+
+  assert.deepEqual(requestBody, [
+    { name: 'APPLE_AUTH_CLIENT_ID', value: 'com.example.auth' },
+    { name: 'APPLE_AUTH_CLIENT_SECRET', value: 'header.payload.signature' },
+  ]);
 });
 
 test('recordAppleSecretRotation authenticates the narrow monitor callback', async () => {

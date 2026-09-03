@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 const migrationsDir = path.resolve('supabase/migrations');
+const accountDeleteFunctionPath = path.resolve('supabase/functions/account-delete/index.ts');
+const googleCalendarAuthFunctionPath = path.resolve('supabase/functions/calendar-auth-google/index.ts');
 
 const requiredRepairs = [
   ['kwilt_people', 'created_by_user_id'],
@@ -89,8 +91,8 @@ test('preparation separates surviving shared stewardship from private person cle
   assert.ok(remediation, 'missing account_deletion_integrity migration');
 
   for (const fragment of [
-    'organizer_membership_id = v_successor.id',
-    'suggested_by_person_id = v_successor.person_id',
+    'organizer_membership_id = v_successor_membership_id',
+    'suggested_by_person_id = v_successor_person_id',
     "set state = 'removed'",
     'delete from public.kwilt_grocery_lists where owner_person_id = v_person_id',
     'delete from public.kwilt_food_stock_observations where owner_person_id = v_person_id',
@@ -101,4 +103,31 @@ test('preparation separates surviving shared stewardship from private person cle
   ]) {
     assert.ok(remediation.sql.includes(fragment), `missing deletion contract fragment: ${fragment}`);
   }
+});
+
+test('account deletion reuses the calendar token encryption secret used at connection time', async () => {
+  const [accountDeleteFunction, calendarAuthFunction] = await Promise.all([
+    readFile(accountDeleteFunctionPath, 'utf8'),
+    readFile(googleCalendarAuthFunctionPath, 'utf8'),
+  ]);
+
+  assert.match(calendarAuthFunction, /getEnv\('CALENDAR_TOKEN_SECRET'\)/);
+  assert.match(accountDeleteFunction, /requiredEnv\('CALENDAR_TOKEN_SECRET'\)/);
+  assert.doesNotMatch(accountDeleteFunction, /CALENDAR_TOKEN_ENCRYPTION_SECRET/);
+});
+
+test('preparation selects successor identifiers into scalar PL/pgSQL targets', async () => {
+  const entries = await migrationText();
+  const remediation = entries.find(({ file }) => file.endsWith('_account_deletion_integrity.sql'));
+  assert.ok(remediation, 'missing account_deletion_integrity migration');
+
+  assert.doesNotMatch(
+    remediation.sql,
+    /v_successor\s+public\.kwilt_household_memberships/i,
+    'a row variable cannot share a multi-item INTO target list with scalar variables',
+  );
+  assert.match(
+    remediation.sql,
+    /select\s+candidate\.id\s*,\s*candidate\.person_id\s*,\s*binding\.user_id\s+into\s+v_successor_membership_id\s*,\s*v_successor_person_id\s*,\s*v_successor_user_id/i,
+  );
 });

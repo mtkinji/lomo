@@ -17,7 +17,7 @@ signed App Store candidate. Source tests are not a substitute for either run.
 - Exercise only provider sandbox/test connections in non-production.
 - Configure `ACCOUNT_DELETION_HASH_SECRET`,
   `ACCOUNT_DELETION_TOKEN_ENCRYPTION_SECRET`, `APPLE_AUTH_CLIENT_ID`,
-  `APPLE_AUTH_CLIENT_SECRET`, and the other server-side provider secrets,
+  `APPLE_AUTH_CLIENT_SECRET`, `CALENDAR_TOKEN_SECRET`, and the other server-side provider secrets,
   including `REVENUECAT_SECRET_API_KEY`; missing required secrets fail closed.
 
 ## Fixture matrix

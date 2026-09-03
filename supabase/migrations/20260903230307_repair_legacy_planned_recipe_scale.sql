@@ -1,3 +1,4 @@
+-- Version reconciled to the production migration history after deployment.
 -- Before candidate-level scale intent was persisted, a sent Recipe with a
 -- physical yield (for example, slices) was compiled as one recipe batch.
 -- Preserve that historic choice explicitly so later Plan edits can safely
