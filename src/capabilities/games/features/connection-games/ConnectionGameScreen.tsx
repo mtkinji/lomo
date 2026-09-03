@@ -20,6 +20,7 @@ import { useGameFeedback } from '@/src/capabilities/games/audio/useGameFeedback'
 import { useActiveGameOrientation } from '@/src/capabilities/games/platform/useActiveGameOrientation';
 import { permanentUserId } from '@/src/capabilities/games/platform/auth';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
+import { REMOTE_GAMES_RELEASE_ENABLED } from '@/src/capabilities/games/remote/remoteGamesReleasePolicy';
 
 export function ConnectionGameScreen() {
   const { gameId } = useLocalSearchParams<{ gameId?: string }>();
@@ -54,6 +55,7 @@ export function ConnectionGameScreen() {
     const number = nextSeatId.current++;
     return { key: `seat-${number}`, displayName: `Player ${number}` };
   };
+  if (game.id === 'slanguage' && !REMOTE_GAMES_RELEASE_ENABLED) return <ConnectionGameFrame title="Remote play unavailable" promise="Local games are still ready at your table."><PlayCard tone="paper"><Text style={{ fontFamily: gamesTheme.type.body, color: gamesTheme.colors.ink }}>Remote rooms are not included in this release.</Text></PlayCard></ConnectionGameFrame>;
   if (game.id === 'slanguage') return <ConnectionGameFrame title={game.title} promise={game.promise} showHeading={false} gameHeader gameMark={game.mark}><SlanguageStartScreen
     seats={seats}
     savedPlayers={roster.players}

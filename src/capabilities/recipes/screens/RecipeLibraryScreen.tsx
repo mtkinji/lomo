@@ -676,7 +676,10 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setSharedCart((current) => current
         ? optimisticallySetSharedMealReaction(current, candidateId, previousReaction, previousReason)
         : current);
-      Alert.alert("Plan not updated", caught instanceof Error ? caught.message : "Try again in a moment.");
+      const message = caught instanceof Error && caught.message.includes('shared_text_not_allowed')
+        ? 'That wording can’t be shared. Change it and try again.'
+        : caught instanceof Error ? caught.message : "Try again in a moment.";
+      Alert.alert("Plan not updated", message);
     } finally {
       reactingCandidateIdsRef.current.delete(candidateId);
       setReactingCandidateIds(new Set(reactingCandidateIdsRef.current));
@@ -954,6 +957,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
             else if (planEducationLoaded && hasSeenSentRemoval) void removeCandidate(item);
             else setPendingRemoval(item);
           }}
+          currentPersonId={sharedCart?.viewer.personId ?? null}
           onReact={(candidateId, reaction, reason) => { void setCandidateReaction(candidateId, reaction, reason); }}
           reactingCandidateIds={reactingCandidateIds}
           guideStep={foodGuideStep === 'share-plan' || foodGuideStep === 'send-to-groceries'
@@ -981,6 +985,9 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           shareSheetVisible={guestShareSheetVisible}
           hasActiveGuestLink={activeGuestInviteIds.length > 0}
           onTurnOffGuestLink={activeGuestInviteIds.length ? () => { void turnOffGuestLinks(); } : undefined}
+          onSafetyHidden={() => {
+            void Promise.all([reloadSharedCart(), refreshGuestFeedback()]);
+          }}
           onSendToGroceries={(candidateIds, options) => (
             sendToGroceries(candidateIds, options).then((receipt) => {
               if (!receipt) return;

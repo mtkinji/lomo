@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, Image, StyleSheet } from 'react-native';
-import { ChoresScreen } from './ChoresScreen';
+import { ChoresHouseholdSetupState, ChoresInventoryEmptyState, ChoresScreen } from './ChoresScreen';
 import { resetChoreLearningStoreForTests, useChoreLearningStore } from '../runtime/useChoreLearningStore';
 import { formatChoreEventTimestamp } from '../components/choreDetailPresentation';
 import { projectChoreRewards } from '../domain/choreLearning';
@@ -254,6 +254,26 @@ describe('ChoresScreen', () => {
       queuedToasts: [],
     });
     useAppStore.setState({ authIdentity: null, userProfile: null });
+  });
+
+  it('offers Household setup instead of exposing a projection error', () => {
+    const onSetUpHousehold = jest.fn();
+    const screen = render(<ChoresHouseholdSetupState onSetUpHousehold={onSetUpHousehold} />);
+
+    expect(screen.getByText('Set up household chores')).toBeTruthy();
+    expect(screen.UNSAFE_getAllByType(Image)).toHaveLength(1);
+    expect(screen.queryByText('invalid_chore_projection')).toBeNull();
+    fireEvent.press(screen.getByText('Set up household'));
+    expect(onSetUpHousehold).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an illustrated inventory state without duplicating the Chores action dock', () => {
+    const screen = render(<ChoresInventoryEmptyState caregiver />);
+
+    expect(screen.getByText('No chores yet')).toBeTruthy();
+    expect(screen.getByText('Add the first household chore in the dock below.')).toBeTruthy();
+    expect(screen.UNSAFE_getAllByType(Image)).toHaveLength(1);
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
   it('renders the quiet member-first inventory with token language absent by default', () => {

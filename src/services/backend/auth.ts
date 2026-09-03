@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { flushSupabaseAuthStorage, getSupabaseClient, resetSupabaseAuthStorage } from './supabaseClient';
+import { registerAppleAccountDeletionToken } from '../accountDeletionProviderToken';
 import { useAuthPromptStore } from '../../store/useAuthPromptStore';
 import { getAuthBrandOrigin, getSupabaseUrl } from '../../utils/getEnv';
 
@@ -411,6 +412,18 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
       exchangeError?.message ??
         `Unable to complete sign-in (exchangeCodeForSession failed). authCode=${authCode.slice(0, 8)}…`,
     );
+  }
+
+  if (provider === 'apple' && exchanged.session.provider_refresh_token) {
+    try {
+      await registerAppleAccountDeletionToken({
+        accessToken: exchanged.session.access_token,
+        providerRefreshToken: exchanged.session.provider_refresh_token,
+      });
+    } catch (error) {
+      await supabase.auth.signOut().catch(() => undefined);
+      throw error;
+    }
   }
 
   return exchanged.session;

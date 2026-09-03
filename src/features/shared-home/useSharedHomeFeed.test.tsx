@@ -6,6 +6,7 @@ import { useSharedHomeFeed } from './useSharedHomeFeed';
 const item: SharedHomeDelivery = {
   id: 'delivery-1', eventKind: 'game_turn', sourceCapability: 'games',
   sourceEntityType: 'game_session', sourceEntityId: 'room-1', actorDisplayName: 'Mina',
+  actorUserId: '10000000-0000-0000-0000-000000000002',
   title: 'Your turn', body: 'Mina passed the pattern to you.',
   destination: { kind: 'game_room', sessionId: 'room-1' }, state: 'pending',
   settledReason: null, createdAt: '2026-08-05T10:00:00.000Z',

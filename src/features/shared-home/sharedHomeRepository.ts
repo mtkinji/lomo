@@ -11,6 +11,7 @@ const COLUMNS = [
   'source_capability',
   'source_entity_type',
   'source_entity_id',
+  'actor_user_id',
   'actor_display_name',
   'title',
   'body',

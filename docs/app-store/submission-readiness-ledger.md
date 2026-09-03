@@ -16,7 +16,7 @@ acceptance criteria has been recorded.
   `afd63cfc61afd8dc5622c56b4a986342a049278a`, with unrelated uncommitted work
   present
 - Current decision: **NO-GO for App Store submission**
-- Current blocking items: `ASR-001`, `ASR-002`, `ASR-003`, `ASR-004`
+- Current blocking items: `ASR-001`, `ASR-002`, `ASR-004`
 - Next finding ID: `ASR-011`
 
 This ledger supersedes App Store-readiness conclusions in older versioned
@@ -36,6 +36,9 @@ Statuses:
   Connect, signing, provider, or physical-device evidence is missing.
 - `VERIFIED`: all required proof is linked and dated.
 - `REOPENED`: a later change invalidated prior proof.
+- `RISK ACCEPTED`: the owner explicitly chose to ship without fully remediating
+  the cited concern. This records a product decision, not proof of compliance or
+  future App Review acceptance.
 
 Proof layers:
 
@@ -56,9 +59,9 @@ Apple accepted the submitted behavior. Record it after every review.
 | --- | --- | --- | --- | --- | --- |
 | ASR-001 | P1 | READY FOR VERIFICATION | 4.10, 5.1.1(ii) | S, A, D, C | Screen Time Free/Pro boundary and messaging |
 | ASR-002 | P0 | OPEN | 5.1.1(v) | S, A, B, D | Account deletion integrity and provider cleanup |
-| ASR-003 | P0 | OPEN | 5.1.1(ii) | S, A, D | Analytics consent and withdrawal |
+| ASR-003 | P0 | RISK ACCEPTED | 5.1.1(ii) | S, A, D, E | Default-on analytics with persisted withdrawal |
 | ASR-004 | P0 | IN PROGRESS | 2.3, 5.1.1(i) | S, A, D, C | Privacy policy, manifest, and label mismatch |
-| ASR-005 | P1 | OPEN | 1.2, 4.7.1 | S, A, D, B | UGC reporting, filtering, and response workflow |
+| ASR-005 | P1 | READY FOR VERIFICATION | 1.2, 4.7.1 | S, A, D, B | UGC reporting, filtering, and response workflow |
 | ASR-006 | P1 | OPEN | 2.2, 2.3.1 | S, A, D, C | Review-only flags and test-profile behavior |
 | ASR-007 | P1 | READY FOR VERIFICATION | 2.1 | B, D, C | Reviewer account and complete feature access |
 | ASR-008 | P1 | EXTERNAL GATE | Restricted entitlement | D, C | Family Controls distribution authorization |
@@ -192,13 +195,13 @@ Closure evidence:
 ### ASR-002 — Account deletion integrity and provider cleanup
 
 - Severity: `P0`
-- Status: `OPEN`
+- Status: `READY FOR VERIFICATION`
 - Apple basis: apps supporting account creation must offer in-app deletion of
   the account and associated data. Apple also instructs Sign in with Apple apps
   to revoke user tokens during deletion.
 - Policy source:
   [Offering account deletion in your app](https://developer.apple.com/support/offering-account-deletion-in-your-app/)
-- Last checked: 2026-09-02
+- Last checked: 2026-09-03
 
 Current evidence:
 
@@ -254,14 +257,14 @@ Closure evidence: _Not yet recorded._
 ### ASR-003 — Analytics consent and withdrawal
 
 - Severity: `P0`
-- Status: `OPEN`
+- Status: `RISK ACCEPTED`
 - Apple basis: Guideline 5.1.1(ii) requires consent before collecting user or
   usage data and an easily accessible, understandable way to withdraw consent.
 - Policy source:
   [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
 - Last checked: 2026-09-02
 
-Current evidence:
+Original finding evidence:
 
 - [`src/services/analytics/posthog.ts`](../../src/services/analytics/posthog.ts)
   enables PostHog automatically in production when an API key exists.
@@ -276,27 +279,44 @@ Current evidence:
 Required remediation:
 
 - [ ] Default optional analytics to off until the user makes a clear choice.
-- [ ] Persist a versioned consent state and enforce it before constructing or
-  transmitting through the analytics client.
-- [ ] Add an understandable Settings control that can withdraw and later renew
+  Owner explicitly declined this remediation on 2026-09-03, preserving Kwilt's
+  previously approved default-on posture and accepting the review/policy risk.
+- [x] Persist a versioned analytics preference and enforce withdrawal before
+  constructing or transmitting through the analytics client.
+- [x] Add an understandable Settings control that can withdraw and later renew
   consent.
-- [ ] On withdrawal, stop transmission immediately and reset the analytics
+- [x] On withdrawal, stop transmission immediately and reset the analytics
   identity as appropriate.
-- [ ] Keep essential security/service telemetry separately classified and
+- [x] Keep essential security/service telemetry separately classified and
   documented rather than silently treating it as optional product analytics.
-- [ ] Ensure feature availability does not depend on optional analytics consent.
+- [x] Ensure feature availability does not depend on optional analytics consent.
 
 Closure criteria:
 
-- Fresh-install network evidence shows no optional analytics request before
-  consent.
-- Opt-in enables only the documented bounded event schema.
+- Fresh-install evidence confirms the documented default-on behavior.
+- Default-on and renewed analytics use only the bounded event schema.
 - Withdrawal prevents subsequent optional analytics transmission across
   relaunch, sign-out, account switching, and reinstall behavior as documented.
 - Automated tests cover unknown, granted, denied, withdrawn, and version-change
   states.
 
-Closure evidence: _Not yet recorded._
+Closure evidence:
+
+- Source implementation: `src/services/analytics/analyticsConsent.ts`,
+  `analyticsConsentRuntime.ts`, `posthogClient.ts`, `App.tsx`, and the Optional
+  analytics control in `LegalPrivacyScreen.tsx`.
+- Automated evidence: focused analytics preference/runtime/UI and existing
+  collection-boundary suites cover default-on unknown, granted, denied,
+  withdrawn, persisted, version-change, and rapid grant-withdraw states are
+  covered.
+- Documentation: `docs/analytics/consent.md` distinguishes optional PostHog
+  product analytics from essential security and service-delivery processing.
+- Decision: Andrew explicitly accepted the existing default-on analytics risk on
+  2026-09-03 because prior Kwilt versions with that posture had been approved.
+  Prior approval is not evidence that Apple will approve the next submission.
+- Remaining evidence: signed-candidate fresh-install and withdrawal network
+  inspection across relaunch, sign-out, and account switching, followed by the
+  actual App Review result (`E`).
 
 ### ASR-004 — Privacy policy, manifest, and App Store label mismatch
 
@@ -310,43 +330,60 @@ Closure evidence: _Not yet recorded._
 - Policy sources:
   [App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/),
   [TN3184](https://developer.apple.com/documentation/technotes/tn3184-adding-data-collection-details-to-your-privacy-manifest)
-- Last checked: 2026-09-02
+- Last checked: 2026-09-03
 
 Current evidence:
 
-- The live [Privacy Policy](https://go.kwilt.app/privacy) returned successfully
-  on 2026-09-02 but was still marked May 30, 2026.
-- The companion-site source now contains a September 2, 2026 Privacy Policy and
-  matching Terms update, but those source changes are not deployment proof and
-  have not yet been verified at the live URL.
-- It describes accounts as optional and core workspace data as generally local,
-  while [`App.tsx`](../../App.tsx) requires sign-in for all ordinary users.
-- It omits or understates current Money/Plaid, household/dependent, Family
-  Screen Time, meals/groceries, games, phone/SMS, and other cloud behavior.
+- The September 2, 2026 [Privacy Policy](https://go.kwilt.app/privacy) and
+  matching Terms were deployed on 2026-09-03 through Vercel production
+  deployment `dpl_CZKzm5kkCvajtP42Tk2aie6p77zp`. The `kwilt.app`,
+  `www.kwilt.app`, and `go.kwilt.app` legal URLs returned HTTP 200 with the
+  updated date; `kwilt.app` canonically redirects to `www.kwilt.app`.
 - It directs a user to support when an analytics opt-out is unavailable rather
   than describing a current in-app withdrawal control.
-- [`docs/app-store/privacy-disclosures-1.0.104.md`](privacy-disclosures-1.0.104.md)
-  says its expanded disclosure packet must not be used until the updated policy
-  is live; that release gate remains unchecked.
-- [`ios/Kwilt/PrivacyInfo.xcprivacy`](../../ios/Kwilt/PrivacyInfo.xcprivacy)
-  declares an empty `NSPrivacyCollectedDataTypes` array even though the app
-  itself sends account, user-content, financial, location, health-summary,
-  usage, and diagnostic data off-device.
-- Current App Store Connect privacy answers were not available to this source
-  audit.
+- [`docs/app-store/privacy-disclosures-current-candidate.md`](privacy-disclosures-current-candidate.md)
+  contains the expanded current-candidate disclosure packet. It still must be
+  reconciled against the exact submitted archive and App Store Connect.
+- `app.config.ts` now source-controls 22 app-collected data types through
+  `ios.privacyManifests`, including linkage, non-tracking status, and purposes
+  aligned to the current-candidate disclosure packet. Expo prebuild writes
+  those declarations to the ignored native
+  [`ios/Kwilt/PrivacyInfo.xcprivacy`](../../ios/Kwilt/PrivacyInfo.xcprivacy).
+- A 2026-09-03 unsigned local Release archive successfully produced an Xcode
+  privacy report. It aggregated the 22 app declarations plus LinkKit User ID,
+  RevenueCat Purchase History, and react-native-maps Precise Location, with no
+  tracking declarations. The archive identified itself as `1.0.118 (118)` even
+  though `app.config.ts` declares 119, so it is diagnostic evidence only and
+  not the submission-candidate report.
+- App Store Connect initially showed only 8 collected data types. On 2026-09-03
+  it was updated and published with all 22 current-candidate types. Each type's
+  detail says linked to the user's identity; the product-page preview contains
+  no `Data Used to Track You` section. Existing purpose mismatches for Name,
+  Precise Location, Emails or Text Messages, Photos or Videos, User ID, and
+  Product Interaction were corrected.
+- App Store Connect continues to publish
+  `https://www.kwilt.app/privacy` as the Privacy Policy URL. The saved
+  `https://www.kwilt.app/privacy#privacy-choices` edit is marked `Edited`, with
+  App Store Connect stating that URL changes release with the next app version.
+- The detailed product-page preview also lists User ID, Photos or Videos,
+  Precise Location, Product Interaction, and Name under `Data Not Linked to
+  You`, even though each type's own detail says linked. Preserve this observed
+  aggregate-preview distinction and recheck it against the exact candidate.
 
 Required remediation:
 
-- [ ] Publish one current policy matching the complete shipped product and name
+- [x] Publish one current policy matching the complete shipped product and name
   or clearly categorize material processors and providers.
 - [ ] Align account requirements, household/dependent behavior, analytics
   consent, deletion/retention, provider cleanup, financial data, Health,
   location, audio, games, AI, SMS, and connected tools.
-- [ ] Populate the app privacy manifest with app-collected data types, linkage,
+- [x] Populate the app privacy manifest with app-collected data types, linkage,
   tracking status, and purposes; separately preserve required-reason API entries
   and SDK manifests.
-- [ ] Generate and inspect the archive privacy report.
-- [ ] Update App Store Connect privacy answers from the exact submitted binary
+- [x] Generate and inspect a local diagnostic archive privacy report.
+- [ ] Generate and inspect the privacy report from the exact signed archive
+  selected for App Store submission.
+- [x] Update App Store Connect privacy answers from the current-candidate packet
   and deployed services.
 - [ ] Confirm the in-app, App Store Connect, support, and website URLs all resolve
   to the same current policy.
@@ -372,14 +409,47 @@ Progress evidence:
   reconciliation changed the service, account, dependent, connected-provider,
   content, reliance, and deletion contract.
 - These edits intentionally do not claim that analytics consent, account
-  deletion integrity, connected-provider cleanup, the app privacy manifest,
-  archive privacy report, App Store Connect answers, or live deployment have
-  been completed. ASR-004 remains open for those gates.
+  deletion integrity, connected-provider cleanup, the exact signed-candidate
+  archive report, or App Store Connect answers have been completed. ASR-004
+  remains open for those gates.
+- 2026-09-03: Deployed the September 2 policy and Terms through production
+  deployment `dpl_CZKzm5kkCvajtP42Tk2aie6p77zp`; verified the six canonical
+  legal URLs returned the updated date.
+- 2026-09-03: Source-controlled the app privacy declarations in Expo config,
+  verified the generated native manifest, and generated Xcode's aggregated
+  report from an unsigned local Release archive. The report matched the
+  proposal, but the archive's stale native `1.0.118 (118)` identity and mutable
+  working-tree provenance mean the exact signed submission archive must still
+  be checked.
+- 2026-09-03: Published the reconciled 22-type App Store Connect disclosure set,
+  corrected six existing purpose mismatches, verified no tracking section in
+  the detailed product-page preview, and saved the Privacy Choices URL for the
+  next app version. No app version was submitted for review.
+- 2026-09-03: Completed a Simulator-first privacy pass against Metro 8081 from
+  the live `main` checkout using the installed build-117 native shell. The
+  September 2 Privacy Policy and Terms rendered from their in-app links;
+  analytics withdrawal persisted across a full app relaunch and the original
+  On preference was restored; account deletion reached its explicit
+  irreversible warning and was canceled before data destruction. Focused
+  analytics/legal/deletion tests passed 26/26, and the complete account-deletion
+  schema/provider/storage/orchestration contract passed. This is not
+  production-network, actual deletion, signed-candidate, or hardware proof.
+- 2026-09-03: A follow-up read-only production audit confirmed that the
+  synthetic Simulator account is a minimal standalone fixture with no Plaid,
+  calendar, grocery-provider, external OAuth, Phone Agent, or push connection.
+  Production does not yet list account-deletion migration
+  `20260903141350_account_deletion_integrity` or the
+  `account-deletion-token-register` function, and its `account-delete` function
+  remains the pre-existing version 21. The account was not destroyed because
+  doing so would test the older backend rather than the new cleanup contract.
+  The active Simulator runtime also resolved to `development`, where PostHog is
+  intentionally disabled without an explicit override; its consent UI result
+  therefore does not claim production network or ingestion proof.
 
 ### ASR-005 — UGC reporting, filtering, and response workflow
 
 - Severity: `P1`
-- Status: `OPEN`
+- Status: `READY FOR VERIFICATION`
 - Apple basis: Guideline 1.2 requires filtering objectionable material, a
   mechanism to report offensive content with timely responses, blocking, and
   published contact information. Similar obligations apply to software such as
@@ -396,9 +466,12 @@ Current evidence:
   provides a block action.
 - [`src/features/account/LegalPrivacyScreen.tsx`](../../src/features/account/LegalPrivacyScreen.tsx)
   publishes a general support email.
-- No contextual report-user/report-content action, report persistence model,
-  moderation queue, response service-level policy, or objectionable-content
-  filter was found in app or backend source.
+- The 2026-09-02 baseline found no contextual report-user/report-content action,
+  report persistence model, moderation queue, response service-level policy, or
+  objectionable-content filter. The source implementation recorded below now
+  covers Shared Home, shared Goal check-ins/replies, friendship settings,
+  Household member details, and shared Meal Plan responses; the wider surface
+  inventory and runtime proof remain incomplete.
 
 Required remediation:
 
@@ -422,6 +495,42 @@ Closure criteria:
 - Automated authorization tests prevent report disclosure and moderation abuse.
 
 Closure evidence: _Not yet recorded._
+
+Implementation progress (not closure evidence):
+
+- 2026-09-03: Added the accepted contextual UGC safety brief and design records,
+  a private `kwilt_ugc_reports` moderation queue migration, authenticated
+  `ugc-report` intake, best-effort operator alerts, a moderation runbook,
+  server-enforced shared-text filtering, and an atomic cross-surface block RPC.
+- 2026-09-03: Added contextual report actions to Shared Home, shared Goal
+  check-ins/replies, and friendship settings. Added focused Deno/Jest tests and
+  rollback-only database authorization assertions.
+- 2026-09-03: Refined the universal post-report Block assumption into a
+  role-aware response. Peer reports may offer bilateral social blocking; active
+  same-Household relationships reject social blocking. Managed children receive
+  a private-help receipt without caregiver notification or a false removal claim,
+  while adults retain separate Family authority controls.
+- 2026-09-03: Added contextual help to the existing Household member detail.
+  Intake can preserve a canonical Household person even when that dependent has
+  no separate user account; self and inaccessible member targets remain rejected.
+- 2026-09-03: Added quiet contextual help for another household member's Meal
+  Plan explanation and for guest meal suggestions. Reports capture the
+  server-resolved response, personal hiding removes its text only for the
+  reporting viewer, and guest-link control remains a separate caregiver action.
+- 2026-09-03: Added a fail-closed production gate for anonymous remote Games.
+  Production builds hide remote discovery, joining, hosting, remote-only
+  Slanguage, and direct room routes while development builds retain the proving
+  surface. Exact archive verification remains required before this counts as
+  candidate evidence.
+- This source work does not prove deployment, configured operator email,
+  production intake/response timing, the SQL authorization suite against a
+  migrated database, complete physical-device surface coverage, or two-account
+  blocking behavior. ASR-005 remains unclosed until those gates are recorded.
+- The explicit inventory in
+  [`docs/app-store/ugc-surface-inventory.md`](ugc-surface-inventory.md) records
+  remaining collaboration gaps, including remote Games, plus the exact candidate
+  gating rule. This prevents the implemented slice from being mistaken for
+  complete contextual-report coverage.
 
 ### ASR-006 — Review-only flags and test-profile behavior
 
@@ -691,7 +800,7 @@ Before selecting a build in App Store Connect:
 
 ## Supporting artifacts
 
-- [`docs/app-store/privacy-disclosures-1.0.104.md`](privacy-disclosures-1.0.104.md)
+- [`docs/app-store/privacy-disclosures-current-candidate.md`](privacy-disclosures-current-candidate.md)
   — detailed App Store privacy-label proposal; currently gated on policy
   publication and live verification.
 - [`docs/app-store/app-review-reply-a6ab4d24.md`](app-review-reply-a6ab4d24.md)

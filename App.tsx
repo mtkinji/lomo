@@ -61,7 +61,8 @@ import {
   resolveLaunchScreenDurationForToday,
 } from './src/features/onboarding/launchCadence';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
-import { posthogClient } from './src/services/analytics/posthogClient';
+import { applyPosthogConsent, posthogClient } from './src/services/analytics/posthogClient';
+import { resolveAnalyticsConsent, useAnalyticsConsentStore } from './src/services/analytics/analyticsConsent';
 import {
   identify as identifyPosthog,
   resetAnalyticsIdentity,
@@ -166,6 +167,14 @@ export default function App() {
   const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const didRunAppInitRef = useRef(false);
+  const analyticsConsentStatus = useAnalyticsConsentStore((state) => state.status);
+  const analyticsConsentPolicyVersion = useAnalyticsConsentStore((state) => state.policyVersion);
+  const analyticsConsentHydrated = useAnalyticsConsentStore((state) => state.hydrated);
+  const analyticsConsent = resolveAnalyticsConsent({
+    status: analyticsConsentStatus,
+    policyVersion: analyticsConsentPolicyVersion,
+  });
+  const [analyticsRuntimeReady, setAnalyticsRuntimeReady] = useState(false);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
@@ -183,6 +192,18 @@ export default function App() {
   const returningUserProbeRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!analyticsConsentHydrated) return;
+    let active = true;
+    setAnalyticsRuntimeReady(false);
+    void applyPosthogConsent(analyticsConsent.enabled).then(() => {
+      if (!active) return;
+      setAnalyticsRuntimeReady(analyticsConsent.enabled && Boolean(posthogClient));
+    });
+    return () => { active = false; };
+  }, [analyticsConsent.enabled, analyticsConsentHydrated]);
+
+  useEffect(() => {
+    if (!analyticsRuntimeReady || !posthogClient) return;
     let previousState = AppState.currentState;
     trackApplicationOpened(posthogClient);
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -190,7 +211,17 @@ export default function App() {
       previousState = nextState;
     });
     return () => subscription.remove();
-  }, []);
+  }, [analyticsRuntimeReady]);
+
+  useEffect(() => {
+    if (!analyticsRuntimeReady || !posthogClient) return;
+    if (authIdentity?.userId) identifyPosthog(posthogClient, authIdentity.userId);
+    try {
+      posthogClient.reloadFeatureFlags?.();
+    } catch (error) {
+      if (__DEV__) console.warn('[posthog] reloadFeatureFlags failed', error);
+    }
+  }, [analyticsRuntimeReady, authIdentity?.userId]);
 
   useEffect(() => {
     resolveLaunchScreenDurationForToday()
@@ -712,7 +743,7 @@ export default function App() {
       visible={showReturningUserFlow}
       onComplete={handleReturningUserFlowComplete}
     />
-  ) : isPosthogEnabled && posthogClient ? (
+  ) : analyticsConsent.enabled && analyticsRuntimeReady && isPosthogEnabled && posthogClient ? (
     <PostHogProvider
       client={posthogClient}
       autocapture={{

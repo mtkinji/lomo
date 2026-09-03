@@ -36,6 +36,7 @@ import { permanentUserId } from '@/src/capabilities/games/platform/auth';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
 import { bankMusicForState } from '@/src/capabilities/games/gameMusicState';
+import { REMOTE_GAMES_RELEASE_ENABLED } from '@/src/capabilities/games/remote/remoteGamesReleasePolicy';
 
 const initialNames = ['Player 1', 'Player 2'];
 const initialSeats: SetupSeat[] = [
@@ -343,7 +344,7 @@ export function TumbleScreen() {
             createSeat={createSeat}
             bankingRule={bankingRule}
             onBankingRuleChange={setBankingRule}
-            onUseMorePhones={mode === 'bank' ? () => void startRemoteBank() : undefined}
+            onUseMorePhones={mode === 'bank' && REMOTE_GAMES_RELEASE_ENABLED ? () => void startRemoteBank() : undefined}
             remoteStarting={remoteStarting}
             remoteError={remoteError}
             selfProfile={playerProfile.profile}

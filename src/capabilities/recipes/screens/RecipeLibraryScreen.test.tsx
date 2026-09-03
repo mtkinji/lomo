@@ -118,6 +118,7 @@ import {
   resolveRecipeBrowseMode,
   shouldShowPickMealGuide,
 } from './RecipeLibraryScreen';
+import { buildMealReactionReportTarget } from './MealPlanDrawer';
 import { RecipeCaptureDrawer, RecipeFilterDrawer } from './RecipeLibraryDrawers';
 
 const editorialPlacements = getMealEditorialEdition(new Date('2026-08-06T12:00:00.000Z')).placements;
@@ -892,6 +893,7 @@ describe('Recipe library', () => {
         canManage
         onClose={jest.fn()}
         onRemove={jest.fn()}
+        currentPersonId="person-1"
         guestSuggestions={[{
           id: 'response-1',
           displayName: 'Blaire',
@@ -902,6 +904,47 @@ describe('Recipe library', () => {
 
     expect(drawer.getByText('Guest suggestions')).toBeTruthy();
     expect(drawer.getByText('Blaire · “Breakfast for dinner”')).toBeTruthy();
+    expect(drawer.getByRole('button', { name: 'Get help with Blaire’s suggestion' })).toBeTruthy();
+  });
+
+  it('builds contextual help for another household member hard-pass explanation', () => {
+    expect(buildMealReactionReportTarget({
+      reactionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      personId: 'person-2', displayName: 'Sam', avatarUrl: null,
+      reaction: 'hard_pass', reason: 'Nobody wants you at dinner anyway.',
+    })).toEqual({
+      kind: 'meal_reaction', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      reportedUserId: null, displayName: 'Sam', contextLabel: 'Meal Plan response', canHide: true,
+    });
+  });
+
+  it('keeps the hard-pass help entry inside the existing reaction popover', () => {
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+          voteCount: 0, missingItemCount: null, canRemove: true,
+          reactionCounts: {
+            thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0,
+            downvote: 0, uneasy: 0, gross: 0, nope: 0, dislike: 0, hard_pass: 1,
+          },
+          supporters: [{
+            reactionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            personId: 'person-2', displayName: 'Sam', avatarUrl: null,
+            reaction: 'hard_pass', reason: 'Nobody wants you at dinner anyway.',
+          }],
+        }]}
+        currentPersonId="person-1"
+        canManage={false}
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(drawer.getByLabelText('Hard pass Tacos, 1'));
+    expect(drawer.getByLabelText('Hard pass Tacos, 1').props.accessibilityState).toMatchObject({ expanded: true });
   });
 
   it('bounds long Plan titles beside a top-aligned thumbnail and anchored actions', () => {

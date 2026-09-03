@@ -437,19 +437,16 @@ export async function blockUser(userIdToBlock: string): Promise<boolean> {
   });
   if (!confirmed) return false;
 
-  // Create a block row (idempotent)
-  const { error: blockErr } = await supabase
-    .from('kwilt_blocks')
-    .upsert({ blocker_id: user.id, blocked_id: target }, { onConflict: 'blocker_id,blocked_id' });
+  // Establish the cross-surface safety boundary atomically.
+  const { error: blockErr } = await supabase.rpc('block_kwilt_user', {
+    p_blocked_user_id: target,
+  });
 
   if (blockErr) {
     console.warn('[follows] Failed to block user:', blockErr.message);
     return false;
   }
 
-  // Best-effort: also unfollow them so your lists are clean.
-  await supabase.from('kwilt_follows').delete().eq('follower_id', user.id).eq('followed_id', target);
   return true;
 }
-
 

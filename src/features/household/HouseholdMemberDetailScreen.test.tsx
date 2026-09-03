@@ -135,6 +135,22 @@ describe('HouseholdMemberDetailScreen', () => {
     });
   });
 
+  it('gives a managed child a private help action for another Household member', async () => {
+    mockSnapshot.mockResolvedValue({
+      ...baseSnapshot,
+      currentMembershipId: 'child-1',
+    });
+    const ownerProps = {
+      ...props,
+      route: { ...props.route, params: { membershipId: 'owner-1' } },
+    };
+
+    const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...ownerProps} />);
+
+    await waitFor(() => expect(getByText('Get help with this person')).toBeTruthy());
+    expect(getByText('Your report stays private from Household members.')).toBeTruthy();
+  });
+
   it('keeps named-child Household device connection in Pro', async () => {
     useEntitlementsStore.setState({ isPro: false });
     const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);

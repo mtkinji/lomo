@@ -15,6 +15,7 @@ export type GoalCheckinPublisherRepository = {
   getCheckin: (checkinId: string) => Promise<GoalCheckinSource | null>;
   isActiveGoalMember: (goalId: string, userId: string) => Promise<boolean>;
   listActiveGoalMemberIds: (goalId: string) => Promise<string[]>;
+  isBlockedRelationship: (actorUserId: string, recipientUserId: string) => Promise<boolean>;
   getActorDisplayName: (userId: string) => Promise<string | null>;
   getGoalTitle: (goalId: string) => Promise<string | null>;
   insert: (row: SharedDeliveryInsert) => Promise<{ id: string; created: boolean }>;
@@ -46,7 +47,14 @@ export async function publishGoalCheckin(
   const eligibleRecipients = Array.from(new Set(
     memberIds.map((value) => value.trim()).filter((value) => value && value !== input.callerUserId),
   ));
-  const enabledRecipients = eligibleRecipients.filter(recipientEnabled);
+  const allowlistedRecipients = eligibleRecipients.filter(recipientEnabled);
+  const blockedChecks = await Promise.all(
+    allowlistedRecipients.map(async (recipientUserId) => ({
+      recipientUserId,
+      blocked: await repository.isBlockedRelationship(input.callerUserId, recipientUserId),
+    })),
+  );
+  const enabledRecipients = blockedChecks.filter((value) => !value.blocked).map((value) => value.recipientUserId);
   const [actorDisplayName, goalTitle] = await Promise.all([
     repository.getActorDisplayName(input.callerUserId),
     repository.getGoalTitle(checkin.goalId),

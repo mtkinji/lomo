@@ -52,6 +52,8 @@ import {
 import { getPlanLifecycleSignature, getPlanOrderSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { styles } from "./RecipeLibraryScreen.styles";
+import { UgcReportDrawer } from "../../../features/safety/UgcReportDrawer";
+import type { UgcReportTarget } from "../../../services/ugcSafety";
 
 const HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION = require("../../../../assets/illustrations/groceries-empty.png");
 const REACTION_SELECTION_HOLD_MS = 180;
@@ -66,7 +68,19 @@ const HARD_PASS_REASON_OPTIONS = [
 ] as const;
 type HardPassReasonOption = typeof HARD_PASS_REASON_OPTIONS[number] | "Other";
 type PlanPerson = { personId: string; displayName: string; avatarUrl: string | null };
-type PlanSupporter = PlanPerson & { reaction: PlanReaction; reason?: string | null };
+type PlanSupporter = PlanPerson & { reactionId?: string; reaction: PlanReaction; reason?: string | null };
+
+export function buildMealReactionReportTarget(person: PlanSupporter): UgcReportTarget | null {
+  if (!person.reason || !person.reactionId) return null;
+  return {
+    kind: 'meal_reaction',
+    id: person.reactionId,
+    reportedUserId: null,
+    displayName: person.displayName,
+    contextLabel: 'Meal Plan response',
+    canHide: true,
+  };
+}
 
 export type MealPlanTrayItem = {
   id: string;
@@ -96,11 +110,15 @@ function PlanReactionPill({
   reaction,
   onReact,
   reacting,
+  currentPersonId,
+  onReport,
 }: {
   item: MealPlanTrayItem;
   reaction: typeof PLAN_REACTION_OPTIONS[number];
   onReact?(candidateId: string, reaction: PlanReaction | null, reason?: string | null): void;
   reacting: boolean;
+  currentPersonId?: string | null;
+  onReport?(target: UgcReportTarget): void;
 }) {
   const count = item.reactionCounts?.[reaction.id] ?? 0;
   if (count === 0) return null;
@@ -137,9 +155,18 @@ function PlanReactionPill({
       <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
         <Text variant="label">{reaction.emoji} {reaction.label}</Text>
         {people.map((person) => (
-          <Text key={person.personId} tone="secondary">
-            {person.reason ? `${person.displayName}: “${person.reason}”` : person.displayName}
-          </Text>
+          <View key={person.personId}>
+            <Text tone="secondary">
+              {person.reason ? `${person.displayName}: “${person.reason}”` : person.displayName}
+            </Text>
+            {person.personId !== currentPersonId && onReport && buildMealReactionReportTarget(person) ? (
+              <DropdownMenuItem
+                label={`Get help with ${person.displayName}’s response`}
+                icon="shield"
+                onPress={() => onReport(buildMealReactionReportTarget(person)!)}
+              />
+            ) : null}
+          </View>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -151,16 +178,20 @@ function PlanReactionBar({
   onReact,
   onAdd,
   reacting,
+  currentPersonId,
+  onReport,
 }: {
   item: MealPlanTrayItem;
   onReact?(candidateId: string, reaction: PlanReaction | null, reason?: string | null): void;
   onAdd(item: MealPlanTrayItem): void;
   reacting: boolean;
+  currentPersonId?: string | null;
+  onReport?(target: UgcReportTarget): void;
 }) {
   return (
     <View style={styles.planReactionBar}>
       {PLAN_REACTION_OPTIONS.map((reaction) => (
-        <PlanReactionPill key={reaction.id} item={item} reaction={reaction} onReact={onReact} reacting={reacting} />
+        <PlanReactionPill key={reaction.id} item={item} reaction={reaction} onReact={onReact} reacting={reacting} currentPersonId={currentPersonId} onReport={onReport} />
       ))}
       {item.canReact && onReact && !item.viewerReaction ? (
         <Pressable
@@ -280,6 +311,7 @@ export function MealPlanDrawer({
   canManage,
   onClose,
   onRemove,
+  currentPersonId,
   onReact,
   onSharePlan,
   guestSuggestions,
@@ -287,6 +319,7 @@ export function MealPlanDrawer({
   shareSheetVisible,
   hasActiveGuestLink,
   onTurnOffGuestLink,
+  onSafetyHidden,
   onSendToGroceries,
   onReturnToPlan,
   onMarkMade,
@@ -303,6 +336,7 @@ export function MealPlanDrawer({
   canManage: boolean;
   onClose(): void;
   onRemove(item: MealPlanTrayItem): void;
+  currentPersonId?: string | null;
   onReact?(candidateId: string, reaction: PlanReaction | null, reason?: string | null): void;
   onSharePlan?(): void;
   guestSuggestions?: Array<{ id: string; displayName: string | null; suggestion: string }>;
@@ -310,6 +344,7 @@ export function MealPlanDrawer({
   shareSheetVisible?: boolean;
   hasActiveGuestLink?: boolean;
   onTurnOffGuestLink?(): void;
+  onSafetyHidden?(): void;
   onSendToGroceries?(candidateIds: string[], options?: { acknowledgeHardPasses?: boolean }): unknown;
   onReturnToPlan?(candidateId: string): unknown;
   onMarkMade?(candidateId: string): void;
@@ -333,6 +368,7 @@ export function MealPlanDrawer({
   const [optimisticLifecycle, setOptimisticLifecycle] = useState<Record<string, PlanLifecycle>>({});
   const [dragListRevision, setDragListRevision] = useState(0);
   const [hasRequestedKwiltIdeas, setHasRequestedKwiltIdeas] = useState(false);
+  const [reportTarget, setReportTarget] = useState<UgcReportTarget | null>(null);
   const { reduceMotionEnabled } = useAccessibilityPreferences();
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
@@ -731,9 +767,25 @@ export function MealPlanDrawer({
             <View style={styles.planGuestSuggestions}>
               <Text variant="label" tone="secondary">Guest suggestions</Text>
               {guestSuggestions.map((response) => (
-                <Text key={response.id} tone="secondary">
-                  {response.displayName || "Guest"} · “{response.suggestion}”
-                </Text>
+                <View key={response.id} style={styles.planGuestSuggestionRow}>
+                  <Text tone="secondary" style={styles.planGuestSuggestionText}>
+                    {response.displayName || "Guest"} · “{response.suggestion}”
+                  </Text>
+                  <IconButton
+                    accessibilityLabel={`Get help with ${response.displayName || 'Guest'}’s suggestion`}
+                    variant="ghost"
+                    onPress={() => setReportTarget({
+                      kind: 'guest_meal_feedback',
+                      id: response.id,
+                      reportedUserId: null,
+                      displayName: response.displayName || 'Guest',
+                      contextLabel: 'Guest meal suggestion',
+                      canHide: true,
+                    })}
+                  >
+                    <Icon name="shield" size={16} color={colors.textSecondary} />
+                  </IconButton>
+                </View>
               ))}
             </View>
           ) : null}
@@ -816,6 +868,8 @@ export function MealPlanDrawer({
                         onReact={onReact}
                         onAdd={openReactionPicker}
                         reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
+                        currentPersonId={currentPersonId}
+                        onReport={setReportTarget}
                       />
                     </View>
                   </View>
@@ -849,6 +903,11 @@ export function MealPlanDrawer({
         />
       </View>
       </BottomDrawer>
+      <UgcReportDrawer
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onHidden={onSafetyHidden}
+      />
       {guideStep === 'share-plan' ? <Coachmark
         visible={visible && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}
         targetRef={shareTargetRef}

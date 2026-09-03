@@ -127,6 +127,7 @@ export function parseSharedHomeRow(
     sourceCapability: sourceCapability as SharedHomeDelivery['sourceCapability'],
     sourceEntityType: sourceEntityType as SharedHomeDelivery['sourceEntityType'],
     sourceEntityId,
+    actorUserId: nullableString(row.actor_user_id),
     actorDisplayName: nullableString(row.actor_display_name),
     title,
     body,
@@ -144,6 +145,7 @@ export function parseSharedHomeRow(
   if (effectiveState === 'unavailable') {
     return {
       ...delivery,
+      actorUserId: null,
       actorDisplayName: null,
       title: 'No longer available',
       body: 'This shared item is no longer available.',

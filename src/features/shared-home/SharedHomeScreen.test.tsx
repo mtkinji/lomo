@@ -8,6 +8,7 @@ import { SharedHomeContent } from './SharedHomeScreen';
 const pending: SharedHomeDelivery = {
   id: 'delivery-1', eventKind: 'game_turn', sourceCapability: 'games',
   sourceEntityType: 'game_session', sourceEntityId: 'room-1', actorDisplayName: 'Mina',
+  actorUserId: '10000000-0000-0000-0000-000000000002',
   title: 'Your turn', body: 'Mina passed the pattern to you.',
   destination: { kind: 'game_room', sessionId: 'room-1' }, state: 'pending',
   settledReason: null, createdAt: '2026-08-05T10:00:00.000Z',
@@ -18,6 +19,7 @@ const pending: SharedHomeDelivery = {
 const checkin: SharedHomeDelivery = {
   id: 'delivery-2', eventKind: 'goal_checkin', sourceCapability: 'goals',
   sourceEntityType: 'goal_checkin', sourceEntityId: 'checkin-1', actorDisplayName: 'David',
+  actorUserId: '10000000-0000-0000-0000-000000000003',
   title: 'Plan our family camping trip', body: 'Made progress on the campground shortlist.',
   destination: { kind: 'goal', goalId: 'goal-1' }, state: 'available',
   settledReason: null, createdAt: '2026-08-05T11:00:00.000Z',
@@ -99,6 +101,25 @@ describe('SharedHomeContent', () => {
     expect(view.getByText('Plan our family camping trip')).toBeTruthy();
     fireEvent.press(view.getByText('Open Goal'));
     expect(onOpen).toHaveBeenCalledWith(checkin);
+  });
+
+  it('offers a contextual report action for remotely authored content', () => {
+    const onReport = jest.fn();
+    const view = renderContent(
+      <SharedHomeContent
+        items={[checkin]}
+        loading={false}
+        refreshing={false}
+        stale={false}
+        error={null}
+        signedIn
+        onOpen={jest.fn()}
+        onReport={onReport}
+        onRefresh={jest.fn()}
+      />,
+    );
+    fireEvent.press(view.getByLabelText('Report content from David'));
+    expect(onReport).toHaveBeenCalledWith(checkin);
   });
 
   it('centers the empty state in the available page', () => {

@@ -9,7 +9,8 @@ import { colors, spacing, typography } from '../../theme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { openManageSubscription } from '../../services/entitlements';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
-import { SettingsDivider, SettingsGroup, SettingsPage } from '../../ui/SettingsSurface';
+import { SettingsDivider, SettingsGroup, SettingsPage, SettingsToggleRow } from '../../ui/SettingsSurface';
+import { resolveAnalyticsConsent, useAnalyticsConsentStore } from '../../services/analytics/analyticsConsent';
 
 const SUPPORT_EMAIL = 'support@kwilt.app';
 
@@ -54,6 +55,13 @@ function LegalPrivacyRow({ row }: { row: LegalRow }) {
 
 export function LegalPrivacyScreen() {
   const navigation = useNavigation<LegalPrivacyNavigationProp>();
+  const consentStatus = useAnalyticsConsentStore((state) => state.status);
+  const consentPolicyVersion = useAnalyticsConsentStore((state) => state.policyVersion);
+  const setAnalyticsEnabled = useAnalyticsConsentStore((state) => state.setEnabled);
+  const analyticsConsent = resolveAnalyticsConsent({
+    status: consentStatus,
+    policyVersion: consentPolicyVersion,
+  });
 
   const rows = React.useMemo<LegalRow[]>(
     () => [
@@ -105,6 +113,19 @@ export function LegalPrivacyScreen() {
 
   return (
     <SettingsPage title="Legal & privacy" onBack={() => navigation.goBack()}>
+      <SettingsGroup
+        title="Optional analytics"
+        footer="This choice does not change any Kwilt feature. Essential account security, service delivery, and crash diagnostics are handled separately under the Privacy Policy."
+      >
+        <SettingsToggleRow
+          title="Share product analytics"
+          description="Help improve Kwilt by sharing bounded app-usage events. Kwilt does not include your writing, financial details, precise location, messages, recipes, or household content."
+          enabled={analyticsConsent.enabled}
+          value={analyticsConsent.enabled ? 'On' : 'Off'}
+          onPress={() => setAnalyticsEnabled(!analyticsConsent.enabled)}
+        />
+      </SettingsGroup>
+
       <SettingsGroup
         footer="Covers AI and voice, calendar, Health, family sharing, and subscriptions. Kwilt is local-first, not device-only."
       >

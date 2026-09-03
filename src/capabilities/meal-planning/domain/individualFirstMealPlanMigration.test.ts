@@ -5,6 +5,10 @@ const sql = readFileSync(
   resolve(process.cwd(), 'supabase/pending-migrations/20260819181607_individual_first_meal_plans.sql'),
   'utf8',
 ).toLowerCase();
+const activePersonalGroceryAuthoritySql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260903142313_restore_personal_meal_plan_grocery_authority.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('individual-first Meal Plan migration', () => {
   it('keeps personal ownership authoritative without inventing a Household', () => {
@@ -39,5 +43,12 @@ describe('individual-first Meal Plan migration', () => {
     expect(sql).toContain("p_actor_person_id,'meal_plan',null,p_plan_id");
     expect(sql).toContain('grant execute on function public.sync_kwilt_personal_plan_groceries');
     expect(sql).toContain('to service_role');
+  });
+
+  it('keeps the personal Grocery authority in active migration history', () => {
+    expect(activePersonalGroceryAuthoritySql).toContain('function public.sync_kwilt_personal_plan_groceries');
+    expect(activePersonalGroceryAuthoritySql).toContain('v_plan.organizer_person_id<>p_actor_person_id');
+    expect(activePersonalGroceryAuthoritySql).toContain('revoke execute on function public.sync_kwilt_personal_plan_groceries');
+    expect(activePersonalGroceryAuthoritySql).toContain('grant execute on function public.sync_kwilt_personal_plan_groceries');
   });
 });

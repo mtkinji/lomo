@@ -19,7 +19,7 @@ describe('canonical legal URLs', () => {
   });
 
   it('keeps store disclosure terminology platform-correct', () => {
-    const apple = readFileSync(resolve(process.cwd(), 'docs/app-store/privacy-disclosures-1.0.104.md'), 'utf8');
+    const apple = readFileSync(resolve(process.cwd(), 'docs/app-store/privacy-disclosures-current-candidate.md'), 'utf8');
     const google = readFileSync(resolve(process.cwd(), 'docs/google-play/data-safety-1.0.104.md'), 'utf8');
 
     expect(apple).not.toMatch(/Developer Communications|Account Management|Fraud Prevention\/Security/);

@@ -10,6 +10,44 @@ const screenTimeEnabled = (process.env.KWILT_ENABLE_SCREEN_TIME ?? '').trim() ==
 const appGroupId = 'group.com.andrewwatanabe.kwilt';
 const microphoneUsageDescription =
   'Kwilt uses the microphone when you choose voice input or conversation mode in Chat, and for audio notes you choose to record.';
+const appFunctionality = 'NSPrivacyCollectedDataTypePurposeAppFunctionality';
+const analytics = 'NSPrivacyCollectedDataTypePurposeAnalytics';
+const personalization = 'NSPrivacyCollectedDataTypePurposeProductPersonalization';
+const developerMarketing = 'NSPrivacyCollectedDataTypePurposeDeveloperAdvertising';
+const privacyDataType = (type, purposes) => ({
+  NSPrivacyCollectedDataType: `NSPrivacyCollectedDataType${type}`,
+  NSPrivacyCollectedDataTypeLinked: true,
+  NSPrivacyCollectedDataTypeTracking: false,
+  NSPrivacyCollectedDataTypePurposes: purposes,
+});
+const privacyManifests = {
+  NSPrivacyTracking: false,
+  NSPrivacyTrackingDomains: [],
+  NSPrivacyCollectedDataTypes: [
+    privacyDataType('Name', [appFunctionality, personalization]),
+    privacyDataType('EmailAddress', [appFunctionality, developerMarketing]),
+    privacyDataType('PhoneNumber', [appFunctionality]),
+    privacyDataType('Health', [appFunctionality, personalization]),
+    privacyDataType('Fitness', [appFunctionality, personalization]),
+    privacyDataType('OtherFinancialInfo', [appFunctionality, personalization]),
+    privacyDataType('PreciseLocation', [appFunctionality, personalization]),
+    privacyDataType('CoarseLocation', [appFunctionality, personalization]),
+    privacyDataType('EmailsOrTextMessages', [appFunctionality]),
+    privacyDataType('PhotosorVideos', [appFunctionality, personalization]),
+    privacyDataType('AudioData', [appFunctionality, personalization]),
+    privacyDataType('GameplayContent', [appFunctionality]),
+    privacyDataType('CustomerSupport', [appFunctionality]),
+    privacyDataType('OtherUserContent', [appFunctionality, personalization]),
+    privacyDataType('SearchHistory', [appFunctionality, personalization]),
+    privacyDataType('UserID', [appFunctionality, analytics, personalization]),
+    privacyDataType('DeviceID', [appFunctionality, analytics]),
+    privacyDataType('PurchaseHistory', [appFunctionality, analytics]),
+    privacyDataType('ProductInteraction', [appFunctionality, analytics, personalization]),
+    privacyDataType('OtherUsageData', [appFunctionality, analytics]),
+    privacyDataType('PerformanceData', [appFunctionality, analytics]),
+    privacyDataType('OtherDiagnosticData', [appFunctionality, analytics]),
+  ],
+};
 const screenTimeEntitlements = {
   'com.apple.developer.family-controls': true,
   'com.apple.security.application-groups': [appGroupId],
@@ -168,6 +206,9 @@ const config = {
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
       buildNumber: '119',
+    // App-owned disclosures are source-controlled here because ios/ is generated.
+    // Third-party SDK manifests are merged by Xcode into the archive privacy report.
+    privacyManifests,
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.

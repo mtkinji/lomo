@@ -10,6 +10,7 @@ import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { basicDiceUtility, catalogForRelease, type GameDefinition } from '@/src/capabilities/games/domain/catalog';
 import { useCapabilityShellOptional } from '@/src/navigation/CapabilityShellContext';
 import { PageHeader } from '@/src/ui/layout/PageHeader';
+import { REMOTE_GAMES_RELEASE_ENABLED } from '@/src/capabilities/games/remote/remoteGamesReleasePolicy';
 
 function openGame(game: GameDefinition) {
   if (game.route.kind === 'tumble') router.push({ pathname: '/tumble', params: { mode: game.route.mode } });
@@ -26,7 +27,7 @@ type GameShelfScreenProps = {
 export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, onJoinDrawerClose }: GameShelfScreenProps = {}) {
   const capabilityShell = useCapabilityShellOptional();
   const [joinOpen, setJoinOpen] = useState(joinInitiallyOpen);
-  const releaseGames = catalogForRelease(false);
+  const releaseGames = catalogForRelease(false).filter((game) => REMOTE_GAMES_RELEASE_ENABLED || game.id !== 'slanguage');
   const includeWorkshop = __DEV__ || process.env.EXPO_PUBLIC_GAMES_WORKSHOP === '1';
   const workshopGames = includeWorkshop
     ? catalogForRelease(true).filter((game) => game.releaseStatus !== 'ready')
@@ -40,7 +41,7 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
       <PageHeader
         title="Games"
         onPressMenu={() => capabilityShell?.openMenu()}
-        rightElement={(
+        rightElement={REMOTE_GAMES_RELEASE_ENABLED ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Find or join a nearby game"
@@ -50,7 +51,7 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
             <Radio size={16} color={gamesTheme.colors.ink} />
             <Text style={styles.joinGameText}>Join</Text>
           </Pressable>
-        )}
+        ) : undefined}
         containerStyle={styles.header}
       />
       <View style={styles.intro}><Text style={styles.title}>Play together.</Text><Text style={styles.subtitle}>Pick the energy. Start in seconds.</Text></View>
@@ -82,7 +83,7 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
         </View>
       </ScrollView>
     </SafeAreaView>
-    <JoinTableDrawer visible={joinOpen} token={initialJoinToken} onClose={closeJoinDrawer} />
+    {REMOTE_GAMES_RELEASE_ENABLED ? <JoinTableDrawer visible={joinOpen} token={initialJoinToken} onClose={closeJoinDrawer} /> : null}
   </GameBackdrop>;
 }
 

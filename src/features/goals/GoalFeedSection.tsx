@@ -31,6 +31,9 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { Icon } from '../../ui/Icon';
 import { KwiltLoader } from '../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
+import { UgcReportDrawer } from '../safety/UgcReportDrawer';
+import type { UgcReportTarget } from '../../services/ugcSafety';
+import { useAppStore } from '../../store/useAppStore';
 // ─────────────────────────────────────────────────────────────────────────────
 // Simple relative time helper (avoids date-fns dependency)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,6 +93,8 @@ export function GoalFeedSection({
   const [feedResult, setFeedResult] = useState<GoalFeedResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentUserId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const [reportTarget, setReportTarget] = useState<UgcReportTarget | null>(null);
 
   const loadFeed = useCallback(async (isRefresh = false) => {
     if (!isRefresh) {
@@ -212,11 +217,23 @@ export function GoalFeedSection({
                 item={item}
                 onReaction={handleReaction}
                 onReplySubmitted={() => loadFeed(true)}
+                onReport={item.actorId && item.actorId !== currentUserId ? () => setReportTarget({
+                  kind: 'goal_feed_event',
+                  id: item.id,
+                  reportedUserId: item.actorId!,
+                  displayName: item.actorName?.trim() || 'this person',
+                  contextLabel: item.type === 'checkin_reply' ? 'Reply' : 'Goal check-in',
+                }) : undefined}
               />
             ))}
           </ScrollView>
         </KwiltRefreshFrame>
       )}
+      <UgcReportDrawer
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => { void loadFeed(true); }}
+      />
     </View>
   );
 }
@@ -230,9 +247,10 @@ type FeedItemCardProps = {
   item: FeedItem;
   onReaction: (feedEventId: string, reaction: ReactionType, currentReaction: ReactionType | null) => void;
   onReplySubmitted: () => void;
+  onReport?: () => void;
 };
 
-function FeedItemCard({ goalId, item, onReaction, onReplySubmitted }: FeedItemCardProps) {
+function FeedItemCard({ goalId, item, onReaction, onReplySubmitted, onReport }: FeedItemCardProps) {
   const timeAgo = formatTimeAgo(new Date(item.createdAt));
 
   // Render based on event type
@@ -246,6 +264,7 @@ function FeedItemCard({ goalId, item, onReaction, onReplySubmitted }: FeedItemCa
           onReaction(item.id, reaction, item.reactions?.myReaction ?? null)
         }
         onReplySubmitted={onReplySubmitted}
+        onReport={onReport}
       />
     );
   }
@@ -292,7 +311,7 @@ function FeedItemCard({ goalId, item, onReaction, onReplySubmitted }: FeedItemCa
   }
 
   if (item.type === 'checkin_reply') {
-    return <ReplyCard item={item} timeAgo={timeAgo} />;
+    return <ReplyCard item={item} timeAgo={timeAgo} onReport={onReport} />;
   }
 
   // Fallback for unknown types
@@ -309,9 +328,10 @@ type CheckinCardProps = {
   timeAgo: string;
   onReaction: (reaction: ReactionType) => void;
   onReplySubmitted: () => void;
+  onReport?: () => void;
 };
 
-function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: CheckinCardProps) {
+function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted, onReport }: CheckinCardProps) {
   const { capture } = useAnalytics();
   const [replyVisible, setReplyVisible] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -338,6 +358,17 @@ function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: Ch
               {item.actorName ?? 'Someone'}
             </Text>
             <Text style={styles.checkinTime}>{timeAgo}</Text>
+            {onReport ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report check-in from ${item.actorName ?? 'this person'}`}
+                onPress={onReport}
+                hitSlop={8}
+                style={styles.reportAction}
+              >
+                <Icon name="more" size={17} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
           </HStack>
 
           {payload.text?.trim() ? (
@@ -414,7 +445,7 @@ function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: Ch
   );
 }
 
-function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
+function ReplyCard({ item, timeAgo, onReport }: { item: FeedItem; timeAgo: string; onReport?: () => void }) {
   const payload = item.payload as {
     text?: string | null;
     webReply?: boolean;
@@ -444,6 +475,17 @@ function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
               </Text>
             </View>
             <Text style={styles.checkinTime}>{timeAgo}</Text>
+            {onReport ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report reply from ${displayName}`}
+                onPress={onReport}
+                hitSlop={8}
+                style={styles.reportAction}
+              >
+                <Icon name="more" size={16} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
           </HStack>
           <Text style={styles.checkinText}>{payload.text ?? 'Replied'}</Text>
         </VStack>
@@ -664,6 +706,13 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     fontSize: 12,
+  },
+  reportAction: {
+    marginLeft: 'auto',
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkinPreset: {
     ...typography.bodySm,

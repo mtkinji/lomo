@@ -166,6 +166,7 @@ export function createChoreRepository(
         p_install_id: actor?.installId ?? null,
       }) as RpcResult;
       if (error) throw new Error(error.message || 'chore_read_failed');
+      if (data === null) throw new Error('household_membership_required');
       const snapshot = parseSnapshot(data);
       const fullClient = rpcClient() as SupabaseClient;
       if (!fullClient.storage) return snapshot;

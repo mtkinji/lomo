@@ -12,6 +12,7 @@ export type SharedHomeDelivery = {
   sourceCapability: 'goals' | 'games' | 'meal-planning';
   sourceEntityType: 'goal_invite' | 'game_session' | 'goal_checkin' | 'meal_choice_round';
   sourceEntityId: string;
+  actorUserId?: string | null;
   actorDisplayName: string | null;
   title: string;
   body: string;

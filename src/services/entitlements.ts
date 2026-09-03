@@ -276,6 +276,15 @@ export function __resetRevenueCatEntitlementsForTests(): void {
   developmentProStoreOfferState = 'eligible';
 }
 
+/** Detach the deleted Kwilt identity from the on-device RevenueCat SDK. */
+export async function clearRevenueCatIdentity(): Promise<void> {
+  const purchases = getPurchasesModule();
+  if (purchases && typeof purchases.logOut === 'function' && configuredRevenueCatAppUserID) {
+    await purchases.logOut();
+  }
+  configuredRevenueCatAppUserID = null;
+}
+
 function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
   return Boolean((active as any).pro);

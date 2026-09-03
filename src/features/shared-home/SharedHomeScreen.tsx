@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -23,6 +23,10 @@ import type { SharedHomeDelivery } from './sharedHomeTypes';
 import { useSharedHomeFeed, type SharedHomeFeedState } from './useSharedHomeFeed';
 import { KwiltLoader } from '../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
+import { Icon } from '../../ui/Icon';
+import { Pressable } from '../../ui/HapticPressable';
+import { UgcReportDrawer } from '../safety/UgcReportDrawer';
+import type { UgcReportTarget } from '../../services/ugcSafety';
 type SharedHomeContentProps = Pick<
   SharedHomeFeedState,
   'items' | 'loading' | 'refreshing' | 'stale' | 'error'
@@ -30,6 +34,7 @@ type SharedHomeContentProps = Pick<
   signedIn: boolean;
   now?: Date;
   onOpen: (delivery: SharedHomeDelivery) => void;
+  onReport?: (delivery: SharedHomeDelivery) => void;
   onRefresh: () => void;
   highlightedDeliveryId?: string;
 };
@@ -64,11 +69,13 @@ function DeliveryCard({
   delivery,
   now,
   onOpen,
+  onReport,
   highlighted = false,
 }: {
   delivery: SharedHomeDelivery;
   now: Date;
   onOpen: () => void;
+  onReport?: () => void;
   highlighted?: boolean;
 }) {
   const actionable = delivery.state === 'pending' || delivery.state === 'available';
@@ -88,6 +95,17 @@ function DeliveryCard({
                 </Text>
               </VStack>
             </HStack>
+            {onReport ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report content from ${delivery.actorDisplayName ?? 'this person'}`}
+                onPress={onReport}
+                hitSlop={8}
+                style={styles.reportAction}
+              >
+                <Icon name="more" size={18} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
           </HStack>
           <VStack space="xs">
             <Text style={styles.cardTitle}>{delivery.title}</Text>
@@ -126,6 +144,7 @@ export function SharedHomeContent({
   signedIn,
   now = new Date(),
   onOpen,
+  onReport,
   onRefresh,
   highlightedDeliveryId,
 }: SharedHomeContentProps) {
@@ -196,6 +215,7 @@ export function SharedHomeContent({
                   delivery={delivery}
                   now={now}
                   onOpen={() => onOpen(delivery)}
+                  onReport={delivery.actorUserId ? () => onReport?.(delivery) : undefined}
                   highlighted={delivery.id === highlightedDeliveryId}
                 />
               ))}
@@ -210,6 +230,7 @@ export function SharedHomeContent({
                   delivery={delivery}
                   now={now}
                   onOpen={() => onOpen(delivery)}
+                  onReport={delivery.actorUserId ? () => onReport?.(delivery) : undefined}
                   highlighted={delivery.id === highlightedDeliveryId}
                 />
               ))}
@@ -229,6 +250,7 @@ export function SharedHomeScreen() {
   const { capture } = useAnalytics();
   const route = useRoute<RouteProp<RootDrawerParamList, 'SharedHome'>>();
   const hasFocusedRef = useRef(false);
+  const [reportTarget, setReportTarget] = useState<UgcReportTarget | null>(null);
 
   useFocusEffect(useCallback(() => {
     if (hasFocusedRef.current) void feed.refresh();
@@ -257,8 +279,23 @@ export function SharedHomeScreen() {
         {...feed}
         signedIn={Boolean(userId)}
         onOpen={openDelivery}
+        onReport={(delivery) => {
+          if (!delivery.actorUserId) return;
+          setReportTarget({
+            kind: 'shared_delivery',
+            id: delivery.id,
+            reportedUserId: delivery.actorUserId,
+            displayName: delivery.actorDisplayName?.trim() || 'this person',
+            contextLabel: delivery.eventKind === 'goal_checkin' ? 'Goal check-in' : 'Shared item',
+          });
+        }}
         onRefresh={() => { void feed.refresh(); }}
         highlightedDeliveryId={route.params?.deliveryId}
+      />
+      <UgcReportDrawer
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => { void feed.refresh(); }}
       />
     </AppShell>
   );
@@ -303,6 +340,12 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  reportAction: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   highlightedCard: {
     borderColor: colors.textPrimary,

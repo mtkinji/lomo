@@ -34,6 +34,9 @@ export async function submitCheckinReply(params: SubmitCheckinReplyParams): Prom
   });
 
   if (error) {
+    if (error.code === '22023' || error.message?.includes('shared_text_not_allowed')) {
+      throw new Error('That wording can’t be shared. Change it and try again.');
+    }
     if (error.code === '42501' || error.message?.includes('policy')) {
       throw new Error('You must be a member of this shared goal to reply');
     }

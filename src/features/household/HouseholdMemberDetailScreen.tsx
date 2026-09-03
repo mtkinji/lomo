@@ -14,6 +14,8 @@ import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { SettingsGroup, SettingsPage, SettingsRow } from '../../ui/SettingsSurface';
 import { Heading, Text, VStack } from '../../ui/primitives';
+import { UgcReportDrawer } from '../safety/UgcReportDrawer';
+import type { UgcReportTarget } from '../../services/ugcSafety';
 import type { HouseholdMember } from './data/household';
 import { requestFamilyScreenTimeProAccess } from './screenTime/familyScreenTimeProAccess';
 import type { HouseholdDevice } from './data/householdDeviceParticipation';
@@ -46,6 +48,8 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [personalDevices, setPersonalDevices] = useState<HouseholdDevice[]>([]);
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const [viewerMembershipId, setViewerMembershipId] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<UgcReportTarget | null>(null);
 
   const load = useCallback(async () => {
     if (!householdActions) return;
@@ -57,6 +61,7 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
       const current = snapshot.members.find((item) => item.id === snapshot.currentMembershipId) ?? null;
       if (!selected) throw new Error('This person is no longer in your household.');
       setHouseholdId(snapshot.household?.id ?? null);
+      setViewerMembershipId(snapshot.currentMembershipId);
       setMember({ ...selected, ...(avatars[selected.id] ?? {}) });
       setCanManage(current?.role === 'owner' && selected.role === 'child');
       setCanEditDetails(Boolean(current && (
@@ -285,6 +290,29 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
           <SettingsRow destructive disabled={busy} onPress={() => void confirmMemberRemoval()} title={`Remove ${member.displayName}`} />
         </SettingsGroup>
       ) : null}
+
+      {member && viewerMembershipId && viewerMembershipId !== member.id ? (
+        <SettingsGroup
+          footer="Your report stays private from Household members."
+          title="Safety"
+        >
+          <SettingsRow
+            onPress={() => setReportTarget({
+              kind: 'household_member',
+              id: member.id,
+              reportedUserId: null,
+              displayName: member.displayName,
+              contextLabel: 'Household relationship',
+            })}
+            title="Get help with this person"
+          />
+        </SettingsGroup>
+      ) : null}
+
+      <UgcReportDrawer
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+      />
 
       <BottomDrawer visible={pickerVisible} onClose={() => { if (!busy) setPickerVisible(false); }} snapPoints={['48%', '70%']}>
         <View style={styles.sheet}>

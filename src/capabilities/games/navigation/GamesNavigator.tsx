@@ -9,8 +9,18 @@ import { GameTimerScreen } from '../features/timer/GameTimerScreen';
 import { StitchFiveScreen } from '../features/stitch-five/StitchFiveScreen';
 import { AuthProvider } from '../shell/AuthProvider';
 import type { GamesStackParamList } from './types';
+import { REMOTE_GAMES_RELEASE_ENABLED } from '../remote/remoteGamesReleasePolicy';
+import { ConnectionGameFrame, PlayCard } from '../features/connection-games/ConnectionGameFrame';
+import { Text } from 'react-native';
+import { gamesTheme } from '../theme/gamesTheme';
 
 const Stack = createNativeStackNavigator<GamesStackParamList>();
+
+function RemoteGamesUnavailableScreen() {
+  return <ConnectionGameFrame title="Remote play unavailable" promise="Local games are still ready at your table.">
+    <PlayCard tone="paper"><Text style={{ fontFamily: gamesTheme.type.body, color: gamesTheme.colors.ink }}>Remote rooms are not included in this release.</Text></PlayCard>
+  </ConnectionGameFrame>;
+}
 
 export function GamesNavigator() {
   return (
@@ -21,8 +31,8 @@ export function GamesNavigator() {
         <Stack.Screen name="GamesStitchFive" component={StitchFiveScreen} />
         <Stack.Screen name="GamesTumble" component={TumbleScreen} />
         <Stack.Screen name="GamesConnection" component={ConnectionGameScreen} />
-        <Stack.Screen name="GamesJoin" component={JoinTableScreen} />
-        <Stack.Screen name="GamesRemote" component={RemoteGameScreen} />
+        <Stack.Screen name="GamesJoin" component={REMOTE_GAMES_RELEASE_ENABLED ? JoinTableScreen : RemoteGamesUnavailableScreen} />
+        <Stack.Screen name="GamesRemote" component={REMOTE_GAMES_RELEASE_ENABLED ? RemoteGameScreen : RemoteGamesUnavailableScreen} />
         <Stack.Screen name="GamesAccount" component={AuthScreen} />
       </Stack.Navigator>
     </AuthProvider>

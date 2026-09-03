@@ -84,6 +84,15 @@ function publisherRepository(admin: SupabaseClient): GoalCheckinPublisherReposit
         .filter(Boolean);
     },
 
+    async isBlockedRelationship(actorUserId, recipientUserId) {
+      const result = await admin.rpc('kwilt_users_blocked', {
+        first_user: actorUserId,
+        second_user: recipientUserId,
+      });
+      if (result.error) throw result.error;
+      return result.data === true;
+    },
+
     async getActorDisplayName(userId) {
       const result = await admin
         .from('profiles')

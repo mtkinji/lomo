@@ -69,6 +69,7 @@ import {
   REMINDER_SOURCE_MANUAL,
 } from './dueDateReminderPolicy';
 import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
+import { TodosEmptyState } from './TodosEmptyState';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import {
@@ -1185,18 +1186,7 @@ export function ActivitiesScreen() {
     }
 
     return (
-      <EmptyState
-        title="No to-dos yet"
-        instructions="Add one to-do you can actually make room for."
-        iconName="emptyBox"
-        primaryAction={{
-          label: 'Add to-do',
-          variant: 'accent',
-          onPress: () => setActivityCoachVisible(true),
-          accessibilityLabel: 'Add a new to-do',
-        }}
-        style={styles.emptyState}
-      />
+      <TodosEmptyState />
     );
   }, [
     canShowEmptyState,

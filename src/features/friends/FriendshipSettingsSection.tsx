@@ -18,6 +18,8 @@ import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { KwiltLoader } from '../../ui/KwiltLoader';
+import { UgcReportDrawer } from '../safety/UgcReportDrawer';
+import type { UgcReportTarget } from '../../services/ugcSafety';
 
 export function FriendshipSettingsSection() {
   const showToast = useToastStore((state) => state.showToast);
@@ -26,6 +28,7 @@ export function FriendshipSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<UgcReportTarget | null>(null);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -229,16 +232,34 @@ export function FriendshipSettingsSection() {
                           <Text style={styles.personName}>{name}</Text>
                           <Text style={styles.body}>Nothing shared by friendship</Text>
                         </VStack>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Manage friendship with ${name}`}
-                          disabled={busyKey !== null}
-                          hitSlop={8}
-                          onPress={() => manageFriend(friend)}
-                          style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
-                        >
-                          <Icon name="more" size={19} color={colors.textSecondary} />
-                        </Pressable>
+                        <HStack space="xs">
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Report ${name}`}
+                            disabled={busyKey !== null}
+                            hitSlop={8}
+                            onPress={() => setReportTarget({
+                              kind: 'user',
+                              id: friend.friendUserId,
+                              reportedUserId: friend.friendUserId,
+                              displayName: name,
+                              contextLabel: 'Sharing relationship',
+                            })}
+                            style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+                          >
+                            <Icon name="warning" size={17} color={colors.textSecondary} />
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Manage friendship with ${name}`}
+                            disabled={busyKey !== null}
+                            hitSlop={8}
+                            onPress={() => manageFriend(friend)}
+                            style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+                          >
+                            <Icon name="more" size={19} color={colors.textSecondary} />
+                          </Pressable>
+                        </HStack>
                       </HStack>
                     </View>
                   );
@@ -248,6 +269,11 @@ export function FriendshipSettingsSection() {
           </VStack>
         </>
       )}
+      <UgcReportDrawer
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => { void load(); }}
+      />
     </VStack>
   );
 }

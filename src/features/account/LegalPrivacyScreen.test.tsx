@@ -3,6 +3,7 @@ import { Alert, Linking } from 'react-native';
 import { LegalPrivacyScreen } from './LegalPrivacyScreen';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
 import { openManageSubscription } from '../../services/entitlements';
+import { useAnalyticsConsentStore } from '../../services/analytics/analyticsConsent';
 
 jest.mock('../../ui/layout/AppShell', () => {
   const React = require('react');
@@ -24,6 +25,12 @@ jest.mock('../../ui/layout/PageHeader', () => {
         React.createElement(Text, null, title),
       ),
   };
+});
+
+jest.mock('../../ui/KwiltSwitch', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { KwiltSwitch: () => React.createElement(View) };
 });
 
 jest.mock('../../services/entitlements', () => ({
@@ -51,6 +58,7 @@ describe('LegalPrivacyScreen', () => {
     navModule.__navMocks.navigate.mockReset();
     navModule.__navMocks.goBack.mockReset();
     (openManageSubscription as jest.Mock).mockClear();
+    useAnalyticsConsentStore.setState({ status: 'unknown', policyVersion: null, hydrated: true });
   });
 
   it('opens canonical policy links and support email', () => {
@@ -82,5 +90,19 @@ describe('LegalPrivacyScreen', () => {
 
     expect(getByText(/Money, Explore, meals and groceries, Games/)).toBeTruthy();
     expect(getByText(/AI and voice, calendar, Health, family sharing, and subscriptions/)).toBeTruthy();
+  });
+
+  it('starts optional analytics on and supports withdrawal and renewal', () => {
+    const screen = render(<LegalPrivacyScreen />);
+    const toggle = screen.getByRole('switch', { name: 'Share product analytics' });
+
+    expect(toggle.props.accessibilityState).toEqual(expect.objectContaining({ checked: true }));
+    expect(screen.getByText(/does not change any Kwilt feature/i)).toBeTruthy();
+    expect(screen.getByText(/does not include your writing, financial details/i)).toBeTruthy();
+
+    fireEvent.press(toggle);
+    expect(useAnalyticsConsentStore.getState().status).toBe('withdrawn');
+    fireEvent.press(screen.getByRole('switch', { name: 'Share product analytics' }));
+    expect(useAnalyticsConsentStore.getState().status).toBe('granted');
   });
 });

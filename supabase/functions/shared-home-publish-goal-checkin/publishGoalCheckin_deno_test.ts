@@ -15,6 +15,7 @@ function repository(overrides: Partial<GoalCheckinPublisherRepository> = {}) {
     }),
     isActiveGoalMember: async () => true,
     listActiveGoalMemberIds: async () => ['user-1', 'user-2', 'user-3'],
+    isBlockedRelationship: async () => false,
     getActorDisplayName: async () => 'David',
     getGoalTitle: async () => 'Plan our family camping trip',
     insert: async (row) => {
@@ -79,4 +80,15 @@ Deno.test('publisher does not push an idempotently reused item', async () => {
   );
   assertEquals(repo.pushes, []);
   assertEquals(result.created, 0);
+});
+
+Deno.test('publisher excludes blocked recipients before delivery creation', async () => {
+  const repo = repository({ isBlockedRelationship: async (_actor, recipient) => recipient === 'user-2' });
+  const result = await publishGoalCheckin(
+    { callerUserId: 'user-1', checkinId: 'checkin-1' },
+    repo.value,
+    () => true,
+  );
+  assertEquals(repo.inserts.map((row) => row.recipient_user_id), ['user-3']);
+  assertEquals(result, { eligibleRecipients: 2, enabledRecipients: 1, created: 1 });
 });

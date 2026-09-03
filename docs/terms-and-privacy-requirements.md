@@ -1,6 +1,6 @@
 # Kwilt Terms and Privacy Requirements
 
-**Current release baseline:** `1.0.104 (104)`
+**Current release baseline:** Current Kwilt submission candidate; reconfirm against the exact archive selected for submission
 
 **Last product review:** September 2, 2026
 

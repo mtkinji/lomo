@@ -19,6 +19,12 @@ describe('choreRepository', () => {
     });
   });
 
+  it('treats an account without a Household membership as setup-required rather than a malformed projection', async () => {
+    const repository = createChoreRepository(client([{ data: null, error: null }]));
+
+    await expect(repository.read()).rejects.toThrow('household_membership_required');
+  });
+
   it('binds Household Mode actor context to the verified device instead of impersonating by label', async () => {
     const rpcClient = client([{ data: {
       household: { id: 'household-1', name: 'Home' }, actor: { membershipId: 'child-1', displayName: 'Child', role: 'child' },

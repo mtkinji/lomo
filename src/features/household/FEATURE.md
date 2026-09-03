@@ -21,7 +21,7 @@ briefs:
   - family-screen-time-simple-administration
   - household-member-photos
 status: shipping
-last_reviewed: 2026-08-26
+last_reviewed: 2026-09-03
 ---
 
 # household
@@ -31,6 +31,8 @@ Gives Maya a private family boundary with explicit membership, child-by-child ca
 ## Surfaces in this folder
 
 - `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, accepted private member-photo detail entry point, child capability activation, shareable installed-app invitations, and explicit review-before-join; connected account avatars remain account-owned.
+- `HouseholdMemberDetailScreen.tsx` - role-bounded member administration plus a
+  private contextual-help entry for any signed-in member viewing someone else.
 - `HouseholdDeviceSetupScreen.tsx` - caregiver pairing receipt for one exact child's personal device, including native sharing, short-code fallback, automatic server-receipt confirmation, and truthful separation from Apple authorization.
 - `HouseholdDevicesScreen.tsx` - caregiver-owned designation and member access for shared Household devices.
 - `screenTime/` - child-specific family agreement, delivery-state learning, and child-facing explanation.

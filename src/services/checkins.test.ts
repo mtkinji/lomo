@@ -136,4 +136,11 @@ describe('submitCheckin Shared Home publishing', () => {
     );
     warn.mockRestore();
   });
+
+  it('returns calm actionable copy when shared text is filtered', async () => {
+    mockGoalCheckinSingle.mockResolvedValue({ data: null, error: { code: '22023', message: 'shared_text_not_allowed' } });
+    await expect(submitCheckin({ goalId: 'goal-1', text: 'blocked text' })).rejects.toThrow(
+      'That wording can’t be shared. Change it and try again.',
+    );
+  });
 });

@@ -32,7 +32,7 @@ export type PlanNegativeReaction = typeof PLAN_NEGATIVE_REACTION_OPTIONS[number]
 export type PlanReaction = typeof PLAN_REACTION_OPTIONS[number]['id'];
 export type PlanReactionCounts = Record<PlanPositiveReaction, number>
   & Partial<Record<PlanNegativeReaction | typeof PLAN_HARD_PASS_REACTION.id, number>>;
-export type SharedMealCartSupporter = SharedMealCartPerson & { reaction: PlanReaction; reason?: string | null };
+export type SharedMealCartSupporter = SharedMealCartPerson & { reactionId?: string; reaction: PlanReaction; reason?: string | null };
 
 const PLAN_REACTION_IDS = new Set<string>(PLAN_REACTION_OPTIONS.map((reaction) => reaction.id));
 
@@ -172,6 +172,7 @@ function parseSupporter(value: unknown): SharedMealCartSupporter {
   }
   return {
     ...person,
+    reactionId: typeof value.reactionId === 'string' ? value.reactionId : undefined,
     reaction: value.reaction,
     reason: typeof value.reason === 'string' ? value.reason : null,
   };

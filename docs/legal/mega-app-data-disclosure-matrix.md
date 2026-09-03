@@ -1,7 +1,7 @@
 # Kwilt Mega-App Data Disclosure Matrix
 
-**Release baseline:** Kwilt `1.0.104 (104)`
-**Reviewed:** August 12, 2026
+**Release baseline:** Current Kwilt submission candidate; reconfirm against the exact archive selected for submission
+**Reviewed:** September 3, 2026
 **Purpose:** Product and engineering source of truth for the public Privacy Policy, Terms of Use, permission prompts, App Store Connect App Privacy answers, Google Play Data Safety answers, and account-deletion verification.
 
 This is not legal advice. Counsel should review final consumer-facing language, especially eligibility, dependent profiles, financial information, regional privacy rights, arbitration, and shared-content retention.

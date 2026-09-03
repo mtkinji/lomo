@@ -125,6 +125,9 @@ export async function submitCheckin(params: SubmitCheckinParams): Promise<Checki
     .single();
 
   if (checkinError) {
+    if (checkinError.code === '22023' || checkinError.message?.includes('shared_text_not_allowed')) {
+      throw new Error('That wording can’t be shared. Change it and try again.');
+    }
     // RLS will return a 403-style error if not a member
     if (checkinError.code === '42501' || checkinError.message?.includes('policy')) {
       throw new Error('You must be a member of this shared goal to check in');

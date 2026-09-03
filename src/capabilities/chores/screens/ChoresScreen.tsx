@@ -4,6 +4,7 @@ import { Alert, StyleSheet, View, type TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { useCapabilityMenuOpen } from '../../../navigation/CapabilityMenuStateContext';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing } from '../../../theme';
 import { ActivityListItem } from '../../../ui/ActivityListItem';
@@ -25,6 +26,7 @@ import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
 import { PageHeader } from '../../../ui/layout/PageHeader';
+import { EmptyState } from '../../../ui/EmptyState';
 import { ButtonLabel, Heading, Text } from '../../../ui/primitives';
 import { ChoreDetailDrawer } from '../components/ChoreDetailDrawer';
 import { ChoreCorrectionDrawer } from '../components/ChoreCorrectionDrawer';
@@ -83,6 +85,43 @@ type ChoresScreenProps = {
   now?: () => Date;
   route?: { params?: { occurrenceId?: string; openEvidencePicker?: boolean } };
 };
+
+const CHORES_EMPTY_ILLUSTRATION = require('../../../../assets/illustrations/chores-empty.png');
+
+export function ChoresHouseholdSetupState({
+  onSetUpHousehold,
+}: {
+  onSetUpHousehold: () => void;
+}) {
+  return (
+    <EmptyState
+      illustration={CHORES_EMPTY_ILLUSTRATION}
+      instructions="Add or invite the first person you coordinate chores with. Kwilt will create your household when you do."
+      primaryAction={{
+        accessibilityLabel: 'Set up household for Chores',
+        label: 'Set up household',
+        onPress: onSetUpHousehold,
+      }}
+      title="Set up household chores"
+      variant="screen"
+      style={styles.emptyState}
+    />
+  );
+}
+
+export function ChoresInventoryEmptyState({ caregiver }: { caregiver: boolean }) {
+  return (
+    <EmptyState
+      illustration={CHORES_EMPTY_ILLUSTRATION}
+      instructions={caregiver
+        ? 'Add the first household chore in the dock below.'
+        : 'New household chores will show up here.'}
+      title={caregiver ? 'No chores yet' : 'Nothing to do right now'}
+      variant="screen"
+      style={styles.emptyState}
+    />
+  );
+}
 
 function tokenCount(value: number): string {
   return `${value} token${value === 1 ? '' : 's'}`;
@@ -542,6 +581,9 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
     : [];
   const correctionEntrance = choreCorrectionEntranceLabel(correctionCandidates, projectionNow);
   const isCaregiver = projection.member.role === 'caregiver';
+  const showInventoryEmptyState = isCaregiver
+    ? record.series.length === 0
+    : projection.forMember.length === 0 && projection.household.length === 0;
   const rewards = useMemo(() => (
     isCaregiver
       ? record.members
@@ -760,13 +802,21 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
       <AppShell>
         <PageHeader title="Chores" onPressMenu={openMenu} />
         <View style={styles.productionState}>
-          <Heading variant="sm">{production.loading ? 'Loading household chores…' : 'Chores are unavailable'}</Heading>
-          {!production.loading ? (
+          {production.loading ? (
+            <Heading variant="sm">Loading household chores…</Heading>
+          ) : production.error === 'household_membership_required' ? (
+            <ChoresHouseholdSetupState
+              onSetUpHousehold={() => rootNavigationRef.navigate('Settings', {
+                screen: 'SettingsHousehold',
+              })}
+            />
+          ) : (
             <>
+              <Heading variant="sm">Chores are unavailable</Heading>
               <Text tone="secondary">{production.error ?? 'Kwilt could not load the authorized Household Chores record.'}</Text>
               <Button onPress={() => { void production.refresh(); }} variant="outline">Try again</Button>
             </>
-          ) : null}
+          )}
         </View>
       </AppShell>
     );
@@ -807,7 +857,11 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
             : 0}
         showsVerticalScrollIndicator={false}
       >
-        {!isCaregiver ? (
+        {showInventoryEmptyState ? (
+          <ChoresInventoryEmptyState caregiver={isCaregiver} />
+        ) : null}
+
+        {!showInventoryEmptyState && !isCaregiver ? (
           <View style={styles.section} testID="chores.section.for-member">
             <Heading variant="sm">My chores</Heading>
             <View style={styles.rows}>
@@ -828,7 +882,7 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
           </View>
         ) : null}
 
-        <View style={styles.section} testID="chores.section.household">
+        {!showInventoryEmptyState ? <View style={styles.section} testID="chores.section.household">
           {isCaregiver ? (
             <CaregiverInventoryControls
               filter={caregiverFilter}
@@ -881,7 +935,7 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
                   ))}
                 </View>
               )
-            ) : <Text tone="secondary">No chores have been created yet.</Text>
+            ) : <Text tone="secondary">No chores match this view.</Text>
           ) : (
             <View style={styles.rows}>
               {projection.household.length ? projection.household.map((occurrence) => (
@@ -897,7 +951,7 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
               )) : <Text tone="secondary">No household chores are open right now.</Text>}
             </View>
           )}
-        </View>
+        </View> : null}
       </CanvasScrollView>
 
       {activeCapabilityId === 'chores'
@@ -1159,8 +1213,9 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
 }
 
 const styles = StyleSheet.create({
-  productionState: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
-  content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
+  productionState: { flex: 1, gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
+  content: { flexGrow: 1, gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
+  emptyState: { flex: 1, justifyContent: 'center', marginTop: 0, paddingBottom: spacing['3xl'] },
   memberControl: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
   memberMenu: { minWidth: 220 },
   memberMenuItemContent: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

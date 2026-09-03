@@ -13,13 +13,14 @@ serves:
   - jtbd-see-my-arcs-in-everyday-moments
 briefs:
   - ai-proxy-and-quotas
+  - analytics-consent
   - external-ai-connector
   - monetization-paywall-revenuecat
   - notifications-v1-5
   - provisioned-email-sign-in-demo-accounts
   - social-goals-auth
 status: shipped
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-03
 ---
 
 # account
@@ -32,7 +33,7 @@ Helps Nina trust Kwilt enough to connect identity, destinations, subscriptions, 
 - `AuthPromptDrawerHost.tsx` and `ProfileSettingsScreen.tsx` - identity and sign-in posture.
 - `ManageSubscriptionScreen.tsx` and `ChangePlanScreen.tsx` - plan and entitlement management.
 - `DestinationsLibraryScreen.tsx`, `DestinationDetailScreen.tsx`, `ConnectCursorScreen.tsx`, `McpServerScreen.tsx`, and `ConnectedToolsScreen.tsx` - external execution, connector configuration, action history, and revocation.
-- `NotificationsSettingsScreen.tsx`, `SharingSettingsScreen.tsx`, `AiModelSettingsScreen.tsx`, and `ExecutionTargetsSettingsScreen.tsx` - controls that keep automation permissioned.
+- `LegalPrivacyScreen.tsx`, `NotificationsSettingsScreen.tsx`, `SharingSettingsScreen.tsx`, `AiModelSettingsScreen.tsx`, and `ExecutionTargetsSettingsScreen.tsx` - controls that keep data use and automation permissioned.
 
 ## Notes
 

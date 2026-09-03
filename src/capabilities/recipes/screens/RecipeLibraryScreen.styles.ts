@@ -359,6 +359,14 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingTop: spacing.sm,
   },
+  planGuestSuggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  planGuestSuggestionText: {
+    flex: 1,
+  },
   planDrawerContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,

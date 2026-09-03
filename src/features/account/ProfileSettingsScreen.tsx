@@ -1,5 +1,5 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -7,13 +7,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, cardSurfaceStyle } from '../../theme';
-import { getProfileActionStoreBoundary, resetUserSpecificState, useAppStore } from '../../store/useAppStore';
+import { getProfileActionStoreBoundary, useAppStore } from '../../store/useAppStore';
 import { updateProfile } from '../../capabilities/life-structure/actions/profileActions';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Input, KeyboardAwareScrollView, Text, VStack } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { deleteAccount } from '../../services/accountDeletion';
-import { clearAdminEntitlementsOverrideTier, openManageSubscription } from '../../services/entitlements';
+import { openManageSubscription } from '../../services/entitlements';
 import { unregisterPushToken } from '../../services/pushTokenService';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
@@ -32,6 +32,7 @@ export function ProfileSettingsScreen() {
   const [birthdate, setBirthdate] = useState(userProfile?.birthdate ?? '');
   const [isBirthdatePickerVisible, setIsBirthdatePickerVisible] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const accountDeletionInFlightRef = useRef(false);
 
   const parseLocalDateKey = (key: string): Date | null => {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
@@ -120,21 +121,42 @@ export function ProfileSettingsScreen() {
   };
 
   const completeAccountDeletion = async () => {
-    if (isDeletingAccount) return;
+    if (accountDeletionInFlightRef.current) return;
+    const userId = authIdentity?.userId?.trim();
+    if (!userId) {
+      Alert.alert('Unable to delete account', 'Please sign in again before deleting your account.');
+      return;
+    }
     try {
+      accountDeletionInFlightRef.current = true;
       setIsDeletingAccount(true);
       await unregisterPushToken().catch(() => undefined);
-      await deleteAccount();
-      await clearAdminEntitlementsOverrideTier().catch(() => undefined);
-      resetUserSpecificState();
-      useAppStore.getState().clearAuthIdentity();
-      Alert.alert('Account deleted', 'Your Kwilt account has been deleted.');
-    } catch (err: any) {
+      const result = await deleteAccount({ userId });
       Alert.alert(
-        'Unable to delete account',
+        'Account deleted',
+        result.manualAppleAccessRemovalRequired
+          ? 'Your Kwilt account has been deleted. To remove legacy Sign in with Apple access, open Apple Account settings, then Sign in with Apple.'
+          : 'Your Kwilt account has been deleted.',
+      );
+    } catch (error: unknown) {
+      const err = error && typeof error === 'object'
+        ? error as { deletionConfirmed?: boolean; code?: string; message?: string }
+        : null;
+      if (err?.deletionConfirmed === true) {
+        Alert.alert(
+          'Account deleted — finish cleanup',
+          typeof err?.message === 'string'
+            ? err.message
+            : 'Your account was deleted, but Kwilt could not finish clearing this device.',
+        );
+        return;
+      }
+      Alert.alert(
+        err?.code === 'deletion_indeterminate' ? 'Unable to confirm deletion' : 'Account not deleted',
         typeof err?.message === 'string' ? err.message : 'Please try again.',
       );
     } finally {
+      accountDeletionInFlightRef.current = false;
       setIsDeletingAccount(false);
     }
   };
