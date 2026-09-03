@@ -106,7 +106,10 @@ The Simulator pass does not prove that optional analytics produces no network tr
 
 ## Remaining ASR-004 gates
 
-1. Build the exact signed candidate from committed source, confirm version/build provenance, and generate its Xcode privacy report.
+1. Generate Xcode's visual privacy report from the exact signed archive if an
+   `.xcarchive` becomes available. Apple has processed build 120, and the exact
+   uploaded IPA's signatures, identity, entitlements, and embedded privacy
+   manifests have been inspected.
 2. Recheck the processed candidate's aggregate App Store preview, including the linked/not-linked presentation and the released Privacy Choices URL.
 3. Exercise a fully authorized disposable-account deletion/provider cleanup
    against the deployed backend. The current synthetic Simulator account can
@@ -115,3 +118,25 @@ The Simulator pass does not prove that optional analytics produces no network tr
 4. Exercise analytics withdrawal in a production-equivalent signed build while observing outbound traffic; the development Simulator runtime is intentionally analytics-disabled and cannot supply this proof.
 5. Run the smaller physical-device pass for native-only privacy boundaries.
 6. Obtain the required second review and counsel review for counsel-owned policy decisions.
+
+## Signed production candidate
+
+- Build 120 completed from pushed commit `1122c02d` using the
+  `production-widgets` profile and production app behavior.
+- EAS build `0f6e49ea-c8b3-4188-af64-d90540dda71a` finished successfully; EAS
+  submission transport `ddb2f523-1dbd-47aa-bd71-aae28757727e` finished
+  successfully.
+- The signed IPA reports `com.andrewwatanabe.kwilt`, `1.0.120 (120)`, passes
+  strict code-signature verification, contains all four expected extensions,
+  and carries the production App Group, Family Controls, and HealthKit
+  entitlements.
+- Its app-owned manifest contains the same 22 non-tracking declarations and
+  required-reason API entries as the current packet. Incorporated collected
+  data remains limited to LinkKit User ID, react-native-maps Precise Location,
+  and RevenueCat Purchase History.
+- Full artifact evidence is recorded in
+  [`2026-09-03-build-120-production-candidate.md`](2026-09-03-build-120-production-candidate.md).
+- Apple has processed build 120. EAS status reports it in internal beta testing
+  and ready for external beta submission; the authenticated App Store Connect
+  privacy-preview recheck is still pending. No version was submitted for App
+  Review.

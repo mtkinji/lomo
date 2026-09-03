@@ -456,6 +456,17 @@ Progress evidence:
 - A destructive standalone deletion smoke is still pending. The synthetic
   Simulator fixture has no connected providers, so it cannot close the separate
   provider-cleanup matrix.
+- 2026-09-03: Built and uploaded signed production candidate `1.0.120 (120)`
+  from pushed commit `1122c02d` with EAS profile `production-widgets`. Build
+  `0f6e49ea-c8b3-4188-af64-d90540dda71a` and submission transport
+  `ddb2f523-1dbd-47aa-bd71-aae28757727e` finished successfully. Strict IPA
+  signature checks passed, all four extensions and production entitlements are
+  present, and the exact IPA contains the expected 22 app declarations plus the
+  same three SDK-collected categories seen in the diagnostic Xcode report.
+  Apple subsequently processed build 120: it is in internal beta testing and
+  ready for external beta submission. The authenticated aggregate-preview
+  recheck and an exact remote-archive Xcode report remain separate gates. See
+  [`2026-09-03-build-120-production-candidate.md`](../delivery-evidence/app-store/2026-09-03-build-120-production-candidate.md).
 
 ### ASR-005 — UGC reporting, filtering, and response workflow
 
