@@ -93,6 +93,17 @@ describe('Explore point policy', () => {
     });
   });
 
+  it('keeps ambient observations sparse even when the location provider batches dense samples', () => {
+    expect(acceptExplorePoint(base, movedSample(59, 20), 'ambient')).toEqual({
+      accepted: false,
+      reason: 'sampling-window',
+    });
+    expect(acceptExplorePoint(base, movedSample(60, 20), 'ambient')).toEqual({
+      accepted: true,
+      reason: 'adaptive-distance',
+    });
+  });
+
   it('drops untrustworthy altitude without dropping the coordinate', () => {
     expect(sanitizeLocationSample({ ...base, altitudeAccuracyM: 80 }).altitudeM).toBeNull();
   });

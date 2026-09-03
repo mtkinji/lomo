@@ -1,5 +1,5 @@
 import { coordinateDistanceM } from './exploreGeometry';
-import type { ExplorePoint } from './types';
+import type { ExplorePoint, ExploreTrackingPolicy } from './types';
 
 export type ExploreLocationSample = Omit<ExplorePoint, 'id' | 'speedMps' | 'courseDeg'> & {
   speedMps?: number | null;
@@ -17,6 +17,8 @@ export const MIN_EXPLORE_SAMPLE_DISTANCE_M = 6;
 export const MAX_EXPLORE_SAMPLE_DISTANCE_M = 22;
 export const COURSE_CHANGE_RETENTION_DEG = 10;
 export const COURSE_RETENTION_MIN_SPEED_MPS = 3;
+export const AMBIENT_EXPLORE_SAMPLE_DISTANCE_M = 60;
+export const PRESENCE_EXPLORE_SAMPLE_DISTANCE_M = 100;
 
 export function normalizeCourseDeg(value: number | null | undefined): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
@@ -93,6 +95,7 @@ export function explorePointFromSample(
 export function acceptExplorePoint(
   previous: ExploreLocationSample | null,
   candidate: ExploreLocationSample,
+  policy: ExploreTrackingPolicy = 'adventure',
 ): ExplorePointDecision {
   if (!Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude)) {
     return { accepted: false, reason: 'invalid' };
@@ -110,6 +113,16 @@ export function acceptExplorePoint(
   const distanceM = coordinateDistanceM(previous, candidate);
   if (distanceM < MIN_MOVEMENT_M) {
     return { accepted: false, reason: 'too-close' };
+  }
+  const passiveDistanceM = policy === 'ambient'
+    ? AMBIENT_EXPLORE_SAMPLE_DISTANCE_M
+    : policy === 'presence'
+      ? PRESENCE_EXPLORE_SAMPLE_DISTANCE_M
+      : null;
+  if (passiveDistanceM !== null) {
+    return distanceM >= passiveDistanceM
+      ? { accepted: true, reason: 'adaptive-distance' }
+      : { accepted: false, reason: 'sampling-window' };
   }
   const speedMps = inferredSpeedMps(previous, candidate, distanceM);
   const previousCourse = normalizeCourseDeg(previous.courseDeg);

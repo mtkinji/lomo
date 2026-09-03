@@ -10,8 +10,8 @@ const sample = (minute: number, latitude = 40.5) => ({
 describe('Explore recording modes', () => {
   it('uses the initial Ambient profile while Always Exploring is locked', () => {
     expect(locationProfileForExploreMode('automatic', 'background')).toEqual({
-      accuracy: 'high', distanceIntervalM: 30, timeIntervalMs: 60_000,
-      deferredDistanceM: 100, deferredIntervalMs: 120_000, pausesAutomatically: false,
+      accuracy: 'high', distanceIntervalM: 60, timeIntervalMs: 120_000,
+      deferredDistanceM: 300, deferredIntervalMs: 180_000, pausesAutomatically: false,
     });
     expect(locationProfileForExploreMode('manual', 'foreground')).toEqual(expect.objectContaining({
       accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000,

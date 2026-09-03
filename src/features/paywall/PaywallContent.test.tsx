@@ -4,6 +4,13 @@ import { resetAllStores, setProEntitlement } from '../../test/storeFixtures';
 import { PaywallContent } from './PaywallDrawer';
 import { useAppStore } from '../../store/useAppStore';
 import { getMonthKey } from '../../domain/generativeCredits';
+import type { ContextualCommercialOffer } from '../account/subscriptionPricing';
+
+const mockCapture = jest.fn();
+
+jest.mock('../../services/analytics/useAnalytics', () => ({
+  useAnalytics: () => ({ capture: mockCapture }),
+}));
 
 jest.mock('../../services/paywall', () => {
   const actual = jest.requireActual('../../services/paywall');
@@ -17,6 +24,7 @@ describe('PaywallContent', () => {
   beforeEach(() => {
     resetAllStores();
     jest.restoreAllMocks();
+    mockCapture.mockClear();
   });
 
   it('renders quota copy for generative_quota_exceeded reason as a free user', () => {
@@ -88,10 +96,103 @@ describe('PaywallContent', () => {
     expect(getByText('Kwilt keeps your plan current and can pause selected spending apps until you decide.')).toBeTruthy();
     expect(getByLabelText('A parent checking their phone before a household purchase')).toBeTruthy();
     expect(getByText('Spending app paused')).toBeTruthy();
-    expect(getByText('Check what’s left, then decide.')).toBeTruthy();
-    expect(getByLabelText('Upgrade to Pro to check before you spend')).toBeTruthy();
+    expect(queryByText('Kwilt Money')).toBeNull();
+    expect(getByLabelText('Upgrade to Pro')).toBeTruthy();
+    expect(queryByText('Not now')).toBeNull();
     expect(queryByText('With Pro')).toBeNull();
     expect(queryByText('Real transactions keep your plan up to date')).toBeNull();
+  });
+
+  it('presents the verified trial and annual savings without adding another action', () => {
+    const moneyCommercialOffer: ContextualCommercialOffer = {
+      text: 'One month free. Save up to 56% with annual.',
+      cta: 'Try Pro free',
+      trialAdvertised: true,
+      maximumAnnualSavingsPercent: 56,
+      offerState: 'trial_and_annual_savings',
+    };
+    const { getByText, getByLabelText, queryByText } = renderWithProviders(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        moneyCommercialOffer={moneyCommercialOffer}
+      />,
+    );
+
+    expect(getByText('One month free. Save up to 56% with annual.')).toBeTruthy();
+    expect(getByLabelText('Try Pro free')).toBeTruthy();
+    expect(queryByText('Price unavailable')).toBeNull();
+    expect(queryByText('Not now')).toBeNull();
+    expect(queryByText('Terms of Use (EULA)')).toBeNull();
+  });
+
+  it('uses the standard upgrade action when only annual savings is available', () => {
+    const moneyCommercialOffer: ContextualCommercialOffer = {
+      text: 'Save up to 56% with annual.',
+      cta: 'Upgrade to Pro',
+      trialAdvertised: false,
+      maximumAnnualSavingsPercent: 56,
+      offerState: 'annual_savings',
+    };
+    const { getByText, getByLabelText, queryByText } = renderWithProviders(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        moneyCommercialOffer={moneyCommercialOffer}
+      />,
+    );
+
+    expect(getByText('Save up to 56% with annual.')).toBeTruthy();
+    expect(getByLabelText('Upgrade to Pro')).toBeTruthy();
+    expect(queryByText('One month free.')).toBeNull();
+  });
+
+  it('records one Money paywall view after the offer state resolves', () => {
+    const moneyCommercialOffer: ContextualCommercialOffer = {
+      text: 'One month free. Save up to 56% with annual.',
+      cta: 'Try Pro free',
+      trialAdvertised: true,
+      maximumAnnualSavingsPercent: 56,
+      offerState: 'trial_and_annual_savings',
+    };
+    const { rerender } = renderWithProviders(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        moneyOfferResolved={false}
+      />,
+    );
+    expect(mockCapture).not.toHaveBeenCalledWith('paywall_viewed', expect.anything());
+
+    rerender(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        moneyCommercialOffer={moneyCommercialOffer}
+        moneyOfferResolved
+      />,
+    );
+    rerender(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        moneyCommercialOffer={moneyCommercialOffer}
+        moneyOfferResolved
+      />,
+    );
+
+    expect(mockCapture).toHaveBeenCalledTimes(1);
+    expect(mockCapture).toHaveBeenCalledWith('paywall_viewed', {
+      reason: 'pro_money_budgets',
+      source: 'money_connect_account',
+      variant: 'money_contextual_template_v1',
+      offer_state: 'trial_and_annual_savings',
+    });
   });
 
   it('describes the exact conditions unlocked by an advanced Screen Time paywall', () => {
@@ -104,9 +205,9 @@ describe('PaywallContent', () => {
     );
 
     expect(getByText('Make Screen Time fit the rule you need')).toBeTruthy();
-    expect(getByText('Use Focus, time, and daily app use together')).toBeTruthy();
+    expect(getByText('Schedule when selected apps pause or open')).toBeTruthy();
+    expect(getByText('Combine Focus and daily app use when one condition is not enough')).toBeTruthy();
     expect(getByText('Require a completed step or budget review')).toBeTruthy();
-    expect(getByText('Choose whether all or any conditions count')).toBeTruthy();
   });
 
   it.each([
@@ -167,9 +268,22 @@ describe('PaywallContent', () => {
         onUpgrade={onUpgrade}
       />,
     );
-    fireEvent.press(getByLabelText('Upgrade to Pro to check before you spend'));
+    fireEvent.press(getByLabelText('Upgrade to Pro'));
     expect(onUpgrade).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('can leave the Money upgrade action to its owning drawer footer', () => {
+    const { queryByLabelText } = renderWithProviders(
+      <PaywallContent
+        reason="pro_money_budgets"
+        source="money_connect_account"
+        onClose={() => undefined}
+        showAction={false}
+      />,
+    );
+
+    expect(queryByLabelText('Upgrade to Pro')).toBeNull();
   });
 
   it('leaves Terms and Privacy for the plan-selection surface', () => {

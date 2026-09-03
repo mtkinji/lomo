@@ -1,15 +1,16 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { PaywallReason, PaywallSource } from '../../services/paywall';
 import { isRetiredPaywallReason, openPaywallPurchaseEntry } from '../../services/paywall';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Icon } from '../../ui/Icon';
-import { IconButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { VStack, Heading, Text } from '../../ui/primitives';
-import { colors, fonts, spacing, typography } from '../../theme';
+import { cardElevation, colors, fonts, spacing, typography } from '../../theme';
 import { BrandLockup } from '../../ui/BrandLockup';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { paywallTheme } from './paywallTheme';
 import { usePaywallStore } from '../../store/usePaywallStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -18,7 +19,17 @@ import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, ge
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
-import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { getProUpgradeInvitation } from '../../domain/proAccessPolicy';
+import { isAdvancedScreenTimePaywallEnabled } from '../screen-time/runtime/screenTimeMonetizationFlag';
+import { useProStoreOffer } from '../account/useProStoreOffer';
+import {
+  buildContextualCommercialOffer,
+  type ContextualCommercialOffer,
+} from '../account/subscriptionPricing';
+
+const MONEY_HERO_COLORS = [colors.accent, colors.accent, colors.accent] as [string, string, string]; // @kwilt-brand-moment: the Money upgrade invitation uses one continuous field of official Kwilt Pine.
+const MONEY_UPGRADE_CTA_LABEL = 'Upgrade to Pro';
+const MONEY_OFFER_VARIANT = 'money_contextual_template_v1';
 
 type PaywallCopy = {
   title: string;
@@ -26,10 +37,44 @@ type PaywallCopy = {
   benefits?: readonly string[];
 };
 
-function getPaywallCopy(reason: PaywallReason): PaywallCopy | null {
+type PaywallCapture = ReturnType<typeof useAnalytics>['capture'];
+
+function runPaywallUpgrade(args: {
+  reason: PaywallReason;
+  source: PaywallSource;
+  capture: PaywallCapture;
+  onClose: () => void;
+  onUpgrade?: () => void;
+  offerState?: ContextualCommercialOffer['offerState'];
+}) {
+  const { reason, source, capture, onClose, onUpgrade, offerState } = args;
+  capture(AnalyticsEvent.PaywallUpgradeCtaTapped, {
+    reason,
+    source,
+    ...(reason === 'pro_money_budgets'
+      ? { variant: MONEY_OFFER_VARIANT, offer_state: offerState ?? 'standard' }
+      : {}),
+  });
+  // Stash upsell context so ManageSubscriptionScreen can stamp
+  // `paywall_reason` / `paywall_source` onto the downstream
+  // purchase_started / purchase_succeeded / free_trial_started
+  // events for per-feature conversion attribution.
+  usePaywallStore.getState().setUpsellContext({ reason, source });
+  if (onUpgrade) {
+    onUpgrade();
+    return;
+  }
+  onClose();
+  // Avoid stacking two Modal-based BottomDrawers (paywall closing + pricing opening)
+  // which can leave an invisible backdrop intercepting touches on iOS.
+  setTimeout(() => openPaywallPurchaseEntry(), 340);
+}
+
+function getPaywallCopy(reason: PaywallReason, advancedScreenTimePaywallEnabled: boolean): PaywallCopy | null {
   // A retired boundary is part of the complete Free product. Even if an old
   // caller mounts this component directly, it must not turn into an offer.
   if (isRetiredPaywallReason(reason)) return null;
+  if (reason === 'pro_advanced_screen_time_rules' && !advancedScreenTimePaywallEnabled) return null;
 
   // Keep messaging value-oriented and context-specific.
   switch (reason) {
@@ -68,11 +113,11 @@ function getPaywallCopy(reason: PaywallReason): PaywallCopy | null {
     case 'pro_advanced_screen_time_rules':
       return {
         title: 'Make Screen Time fit the rule you need',
-        subtitle: 'Combine conditions so selected apps open only when the rule you chose is satisfied.',
+        subtitle: 'Add schedules or combine conditions so selected apps respond to the rule you chose.',
         benefits: [
-          'Use Focus, time, and daily app use together',
+          'Schedule when selected apps pause or open',
+          'Combine Focus and daily app use when one condition is not enough',
           'Require a completed step or budget review',
-          'Choose whether all or any conditions count',
         ],
       };
     case 'pro_family_screen_time':
@@ -149,21 +194,39 @@ export function PaywallContent(props: {
   onClose: () => void;
   onUpgrade?: () => void;
   showHeader?: boolean;
+  showAction?: boolean;
+  moneyCommercialOffer?: ContextualCommercialOffer | null;
+  moneyOfferResolved?: boolean;
 }) {
-  const { reason, source, onClose, onUpgrade, showHeader = true } = props;
+  const {
+    reason,
+    source,
+    onClose,
+    onUpgrade,
+    showHeader = true,
+    showAction = true,
+    moneyCommercialOffer = null,
+    moneyOfferResolved = true,
+  } = props;
   const { capture } = useAnalytics();
   const isPro = useEntitlementsStore((s) => s.isPro);
   const generativeCredits = useAppStore((s) => s.generativeCredits);
   const bonusGenerativeCredits = useAppStore((s) => s.bonusGenerativeCredits);
-  const copy = useMemo(() => getPaywallCopy(reason), [reason]);
+  const advancedScreenTimePaywallEnabled = isAdvancedScreenTimePaywallEnabled();
+  const proUpgradeInvitation = getProUpgradeInvitation(advancedScreenTimePaywallEnabled);
+  const copy = useMemo(
+    () => getPaywallCopy(reason, advancedScreenTimePaywallEnabled),
+    [advancedScreenTimePaywallEnabled, reason],
+  );
   const isMoneyHero = reason === 'pro_money_budgets';
   const upgradeCtaLabel = isMoneyHero
-    ? 'Upgrade to Pro to check before you spend'
+    ? moneyCommercialOffer?.cta ?? MONEY_UPGRADE_CTA_LABEL
     : 'View Pro plans';
   const valueAttainments = useMemo(
-    () => (copy?.benefits ?? PRO_UPGRADE_INVITATION.benefits).map((title) => ({ title })),
-    [copy?.benefits],
+    () => (copy?.benefits ?? proUpgradeInvitation.benefits).map((title) => ({ title })),
+    [copy?.benefits, proUpgradeInvitation.benefits],
   );
+  const capturedViewKeyRef = useRef<string | null>(null);
 
   const quotaSubtitle = useMemo(() => {
     const currentKey = getMonthKey(new Date());
@@ -190,43 +253,61 @@ export function PaywallContent(props: {
 
   useEffect(() => {
     if (isRetiredPaywallReason(reason)) return;
-    capture(AnalyticsEvent.PaywallViewed, { reason, source });
-  }, [capture, reason, source]);
+    if (isMoneyHero && !moneyOfferResolved) return;
+    const viewKey = `${reason}:${source}`;
+    if (capturedViewKeyRef.current === viewKey) return;
+    capturedViewKeyRef.current = viewKey;
+    capture(AnalyticsEvent.PaywallViewed, {
+      reason,
+      source,
+      ...(isMoneyHero
+        ? {
+            variant: MONEY_OFFER_VARIANT,
+            offer_state: moneyCommercialOffer?.offerState ?? 'standard',
+          }
+        : {}),
+    });
+  }, [capture, isMoneyHero, moneyCommercialOffer?.offerState, moneyOfferResolved, reason, source]);
 
   if (!copy) return null;
+
+  const handleUpgrade = () => runPaywallUpgrade({
+    reason,
+    source,
+    capture,
+    onClose,
+    onUpgrade,
+    offerState: moneyCommercialOffer?.offerState,
+  });
 
   return (
     <View style={[styles.surface, isMoneyHero ? styles.moneySurface : null]}>
       {showHeader ? (
-        <View style={styles.headerRow}>
-          <View style={styles.brandRow}>
-            <BrandLockup
-              logoSize={26}
-              wordmarkSize="sm"
-              color={isMoneyHero ? colors.parchment : colors.textPrimary}
-              logoVariant={isMoneyHero ? 'parchment' : 'default'}
-              style={styles.brandLockup}
-            />
-            <Text style={[styles.brandSeparator, isMoneyHero ? styles.moneyHeaderText : null]}>|</Text>
-            <Text style={[styles.brandPro, isMoneyHero ? styles.moneyHeaderText : null]}>Pro</Text>
-          </View>
-          <IconButton
-            accessibilityLabel="Close paywall"
-            variant={isMoneyHero ? 'inverse' : 'outline'}
-            onPress={onClose}
-          >
-            <Icon
-              name="close"
-              size={18}
-              color={isMoneyHero ? paywallTheme.ctaForeground : colors.textPrimary}
-            />
-          </IconButton>
-        </View>
+        <BottomDrawerHeader
+          variant="withClose"
+          onClose={onClose}
+          closeAccessibilityLabel="Close paywall"
+          closeTone={isMoneyHero ? 'inverse' : 'default'}
+          containerStyle={[styles.paywallHeader, isMoneyHero ? styles.moneyHeader : null]}
+          title={(
+            <View style={styles.brandRow}>
+              <BrandLockup
+                logoSize={26}
+                wordmarkSize="sm"
+                color={isMoneyHero ? colors.parchment : colors.textPrimary}
+                logoVariant={isMoneyHero ? 'parchment' : 'default'}
+                style={styles.brandLockup}
+              />
+              <Text style={[styles.brandSeparator, isMoneyHero ? styles.moneyHeaderText : null]}>|</Text>
+              <Text style={[styles.brandPro, isMoneyHero ? styles.moneyHeaderText : null]}>Pro</Text>
+            </View>
+          )}
+        />
       ) : null}
 
       {/* Hero card = the full-color moment */}
       <LinearGradient
-        colors={paywallTheme.gradientColors}
+        colors={isMoneyHero ? MONEY_HERO_COLORS : paywallTheme.gradientColors}
         style={[styles.heroGradient, isMoneyHero ? styles.moneyHeroGradient : null]}
       >
         {isMoneyHero ? (
@@ -238,20 +319,21 @@ export function PaywallContent(props: {
               accessible
               accessibilityLabel="A parent checking their phone before a household purchase"
             />
-          </View>
-        ) : null}
-        <View style={[styles.heroCard, isMoneyHero ? styles.moneyHeroCard : null]}>
-          {isMoneyHero ? (
-            <View style={styles.moneyProofCard}>
+            <View
+              style={styles.moneyProofCard}
+              accessible
+              accessibilityLabel="Spending app paused"
+            >
               <View style={styles.moneyProofIcon}>
                 <Icon name="pause" size={18} color={colors.parchment} />
               </View>
               <View style={styles.moneyProofCopy}>
                 <Text style={styles.moneyProofTitle}>Spending app paused</Text>
-                <Text style={styles.moneyProofBody}>Check what’s left, then decide.</Text>
               </View>
             </View>
-          ) : null}
+          </View>
+        ) : null}
+        <View style={[styles.heroCard, isMoneyHero ? styles.moneyHeroCard : null]}>
           <VStack space="xs">
             <Heading style={styles.title}>{copy.title}</Heading>
             {reason === 'generative_quota_exceeded' && !isPro ? (
@@ -291,53 +373,69 @@ export function PaywallContent(props: {
             ) : (
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
             )}
+            {isMoneyHero && moneyCommercialOffer ? (
+              <Text style={styles.moneyCommercialOffer}>{moneyCommercialOffer.text}</Text>
+            ) : null}
           </VStack>
 
-          {!isPro ? (
-            <>
+          {showAction ? (!isPro ? (
+            isMoneyHero ? (
+              <View style={styles.moneyPrimaryAction}>
+                <Button
+                  accessibilityLabel={upgradeCtaLabel}
+                  variant="inverse"
+                  size="lg"
+                  fullWidth
+                  onPress={handleUpgrade}
+                >
+                  {upgradeCtaLabel}
+                </Button>
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={upgradeCtaLabel}
+                  onPress={handleUpgrade}
+                  style={styles.primaryCta}
+                >
+                  <Text style={styles.primaryCtaLabel}>{upgradeCtaLabel}</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Not now"
+                  onPress={onClose}
+                  style={styles.secondaryCta}
+                >
+                  <Text style={styles.secondaryCtaLabel}>Not now</Text>
+                </Pressable>
+              </>
+            )
+          ) : (
+            isMoneyHero ? (
+              <View style={styles.moneyPrimaryAction}>
+                <Button
+                  accessibilityLabel="Close"
+                  variant="inverse"
+                  size="lg"
+                  fullWidth
+                  onPress={onClose}
+                >
+                  Close
+                </Button>
+              </View>
+            ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={upgradeCtaLabel}
-                onPress={() => {
-                  capture(AnalyticsEvent.PaywallUpgradeCtaTapped, { reason, source });
-                  // Stash upsell context so ManageSubscriptionScreen can stamp
-                  // `paywall_reason` / `paywall_source` onto the downstream
-                  // purchase_started / purchase_succeeded / free_trial_started
-                  // events for per-feature conversion attribution.
-                  usePaywallStore.getState().setUpsellContext({ reason, source });
-                  if (onUpgrade) {
-                    onUpgrade();
-                    return;
-                  }
-                  onClose();
-                  // Avoid stacking two Modal-based BottomDrawers (paywall closing + pricing opening)
-                  // which can leave an invisible backdrop intercepting touches on iOS.
-                  setTimeout(() => openPaywallPurchaseEntry(), 340);
-                }}
+                accessibilityLabel="Close"
+                onPress={onClose}
                 style={styles.primaryCta}
               >
-                <Text style={styles.primaryCtaLabel}>{upgradeCtaLabel}</Text>
+                <Text style={styles.primaryCtaLabel}>Close</Text>
               </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Not now"
-                onPress={onClose}
-                style={styles.secondaryCta}
-              >
-                <Text style={styles.secondaryCtaLabel}>Not now</Text>
-              </Pressable>
-            </>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={onClose}
-              style={styles.primaryCta}
-            >
-              <Text style={styles.primaryCtaLabel}>Close</Text>
-            </Pressable>
-          )}
+            )
+          )) : null}
         </View>
       </LinearGradient>
 
@@ -365,6 +463,16 @@ export function PaywallDrawerHost() {
   const source = usePaywallStore((s) => s.source);
   const close = usePaywallStore((s) => s.close);
   const setToastsSuppressed = useToastStore((s) => s.setToastsSuppressed);
+  const isPro = useEntitlementsStore((s) => s.isPro);
+  const { capture } = useAnalytics();
+  const storeOffer = useProStoreOffer();
+  const moneyCommercialOffer = useMemo(
+    () => storeOffer.status === 'ready'
+      ? buildContextualCommercialOffer(storeOffer.snapshot)
+      : null,
+    [storeOffer.snapshot, storeOffer.status],
+  );
+  const moneyCtaLabel = moneyCommercialOffer?.cta ?? MONEY_UPGRADE_CTA_LABEL;
 
   // While the paywall interstitial is up, suppress toasts so we don't stack
   // transient UI over an interstitial.
@@ -390,6 +498,21 @@ export function PaywallDrawerHost() {
     );
   }
 
+  const isMoneyHero = reason === 'pro_money_budgets';
+  const handleMoneyFooterAction = () => {
+    if (isPro) {
+      close();
+      return;
+    }
+    runPaywallUpgrade({
+      reason,
+      source,
+      capture,
+      onClose: close,
+      offerState: moneyCommercialOffer?.offerState,
+    });
+  };
+
   return (
     <BottomDrawer
       visible={visible}
@@ -397,11 +520,31 @@ export function PaywallDrawerHost() {
       snapPoints={['100%']}
       dismissable
       enableContentPanningGesture
-      sheetStyle={[styles.sheet, reason === 'pro_money_budgets' ? styles.moneySheet : null]}
+      contentLayout={isMoneyHero ? 'edgeToEdge' : 'inset'}
+      bottomAccessory={isMoneyHero ? (
+        <Button
+          accessibilityLabel={isPro ? 'Close' : moneyCtaLabel}
+          fullWidth
+          size="lg"
+          variant="inverse"
+          onPress={handleMoneyFooterAction}
+        >
+          {isPro ? 'Close' : moneyCtaLabel}
+        </Button>
+      ) : undefined}
+      bottomAccessoryPlacement="phoneFloating"
+      sheetStyle={[styles.sheet, isMoneyHero ? styles.moneySheet : null]}
       handleContainerStyle={styles.paywallHandleContainer}
-      handleStyle={[styles.paywallHandle, reason === 'pro_money_budgets' ? styles.moneyPaywallHandle : null]}
+      handleStyle={[styles.paywallHandle, isMoneyHero ? styles.moneyPaywallHandle : null]}
     >
-      <PaywallContent reason={reason} source={source} onClose={close} />
+      <PaywallContent
+        reason={reason}
+        source={source}
+        onClose={close}
+        showAction={!isMoneyHero}
+        moneyCommercialOffer={moneyCommercialOffer}
+        moneyOfferResolved={storeOffer.status !== 'loading'}
+      />
     </BottomDrawer>
   );
 }
@@ -412,6 +555,31 @@ export function PaywallDrawerScreenFallback(props: {
   onClose: () => void;
 }) {
   const { reason, source, onClose } = props;
+  const isPro = useEntitlementsStore((s) => s.isPro);
+  const { capture } = useAnalytics();
+  const isMoneyHero = reason === 'pro_money_budgets';
+  const storeOffer = useProStoreOffer();
+  const moneyCommercialOffer = useMemo(
+    () => storeOffer.status === 'ready'
+      ? buildContextualCommercialOffer(storeOffer.snapshot)
+      : null,
+    [storeOffer.snapshot, storeOffer.status],
+  );
+  const moneyCtaLabel = moneyCommercialOffer?.cta ?? MONEY_UPGRADE_CTA_LABEL;
+  const handleMoneyFooterAction = () => {
+    if (isPro) {
+      onClose();
+      return;
+    }
+    runPaywallUpgrade({
+      reason,
+      source,
+      capture,
+      onClose,
+      offerState: moneyCommercialOffer?.offerState,
+    });
+  };
+
   return (
     <BottomDrawer
       visible
@@ -419,11 +587,31 @@ export function PaywallDrawerScreenFallback(props: {
       snapPoints={['100%']}
       dismissable
       enableContentPanningGesture
-      sheetStyle={[styles.sheet, reason === 'pro_money_budgets' ? styles.moneySheet : null]}
+      contentLayout={isMoneyHero ? 'edgeToEdge' : 'inset'}
+      bottomAccessory={isMoneyHero ? (
+        <Button
+          accessibilityLabel={isPro ? 'Close' : moneyCtaLabel}
+          fullWidth
+          size="lg"
+          variant="inverse"
+          onPress={handleMoneyFooterAction}
+        >
+          {isPro ? 'Close' : moneyCtaLabel}
+        </Button>
+      ) : undefined}
+      bottomAccessoryPlacement="phoneFloating"
+      sheetStyle={[styles.sheet, isMoneyHero ? styles.moneySheet : null]}
       handleContainerStyle={styles.paywallHandleContainer}
-      handleStyle={[styles.paywallHandle, reason === 'pro_money_budgets' ? styles.moneyPaywallHandle : null]}
+      handleStyle={[styles.paywallHandle, isMoneyHero ? styles.moneyPaywallHandle : null]}
     >
-      <PaywallContent reason={reason} source={source} onClose={onClose} />
+      <PaywallContent
+        reason={reason}
+        source={source}
+        onClose={onClose}
+        showAction={!isMoneyHero}
+        moneyCommercialOffer={moneyCommercialOffer}
+        moneyOfferResolved={storeOffer.status !== 'loading'}
+      />
     </BottomDrawer>
   );
 }
@@ -452,13 +640,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   moneySurface: {
+    padding: 0,
     backgroundColor: colors.accent, // @kwilt-brand-moment: the Money upgrade invitation is an immersive Pro brand moment.
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  paywallHeader: {
     marginBottom: spacing.lg,
+  },
+  moneyHeader: {
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   brandRow: {
     flexDirection: 'row',
@@ -494,38 +684,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.08)',
   },
   moneyHeroGradient: {
+    flex: 1,
+    borderRadius: 0,
     borderWidth: 0,
     borderColor: 'transparent',
     backgroundColor: colors.accent, // @kwilt-brand-moment: the Money upgrade invitation is an immersive Pro brand moment.
   },
   moneyHeroCard: {
-    paddingTop: spacing.md,
+    flex: 1,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
     backgroundColor: 'transparent',
   },
   moneyVisual: {
-    height: 252,
+    height: 352,
+    marginHorizontal: spacing.lg,
     borderRadius: paywallTheme.cornerRadius,
     backgroundColor: colors.parchment,
     overflow: 'hidden',
+    position: 'relative',
   },
   moneyVisualImage: {
     width: '100%',
     height: '100%',
   },
   moneyProofCard: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: 16,
-    marginBottom: spacing.md,
     backgroundColor: colors.parchment,
+    ...cardElevation.overlay,
   },
   moneyProofIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.accent, // @kwilt-brand-moment: the pause mark makes Kwilt's spending control concrete.
@@ -539,9 +740,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.textPrimary,
   },
-  moneyProofBody: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  moneyPrimaryAction: {
+    marginTop: spacing.md,
   },
   title: {
     ...typography.titleLg,
@@ -551,6 +751,12 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: paywallTheme.foreground,
     opacity: 0.92,
+  },
+  moneyCommercialOffer: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: paywallTheme.foreground,
+    marginTop: spacing.sm,
   },
   primaryCta: {
     marginTop: spacing.md,

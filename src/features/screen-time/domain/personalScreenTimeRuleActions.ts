@@ -125,6 +125,7 @@ Promise<Receipt<'screen_time.personal_rule.update'>> {
   }
   const updatedAt = now();
   const next: PersonalCompositeScreenTimeRule = { ...prior, enabled: input.fields.enabled, lastUpdated: updatedAt };
+  if (next.enabled) boundary.requireProForRule?.(next);
   if (prior.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_rule_deactivation_failed');
   }

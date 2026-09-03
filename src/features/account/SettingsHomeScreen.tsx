@@ -29,10 +29,12 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { Heading, Text, VStack } from '../../ui/primitives';
 import { persistImageUri } from '../../utils/persistImageUri';
 import { removeAvatar, resolveSelfAvatar, uploadAvatar } from '../household/data/householdAvatars';
-import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { getProUpgradeInvitation } from '../../domain/proAccessPolicy';
+import { isAdvancedScreenTimePaywallEnabled } from '../screen-time/runtime/screenTimeMonetizationFlag';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { usePaywallStore } from '../../store/usePaywallStore';
+import { openPaywallPurchaseEntry } from '../../services/paywall';
 
 type SettingsNavigationProp = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
 type SettingsRoute = Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
@@ -102,6 +104,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 ];
 
 export function SettingsHomeScreen() {
+  const proUpgradeInvitation = getProUpgradeInvitation(isAdvancedScreenTimePaywallEnabled());
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
@@ -395,10 +398,10 @@ export function SettingsHomeScreen() {
 
           {!isPro ? (
             <OpportunityCard
-              title={PRO_UPGRADE_INVITATION.title}
-              body={PRO_UPGRADE_INVITATION.body}
-              ctaLabel="View Pro plans"
-              ctaAccessibilityLabel="View Kwilt Pro plans"
+              title={proUpgradeInvitation.title}
+              body={proUpgradeInvitation.body}
+              ctaLabel="Upgrade to Pro"
+              ctaAccessibilityLabel="Upgrade to Kwilt Pro"
               ctaVariant="inverse"
               ctaLeadingIconName={null}
               tone="brand"
@@ -407,10 +410,7 @@ export function SettingsHomeScreen() {
               onPressCta={() => {
                 capture(AnalyticsEvent.UpgradeEntryTapped, { source: 'settings_home' });
                 usePaywallStore.getState().setDirectUpsellContext({ source: 'settings_home' });
-                navigation.navigate('SettingsManageSubscription', {
-                  openPricingDrawer: true,
-                  openPricingDrawerNonce: Date.now(),
-                });
+                openPaywallPurchaseEntry();
               }}
             />
           ) : null}

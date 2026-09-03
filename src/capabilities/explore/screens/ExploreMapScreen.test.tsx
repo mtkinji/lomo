@@ -341,14 +341,14 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Open navigation menu, new destinations available')).toBeTruthy();
   });
 
-  it('uses Silver Mist over Apple Maps with the approved clear core and feather scale', () => {
+  it('uses Silver Mist over Apple Maps with the trusted core and broader atmospheric feather', () => {
     const screen = render(<ExploreMapScreen />);
 
     const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
     expect(map.props.mapType).toBe('hybrid');
     expect(map.props.fogEnabled).toBe(true);
     expect(map.props.fogClearRadiusMeters).toBeCloseTo(65 * 0.3048, 3);
-    expect(map.props.fogFeatherReferenceRadiusMeters).toBeCloseTo(100 * 0.3048, 3);
+    expect(map.props.fogFeatherReferenceRadiusMeters).toBeCloseTo(200 * 0.3048, 3);
     expect(map.props.fogCoordinates).toEqual([]);
     expect(map.props.fogSegmentStarts).toEqual([]);
     expect(map.props.fogSegmentEnds).toEqual([]);
@@ -425,7 +425,7 @@ describe('ExploreMapScreen', () => {
       .toBeLessThan(map.props.fogSegmentStarts.length);
   });
 
-  it('does not grant the broad Place reveal to ambient movement alone', () => {
+  it('renders ambient movement as isolated fog clearings without granting it path semantics', () => {
     act(() => {
       const store = useExploreStore.getState();
       store.startSession('2026-07-28T12:00:00.000Z', 'ambient-outing', 'ambient');
@@ -438,8 +438,8 @@ describe('ExploreMapScreen', () => {
         recordedAt: '2026-07-28T12:00:00.000Z',
       }, 'ambient-point-1');
       store.appendSample({
-        latitude: 40.5503,
-        longitude: -105.1203,
+        latitude: 40.5507,
+        longitude: -105.1207,
         altitudeM: 1510,
         horizontalAccuracyM: 8,
         altitudeAccuracyM: 6,
@@ -450,8 +450,11 @@ describe('ExploreMapScreen', () => {
     const screen = render(<ExploreMapScreen />);
     const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
 
-    expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
+    expect(map.props.fogCoordinates).toHaveLength(2);
+    expect(map.props.fogSegmentStarts).toEqual([]);
+    expect(map.props.fogSegmentEnds).toEqual([]);
     expect(map.props.fogPlaceCoordinates).toEqual([]);
+    expect(screen.queryByTestId('explore.path.casing', { includeHiddenElements: true })).toBeNull();
   });
 
   it('places the primary action above a composer-sized bottom utility row', () => {

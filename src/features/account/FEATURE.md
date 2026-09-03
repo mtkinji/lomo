@@ -7,6 +7,7 @@ job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves:
   - jtbd-trust-this-app-with-my-life
   - jtbd-invite-the-right-people-in
+  - jtbd-put-intention-before-impulse
   - jtbd-capture-and-find-meaning
   - jtbd-move-the-few-things-that-matter
   - jtbd-see-my-arcs-in-everyday-moments
@@ -18,7 +19,7 @@ briefs:
   - provisioned-email-sign-in-demo-accounts
   - social-goals-auth
 status: shipped
-last_reviewed: 2026-08-31
+last_reviewed: 2026-09-02
 ---
 
 # account

@@ -101,6 +101,67 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(StyleSheet.flatten(screen.getByText('over budget').props.style).color).toBe(colors.destructive);
   });
 
+  it('keeps actual flexible room primary when the monthly plan is above target', () => {
+    const base = answer('supported');
+    const onAdjustPlan = jest.fn();
+    const screen = render(<MoneyPlanLimitAnswer
+      answer={{
+        ...base,
+        state: 'over_limit',
+        headlineAmountCents: 8400,
+        facts: {
+          ...base.facts,
+          plannedCents: 344400,
+          overLimitCents: 8400,
+        },
+      }}
+      freshness="Updated just now"
+      onAdjustPlan={onAdjustPlan}
+      onExplain={jest.fn()}
+      onReviewIncome={jest.fn()}
+      onReviewOverages={jest.fn()}
+    />);
+
+    expect(within(screen.getByTestId('money-limit-header')).getByText('Flexible spending')).toBeTruthy();
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$343 left');
+    expect(screen.queryByText('over limit')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Review overages' })).toBeNull();
+    const planNotice = screen.getByTestId('money-plan-target-notice');
+    expect(within(planNotice).getByText('Plan is $84 above target')).toBeTruthy();
+    expect(within(planNotice).getByText('$3,444 planned · 70% target $3,360')).toBeTruthy();
+    fireEvent.press(within(planNotice).getByRole('button', { name: 'Adjust monthly plan' }));
+    expect(onAdjustPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers actual overage review separately from an above-target plan', () => {
+    const base = answer('supported');
+    const onReviewOverages = jest.fn();
+    const screen = render(<MoneyPlanLimitAnswer
+      answer={{
+        ...base,
+        state: 'over_limit',
+        headlineAmountCents: 8400,
+        facts: {
+          ...base.facts,
+          plannedCents: 344400,
+          overLimitCents: 8400,
+          countedFlexibleSpendCents: 374643,
+          flexibleRoomCents: -238643,
+        },
+      }}
+      freshness="Updated just now"
+      onAdjustPlan={jest.fn()}
+      onExplain={jest.fn()}
+      onReviewIncome={jest.fn()}
+      onReviewOverages={onReviewOverages}
+    />);
+
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$2,386 over budget');
+    fireEvent.press(screen.getByRole('button', { name: 'Review overages' }));
+    expect(onReviewOverages).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Plan is $84 above target')).toBeTruthy();
+  });
+
   it('keeps committed overspending out of the fixed flexible budget', () => {
     const base = answer('supported');
     const screen = render(<MoneyPlanLimitAnswer

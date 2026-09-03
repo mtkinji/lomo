@@ -93,7 +93,7 @@ The dashboard is the visual readout for Slice 1, not the whole operating loop. I
 
 - `Activation - FTUX to first meaningful action (30d)` - strict funnel from `ftue_started -> ftue_completed -> arc_created -> goal_created -> activity_created -> activity_completion_toggled`, with a 30-day date range and 7-day conversion window.
 - `Activation - Meaningful action volume (30d)` - daily volume for progress-like activation events: `activity_created`, `activity_completion_toggled`, `activity_action_invoked`, `goal_created`, `arc_created`, `chapter_next_step_cta_tapped`, and `notification_opened`.
-- `Activation - Active users by app build (30d)` - daily unique users for `Application Became Active`, broken down by `$app_build`, to confirm reads are coming from current production builds after the analytics fix.
+- `Activation - Active users by app build (30d)` - daily unique users for the manually emitted, URL-free `Application Became Active`, broken down by `$app_build`, to confirm reads are coming from current production builds after the analytics fix. Production views must filter `app_env = production`; TestFlight QA uses `app_env = test`.
 - A dashboard text card with the interpretation ritual: name the weakest stage, map it to a Kwilt job-flow gap, and create an experiment Goal only after the weak stage is clear.
 
 The strict funnel is expected to be sparse until more external users enter through the current production build. Use the meaningful-action and app-build tiles as supporting signal when the funnel has too few users for confident experiment selection.

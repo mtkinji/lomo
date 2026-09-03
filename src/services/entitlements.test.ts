@@ -8,9 +8,16 @@ const mockPurchases = {
   getCustomerInfo: jest.fn(),
   restorePurchases: jest.fn(),
   getOfferings: jest.fn(),
+  checkTrialOrIntroductoryPriceEligibility: jest.fn(),
   purchasePackage: jest.fn(),
   setLogLevel: jest.fn(),
   LOG_LEVEL: { WARN: 'WARN' },
+  INTRO_ELIGIBILITY_STATUS: {
+    INTRO_ELIGIBILITY_STATUS_UNKNOWN: 0,
+    INTRO_ELIGIBILITY_STATUS_INELIGIBLE: 1,
+    INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2,
+    INTRO_ELIGIBILITY_STATUS_NO_INTRO_OFFER_EXISTS: 3,
+  },
 };
 
 jest.mock('react-native-purchases', () => mockPurchases);
@@ -23,12 +30,16 @@ jest.mock('./proCodesStatus', () => ({
   getProStatus: jest.fn(async () => ({ isPro: false, httpStatus: 200 })),
 }));
 
-function customerInfo(isPro: boolean, appUserID = 'user-a') {
+function customerInfo(
+  isPro: boolean,
+  appUserID = 'user-a',
+  periodType: 'trial' | 'intro' | 'normal' | 'promotional' = 'normal',
+) {
   return {
     appUserID,
     originalAppUserId: appUserID,
     entitlements: {
-      active: isPro ? { pro: { productIdentifier: 'pro_annual' } } : {},
+      active: isPro ? { pro: { productIdentifier: 'pro_annual', periodType } } : {},
     },
   };
 }
@@ -45,9 +56,14 @@ describe('RevenueCat entitlement identity binding', () => {
     });
     mockPurchases.restorePurchases.mockResolvedValue(customerInfo(true, 'user-a'));
     mockPurchases.getOfferings.mockResolvedValue({ current: { availablePackages: [] } });
+    mockPurchases.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({});
     mockPurchases.purchasePackage.mockResolvedValue({ customerInfo: customerInfo(true, 'user-a') });
-    const { __resetRevenueCatEntitlementsForTests } = require('./entitlements');
+    const {
+      __resetRevenueCatEntitlementsForTests,
+      setDevelopmentProStoreOfferState,
+    } = require('./entitlements');
     __resetRevenueCatEntitlementsForTests();
+    setDevelopmentProStoreOfferState('live');
   });
 
   it('configures RevenueCat with the signed-in app user id before the SDK is configured', async () => {
@@ -182,28 +198,180 @@ describe('RevenueCat entitlement identity binding', () => {
     expect(mockPurchases.configure).toHaveBeenCalledWith({ apiKey: 'rc-key', appUserID: 'user-a' });
   });
 
-  it('maps legacy Money pricing onto the canonical Kwilt product id', async () => {
+  it('fails closed instead of purchasing the first package when the requested sku is missing', async () => {
+    const unrelatedPackage = { product: { identifier: 'pro_monthly' } };
+    mockPurchases.getOfferings.mockResolvedValue({
+      current: { availablePackages: [unrelatedPackage] },
+    });
+    const { purchaseProSku, SubscriptionPackagesUnavailableError } = require('./entitlements');
+
+    await expect(
+      purchaseProSku({ plan: 'family', cadence: 'annual', appUserID: 'user-a' }),
+    ).rejects.toBeInstanceOf(SubscriptionPackagesUnavailableError);
+    expect(mockPurchases.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it('returns the completed RevenueCat trial period on the entitlement snapshot', async () => {
+    const selectedPackage = { product: { identifier: 'pro_annual' } };
+    mockPurchases.getOfferings.mockResolvedValue({
+      current: { availablePackages: [selectedPackage] },
+    });
+    mockPurchases.purchasePackage.mockResolvedValue({
+      customerInfo: customerInfo(true, 'user-a', 'trial'),
+    });
+    const { purchaseProSku } = require('./entitlements');
+
+    const snapshot = await purchaseProSku({
+      plan: 'individual',
+      cadence: 'annual',
+      appUserID: 'user-a',
+    });
+
+    expect(snapshot).toMatchObject({ isPro: true, proPeriodType: 'trial' });
+  });
+});
+
+describe('RevenueCat Pro store offer snapshot', () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    mockPurchases.getAppUserID.mockResolvedValue('user-a');
+    mockPurchases.getCustomerInfo.mockResolvedValue(customerInfo(false, 'user-a'));
     mockPurchases.getOfferings.mockResolvedValue({
       current: {
         availablePackages: [
           {
             product: {
-              identifier: 'kwilt_budget_pro_family_monthly',
+              identifier: 'pro_monthly',
+              price: 9.99,
               priceString: '$9.99',
               currencyCode: 'USD',
+              introPrice: {
+                priceString: '$0.00',
+                type: 'FREE_TRIAL',
+                cycles: 1,
+                periodUnit: 'MONTH',
+                periodNumberOfUnits: 1,
+              },
             },
           },
         ],
       },
     });
-    const { getProSkuPricing } = require('./entitlements');
+    const {
+      __resetRevenueCatEntitlementsForTests,
+      setDevelopmentProStoreOfferState,
+    } = require('./entitlements');
+    __resetRevenueCatEntitlementsForTests();
+    setDevelopmentProStoreOfferState('live');
+  });
 
-    const pricing = await getProSkuPricing('user-a');
+  it.each([
+    [2, 'eligible'],
+    [1, 'ineligible'],
+    [0, 'unknown'],
+    [3, 'no_offer'],
+  ] as const)('normalizes RevenueCat eligibility %s to %s', async (status, expected) => {
+    mockPurchases.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({
+      pro_monthly: { status, description: expected },
+    });
+    const { getProStoreOfferSnapshot } = require('./entitlements');
 
-    expect(pricing.pro_family_monthly).toMatchObject({
-      sku: 'kwilt_budget_pro_family_monthly',
+    const snapshot = await getProStoreOfferSnapshot('user-a');
+
+    expect(snapshot.status).toBe('ready');
+    expect(snapshot.products.pro_monthly).toMatchObject({
+      sku: 'pro_monthly',
+      price: 9.99,
       priceString: '$9.99',
       currencyCode: 'USD',
+      introEligibility: expected,
+      introPrice: {
+        type: 'FREE_TRIAL',
+        periodUnit: 'MONTH',
+        periodNumberOfUnits: 1,
+      },
     });
+  });
+
+  it('fails eligibility to unknown without suppressing live prices', async () => {
+    mockPurchases.checkTrialOrIntroductoryPriceEligibility.mockRejectedValue(
+      new Error('eligibility unavailable'),
+    );
+    const { getProStoreOfferSnapshot } = require('./entitlements');
+
+    const snapshot = await getProStoreOfferSnapshot('user-a');
+
+    expect(snapshot.products.pro_monthly).toMatchObject({
+      price: 9.99,
+      introEligibility: 'unknown',
+    });
+  });
+
+  it('returns unavailable without fabricated products when no live offering exists', async () => {
+    mockPurchases.getOfferings.mockResolvedValue({ current: { availablePackages: [] } });
+    const { getProStoreOfferSnapshot } = require('./entitlements');
+
+    await expect(getProStoreOfferSnapshot('user-a')).resolves.toEqual({
+      status: 'unavailable',
+      products: {},
+    });
+  });
+
+  it('provides a complete eligible development catalog when explicitly previewing the offer', async () => {
+    const { getProStoreOfferSnapshot, setDevelopmentProStoreOfferState } = require('./entitlements');
+    setDevelopmentProStoreOfferState('eligible');
+
+    const snapshot = await getProStoreOfferSnapshot('user-a');
+
+    expect(snapshot).toMatchObject({
+      status: 'ready',
+      source: 'development_fixture',
+      products: {
+        pro_monthly: {
+          price: 9.99,
+          priceString: '$9.99',
+          introEligibility: 'eligible',
+          introPrice: {
+            type: 'FREE_TRIAL',
+            periodUnit: 'MONTH',
+            periodNumberOfUnits: 1,
+          },
+        },
+        pro_annual: { price: 59.99, priceString: '$59.99' },
+        pro_family_monthly: { price: 14.99, priceString: '$14.99' },
+        pro_family_annual: { price: 79.99, priceString: '$79.99' },
+      },
+    });
+    expect(mockPurchases.getOfferings).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ineligible', 'ready', 'ineligible'],
+    ['unavailable', 'unavailable', undefined],
+  ] as const)(
+    'supports the %s development offer preview state',
+    async (previewState, status, introEligibility) => {
+      const { getProStoreOfferSnapshot, setDevelopmentProStoreOfferState } = require('./entitlements');
+      setDevelopmentProStoreOfferState(previewState);
+
+      const snapshot = await getProStoreOfferSnapshot('user-a');
+
+      expect(snapshot.status).toBe(status);
+      expect(snapshot.source).toBe('development_fixture');
+      expect(snapshot.products.pro_monthly?.introEligibility).toBe(introEligibility);
+      expect(mockPurchases.getOfferings).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('RevenueCat purchase errors', () => {
+  it('recognizes only the SDK user-cancelled signal as a neutral cancellation', () => {
+    const { isRevenueCatPurchaseCancelled } = require('./entitlements');
+
+    expect(isRevenueCatPurchaseCancelled({ userCancelled: true })).toBe(true);
+    expect(isRevenueCatPurchaseCancelled({ userCancelled: false })).toBe(false);
+    expect(isRevenueCatPurchaseCancelled({ code: 'PURCHASE_CANCELLED' })).toBe(false);
+    expect(isRevenueCatPurchaseCancelled(null)).toBe(false);
   });
 });

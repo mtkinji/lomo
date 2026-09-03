@@ -18,6 +18,13 @@ jest.mock('../../../ui/BottomDrawer', () => {
   };
 });
 
+jest.mock('../../workflow-feedback/WorkflowFeedbackInlineSlot', () => {
+  const { Text } = require('react-native');
+  return {
+    WorkflowFeedbackInlineSlot: ({ sourceKey }: { sourceKey: string }) => <Text>{`Feedback ${sourceKey}`}</Text>,
+  };
+});
+
 const familyRule: ScreenTimeRule = {
   id: 'family-a', domain: 'family', subject: { kind: 'child', membershipId: 'child-1' },
   selectionId: 'apps', title: 'Finish homework', trigger: { type: 'family_agreement', agreementId: 'a' },
@@ -38,6 +45,18 @@ describe('ScreenTimeUnlockGuide', () => {
     expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('dynamicSizing');
     expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('sheetStyle');
     expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
+  });
+
+  it('renders feedback inline inside the existing drawer', () => {
+    renderWithProviders(<ScreenTimeUnlockGuide
+      visible rules={[familyRule]} unresolvedCount={0} result={null} busy={false}
+      feedbackSourceKey="screen-time-episode"
+      actions={projectScreenTimeGuideActions({ actor: { kind: 'household_caregiver', childMembershipIds: ['child-1'] }, activeRules: [familyRule] })}
+      onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
+    />);
+
+    expect(screen.getByText('Feedback screen-time-episode')).toBeTruthy();
+    expect(mockBottomDrawerProps).toHaveLength(1);
   });
 
   it('does not render a temporary bypass for a child', () => {

@@ -32,5 +32,14 @@ export function captureMoneyMutation(
 ): void {
   const props = buildMoneyMutationProps(input);
   capture(AnalyticsEvent.MoneyMutationCompleted, props);
+  if (input.outcome === 'succeeded') {
+    // "First" is calculated as the person's first occurrence in PostHog. The
+    // client emits every authoritative successful decision so no local ledger
+    // can drift across devices or reinstalls.
+    capture(AnalyticsEvent.MoneyTrustedDecisionCompleted, {
+      operation: input.operation,
+      outcome: 'completed',
+    });
+  }
   if (__DEV__) console.info('[money mutation]', props);
 }

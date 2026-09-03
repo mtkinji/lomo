@@ -14,7 +14,7 @@ briefs:
   - rule-based-screen-time-contextual-unlock
   - screen-time-rule-governance
 status: shipping
-last_reviewed: 2026-08-31
+last_reviewed: 2026-09-03
 ---
 
 # Screen Time
@@ -37,16 +37,24 @@ collapsing their distinct visibility or authority.
 - Family authority remains distinct from Apple authorization and device delivery.
 - Children can act on a requirement or request caregiver help, but cannot approve
   their own temporary access.
-- The Free/Pro boundary is based on Kwilt-created rule sophistication and
-  coordination: basic one-condition personal rules remain Free; compound,
-  Kwilt-linked, and family-coordinated rules use the canonical Pro policy.
+- Immediate manual control and unscheduled, single-condition Focus or
+  daily-usage rules remain Free. Time-of-day or recurring schedules, a second
+  condition, and explicit AND/OR composition require Pro; app, rule, and minute
+  counts never determine access class.
+- Kwilt-native conditions such as Activity completion, Money review, earned or
+  adaptive access, prerequisite-app state, and family-day state also require Pro.
+- A useful in-person simple family starter remains Free on the configured
+  child device. Binding that device to a named dependent or coordinating rules,
+  caregivers, delivery, requests, and recovery through Kwilt Household requires
+  Pro even when the underlying conditions are standard.
 - Free surfaces make those Pro outcomes discoverable contextually from rule
   overview, builder, post-save, detail, family-learning, and Chat paths without
-  interrupting basic-rule completion or discarding a draft.
+  interrupting simple-rule completion or discarding a draft.
 - Turning off auto-renew preserves Pro until the paid-through date. Confirmed
-  expiration/refund deactivates every advanced personal and family rule as a
-  whole, preserves a readable dormant definition, and clears native enforcement
-  through acknowledged device receipts.
-- Dormant paid rules never auto-convert to one Free condition or auto-reactivate
+  expiration/refund deactivates every Kwilt-native personal rule and
+  managed-Household rule as a whole, preserves a readable dormant definition,
+  and clears native enforcement through acknowledged device receipts. Free
+  unscheduled, single-condition local rules continue normally.
+- Dormant paid rules never auto-convert to a local Free rule or auto-reactivate
   after Restore/resubscription. An offline affected device remains
   **Deactivation pending** until release is acknowledged.

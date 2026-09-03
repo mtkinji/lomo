@@ -14,10 +14,12 @@ import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUp
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { RootDrawerParamList, MoreStackParamList } from '../../navigation/RootNavigator';
 import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
-import { PRO_UPGRADE_INVITATION } from '../../domain/proAccessPolicy';
+import { getProUpgradeInvitation } from '../../domain/proAccessPolicy';
+import { isAdvancedScreenTimePaywallEnabled } from '../screen-time/runtime/screenTimeMonetizationFlag';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { usePaywallStore } from '../../store/usePaywallStore';
+import { openPaywallPurchaseEntry } from '../../services/paywall';
 
 type MoreNavigation = NavigationProp<MoreStackParamList> & NavigationProp<RootDrawerParamList>;
 
@@ -55,6 +57,7 @@ function MoreRow({ title, subtitle, icon, onPress }: MoreRowProps) {
 }
 
 export function MoreScreen() {
+  const proUpgradeInvitation = getProUpgradeInvitation(isAdvancedScreenTimePaywallEnabled());
   const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation<MoreNavigation>();
   const insets = useSafeAreaInsets();
@@ -121,19 +124,13 @@ export function MoreScreen() {
             <>
               <View style={styles.divider} />
               <MoreRow
-                title="View Kwilt Pro plans"
-                subtitle={PRO_UPGRADE_INVITATION.moreSubtitle}
+                title="Upgrade to Kwilt Pro"
+                subtitle={proUpgradeInvitation.moreSubtitle}
                 icon="sparkles"
                 onPress={() => {
                   capture(AnalyticsEvent.UpgradeEntryTapped, { source: 'more' });
                   usePaywallStore.getState().setDirectUpsellContext({ source: 'more' });
-                  navigation.navigate('Settings', {
-                    screen: 'SettingsManageSubscription',
-                    params: {
-                      openPricingDrawer: true,
-                      openPricingDrawerNonce: Date.now(),
-                    },
-                  });
+                  openPaywallPurchaseEntry();
                 }}
               />
             </>

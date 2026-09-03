@@ -79,17 +79,19 @@ Expected:
 ### 2. Advanced personal Screen Time
 
 1. Open **Screen Time** and start a personal rule.
-2. Create and save one basic rule with exactly one standard condition: Focus is
-   running, time of day, or daily usage allowance.
-3. Confirm that one-condition rule can be created without a paywall.
-4. Start another rule or edit the rule and try to add a second condition.
-5. Separately try a Kwilt-linked condition such as a real step or Money review.
+2. Create and save an unscheduled, single-condition local rule using Focus or
+   daily usage allowance.
+3. Separately try to add a time-of-day or recurring schedule.
+4. Separately add a second condition or explicit AND/OR composition.
+5. Separately add a Kwilt-native condition such as a real step, Money review,
+   earned access, prerequisite-app state, or family-day state.
 
 Expected:
 
-- The advanced action opens **Make Screen Time fit the rule you need**.
-- The paywall appears before the second or linked condition is committed.
-- Dismissal preserves the valid basic rule and does not change native
+- The unscheduled, single-condition rule never opens a paywall.
+- Scheduling, composition, and Kwilt-native actions each open an
+  outcome-specific Pro invitation before the paid behavior is committed.
+- Dismissal preserves the valid simple rule and does not change native
   enforcement.
 
 Simulator can prove the screen and draft behavior. Only an entitlement-enabled
@@ -97,22 +99,27 @@ physical iPhone can prove Family Controls authorization and enforcement.
 
 ### 3. Family Screen Time
 
-Preparation: create a household and add a child/dependent member if the account
-does not already have one.
+Preparation: have a child device in the Apple Family Sharing group. Create a
+Kwilt household and dependent only for the later managed-Household portion.
 
-1. Open the child's household detail and the Family Screen Time learning/setup
-   surface.
-2. Confirm the explanation and device prerequisites are readable before any
-   paywall.
-3. Attempt the first child-device setup, agreement activation, edit, retry, or
-   policy-delivery action.
+1. On the configured child device, complete Apple guardian authorization,
+   private app/category selection, and one useful unscheduled,
+   single-condition local rule.
+2. Confirm authorization, selection, local enforcement, explanation, editing,
+   recovery, release, and cleanup do not require Pro.
+3. From the caregiver experience, choose to bind the authorized device to the
+   named dependent or manage the agreement remotely through Kwilt Household.
+4. Separately try a remote change, caregiver grant, child request, or
+   cross-device delivery action.
 
 Expected:
 
-- The paywall title is **Make Screen Time a family agreement**.
-- It appears before enrollment, child app selection, agreement mutation,
-  override, or policy delivery.
-- Dismissal leaves the household and child record unchanged.
+- The in-person simple family starter produces a useful enforced outcome
+  without a paywall.
+- The managed-Household action opens an outcome-specific Pro invitation before
+  named-dependent binding, remote mutation, request routing, or policy delivery.
+- Dismissal leaves the local rule intact and does not create a managed device or
+  Household agreement.
 
 ### 4. External AI tools
 
@@ -168,8 +175,10 @@ silently block the action:
 - Start each available Focus duration.
 - Export an activity to Calendar.
 - Use existing streak protection/recovery behavior.
-- Create, read, edit, disable, delete, loosen, release, and clean up a basic
-  personal Screen Time rule.
+- Create, read, edit, disable, delete, loosen, release, and clean up unscheduled,
+  single-condition local Screen Time rules using Focus or daily usage.
+- Complete and manage an in-person simple family starter on the configured
+  child device without binding it to Kwilt Household.
 - Create and manage a household and participate in sharing/accountability.
 - Use Recipes, Meal Plans, Groceries, Chores, Games, and Explore.
 - Use Cook Mode and Live Conversation when their exposure flags are on.
@@ -188,9 +197,9 @@ it through at least one contextual paywall.
   invitation on Settings; More also exposes **View Kwilt Pro plans**.
 - Settings and More both open the plan chooser directly, without pretending a
   feature paywall was shown first.
-- The permanent invitation names a current budget, spending-app check-ins,
-  multi-condition Screen Time rules, and added AI capacity without promising
-  unproved family enforcement.
+- The permanent invitation names a current budget, Screen Time conditions
+  connected to Kwilt, managed family agreements only when proven, and added AI
+  capacity without selling condition count or Apple enforcement.
 
 - The current tier is Free and the credit count is correct.
 - Monthly and Annual can both be selected.
@@ -202,9 +211,24 @@ it through at least one contextual paywall.
 - Trial wording appears only when StoreKit reports introductory eligibility and
   uses StoreKit's real duration. Eligibility belongs to the Apple subscription
   group, not the Supabase account.
+- The contextual offer uses `Try Pro free` only for verified one-month
+  eligibility and `Upgrade to Pro` for ineligible, unknown, unavailable, or
+  misconfigured states. It never purchases directly.
+- The Money offer retains the canonical Pine drawer, radiused tall photograph,
+  focal-point-safe full-width proof notification, concise outcome block, and
+  one large white bottom CTA. There is no feature list, `Not now`, legal copy,
+  white footer, pricing grid, or second dominant action.
+- Verify the canonical drawer on the smallest supported iPhone viewport, at a
+  large accessibility text size, and with VoiceOver traversal. The CTA remains
+  reachable, the drawer dismissible, and the proof notification is announced
+  as one coherent status.
+- Annual savings appears only when the matching monthly and annual prices are
+  finite, positive, and in the same currency. The selected plan's full amount
+  billed remains more prominent than savings or equivalent monthly math.
 - Privacy, Terms, and **Restore purchases** work.
 - Cancelling Apple's purchase sheet leaves the account Free, preserves the
-  originating intent, and shows no success message.
+  originating intent, emits no purchase-failed/succeeded/trial event, and shows
+  no failure or success message.
 - A network/configuration failure is understandable and leaves the account
   Free.
 
@@ -241,8 +265,10 @@ configuration.
 - Confirm Money history remains readable while new connection, sync, review,
   and budget mutations are unavailable; disconnect and subscription management
   remain available.
-- Confirm advanced Screen Time definitions remain readable, are not silently
-  active, and can be disabled, loosened, released, or deleted.
+- Confirm scheduled, composed, Kwilt-native, and managed-Household Screen Time
+  definitions remain readable, are not silently active, and can be disabled,
+  loosened, released, or deleted. Confirm unscheduled single-condition Free
+  rules continue normally.
 - Confirm external connections can be revoked and cleaned up.
 - Confirm ordinary Free data remains present and editable.
 - Repurchase and confirm dormant Screen Time rules do not silently reactivate.

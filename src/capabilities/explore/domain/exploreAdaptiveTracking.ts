@@ -239,10 +239,10 @@ export function adaptiveLocationProfile(
   if (movement === 'vehicle') {
     return policy === 'ambient' ? {
       accuracy: 'high',
-      distanceIntervalM: 22,
-      timeIntervalMs: 2_000,
-      deferredDistanceM: 200,
-      deferredIntervalMs: 30_000,
+      distanceIntervalM: 60,
+      timeIntervalMs: 120_000,
+      deferredDistanceM: 300,
+      deferredIntervalMs: 180_000,
       pausesAutomatically: false,
     } : {
       accuracy: 'high',
@@ -254,11 +254,18 @@ export function adaptiveLocationProfile(
     };
   }
   if (movement === 'cycling') {
-    return {
+    return policy === 'adventure' ? {
+      accuracy: 'high',
+      distanceIntervalM: 6,
+      timeIntervalMs: 1_000,
+      deferredDistanceM: 60,
+      deferredIntervalMs: 15_000,
+      pausesAutomatically: false,
+    } : {
       accuracy: 'high',
       distanceIntervalM: 60,
-      timeIntervalMs: 60_000,
-      deferredDistanceM: 200,
+      timeIntervalMs: 120_000,
+      deferredDistanceM: 300,
       deferredIntervalMs: 180_000,
       pausesAutomatically: false,
     };
@@ -266,18 +273,18 @@ export function adaptiveLocationProfile(
   return policy === 'adventure'
     ? {
       accuracy: 'high',
-      distanceIntervalM: 25,
-      timeIntervalMs: 30_000,
-      deferredDistanceM: 75,
-      deferredIntervalMs: 90_000,
+      distanceIntervalM: 6,
+      timeIntervalMs: 1_000,
+      deferredDistanceM: 60,
+      deferredIntervalMs: 15_000,
       pausesAutomatically: false,
     }
     : {
       accuracy: 'high',
-      distanceIntervalM: 30,
-      timeIntervalMs: 60_000,
-      deferredDistanceM: 100,
-      deferredIntervalMs: 120_000,
+      distanceIntervalM: 60,
+      timeIntervalMs: 120_000,
+      deferredDistanceM: 300,
+      deferredIntervalMs: 180_000,
       pausesAutomatically: false,
     };
 }

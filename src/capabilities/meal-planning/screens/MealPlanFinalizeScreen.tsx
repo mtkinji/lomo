@@ -20,6 +20,7 @@ import { MealOccasionDrawer } from '../components/MealOccasionDrawer';
 import { buildMealPlanningReminderActivity, MealPlanningReminderOfferDrawer } from '../components/MealPlanningReminderOfferDrawer';
 import { createMealPlanningRepository, type MealPlanProjection } from '../data/mealPlanningRepository';
 import type { MealTimingIntent } from '../domain/mealPlanContracts';
+import { classifyMealPlanFinalizeFailure } from '../domain/mealPlanFinalizationTelemetry';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'MealPlanFinalize'>;
 
@@ -111,6 +112,9 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
   const usualDinerCount = preferences?.usualDinerCount ?? Math.max(1, usualDinerPersonIds.length || 2);
   const members = preferences?.members ?? [];
   const { capture } = useAnalytics();
+  const continueToNextMeals = () => navigation.replace('NextMeals', {
+    feedbackPromptId: 'meal_plan_finalized_satisfaction_v1',
+  });
 
   useEffect(() => {
     void createMealPlanningRepository().list().then(async (plans) => {
@@ -172,9 +176,12 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
         await AsyncStorage.setItem(offerKey, 'seen');
         setShowReminderOffer(true);
       } else {
-        navigation.replace('NextMeals');
+        continueToNextMeals();
       }
     } catch (error) {
+      capture(AnalyticsEvent.MealPlanFinalizeFailed, {
+        failure_class: classifyMealPlanFinalizeFailure(error),
+      });
       Alert.alert('Plan did not finalize', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setBusy(false);
@@ -231,13 +238,13 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
       /> : null}
       <MealPlanningReminderOfferDrawer
         visible={showReminderOffer}
-        onClose={() => { setShowReminderOffer(false); navigation.replace('NextMeals'); }}
+        onClose={() => { setShowReminderOffer(false); continueToNextMeals(); }}
         onCreate={({ mode, reminderAt }) => {
           if (!plan?.householdId) return;
           const nowIso = new Date().toISOString();
           addActivity(buildMealPlanningReminderActivity({ mode, reminderAt, householdId: plan.householdId, nowIso, id: `meal-plan-reminder-${Date.now()}` }));
           setShowReminderOffer(false);
-          navigation.replace('NextMeals');
+          continueToNextMeals();
         }}
       />
     </AppShell>

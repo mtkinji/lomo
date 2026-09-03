@@ -55,6 +55,24 @@ describe('Explore state transitions', () => {
     expect(started.activeSession?.trackingPolicy).toBe('ambient');
   });
 
+  it('clears only observed ambient cells while deliberate paths retain a continuous corridor', () => {
+    const secondPoint = {
+      ...point,
+      id: 'point-2',
+      ...destinationCoordinate(point, 100, 0),
+      recordedAt: '2026-07-27T18:01:00.000Z',
+    };
+    let ambient = beginExploreSession(createEmptyExploreData(), 'ambient-session', point.recordedAt, 'ambient');
+    ambient = appendExplorePoint(ambient, point);
+    ambient = appendExplorePoint(ambient, secondPoint);
+    let adventure = beginExploreSession(createEmptyExploreData(), 'path-session', point.recordedAt, 'adventure');
+    adventure = appendExplorePoint(adventure, point);
+    adventure = appendExplorePoint(adventure, secondPoint);
+
+    expect(Object.keys(ambient.exploredCells)).toHaveLength(2);
+    expect(Object.keys(adventure.exploredCells).length).toBeGreaterThan(2);
+  });
+
   it('records visits as a relationship to one canonical Place', () => {
     const state = recordPlaceVisit(createEmptyExploreData(), {
       place: {
@@ -108,6 +126,28 @@ describe('Explore state transitions', () => {
     expect(repaired.sessions[0].points).toEqual([point, farPoint]);
     expect(Object.keys(repaired.exploredCells)).toEqual(Object.keys(legacyCells));
     expect(Object.keys(repaired.exploredCells).length).toBeGreaterThan(2);
+  });
+
+  it('rebuilds legacy ambient history as observations rather than an inferred corridor', () => {
+    const farPoint = {
+      ...point,
+      id: 'point-2',
+      ...destinationCoordinate(point, 100, 35),
+      recordedAt: '2026-07-27T18:01:00.000Z',
+    };
+    const legacy = {
+      ...createEmptyExploreData(),
+      sessions: [{
+        ...beginExploreSession(createEmptyExploreData(), 'ambient-session', point.recordedAt, 'ambient').activeSession!,
+        endedAt: farPoint.recordedAt,
+        points: [point, farPoint],
+      }],
+    };
+
+    const repaired = rebuildExploreTerritory(legacy);
+
+    expect(repaired.sessions[0].points).toEqual([point, farPoint]);
+    expect(Object.keys(repaired.exploredCells)).toHaveLength(2);
   });
 
   it('does not resurface a dismissed recap when Place enrichment finishes', () => {

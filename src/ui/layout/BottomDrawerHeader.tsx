@@ -18,6 +18,7 @@ type BottomDrawerHeaderProps = {
   rightAction?: ReactNode;
   onClose?: () => void;
   closeAccessibilityLabel?: string;
+  closeTone?: 'default' | 'inverse';
   titleVariant?: 'sm' | 'md' | 'lg';
   align?: 'left' | 'center';
   variant?: BottomDrawerHeaderVariant;
@@ -50,6 +51,7 @@ export function BottomDrawerHeader({
   rightAction,
   onClose,
   closeAccessibilityLabel = 'Close',
+  closeTone = 'default',
   titleVariant = bottomDrawerChromeTokens.standard.titleVariant,
   align = 'left',
   variant = 'default',
@@ -72,6 +74,7 @@ export function BottomDrawerHeader({
         <BottomDrawerHeaderClose
           onPress={onClose}
           accessibilityLabel={closeAccessibilityLabel}
+          tone={closeTone}
         />
       );
     }
@@ -122,11 +125,15 @@ export function BottomDrawerHeader({
   );
 }
 
-export function BottomDrawerHeaderClose(props: { onPress: () => void; accessibilityLabel?: string }) {
-  const { onPress, accessibilityLabel = 'Close' } = props;
+export function BottomDrawerHeaderClose(props: {
+  onPress: () => void;
+  accessibilityLabel?: string;
+  tone?: 'default' | 'inverse';
+}) {
+  const { onPress, accessibilityLabel = 'Close', tone = 'default' } = props;
   return (
     <IconButton accessibilityLabel={accessibilityLabel} onPress={onPress} variant="ghost">
-      <Icon name="close" size={18} color={colors.textPrimary} />
+      <Icon name="close" size={18} color={tone === 'inverse' ? colors.parchment : colors.textPrimary} />
     </IconButton>
   );
 }

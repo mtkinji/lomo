@@ -28,7 +28,7 @@ describe('FullWidthActionDock', () => {
     const buttonStyle = StyleSheet.flatten(screen.getByRole('button', { name: 'Continue' }).props.style);
 
     expect(hostStyle).toMatchObject({
-      bottom: 21,
+      bottom: bottomDockGeometry.phoneFloating.inlineGap,
       left: 0,
       paddingHorizontal: bottomDockGeometry.phoneFloating.inlineGap,
       position: 'absolute',
@@ -43,6 +43,6 @@ describe('FullWidthActionDock', () => {
   it('reserves enough content clearance for the dock without exposing screen-owned inset math', () => {
     const screen = renderWithProviders(<ClearanceProbe />);
 
-    expect(screen.getByRole('button', { name: 'Clearance 85' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clearance 88' })).toBeTruthy();
   });
 });

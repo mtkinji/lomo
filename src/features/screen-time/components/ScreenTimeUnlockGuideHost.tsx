@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { getHouseholdSnapshot, type HouseholdSnapshot } from '../../household/data/household';
 import {
   fetchFamilyScreenTimeSnapshot,
@@ -26,6 +27,10 @@ import {
   type TemporaryOpenResult,
 } from '../runtime/openScreenTimeRulesTemporarily';
 import { ScreenTimeUnlockGuide } from './ScreenTimeUnlockGuide';
+import {
+  requestWorkflowFeedback,
+  type WorkflowFeedbackHandle,
+} from '../../workflow-feedback';
 
 type LoadedContext = {
   actor: ScreenTimeActor;
@@ -51,10 +56,20 @@ export function ScreenTimeUnlockGuideHost() {
   const [context, setContext] = useState<LoadedContext | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<TemporaryOpenResult | null>(null);
+  const [feedbackSourceKey, setFeedbackSourceKey] = useState<string | null>(null);
+  const feedbackHandlesRef = useRef<WorkflowFeedbackHandle[]>([]);
+
+  const cancelFeedbackRequests = useCallback(() => {
+    feedbackHandlesRef.current.forEach((handle) => handle.cancel());
+    feedbackHandlesRef.current = [];
+  }, []);
 
   useEffect(() => {
     if (!visible || !handoff) return;
     let cancelled = false;
+    const episodeKey = `screen-time-guide-${Crypto.randomUUID()}`;
+    cancelFeedbackRequests();
+    setFeedbackSourceKey(episodeKey);
     setContext(null);
     setResult(null);
     void (async () => {
@@ -77,9 +92,18 @@ export function ScreenTimeUnlockGuideHost() {
         rule_count: handoff.restrictions.length,
         has_family_rule: handoff.restrictions.some((restriction) => restriction.reason === 'family_prerequisite'),
       });
+      feedbackHandlesRef.current.push(requestWorkflowFeedback({
+        promptId: 'screen_time_block_reason_clarity_v1',
+        sourceKey: episodeKey,
+        placement: 'inline',
+      }));
     })();
-    return () => { cancelled = true; };
-  }, [capture, handoff, visible]);
+    return () => {
+      cancelled = true;
+      cancelFeedbackRequests();
+      setFeedbackSourceKey(null);
+    };
+  }, [cancelFeedbackRequests, capture, handoff, visible]);
 
   const familyRules = useMemo(() => (context?.familySnapshots ?? []).flatMap((snapshot) => (
     snapshot.agreements.flatMap((agreement) => {
@@ -100,20 +124,22 @@ export function ScreenTimeUnlockGuideHost() {
 
   const handleDismiss = useCallback(() => {
     capture(AnalyticsEvent.ScreenTimeGuideDismissed, { rule_count: projection.rules.length });
+    cancelFeedbackRequests();
     dismiss();
-  }, [capture, dismiss, projection.rules.length]);
+  }, [cancelFeedbackRequests, capture, dismiss, projection.rules.length]);
 
   const handleDoThisFirst = useCallback(() => {
     if (!handoff) return;
     const leadReason = handoff.restrictions[0]?.reason ?? handoff.reason;
     capture(AnalyticsEvent.ScreenTimeGuideRequirementOpened, { reason: leadReason ?? 'unknown' });
+    cancelFeedbackRequests();
     dismiss();
     void Linking.openURL(routeForScreenTimeRuleRequirement({
       ruleId: actions.leadRuleId,
       reason: leadReason,
       personalSettings,
     }));
-  }, [actions.leadRuleId, capture, dismiss, handoff, personalSettings]);
+  }, [actions.leadRuleId, cancelFeedbackRequests, capture, dismiss, handoff, personalSettings]);
 
   const handleOpenTemporarily = useCallback(async () => {
     if (!handoff || !context || busy) return;
@@ -157,8 +183,15 @@ export function ScreenTimeUnlockGuideHost() {
       rule_count: projection.rules.length,
       duration_minutes: 20,
     });
+    if (next.status === 'opened' && feedbackSourceKey) {
+      feedbackHandlesRef.current.push(requestWorkflowFeedback({
+        promptId: 'screen_time_block_clear_ease_v1',
+        sourceKey: feedbackSourceKey,
+        placement: 'inline',
+      }));
+    }
     setBusy(false);
-  }, [busy, capture, context, handoff, personalSettings, projection.rules, setPersonalSettings]);
+  }, [busy, capture, context, feedbackSourceKey, handoff, personalSettings, projection.rules, setPersonalSettings]);
 
   if (!handoff) return null;
   return <ScreenTimeUnlockGuide
@@ -168,6 +201,7 @@ export function ScreenTimeUnlockGuideHost() {
     actions={actions}
     result={result}
     busy={busy || context === null}
+    feedbackSourceKey={feedbackSourceKey ?? undefined}
     onDismiss={handleDismiss}
     onDoThisFirst={handleDoThisFirst}
     onOpenTemporarily={handleOpenTemporarily}

@@ -23,6 +23,8 @@ export type EntitlementsSnapshot = {
    * This should NOT be treated as full Pro for Arc/Goal limits.
    */
   isProToolsTrial: boolean;
+  /** RevenueCat's completed active Pro period classification, when available. */
+  proPeriodType?: 'trial' | 'intro' | 'normal' | 'promotional' | 'unknown';
   checkedAt: string;
   source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code' | 'admin';
   appUserID?: string | null;
@@ -77,21 +79,34 @@ function getCanonicalProSku(candidate: string): string | null {
   return null;
 }
 
-export type ProSkuPricing = {
+export type IntroEligibilityState = 'eligible' | 'ineligible' | 'unknown' | 'no_offer';
+
+export type ProStoreProductOffer = {
   sku: string;
+  price?: number;
   priceString?: string;
   currencyCode?: string;
+  introEligibility: IntroEligibilityState;
   introPrice?: {
     priceString: string;
-    /** e.g. 'FREE_TRIAL', 'PAY_UP_FRONT', 'PAY_AS_YOU_GO' */
     type?: string;
-    /** Number of periods (e.g. 1 for a 1-week trial) */
     cycles?: number;
-    /** e.g. 'WEEK', 'MONTH' */
     periodUnit?: string;
     periodNumberOfUnits?: number;
   };
 };
+
+export type ProStoreOfferSnapshot = {
+  status: 'ready' | 'unavailable';
+  products: Record<string, ProStoreProductOffer>;
+  source?: 'revenuecat' | 'development_fixture';
+};
+
+export type DevelopmentProStoreOfferState =
+  | 'eligible'
+  | 'ineligible'
+  | 'unavailable'
+  | 'live';
 
 type RevenueCatCustomerInfo = {
   entitlements?: {
@@ -115,9 +130,13 @@ type RevenueCatPurchasesLike = {
   logOut?: () => Promise<RevenueCatCustomerInfo>;
   restorePurchases?: () => Promise<RevenueCatCustomerInfo>;
   getOfferings?: () => Promise<any>;
+  checkTrialOrIntroductoryPriceEligibility?: (
+    productIdentifiers: string[],
+  ) => Promise<Record<string, { status: number; description?: string }>>;
   purchasePackage?: (pkg: any) => Promise<{ customerInfo?: RevenueCatCustomerInfo }>;
   setLogLevel?: (level: any) => void;
   LOG_LEVEL?: Record<string, any>;
+  INTRO_ELIGIBILITY_STATUS?: Record<string, number>;
 };
 
 const nowIso = () => new Date().toISOString();
@@ -133,6 +152,10 @@ export class SubscriptionPackagesUnavailableError extends Error {
     this.name = 'SubscriptionPackagesUnavailableError';
     this.details = details;
   }
+}
+
+export function isRevenueCatPurchaseCancelled(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as any).userCancelled === true);
 }
 
 function isAuthoritativeProStatus(status: ProStatus | null | undefined): boolean {
@@ -231,11 +254,26 @@ function getPurchasesModule(): RevenueCatPurchasesLike | null {
 
 let hasConfiguredRevenueCat = false;
 let configuredRevenueCatAppUserID: string | null = null;
+let developmentProStoreOfferState: DevelopmentProStoreOfferState = __DEV__
+  ? 'eligible'
+  : 'live';
+
+export function getDevelopmentProStoreOfferState(): DevelopmentProStoreOfferState {
+  return __DEV__ ? developmentProStoreOfferState : 'live';
+}
+
+export function setDevelopmentProStoreOfferState(
+  state: DevelopmentProStoreOfferState,
+): void {
+  if (!__DEV__) return;
+  developmentProStoreOfferState = state;
+}
 
 export function __resetRevenueCatEntitlementsForTests(): void {
   if (!__DEV__) return;
   hasConfiguredRevenueCat = false;
   configuredRevenueCatAppUserID = null;
+  developmentProStoreOfferState = 'eligible';
 }
 
 function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
@@ -248,6 +286,24 @@ function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | un
   // same active `pro` entitlement and receive full Pro access.
   void customerInfo;
   return false;
+}
+
+function extractProPeriodType(
+  customerInfo: RevenueCatCustomerInfo | null | undefined,
+): EntitlementsSnapshot['proPeriodType'] | undefined {
+  const active = customerInfo?.entitlements?.active ?? {};
+  const raw = (active as any).pro?.periodType;
+  if (typeof raw !== 'string') return undefined;
+  const normalized = raw.trim().toLowerCase();
+  if (
+    normalized === 'trial' ||
+    normalized === 'intro' ||
+    normalized === 'normal' ||
+    normalized === 'promotional'
+  ) {
+    return normalized;
+  }
+  return 'unknown';
 }
 
 function normalizeAppUserID(raw: string | null | undefined): string | null {
@@ -713,7 +769,7 @@ export async function purchasePro(appUserID?: string | null): Promise<Entitlemen
       skuCandidates.includes(pkg?.product?.identifier) ||
       skuCandidates.includes(pkg?.product?.productIdentifier),
   );
-  const selectedPackage = matchingPackage ?? availablePackages[0];
+  const selectedPackage = matchingPackage;
 
   if (!selectedPackage || typeof purchases.purchasePackage !== 'function') {
     throw new SubscriptionPackagesUnavailableError(
@@ -730,6 +786,7 @@ export async function purchasePro(appUserID?: string | null): Promise<Entitlemen
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(result?.customerInfo),
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
+    proPeriodType: extractProPeriodType(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
@@ -765,7 +822,7 @@ export async function purchaseProSku(params: {
       skuCandidates.includes(pkg?.product?.identifier) ||
       skuCandidates.includes(pkg?.product?.productIdentifier),
   );
-  const selectedPackage = matchingPackage ?? availablePackages[0];
+  const selectedPackage = matchingPackage;
 
   if (!selectedPackage || typeof purchases.purchasePackage !== 'function') {
     throw new SubscriptionPackagesUnavailableError(
@@ -782,6 +839,7 @@ export async function purchaseProSku(params: {
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(result?.customerInfo),
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
+    proPeriodType: extractProPeriodType(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
@@ -831,61 +889,156 @@ export async function getActiveBillingCadence(appUserID?: string | null): Promis
   }
 }
 
-export async function getProSkuPricing(appUserID?: string | null): Promise<Record<string, ProSkuPricing>> {
+function normalizeIntroPrice(product: any): ProStoreProductOffer['introPrice'] | undefined {
+  const intro =
+    product?.introPrice ??
+    product?.introductoryPrice ??
+    product?.introductoryDiscount;
+  if (!intro || typeof intro !== 'object' || typeof intro.priceString !== 'string') {
+    return undefined;
+  }
+  return {
+    priceString: intro.priceString,
+    type: typeof intro.type === 'string' ? intro.type : undefined,
+    cycles: typeof intro.cycles === 'number' ? intro.cycles : undefined,
+    periodUnit: typeof intro.periodUnit === 'string' ? intro.periodUnit : undefined,
+    periodNumberOfUnits:
+      typeof intro.periodNumberOfUnits === 'number'
+        ? intro.periodNumberOfUnits
+        : typeof intro.numberOfUnits === 'number'
+          ? intro.numberOfUnits
+          : undefined,
+  };
+}
+
+function normalizeIntroEligibility(
+  status: number | undefined,
+  constants: Record<string, number> | undefined,
+): IntroEligibilityState {
+  const eligible = constants?.INTRO_ELIGIBILITY_STATUS_ELIGIBLE ?? 2;
+  const ineligible = constants?.INTRO_ELIGIBILITY_STATUS_INELIGIBLE ?? 1;
+  const noOffer = constants?.INTRO_ELIGIBILITY_STATUS_NO_INTRO_OFFER_EXISTS ?? 3;
+  if (status === eligible) return 'eligible';
+  if (status === ineligible) return 'ineligible';
+  if (status === noOffer) return 'no_offer';
+  return 'unknown';
+}
+
+function getDevelopmentProStoreOfferSnapshot(
+  state: Exclude<DevelopmentProStoreOfferState, 'live'>,
+): ProStoreOfferSnapshot {
+  if (state === 'unavailable') {
+    return {
+      status: 'unavailable',
+      products: {},
+      source: 'development_fixture',
+    };
+  }
+
+  const introEligibility: IntroEligibilityState =
+    state === 'eligible' ? 'eligible' : 'ineligible';
+  const product = (
+    sku: string,
+    price: number,
+    priceString: string,
+  ): ProStoreProductOffer => ({
+    sku,
+    price,
+    priceString,
+    currencyCode: 'USD',
+    introEligibility,
+    introPrice: {
+      priceString: '$0.00',
+      type: 'FREE_TRIAL',
+      cycles: 1,
+      periodUnit: 'MONTH',
+      periodNumberOfUnits: 1,
+    },
+  });
+
+  return {
+    status: 'ready',
+    source: 'development_fixture',
+    products: {
+      pro_monthly: product('pro_monthly', 9.99, '$9.99'),
+      pro_annual: product('pro_annual', 59.99, '$59.99'),
+      pro_family_monthly: product('pro_family_monthly', 14.99, '$14.99'),
+      pro_family_annual: product('pro_family_annual', 79.99, '$79.99'),
+    },
+  };
+}
+
+export async function getProStoreOfferSnapshot(
+  appUserID?: string | null,
+): Promise<ProStoreOfferSnapshot> {
+  if (__DEV__ && developmentProStoreOfferState !== 'live') {
+    return getDevelopmentProStoreOfferSnapshot(developmentProStoreOfferState);
+  }
+
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
-  if (!purchases || !apiKey) return {};
+  if (!purchases || !apiKey) return { status: 'unavailable', products: {} };
 
   try {
     await ensureRevenueCatAppUserID(purchases, appUserID);
     const offerings = await purchases.getOfferings?.();
-    const currentOffering = offerings?.current;
-    const availablePackages: any[] = Array.isArray(currentOffering?.availablePackages)
-      ? currentOffering.availablePackages
+    const availablePackages: any[] = Array.isArray(offerings?.current?.availablePackages)
+      ? offerings.current.availablePackages
       : [];
-
-    const pricing: Record<string, ProSkuPricing> = {};
-    for (const pkg of availablePackages) {
+    const proPackages = availablePackages.filter((pkg) => {
       const sku = pkg?.product?.identifier ?? pkg?.product?.productIdentifier;
-      if (typeof sku !== 'string') continue;
-      const priceString = pkg?.product?.priceString;
-      const currencyCode = pkg?.product?.currencyCode;
-      const entry: ProSkuPricing = {
-        sku,
-        ...(typeof priceString === 'string' ? { priceString } : {}),
-        ...(typeof currencyCode === 'string' ? { currencyCode } : {}),
-      };
+      return typeof sku === 'string' && getCanonicalProSku(sku) != null;
+    });
+    if (proPackages.length === 0) return { status: 'unavailable', products: {} };
 
-      // Extract introductory offer (free trial / intro pricing)
-      const intro =
-        pkg?.product?.introPrice ??
-        pkg?.product?.introductoryPrice ??
-        pkg?.product?.introductoryDiscount;
-      if (intro && typeof intro === 'object') {
-        const introPriceString =
-          typeof intro.priceString === 'string' ? intro.priceString : undefined;
-        if (introPriceString) {
-          entry.introPrice = {
-            priceString: introPriceString,
-            type: typeof intro.type === 'string' ? intro.type : undefined,
-            cycles: typeof intro.cycles === 'number' ? intro.cycles : undefined,
-            periodUnit: typeof intro.periodUnit === 'string' ? intro.periodUnit : undefined,
-            periodNumberOfUnits:
-              typeof intro.periodNumberOfUnits === 'number'
-                ? intro.periodNumberOfUnits
-                : typeof intro.numberOfUnits === 'number'
-                  ? intro.numberOfUnits
-                  : undefined,
-          };
-        }
-      }
-
-      pricing[sku] = entry;
-      const canonicalSku = getCanonicalProSku(sku);
-      if (canonicalSku) pricing[canonicalSku] = entry;
+    const productIdentifiers = proPackages
+      .map((pkg) => pkg?.product?.identifier ?? pkg?.product?.productIdentifier)
+      .filter((sku): sku is string => typeof sku === 'string');
+    let eligibility: Record<string, { status: number; description?: string }> = {};
+    if (
+      Platform.OS === 'ios' &&
+      typeof purchases.checkTrialOrIntroductoryPriceEligibility === 'function'
+    ) {
+      eligibility = await purchases
+        .checkTrialOrIntroductoryPriceEligibility(productIdentifiers)
+        .catch(() => ({}));
     }
-    return pricing;
+
+    const products: Record<string, ProStoreProductOffer> = {};
+    for (const pkg of proPackages) {
+      const product = pkg?.product;
+      const sku = product?.identifier ?? product?.productIdentifier;
+      if (typeof sku !== 'string') continue;
+      const canonicalSku = getCanonicalProSku(sku);
+      if (!canonicalSku) continue;
+      const entry: ProStoreProductOffer = {
+        sku,
+        introEligibility: normalizeIntroEligibility(
+          eligibility[sku]?.status,
+          purchases.INTRO_ELIGIBILITY_STATUS,
+        ),
+        ...(typeof product?.price === 'number' && Number.isFinite(product.price)
+          ? { price: product.price }
+          : {}),
+        ...(typeof product?.priceString === 'string' ? { priceString: product.priceString } : {}),
+        ...(typeof product?.currencyCode === 'string' ? { currencyCode: product.currencyCode } : {}),
+        ...(normalizeIntroPrice(product) ? { introPrice: normalizeIntroPrice(product) } : {}),
+      };
+      products[sku] = entry;
+      if (!products[canonicalSku] || sku === canonicalSku) products[canonicalSku] = entry;
+    }
+
+    const hasLivePrice = Object.values(products).some(
+      (product) =>
+        typeof product.price === 'number' &&
+        product.price > 0 &&
+        typeof product.priceString === 'string' &&
+        product.priceString.length > 0,
+    );
+    return hasLivePrice
+      ? { status: 'ready', products, source: 'revenuecat' }
+      : { status: 'unavailable', products: {} };
   } catch {
-    return {};
+    return { status: 'unavailable', products: {} };
   }
 }

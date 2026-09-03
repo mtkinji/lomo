@@ -108,6 +108,33 @@ test('rolls enforcement back and does not persist when activation fails', async 
   expect(store.persistSettings).not.toHaveBeenCalled();
 });
 
+test('checks Pro policy before Chat can reactivate a dormant rule', async () => {
+  const disabledRule = { ...rule, enabled: false };
+  let settings = normalizeScreenTimeProtectionSettings({
+    authorizationStatus: 'approved',
+    personalRuleSchemaVersion: 2,
+    personalCompositeRules: [disabledRule],
+  });
+  const requireProForRule = jest.fn(() => { throw new Error('screen_time_advanced_rule_pro_required'); });
+  const store = {
+    readSettings: jest.fn(() => settings),
+    persistSettings: jest.fn((next) => { settings = next; }),
+    activateRule: jest.fn(async () => true),
+    deactivateRule: jest.fn(async () => true),
+    requireProForRule,
+  } as PersonalScreenTimeRuleActionBoundary & Record<string, jest.Mock>;
+
+  await expect(updatePersonalScreenTimeRule({
+    ruleId: rule.id,
+    expectedUpdatedAt: updatedAt,
+    fields: { enabled: true },
+    confirmed: true,
+  }, store)).rejects.toThrow('screen_time_advanced_rule_pro_required');
+  expect(requireProForRule).toHaveBeenCalledWith(expect.objectContaining({ id: rule.id, enabled: true }));
+  expect(store.activateRule).not.toHaveBeenCalled();
+  expect(store.persistSettings).not.toHaveBeenCalled();
+});
+
 test('rejects denied authorization, stale versions, and missing rules before mutation', async () => {
   await expect(updatePersonalScreenTimeRule({
     ruleId: rule.id, expectedUpdatedAt: updatedAt, fields: { enabled: false }, confirmed: true,

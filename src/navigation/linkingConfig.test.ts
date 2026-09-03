@@ -227,9 +227,10 @@ describe('linkingConfig', () => {
       expect(leaf?.params).toEqual({ inviteCode: 'abc123' });
     });
 
-    test('settings/subscription?openPricingDrawer=1 parses the boolean param', () => {
-      const leaf = parse('settings/subscription?openPricingDrawer=1');
-      expect(leaf?.params).toMatchObject({ openPricingDrawer: true });
+    test('settings/subscription remains the account-management destination', () => {
+      const leaf = parse('settings/subscription');
+      expect(leaf?.name).toBe('SettingsManageSubscription');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsManageSubscription']);
     });
   });
 

@@ -85,6 +85,29 @@ function pointGroupsInDisplayOrder(
   return active ? [...completed, active.points] : completed;
 }
 
+function fogPointGroupsInDisplayOrder(
+  sessions: ExploreSession[],
+  active: ExploreSession | null,
+  playback?: { sessionId: string; visiblePointCount: number } | null,
+): ExplorePoint[][] {
+  const groups: ExplorePoint[][] = [];
+  const appendSession = (session: ExploreSession) => {
+    const points = playback?.sessionId === session.id
+      ? displayPointsForExploreSession(session).slice(0, playback.visiblePointCount)
+      : session.trackingPolicy === 'adventure'
+        ? displayPointsForExploreSession(session)
+        : session.points;
+    if (session.trackingPolicy === 'adventure') {
+      groups.push(points);
+      return;
+    }
+    points.forEach((point) => groups.push([point]));
+  };
+  [...sessions].reverse().forEach(appendSession);
+  if (active) appendSession(active);
+  return groups;
+}
+
 function regionAround(
   point: Pick<ExplorePoint, 'latitude' | 'longitude'>,
   verticalOffsetRatio = 0,
@@ -187,8 +210,8 @@ export function ExploreMapScreen() {
     [playbackProgress, recapRecordedPathPoints, reviewAdventureSession],
   );
   const playbackActive = Boolean(reviewAdventureSession && playbackFrame && playbackProgress < 1);
-  const displayedPointGroups = useMemo(
-    () => pointGroupsInDisplayOrder(
+  const displayedFogPointGroups = useMemo(
+    () => fogPointGroupsInDisplayOrder(
       sessions,
       activeSession,
       playbackActive && reviewAdventureSession && playbackFrame
@@ -250,8 +273,8 @@ export function ExploreMapScreen() {
     };
   }, [shouldRenderPolygonFog, visibleCells, visibleCreatedPlaces]);
   const fogGeometry = useMemo(
-    () => buildFogRenderGeometry([...displayedPointGroups].reverse()),
-    [displayedPointGroups],
+    () => buildFogRenderGeometry([...displayedFogPointGroups].reverse()),
+    [displayedFogPointGroups],
   );
   const altitudeGradients = useMemo(
     () => fogGeometry.traces.flatMap((trace) => buildAltitudeGradients(trace)),

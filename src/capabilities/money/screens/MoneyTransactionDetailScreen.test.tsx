@@ -3,6 +3,17 @@ import path from 'path';
 import './MoneyTransactionDetailScreen';
 
 describe('MoneyTransactionDetailScreen drawer headers', () => {
+  it('defers category-correction feedback until any merchant rule path resolves', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain("promptId: 'money_transaction_correction_ease_v1'");
+    expect(source).toContain('categoryCorrectionFeedbackPendingRef.current = true;');
+    expect(source.match(/requestCategoryCorrectionFeedback\(\);/g)).toHaveLength(3);
+    expect(source.indexOf('if (outcome === \'offer_rule\') {\n      return;')).toBeLessThan(
+      source.indexOf('requestCategoryCorrectionFeedback();'),
+    );
+  });
+
   it('keeps a household note separate from the provider description and financial decisions', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 

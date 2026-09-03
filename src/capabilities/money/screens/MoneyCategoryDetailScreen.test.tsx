@@ -3,6 +3,15 @@ import path from 'path';
 import './MoneyCategoryDetailScreen';
 
 describe('MoneyCategoryDetailScreen drawer headers', () => {
+  it('requests registered satisfaction only after an authoritative rebalance save closes settings', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain("promptId: 'money_rebalance_satisfaction_v1'");
+    expect(source).toContain("sourceKey: 'money-rebalance-saved'");
+    expect(source).toContain('if (settingsOpen || !rebalanceFeedbackPending) return;');
+    expect(source).toContain('setRebalanceFeedbackPending(true);');
+  });
+
   it('uses one shared heading without eyebrow labels', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 

@@ -1,7 +1,8 @@
 # Kwilt Terms and Privacy Requirements
 
 **Current release baseline:** `1.0.104 (104)`
-**Last product review:** August 12, 2026
+
+**Last product review:** September 2, 2026
 
 This document is not legal advice. It defines the product and engineering requirements that consumer legal language and store disclosures must satisfy. The detailed data map is [the mega-app disclosure matrix](legal/mega-app-data-disclosure-matrix.md).
 
@@ -30,7 +31,7 @@ Kwilt is one Tools for Life app. Its public documents must cover:
 
 ### Accounts and subscriptions
 
-- Core local experiences may work without sign-in; cloud sync, sharing, connected providers, durable Chat, Money, remote Games, and other services may require an account.
+- The current mobile app requires an account for ordinary use. If a future release permits signed-out use, the public documents must identify its exact local and cloud boundaries.
 - Logging out does not by itself erase local data.
 - Account deletion is distinct from cancelling an Apple-managed subscription.
 - Apple processes purchases; RevenueCat manages Kwilt entitlement state. Auto-renewal, trial conversion, restore, cancellation, and refund language must match the purchase sheet.

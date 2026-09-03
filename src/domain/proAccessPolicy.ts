@@ -12,14 +12,26 @@ export const PRO_CAPABILITIES = [
 export const PRO_UPGRADE_INVITATION = {
   title: 'Check your plan before you spend.',
   body: 'Kwilt Pro keeps your budget current, can pause selected spending apps for a quick review, and includes 1,000 AI credits each month.',
-  moreSubtitle: 'A current budget, spending-app check-ins, multi-condition Screen Time rules, and 1,000 AI credits each month.',
+  moreSubtitle: 'A current budget, spending-app check-ins, scheduled and combined Screen Time rules, and 1,000 AI credits each month.',
   benefits: [
     'Keep a monthly budget current with real transactions',
     'Pause selected spending apps until you review the plan',
-    'Combine Screen Time conditions around Focus, time, completed steps, and Money',
+    'Schedule or combine Screen Time conditions around Focus, daily use, completed steps, and Money',
     'Use 1,000 AI credits each month for planning, scheduling, and file analysis',
   ],
 } as const;
+
+const PRO_UPGRADE_INVITATION_WITHOUT_SCREEN_TIME = {
+  ...PRO_UPGRADE_INVITATION,
+  moreSubtitle: 'A current budget, spending-app check-ins, and 1,000 AI credits each month.',
+  benefits: PRO_UPGRADE_INVITATION.benefits.filter((benefit) => !benefit.includes('Screen Time')),
+} as const;
+
+export function getProUpgradeInvitation(advancedScreenTimePaywallEnabled: boolean) {
+  return advancedScreenTimePaywallEnabled
+    ? PRO_UPGRADE_INVITATION
+    : PRO_UPGRADE_INVITATION_WITHOUT_SCREEN_TIME;
+}
 
 export type ProCapability = (typeof PRO_CAPABILITIES)[number];
 

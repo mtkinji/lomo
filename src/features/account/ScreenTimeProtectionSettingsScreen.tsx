@@ -52,12 +52,14 @@ import {
 import {
   createPersonalCompositeRuleActionBoundary,
 } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 
 type SetupStep = 'idle' | 'permission';
 type SetupPhase = 'intro' | 'permission' | 'manage';
+type ScreenTimeAuthorizationMember = 'individual' | 'child';
 function statusLabel(status: string): string {
   switch (status) {
     case 'approved':
@@ -103,7 +105,7 @@ function setupCopy(params: {
   }
   return {
     title: 'Set rules that fit real life.',
-    body: 'Pause or allow apps based on daily use, time of day, a budget, Focus, or a completed to-do. You’ll approve Screen Time before creating a rule.',
+    body: 'Start with a simple Focus or daily-use rule. Pro adds schedules, combined conditions, completed to-dos, and Money. You’ll approve Screen Time before creating a rule.',
   };
 }
 
@@ -121,9 +123,19 @@ function setupStepCopy(params: {
   phase: SetupPhase;
   introCopy: { title: string; body: string };
   isScreenTimeUnavailable: boolean;
+  authorizationMember: ScreenTimeAuthorizationMember;
 }): { eyebrow: string; title: string; body: string } {
   switch (params.phase) {
     case 'permission':
+      if (params.authorizationMember === 'child') {
+        return {
+          eyebrow: 'Allow Screen Time',
+          title: 'Set up rules on this child’s iPhone.',
+          body: params.isScreenTimeUnavailable
+            ? 'Screen Time is unavailable in this build. Reinstall an entitlement-enabled development build to continue.'
+            : 'Keep this iPhone with you while iOS asks for approval. The app choices and simple rules stay on this iPhone. It won’t connect this device to your Kwilt Household.',
+        };
+      }
       return {
         eyebrow: 'Allow Screen Time',
         title: 'Allow Kwilt to use Screen Time.',
@@ -152,6 +164,7 @@ export function ScreenTimeProtectionSettingsScreen() {
   const [householdSnapshot, setHouseholdSnapshot] = useState<HouseholdSnapshot | null>(null);
   const [householdLoadState, setHouseholdLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [setupStep, setSetupStep] = useState<SetupStep>('idle');
+  const [authorizationMember, setAuthorizationMember] = useState<ScreenTimeAuthorizationMember>('individual');
   const [pendingPersonalRuleId, setPendingPersonalRuleId] = useState<string | null>(null);
   const startedKeyRef = useRef<string | null>(null);
 
@@ -253,9 +266,9 @@ export function ScreenTimeProtectionSettingsScreen() {
     }, [authIdentity?.userId]),
   );
 
-  const handleRequestPermission = async () => {
+  const handleRequestPermission = async (member: ScreenTimeAuthorizationMember = authorizationMember) => {
     setSetupStep('permission');
-    const authorizationStatus = await requestScreenTimeAuthorization();
+    const authorizationStatus = await requestScreenTimeAuthorization(member);
     setSettings((current) => ({
       ...current,
       authorizationStatus,
@@ -283,17 +296,24 @@ export function ScreenTimeProtectionSettingsScreen() {
       suggestedKind,
       setupIntent,
       entrySurface,
+      ...(authorizationMember === 'child' ? { authorizationMember } : {}),
     } as const;
 
     navigation.navigate('SettingsScreenTimeRuleBuilder', builderParams);
   };
 
   const continueFromIntro = () => {
+    setAuthorizationMember('individual');
     if (!isApproved) {
       setSetupPhase('permission');
       return;
     }
     openSetupRuleBuilder();
+  };
+
+  const continueAsLocalChildSetup = () => {
+    setAuthorizationMember('child');
+    setSetupPhase('permission');
   };
 
   const continueFromPermission = async () => {
@@ -329,6 +349,7 @@ export function ScreenTimeProtectionSettingsScreen() {
     phase: setupPhase,
     introCopy,
     isScreenTimeUnavailable,
+    authorizationMember,
   });
   const familyRows = buildFamilyScreenTimeOverviewRows(householdSnapshot);
   const myRuleRows = buildMyScreenTimeRuleInventory({
@@ -347,7 +368,15 @@ export function ScreenTimeProtectionSettingsScreen() {
         confirmed: true,
       }, createPersonalCompositeRuleActionBoundary());
       await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === 'screen_time_advanced_rule_pro_required') {
+        openPaywallInterstitial({
+          reason: 'pro_advanced_screen_time_rules',
+          source: 'screen_time_rule_builder',
+          resumeIntent: { kind: 'screen_time_review_rule' },
+        });
+        return;
+      }
       Alert.alert(
         row.enabled ? 'Couldn’t turn off this rule' : 'Couldn’t turn on this rule',
         'Kwilt did not receive confirmation from Screen Time. Nothing was changed.',
@@ -554,7 +583,17 @@ export function ScreenTimeProtectionSettingsScreen() {
               <Text style={styles.ftuePrimaryButtonLabel}>{setupButtonLabel}</Text>
             </Button>
 
-            <View style={styles.ftueSecondarySlot} />
+            <View style={styles.ftueSecondarySlot}>
+              {setupPhase === 'intro' ? (
+                <Button
+                  fullWidth
+                  onPress={continueAsLocalChildSetup}
+                  variant="ghost"
+                >
+                  <Text style={styles.ftueSecondaryButtonLabel}>Set up for a child</Text>
+                </Button>
+              ) : null}
+            </View>
           </View>
         </View>
       </View>

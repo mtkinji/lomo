@@ -10,6 +10,17 @@ Decision status: implementation planning complete; product implementation not st
 
 Canonical contract: `docs/feature-briefs/monetization-paywall-revenuecat.md`
 
+## 2026-09-02 Screen Time boundary update
+
+The Screen Time packaging recommendations below preserve the 2026-08-31
+assessment snapshot and are superseded by the accepted
+[`family-screen-time-commercial-boundary`](../design-explorations/family-screen-time-commercial-boundary/03-converge.md)
+decision and the canonical contract. The initial 2026-09-02 convergence was
+revised on 2026-09-03: immediate manual control and unscheduled,
+single-condition Focus or daily-usage rules remain Free; scheduling,
+composition, Kwilt-native policy conditions, and managed-Household coordination
+require Pro. A useful in-person simple family starter remains Free.
+
 ## Executive assessment
 
 Kwilt has the right monetization strategy but is **not ready to launch that strategy yet**.

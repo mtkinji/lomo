@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, InteractionManager, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { useAppStore } from '../../../store/useAppStore';
@@ -21,6 +21,7 @@ import { getActiveMealPlan, getCommittedMealPlan } from '../domain/mealPlanPrese
 import { formatMealTiming } from '../domain/mealCommitments';
 import { getHouseholdSnapshot } from '../../../features/household/data/household';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { requestWorkflowFeedback } from '../../../features/workflow-feedback';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'NextMeals'>;
 
@@ -114,6 +115,23 @@ export function NextMealsScreen({ navigation, route }: Props) {
     finally { setLoading(false); }
   }, [userId]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const feedbackPromptId = route.params?.feedbackPromptId;
+    if (!feedbackPromptId) return undefined;
+    navigation.setParams({ feedbackPromptId: undefined });
+    let feedbackHandle: ReturnType<typeof requestWorkflowFeedback> | null = null;
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      feedbackHandle = requestWorkflowFeedback({
+        promptId: feedbackPromptId,
+        sourceKey: 'meal-plan-finalized',
+        placement: 'standalone',
+      });
+    });
+    return () => {
+      interaction.cancel();
+      feedbackHandle?.cancel();
+    };
+  }, [navigation, route.params?.feedbackPromptId]);
   useEffect(() => { void createFoodStockRepository().list().then((items) => setStockCount(items.filter((item) => item.state !== 'depleted').length)).catch(() => undefined); }, []);
   useEffect(()=>{void createFoodCycleRepository().current().then((constraint)=>setTripTargetCents(constraint?.targetCents??null)).catch(()=>undefined);},[]);
   const plan = getCommittedMealPlan(plans) ?? getActiveMealPlan(plans);

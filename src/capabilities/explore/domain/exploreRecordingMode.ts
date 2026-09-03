@@ -23,7 +23,7 @@ export function locationProfileForExploreMode(
     );
   }
   return mode === 'automatic'
-    ? { accuracy: 'high', distanceIntervalM: 20, timeIntervalMs: 20_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false }
+    ? { accuracy: 'high', distanceIntervalM: 60, timeIntervalMs: 120_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false }
     : { accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false };
 }
 

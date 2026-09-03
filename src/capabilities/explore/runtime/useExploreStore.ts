@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import {
   appendExplorePoint,
   beginExploreSession,
@@ -38,6 +37,7 @@ import type {
   Place,
   UserPlaceRelationship,
 } from '../domain/types';
+import { EXPLORE_LEGACY_STORAGE_KEY, exploreShardedStorage } from './exploreShardedStorage';
 
 type ExploreStore = ExploreData & {
   lastPointDecision: string | null;
@@ -113,7 +113,7 @@ export const useExploreStore = create<ExploreStore>()(
           set({ tracking, lastPointDecision: `movement-${movement}` });
           return false;
         }
-        const decision = acceptExplorePoint(previous, sanitized);
+        const decision = acceptExplorePoint(previous, sanitized, state.activeSession.trackingPolicy);
         if (!decision.accepted) {
           set({ tracking, lastPointDecision: decision.reason });
           return false;
@@ -318,13 +318,12 @@ export const useExploreStore = create<ExploreStore>()(
       },
     }),
     {
-      name: 'kwilt-explore-v1',
+      name: EXPLORE_LEGACY_STORAGE_KEY,
       version: 10,
-      storage: createJSONStorage(() => AsyncStorage),
-      // Explore history can grow to tens of megabytes. Loading it while the app shell
-      // starts blocks the JS thread even when the user is opening another capability.
-      // ExploreNavigator explicitly hydrates this store when Explore is opened; native
-      // background tasks continue to read and write the same storage key directly.
+      storage: exploreShardedStorage,
+      // Explore history can grow to tens of megabytes. ExploreNavigator hydrates it only
+      // when Explore opens, while the storage adapter restores immutable trip/point/cell
+      // shards in yielding batches. Background tasks share that same adapter.
       skipHydration: true,
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;

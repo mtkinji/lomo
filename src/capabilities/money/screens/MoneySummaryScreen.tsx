@@ -731,6 +731,7 @@ function SummaryMonthPanel({
           <MoneyPlanLimitAnswer
             answer={answer}
             freshness={freshness}
+            onAdjustPlan={onReviewIncome}
             onExplain={onExplain}
             onReviewIncome={onReviewIncome}
             onReviewOverages={onReviewOverages}

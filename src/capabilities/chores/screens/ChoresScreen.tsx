@@ -75,6 +75,9 @@ import type { UnifiedChatLaunchContext } from '../../../features/unifiedChat/lau
 import { formatActivityRepeatLabel } from '../../../features/activities/activityRepeatLabels';
 import { localDateKey } from '../../../domain/activityRecurrence';
 import { HapticsService } from '../../../services/HapticsService';
+import { posthogClient } from '../../../services/analytics/posthogClient';
+import { track } from '../../../services/analytics/analytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 
 type ChoresScreenProps = {
   now?: () => Date;
@@ -587,8 +590,14 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
   }, [caregiverGrouping, caregiverOccurrences, record.members]);
   const completeOccurrence = (id: string) => {
     const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
-    if (productionMode && occurrence) void production.complete(occurrence);
-    else complete(id, now().toISOString());
+    if (productionMode && occurrence) {
+      void production.complete(occurrence).then((succeeded) => {
+        if (succeeded) track(posthogClient, AnalyticsEvent.ChoreCompleted, { storage_mode: 'synced', outcome: 'completed' });
+      });
+    } else {
+      complete(id, now().toISOString());
+      track(posthogClient, AnalyticsEvent.ChoreCompleted, { storage_mode: 'local', outcome: 'completed' });
+    }
   };
   const closeChoreEditor = () => {
     enrichmentRunRef.current += 1;
@@ -652,7 +661,9 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
       return;
     }
     if (productionMode) {
-      void production.create(choreDraft);
+      void production.create(choreDraft).then((succeeded) => {
+        if (succeeded) track(posthogClient, AnalyticsEvent.ChoreCreated, { storage_mode: 'synced', outcome: 'created' });
+      });
       closeChoreEditor();
       return;
     }
@@ -662,6 +673,7 @@ export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProp
       createdAt.toISOString(),
       `chore-${createdAt.getTime().toString(36)}-${record.occurrences.length + 1}`,
     );
+    track(posthogClient, AnalyticsEvent.ChoreCreated, { storage_mode: 'local', outcome: 'created' });
     closeChoreEditor();
   };
   const returnOccurrenceToFamilyList = (id: string) => {

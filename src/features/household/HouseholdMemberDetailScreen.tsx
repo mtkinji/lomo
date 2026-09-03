@@ -15,6 +15,7 @@ import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { SettingsGroup, SettingsPage, SettingsRow } from '../../ui/SettingsSurface';
 import { Heading, Text, VStack } from '../../ui/primitives';
 import type { HouseholdMember } from './data/household';
+import { requestFamilyScreenTimeProAccess } from './screenTime/familyScreenTimeProAccess';
 import type { HouseholdDevice } from './data/householdDeviceParticipation';
 import { createHouseholdActionBoundary } from './data/householdActionBoundary';
 import {
@@ -260,11 +261,14 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
                 <View style={styles.deviceAction}>
                   <Button
                     fullWidth
-                    onPress={() => navigation.navigate('SettingsHouseholdDeviceSetup', {
-                      childMembershipId: member.id,
-                      childDisplayName: member.displayName,
-                      householdId,
-                    })}
+                    onPress={() => {
+                      if (!requestFamilyScreenTimeProAccess()) return;
+                      navigation.navigate('SettingsHouseholdDeviceSetup', {
+                        childMembershipId: member.id,
+                        childDisplayName: member.displayName,
+                        householdId,
+                      });
+                    }}
                     variant="secondary"
                   >
                     {`Connect ${member.displayName}'s device`}

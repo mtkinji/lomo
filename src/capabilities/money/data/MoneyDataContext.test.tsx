@@ -112,14 +112,16 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
     setProEntitlement(true);
   });
 
-  it('reconciles the governed plan after a persisted transaction review', () => {
+  it('finishes a persisted transaction review before the governed-plan reconciliation completes', () => {
     const source = require('fs').readFileSync(require('path').join(__dirname, 'MoneyDataContext.tsx'), 'utf8');
     const reviewBoundedTransaction = source.slice(
       source.indexOf('const reviewBoundedTransaction = useCallback'),
       source.indexOf('const reviewBroadTransaction = useCallback'),
     );
 
-    expect(reviewBoundedTransaction).toContain("reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')");
+    expect(reviewBoundedTransaction).toContain("void reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')");
+    expect(reviewBoundedTransaction).not.toContain("await reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')");
+    expect(reviewBoundedTransaction).toContain('.finally(() => refreshInBackground(version))');
   });
 
   it('shows a confirmed household note before the broader snapshot refresh finishes', async () => {

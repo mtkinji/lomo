@@ -10,7 +10,7 @@ serves: [jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my
 related_briefs: [brief-auto-budget-from-living-target, brief-budget-amount-adjustment, brief-summary-freshness-recovery, brief-money-progressive-activation, brief-transaction-rule-truth, brief-plaid-transaction-backed-meter, brief-model-strategy-and-tradeoffs]
 exploration: docs/design-explorations/money-plan-meaning-controls
 owner: andrew
-last_updated: 2026-08-02
+last_updated: 2026-09-02
 ---
 
 # Money Living-Limit Answer
@@ -153,6 +153,14 @@ symbol is smaller and top-aligned so the amount remains the visual anchor.
 Existing type and spacing establish hierarchy, and the category grid begins
 immediately afterward.
 
+When the category plan itself exceeds the chosen target, that planning mismatch
+does not replace the actual flexible-spending answer. Budget continues to lead
+with the exact actual amount left or over, then shows one quiet plan-specific
+notice with the planned total, target, difference, and `Adjust plan` action.
+`Review overages` remains exclusive to an actual negative Flexible spending
+result. Plan-edit previews may still lead with the plan-over-limit consequence
+because evaluating the candidate plan is the active job in that context.
+
 The category inventory begins with `Categories` and one right-aligned `View`
 menu. `View` offers three valid presentations: percentage tiles, a percentage
 list, or a dollars-left list. Square tiles remain percentage-only because
@@ -164,9 +172,11 @@ calculations, ordering, or navigation.
 amount left, then presents a compact monthly statement: the chosen boundary
 minus bills and money set aside equals flexible room; current flexible spending
 then produces the exact amount left. Planning-income source, target percentage,
-freshness, and the bill/set-aside composition remain supporting evidence. The
-living-target evidence row is actionable and replaces a separate `Adjust plan`
-button. It never describes plan room as account balance, cash available, or
+freshness, and the bill/set-aside composition remain supporting evidence. In
+the ordinary on-target state, the living-target evidence row is actionable and
+no separate plan button appears. The conditional above-target notice is the
+only resting-surface `Adjust plan` action, and it routes to the same focused
+editor. It never describes plan room as account balance, cash available, or
 guaranteed affordability.
 
 Customer-facing copy says `Bills and money set aside`, not `Protected costs`.
@@ -195,7 +205,7 @@ The pure projection must support:
 | --- | --- |
 | `supported` | `$343 left for flexible spending this month` |
 | `no_flexible_room` | `Your protected plan uses the full 70% living limit` |
-| `over_limit` | `Your plan is $84 over its 70% living limit` |
+| `over_limit` | Budget keeps actual Flexible spending primary and shows `Plan is $84 above target` secondarily; plan-edit previews lead with the candidate plan consequence. |
 | `over_flexible_room` | `Flexible spending is $84 beyond the room in your living limit` |
 | `stale` | Keep the last exact supported answer; disclose its age inside the monthly plan. |
 | `invalid_reconciliation` | Do not publish a number; preserve the prior supported answer and record the defect. |

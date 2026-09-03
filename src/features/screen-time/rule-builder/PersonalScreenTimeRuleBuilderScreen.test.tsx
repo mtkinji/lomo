@@ -150,6 +150,19 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     expect(screen.queryByText('What will happen')).toBeNull();
   });
 
+  it('revalidates Apple child authorization throughout an in-person child-device setup', async () => {
+    mockRouteParams = { entry: 'inventory', authorizationMember: 'child' };
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'games', label: 'Games' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+
+    await screen.findByRole('button', { name: 'Change apps and categories. Games' });
+    expect(requestScreenTimeAuthorization).toHaveBeenCalledWith('child');
+  });
+
   it('lets Free build a basic rule and preserves the draft when another condition asks for Pro', async () => {
     useEntitlementsStore.setState({ isPro: false });
     (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
@@ -159,7 +172,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
     await screen.findByRole('button', { name: 'Change apps and categories. Social' });
     fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
-    fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Focus' }));
     fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
     expect(usePaywallStore.getState()).toMatchObject({
       visible: true,
@@ -167,7 +180,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       source: 'screen_time_add_condition',
       currentResumeIntent: expect.objectContaining({ kind: 'screen_time_add_condition' }),
     });
-    expect(screen.getByRole('button', { name: 'Condition: Time' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Condition: Focus' })).toBeTruthy();
 
     act(() => {
       usePaywallStore.getState().setUpsellContext({
@@ -184,6 +197,27 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       kind: 'screen_time_add_condition',
       source: 'screen_time',
     });
+  });
+
+  it('asks Free for Pro before adding a time-of-day schedule', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
+
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_advanced_screen_time_rules',
+      source: 'screen_time_rule_builder',
+      currentResumeIntent: expect.objectContaining({ kind: 'screen_time_choose_condition' }),
+    });
+    expect(screen.queryByRole('button', { name: 'Condition: Time' })).toBeNull();
   });
 
   it('turns Money context into a prefilled budget sentence in the same composer', async () => {
@@ -365,6 +399,34 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
 
     await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.enabled).toBe(false));
     expect(deactivatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  it('keeps a dormant scheduled rule intact and asks Free for Pro before reactivation', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: false,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      monetizationState: 'inactive_subscription_ended' as const,
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Rule actions' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Turn on rule' }));
+
+    await waitFor(() => expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_advanced_screen_time_rules',
+      source: 'screen_time_rule_builder',
+      currentResumeIntent: expect.objectContaining({ kind: 'screen_time_review_rule' }),
+    }));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toEqual(saved);
   });
 
   it('edits the real-step operator directly from the sentence', () => {

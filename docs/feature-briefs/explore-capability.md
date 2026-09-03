@@ -44,7 +44,7 @@ When my family moves through the world, I want Kwilt to preserve where we explor
 
 ## Design
 
-Explore is a named capability in the Fun section of the global menu. Its first functional release provides adventure recording, an animated Silver Mist fog field with a 65-foot clear core and independently scaled 100-foot feather reference, a continuously interpolated altitude-color route, versioned local persistence, a restrained settings control, visited-Place search, first-Place naming, and a canonical Place/person-Place visit model.
+Explore is a named capability in the Fun section of the global menu. Its first functional release provides deliberate path recording, an animated Silver Mist fog field with a 65-foot clear core and independently scaled 200-foot atmospheric feather reference, versioned local persistence, a restrained settings control, visited-Place search, first-Place naming, and a canonical Place/person-Place visit model. Deliberate recordings can produce an altitude-colored route; automatic observations clear broad territory without being connected into a path.
 
 Recording, sharing, and viewing are independent:
 
@@ -62,7 +62,7 @@ Recording and viewing remain local-first. The app synchronizes completed owner s
 - Reveal later: all normal map chrome after the recording-mode choice; the one-time first-Place invitation; privacy controls, prior adventures, and Place visits.
 - Must not add: navigation, search, or settings during first use; dashboard, completion percentage, leaderboard, streak, public feed, or unsupported background promise.
 - Reuse map: capability shell, `ObjectPageHeader`/`HeaderActionPill` floating material, the resting agent-composer footprint for the bottom utility row, MapKit MapView, Button/Icon primitives, BottomDrawer.
-- Behavior sources: the floating map controls, satellite imagery, closer default camera, visited-Place search, 65-foot fully clear corridor, independently scaled 100-foot feather reference, and altitude trail are explicit user decisions; private default, permission timing, and honest path continuity come from Kwilt trust contracts.
+- Behavior sources: the floating map controls, satellite imagery, closer default camera, visited-Place search, 65-foot fully clear core, independently scaled 200-foot atmospheric feather reference, and deliberate altitude trail are explicit user decisions; private default, permission timing, and honest path continuity come from Kwilt trust contracts.
 - Required states: permission not requested, denied, locating, recording, stopped/empty, persisted route, and family unavailable.
 - Proof path: global menu to Explore on an iPhone simulator, complete the stationary first clearing and recording-mode choice, start with simulated location, receive movement, stop, relaunch, and inspect retained map.
 
@@ -93,7 +93,7 @@ Existing users with retained exploration history are migrated past first-run onb
 
 ## Success signal
 
-A real or simulated outing visibly clears fog, draws a meaningful altitude-colored route, persists after relaunch, and leaves the user able to explain exactly what was recorded and shared.
+A real or simulated automatic outing visibly clears broad fog without drawing a route, while an explicitly recorded outing draws a meaningful altitude-colored path. Both persist after relaunch and leave the user able to explain exactly what was recorded and shared.
 
 ## Open questions
 
@@ -108,7 +108,7 @@ The first clearing must work while the user is stationary; onboarding may not de
 
 Recorded territory must not imply a path Kwilt did not observe. Active vehicle tracking requests dense observations, then retains them using an approximately 0.8-second speed horizon clamped to 6-22 meters. A trustworthy course change of roughly 10 degrees may retain a point before the distance threshold so residential corners and roundabouts preserve their shape. Background delivery remains deferred so observation fidelity does not require waking the JavaScript runtime for every point. Canonical points retain coordinate, timestamp, accuracy, speed, and GPS course; the compass is not operated separately.
 
-Silver Mist receives explicit route-segment pairs rather than guessing continuity from explored-cell order. Straight observations may be topology-preservingly simplified for the bounded native renderer, but every segment remains inside one recorded session and no segment may cross the 60-meter evidence gap. Isolated trusted observations remain circular clearings. Always Exploring requests approximately 22-meter vehicle updates and batches delivery farther in the background; a deliberate Adventure retains the denser 6-meter vehicle profile. This reduces routine freeway acquisition and JavaScript wakeups without weakening intentional outing fidelity.
+Silver Mist receives explicit route-segment pairs rather than guessing continuity from explored-cell order. Only deliberate Recorded Paths may produce those pairs. Automatic observations remain isolated broad clearings even when two observations happen to be close enough to connect geometrically. Straight deliberate observations may be topology-preservingly simplified for the bounded native renderer, but every segment remains inside one recorded session and no segment may cross the evidence gap. Automatic Explore requests observations at approximately 60-meter spacing and batches delivery farther in the background; a deliberate Recorded Path requests the denser 6-meter profile while walking, cycling, or driving. The fully clear core remains 65 feet while the atmospheric feather reference expands from 100 to 200 feet. This reduces passive acquisition and JavaScript wakeups while reserving route fidelity for an explicit recording.
 
 Route presentation uses the same bounded, topology-preserving traces rather than creating one MapKit overlay for every raw point pair. Each trace has a high-contrast casing beneath the altitude stroke so the exact evidence line remains legible on hybrid and satellite imagery. Creating a Place with **Name current Place** adds a soft familiarity bloom at three times the normal reveal radius; the bloom thins Silver Mist without becoming fully clear or claiming traversal. Adventure classification and automatically discovered Apple Maps Places do not trigger the bloom. This is a Place-meaning learning release, not a claim that Kwilt knows a park boundary; see [`explore-earned-terrain-and-trace.md`](explore-earned-terrain-and-trace.md).
 

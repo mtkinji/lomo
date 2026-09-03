@@ -8,6 +8,7 @@ import { Text } from '../../../ui/Typography';
 import type { ScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import type { TemporaryOpenResult } from '../runtime/openScreenTimeRulesTemporarily';
+import { WorkflowFeedbackInlineSlot } from '../../workflow-feedback/WorkflowFeedbackInlineSlot';
 
 const triggerDetails = (rule: ScreenTimeRule): string[] => {
   if (rule.blockingDetails?.length) return rule.blockingDetails;
@@ -25,6 +26,7 @@ export function ScreenTimeUnlockGuide(props: {
   unresolvedCount: number;
   result: TemporaryOpenResult | null;
   busy: boolean;
+  feedbackSourceKey?: string;
   onDismiss: () => void;
   onDoThisFirst: () => void;
   onOpenTemporarily: () => void;
@@ -84,6 +86,10 @@ export function ScreenTimeUnlockGuide(props: {
           <Text accessibilityRole="alert" tone="destructive">
             Kwilt could not change every rule. The app is still blocked.
           </Text>
+        ) : null}
+
+        {props.feedbackSourceKey ? (
+          <WorkflowFeedbackInlineSlot sourceKey={props.feedbackSourceKey} />
         ) : null}
 
         <HStack space={spacing.sm} justifyContent="flex-end">

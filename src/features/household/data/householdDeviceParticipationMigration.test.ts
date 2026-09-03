@@ -17,6 +17,10 @@ const accessEnforcementMigration = readFileSync(resolve(
   process.cwd(),
   'supabase/migrations/20260826212100_enforce_household_device_access.sql',
 ), 'utf8').toLowerCase();
+const monetizationMigration = readFileSync(resolve(
+  process.cwd(),
+  'supabase/migrations/20260903120000_require_pro_for_managed_child_device_setup.sql',
+), 'utf8').toLowerCase();
 
 describe('Household device participation migration', () => {
   it('keeps personal setup sessions, devices, and shared-member access distinct', () => {
@@ -104,5 +108,12 @@ describe('Household device participation migration', () => {
     expect(accessEnforcementMigration).toContain('d.credential_hash = p_credential_hash');
     expect(accessEnforcementMigration).toContain('grant execute on function public.kwilt_resolve_managed_child_access');
     expect(accessEnforcementMigration).toContain('to service_role');
+  });
+
+  it('requires Pro before issuing a named-child managed-device setup session', () => {
+    expect(monetizationMigration).toContain('create or replace function public.create_kwilt_household_device_setup_session');
+    expect(monetizationMigration).toContain('public.kwilt_has_active_pro()');
+    expect(monetizationMigration).toContain("raise exception 'kwilt_pro_required'");
+    expect(monetizationMigration).toContain('grant execute on function public.create_kwilt_household_device_setup_session(uuid) to authenticated');
   });
 });

@@ -17,6 +17,11 @@ const editablePartialMigration = readFileSync(
   'utf8',
 ).toLowerCase();
 
+const indexedHistoryMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260902121922_optimize_exact_merchant_rule_history.sql'),
+  'utf8',
+).toLowerCase();
+
 describe('Money merchant rule persistence migration', () => {
   it('atomically saves a rule and reapplies it across matching history', () => {
     expect(migration).toContain('function public.upsert_budget_transaction_match_rule');
@@ -73,5 +78,13 @@ describe('Money merchant rule persistence migration', () => {
     expect(editablePartialMigration).toContain('trim(p_budget_id),\n    v_rule_merchant_key');
     expect(editablePartialMigration).toContain('security invoker');
     expect(editablePartialMigration).toContain('set search_path = \'\'');
+  });
+
+  it('uses an indexed exact-key pass and scans broadly only for partial rules', () => {
+    expect(indexedHistoryMigration).toContain('budget_transactions_user_exact_merchant_idx');
+    expect(indexedHistoryMigration).toContain('if cardinality(v_exact_merchant_keys) > 0 then');
+    expect(indexedHistoryMigration).toContain('= any (v_exact_merchant_keys)');
+    expect(indexedHistoryMigration).toContain('if cardinality(v_partial_merchant_keys) > 0 then');
+    expect(indexedHistoryMigration).toMatch(/public\.budget_merchant_rule_matches\(\s*partial_key,/);
   });
 });

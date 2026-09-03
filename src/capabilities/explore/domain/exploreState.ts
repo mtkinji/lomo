@@ -1,4 +1,4 @@
-import { exploreCellsForRecordedStep } from './exploreGeometry';
+import { exploreCellForCoordinate, exploreCellsForRecordedStep } from './exploreGeometry';
 import { displayPointsForExploreSession } from './explorePathReconstruction';
 import { createExploreTrackingState } from './exploreAdaptiveTracking';
 import { createDefaultExplorePreferences } from './explorePrivacy';
@@ -51,7 +51,9 @@ export function beginExploreSession(
 export function appendExplorePoint(state: ExploreData, point: ExplorePoint): ExploreData {
   if (!state.activeSession) return state;
   const previousPoint = state.activeSession.points.at(-1);
-  const cells = exploreCellsForRecordedStep(previousPoint ?? null, point);
+  const cells = state.activeSession.trackingPolicy === 'adventure'
+    ? exploreCellsForRecordedStep(previousPoint ?? null, point)
+    : [exploreCellForCoordinate(point)];
   const exploredCells = { ...state.exploredCells };
   cells.forEach((cell) => {
     const currentCell = exploredCells[cell.id];
@@ -77,13 +79,23 @@ export function rebuildExploreTerritory(state: ExploreData): ExploreData {
   const pointGroups = [
     ...[...state.sessions]
       .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))
-      .map(displayPointsForExploreSession),
-    ...(state.activeSession ? [state.activeSession.points] : []),
+      .map((session) => ({
+        policy: session.trackingPolicy,
+        points: session.trackingPolicy === 'adventure'
+          ? displayPointsForExploreSession(session)
+          : session.points,
+      })),
+    ...(state.activeSession ? [{
+      policy: state.activeSession.trackingPolicy,
+      points: state.activeSession.points,
+    }] : []),
   ];
 
-  pointGroups.forEach((points) => {
+  pointGroups.forEach(({ points, policy }) => {
     points.forEach((point, index) => {
-      const cells = exploreCellsForRecordedStep(points[index - 1] ?? null, point);
+      const cells = policy === 'adventure'
+        ? exploreCellsForRecordedStep(points[index - 1] ?? null, point)
+        : [exploreCellForCoordinate(point)];
       cells.forEach((cell) => {
         const current = exploredCells[cell.id];
         exploredCells[cell.id] = {

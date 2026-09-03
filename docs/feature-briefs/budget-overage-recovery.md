@@ -9,7 +9,7 @@ job_flow: job-flow-maya-review-budget-reality-before-spending
 serves: [jtbd-review-budget-reality-before-spending, jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-money-living-limit-answer, brief-transaction-truth-to-five, brief-budget-credits-and-income-classification, brief-governed-household-money-plan]
 owner: andrew
-last_updated: 2026-08-21
+last_updated: 2026-09-02
 ---
 
 # Budget overage recovery
@@ -44,7 +44,7 @@ When Budget says the household is over, help me see what is driving it and corre
 
 ## Design
 
-The supported negative Flexible spending card says `$N over budget` and offers one neutral `Review overages` action. It does not repeat the fixed budget amount. The information affordance continues to explain calculation truth.
+The supported negative Flexible spending card says `$N over budget` and offers one neutral `Review overages` action. It does not repeat the fixed budget amount. The information affordance continues to explain calculation truth. A plan that is above its chosen target is a separate planning condition: it cannot trigger `Review overages` or replace the actual Flexible spending answer.
 
 The action opens the existing Transactions inventory in a category-first overage mode. Only over-budget flexible categories appear, ordered by their plan-covered overage. Each category shows its overage and material current-month posted transactions. An offset sentence explains when under-budget categories make gross category overages differ from the whole-plan answer.
 

@@ -62,6 +62,7 @@ import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliat
 import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
 import { buildMoneyRebalanceChangesOpenedProps, buildMoneyRebalanceOutcomeProps, buildMoneyRebalancePreviewViewedProps } from '../runtime/moneyPlanLimitAnalytics';
 import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
+import { requestWorkflowFeedback } from '../../../features/workflow-feedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
 const CATEGORY_HEADER_PILL_SIZE = 44;
@@ -92,6 +93,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [scheduledAmountDraft, setScheduledAmountDraft] = useState('');
   const [scheduledDueDayDraft, setScheduledDueDayDraft] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [rebalanceFeedbackPending, setRebalanceFeedbackPending] = useState(false);
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
   const [fundingRhythmDraft, setFundingRhythmDraft] = useState<CategoryFundingRhythm>('monthly');
@@ -128,6 +130,15 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     if (!rebalanceAnswer) return;
     capture(AnalyticsEvent.MoneyRebalancePreviewViewed, buildMoneyRebalancePreviewViewedProps({ answer: rebalanceAnswer }));
   }, [capture, rebalanceAnswer]);
+  useEffect(() => {
+    if (settingsOpen || !rebalanceFeedbackPending) return;
+    setRebalanceFeedbackPending(false);
+    requestWorkflowFeedback({
+      promptId: 'money_rebalance_satisfaction_v1',
+      sourceKey: 'money-rebalance-saved',
+      placement: 'standalone',
+    });
+  }, [rebalanceFeedbackPending, settingsOpen]);
   const groups = useMemo(() => groupMoneyTransactionsByDate(
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
@@ -223,7 +234,10 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       if (roleChanged) await updateCategoryPlan(category.sourceId, { planRole: planRoleDraft });
       if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
-      if (rebalanceAnswer) capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
+      if (rebalanceAnswer) {
+        capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
+        setRebalanceFeedbackPending(true);
+      }
       captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('succeeded');
     } catch (error) {

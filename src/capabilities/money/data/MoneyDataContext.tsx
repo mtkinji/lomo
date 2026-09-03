@@ -266,11 +266,14 @@ export function MoneyDataProvider({
           moneyMeaning: result.meaning,
         },
       });
-      if (!repository) {
-        await reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed').catch(() => undefined);
-      }
       const version = ++mutationVersionRef.current;
-      refreshInBackground(version);
+      if (!repository) {
+        void reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')
+          .catch(() => undefined)
+          .finally(() => refreshInBackground(version));
+      } else {
+        refreshInBackground(version);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
       dispatch({ type: 'failure', message });

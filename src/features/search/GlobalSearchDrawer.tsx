@@ -43,6 +43,9 @@ import {
   getRecipeElapsedMinutes,
 } from "../../capabilities/recipes/data/starterRecipeCatalog";
 import { useRecipeStore } from "../../capabilities/recipes/runtime/useRecipeStore";
+import { posthogClient } from '../../services/analytics/posthogClient';
+import { track } from '../../services/analytics/analytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 type ScopeChipDef = {
   scope: GlobalSearchScope;
@@ -407,6 +410,11 @@ export function GlobalSearchDrawer() {
     (row: UnifiedResultRow) => {
       close();
       if (!rootNavigationRef.isReady()) return;
+      track(posthogClient, AnalyticsEvent.GlobalSearchResultOpened, {
+        result_kind: row.kind,
+        query_state: showingRecents ? 'recent' : 'query',
+        outcome: 'opened',
+      });
       switch (row.kind) {
         case "activity": {
           rootNavigationRef.navigate("MainTabs", {
@@ -472,7 +480,7 @@ export function GlobalSearchDrawer() {
         }
       }
     },
-    [close],
+    [close, showingRecents],
   );
 
   const handleToggleScope = React.useCallback(

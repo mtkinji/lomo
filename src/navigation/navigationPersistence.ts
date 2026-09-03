@@ -1,8 +1,9 @@
 import type { NavigationState } from '@react-navigation/native';
 import type { RootDrawerParamList } from './RootNavigator';
 
-type ProductionRootRouteName = Exclude<keyof RootDrawerParamList, 'DevTools' | 'GuidedOvertureLab'>;
-type RootRouteName = ProductionRootRouteName | 'DevTools' | 'GuidedOvertureLab';
+type NonPersistedRootRouteName = 'DevTools' | 'GuidedOvertureLab' | 'ProPlanChooser';
+type ProductionRootRouteName = Exclude<keyof RootDrawerParamList, NonPersistedRootRouteName>;
+type RootRouteName = keyof RootDrawerParamList;
 
 type PersistedRouteLike = {
   key?: string;

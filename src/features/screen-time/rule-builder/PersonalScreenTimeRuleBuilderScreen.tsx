@@ -188,7 +188,9 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
 
   const confirmAuthorization = async () => {
     if (authorizationConfirmedRef.current) return 'approved' as const;
-    const authorizationStatus = await requestScreenTimeAuthorization();
+    const authorizationStatus = await requestScreenTimeAuthorization(
+      props.params.authorizationMember ?? 'individual',
+    );
     setSettings((current) => ({ ...current, authorizationStatus, lastUpdated: new Date().toISOString() }));
     authorizationConfirmedRef.current = authorizationStatus === 'approved';
     return authorizationStatus;
@@ -445,7 +447,11 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       }, createPersonalCompositeRuleActionBoundary());
       setEnabled(nextEnabled);
       await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === 'screen_time_advanced_rule_pro_required') {
+        requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule');
+        return;
+      }
       Alert.alert(
         nextEnabled ? 'Couldn’t turn on this rule' : 'Couldn’t turn off this rule',
         'Kwilt did not receive confirmation from Screen Time. Nothing was changed.',

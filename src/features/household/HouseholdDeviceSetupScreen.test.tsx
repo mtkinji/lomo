@@ -1,6 +1,8 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { Share } from 'react-native';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { usePaywallStore } from '../../store/usePaywallStore';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { HouseholdDeviceSetupScreen } from './HouseholdDeviceSetupScreen';
@@ -35,12 +37,38 @@ describe('HouseholdDeviceSetupScreen', () => {
     mockGoBack.mockReset();
     mockNavigate.mockReset();
     useAppStore.getState().setAuthIdentity({ userId: 'user-1', name: 'Andrew' });
+    useEntitlementsStore.setState({ isPro: true });
     mockCreate.mockReset().mockResolvedValue({
       id: 'session-1', token: 'secret-1', manualCode: '482731',
       expiresAt: '2026-08-26T23:00:00Z', childMembershipId: 'child-1',
     });
     mockList.mockReset().mockResolvedValue([]);
     mockCancel.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('does not create a managed child pairing session for Free', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
+
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_family_screen_time',
+      source: 'screen_time_family',
+    });
+  });
+
+  it('honors the trusted server Pro decision when local entitlement state is stale', async () => {
+    mockCreate.mockRejectedValueOnce(new Error('kwilt_pro_required'));
+    renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
+
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_family_screen_time',
+      source: 'screen_time_family',
+    });
   });
 
   it('renders one pairing receipt with Share in the header and Back as cancellation', async () => {

@@ -20,7 +20,7 @@ export const bottomDockGeometry = {
   phoneFloating: {
     inlineGap: spacing.xl,
     contentGap: spacing.md,
-    minimumBottomGap: spacing.lg + spacing.xs,
+    minimumBottomGap: spacing.xl,
     safeAreaLiftRatio: 0.5,
     safeAreaBottomAdjustment: spacing.xs,
   },

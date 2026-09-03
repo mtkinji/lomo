@@ -14,12 +14,12 @@ import {
 describe('bottom dock geometry', () => {
   it('keeps a phone-floating dock optically nested with and without a home indicator', () => {
     expect(resolvePhoneFloatingBottomInset(0)).toBe(bottomDockGeometry.phoneFloating.minimumBottomGap);
-    expect(resolvePhoneFloatingBottomInset(34)).toBe(21);
+    expect(resolvePhoneFloatingBottomInset(34)).toBe(bottomDockGeometry.phoneFloating.inlineGap);
   });
 
   it('reserves scroll clearance from the same phone-floating geometry', () => {
-    expect(resolvePhoneFloatingActionContentInset(34, 52)).toBe(85);
-    expect(resolvePhoneFloatingActionContentInset(0, 52)).toBe(84);
+    expect(resolvePhoneFloatingActionContentInset(34, 52)).toBe(88);
+    expect(resolvePhoneFloatingActionContentInset(0, 52)).toBe(88);
   });
 
   it('uses the inventory-proven corner geometry for resting floating controls', () => {

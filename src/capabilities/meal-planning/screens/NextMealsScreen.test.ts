@@ -1,5 +1,17 @@
 import type { MealPlanProjection } from '../data/mealPlanningRepository';
 import { deriveMealPlanCollaborationAction, deriveMealPlanNextMove, finalizedOccasionSummaries } from './NextMealsScreen';
+import { readFileSync } from 'fs';
+import path from 'path';
+
+it('consumes the meal-finalized feedback handoff once after navigation settles', () => {
+  const source = readFileSync(path.join(__dirname, 'NextMealsScreen.tsx'), 'utf8');
+
+  expect(source).toContain('navigation.setParams({ feedbackPromptId: undefined });');
+  expect(source).toContain('InteractionManager.runAfterInteractions');
+  expect(source).toContain("promptId: feedbackPromptId");
+  expect(source).toContain("sourceKey: 'meal-plan-finalized'");
+  expect(source).toContain('feedbackHandle?.cancel();');
+});
 
 it('keeps alternate dishes together under one finalized meal', () => {
   const plan: MealPlanProjection = {

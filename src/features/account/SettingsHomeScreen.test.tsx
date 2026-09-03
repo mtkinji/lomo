@@ -5,6 +5,11 @@ const mockUploadAvatar = jest.fn();
 const mockRemoveAvatar = jest.fn();
 const mockLaunchImageLibrary = jest.fn();
 const mockCapture = jest.fn();
+const mockOpenPaywallPurchaseEntry = jest.fn();
+
+jest.mock('../../services/paywall', () => ({
+  openPaywallPurchaseEntry: () => mockOpenPaywallPurchaseEntry(),
+}));
 
 jest.mock('../household/data/householdAvatars', () => ({
   resolveSelfAvatar: (...args: unknown[]) => mockResolveSelfAvatar(...args),
@@ -114,6 +119,7 @@ describe('SettingsHomeScreen planning group', () => {
     mockRemoveAvatar.mockReset();
     mockLaunchImageLibrary.mockReset();
     mockCapture.mockReset();
+    mockOpenPaywallPurchaseEntry.mockReset();
     jest.restoreAllMocks();
   });
 
@@ -159,16 +165,10 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText(
       'Kwilt Pro keeps your budget current, can pause selected spending apps for a quick review, and includes 1,000 AI credits each month.',
     )).toBeTruthy();
-    expect(getByText('View Pro plans')).toBeTruthy();
+    expect(getByText('Upgrade to Pro')).toBeTruthy();
 
-    fireEvent.press(getByLabelText('View Kwilt Pro plans'));
-    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith(
-      'SettingsManageSubscription',
-      expect.objectContaining({
-        openPricingDrawer: true,
-        openPricingDrawerNonce: expect.any(Number),
-      }),
-    );
+    fireEvent.press(getByLabelText('Upgrade to Kwilt Pro'));
+    expect(mockOpenPaywallPurchaseEntry).toHaveBeenCalledTimes(1);
     expect(mockCapture).toHaveBeenCalledWith('upgrade_entry_tapped', {
       source: 'settings_home',
     });
@@ -196,7 +196,7 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText('Kwilt Pro')).toBeTruthy();
     expect(getByText('Manage plan')).toBeTruthy();
     expect(queryByText('Let Kwilt carry more of the household load')).toBeNull();
-    expect(queryByText('View Pro plans')).toBeNull();
+    expect(queryByText('Upgrade to Pro')).toBeNull();
 
     fireEvent.press(getByLabelText('Manage Kwilt Pro plan'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsManageSubscription');

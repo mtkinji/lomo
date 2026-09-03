@@ -24,6 +24,7 @@ export function applyBackgroundSamples(
   let trackingAction: ExploreTrackingAction = 'none';
   samples.forEach((sample, index) => {
     if (!next.activeSession) return;
+    const trackingPolicy = next.activeSession.trackingPolicy;
     const sanitized = sanitizeLocationSample(sample);
     const previous = next.activeSession.points.at(-1) ?? null;
     const previousTracking = next.tracking;
@@ -41,7 +42,7 @@ export function applyBackgroundSamples(
       tracking,
     };
     if (!shouldClearFogForMovement(tracking.movement)) return;
-    if (!acceptExplorePoint(previous, sanitized).accepted) return;
+    if (!acceptExplorePoint(previous, sanitized, trackingPolicy).accepted) return;
     next = appendExplorePoint(next, explorePointFromSample(
       `background-${sanitized.recordedAt}-${index}`,
       sanitized,

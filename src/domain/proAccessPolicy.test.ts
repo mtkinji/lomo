@@ -4,6 +4,7 @@ import {
   classifyDowngradeAction,
   decideProAccess,
   getPaywallReasonForCapability,
+  getProUpgradeInvitation,
   isProCapability,
 } from './proAccessPolicy';
 
@@ -38,6 +39,14 @@ describe('canonical Pro access policy', () => {
     expect(PRO_UPGRADE_INVITATION.benefits).not.toEqual(
       expect.arrayContaining([expect.stringMatching(/family/i)]),
     );
+  });
+
+  it('removes Screen Time from generic paid messaging when the ordinary fallback is active', () => {
+    const fallback = getProUpgradeInvitation(false);
+    expect(fallback.moreSubtitle).not.toMatch(/screen time/i);
+    expect(fallback.benefits.join(' ')).not.toMatch(/screen time/i);
+    expect(fallback.moreSubtitle).toMatch(/budget/i);
+    expect(fallback.moreSubtitle).toMatch(/1,000 AI credits/i);
   });
 
   it('allows declared paid capabilities only for Pro', () => {

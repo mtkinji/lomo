@@ -11,6 +11,10 @@ const advanced = {
   ...basic, id: 'advanced', selectionId: 'advanced',
   conditions: [basic.conditions[0], { id: 'time', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 480 }],
 };
+const scheduled = {
+  ...basic, id: 'scheduled', selectionId: 'scheduled',
+  conditions: [{ id: 'time', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 480 }],
+};
 
 it('deactivates advanced rules whole, preserves their definition, and leaves basic rules active', async () => {
   let settings: ScreenTimeProtectionSettings = { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [basic, advanced] };
@@ -26,6 +30,28 @@ it('deactivates advanced rules whole, preserves their definition, and leaves bas
     enabled: false,
     monetizationState: 'inactive_subscription_ended',
     conditions: advanced.conditions,
+  });
+});
+
+it('deactivates a schedule-only rule whole while an unscheduled Free rule keeps running', async () => {
+  let settings: ScreenTimeProtectionSettings = {
+    ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+    authorizationStatus: 'approved',
+    personalCompositeRules: [basic, scheduled],
+  };
+  const result = await deactivateAdvancedPersonalRulesForConfirmedDowngrade({
+    readSettings: () => settings,
+    persistSettings: (next) => { settings = next; },
+    deactivateRule: async () => true,
+    now: () => '2026-09-01T12:00:00.000Z',
+  });
+
+  expect(result).toEqual({ deactivated: ['scheduled'], pending: [] });
+  expect(settings.personalCompositeRules.find((rule) => rule.id === 'basic')?.enabled).toBe(true);
+  expect(settings.personalCompositeRules.find((rule) => rule.id === 'scheduled')).toMatchObject({
+    enabled: false,
+    monetizationState: 'inactive_subscription_ended',
+    conditions: scheduled.conditions,
   });
 });
 

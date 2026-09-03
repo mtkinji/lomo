@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { appendExplorePoint, beginExploreSession, createEmptyExploreData } from '../domain/exploreState';
+import type { ExploreData, ExploreSession } from '../domain/types';
 import {
   enterExploreDeepSleep,
   startExploreBackgroundUpdates,
@@ -13,6 +14,11 @@ import {
   EXPLORE_WAKE_TASK,
 } from './exploreLocationTaskNames';
 import { useExploreStore } from './useExploreStore';
+import {
+  EXPLORE_INDEX_STORAGE_KEY,
+  EXPLORE_LEGACY_STORAGE_KEY,
+  exploreShardedStorage,
+} from './exploreShardedStorage';
 
 type TaskBody = { data?: unknown; error?: Error | null };
 type TaskHandler = (body: TaskBody) => Promise<void> | void;
@@ -43,14 +49,16 @@ jest.mock('./useExploreStore', () => ({
 
 require('./exploreBackgroundTask');
 
-const storedState = async () => {
-  const raw = await AsyncStorage.getItem('kwilt-explore-v1');
-  return JSON.parse(raw ?? '{}').state;
+const storedState = async (): Promise<ExploreData & { activeSession: ExploreSession }> => {
+  const stored = await exploreShardedStorage.getItem(EXPLORE_LEGACY_STORAGE_KEY);
+  if (!stored?.state.activeSession) throw new Error('Expected an active Explore session');
+  return stored.state as ExploreData & { activeSession: ExploreSession };
 };
 
 describe('Explore background tasks', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    await exploreShardedStorage.flushPendingWrites();
     await AsyncStorage.clear();
     await AsyncStorage.setItem(KWILT_LABS_STORAGE_KEY, JSON.stringify({
       state: { enabledCapabilities: ['explore'] },
@@ -219,11 +227,11 @@ describe('Explore background tasks', () => {
   it('persists one copy of a background batch while the live Explore store is hydrated', async () => {
     const startedAt = '2026-07-28T12:00:00.000Z';
     const state = beginExploreSession(createEmptyExploreData(), 'ambient-1', startedAt, 'ambient');
-    await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state, version: 10 }));
+    await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state, version: 10 });
     jest.clearAllMocks();
     (useExploreStore.persist.hasHydrated as jest.Mock).mockReturnValue(true);
     (useExploreStore.setState as jest.Mock).mockImplementation(async (nextState) => {
-      await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state: nextState, version: 10 }));
+      await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: nextState, version: 10 });
     });
 
     await mockTasks[EXPLORE_BACKGROUND_TASK]({ data: { locations: [{
@@ -239,7 +247,12 @@ describe('Explore background tasks', () => {
       timestamp: Date.parse(startedAt),
     }] } });
 
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    const setItemCalls = (AsyncStorage.setItem as jest.Mock).mock.calls as Array<[string, string]>;
+    expect(setItemCalls.filter(([key]) => key === EXPLORE_INDEX_STORAGE_KEY)).toHaveLength(1);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+      EXPLORE_LEGACY_STORAGE_KEY,
+      expect.any(String),
+    );
     expect(useExploreStore.setState).toHaveBeenCalledWith(expect.objectContaining({
       lastPointDecision: 'background-location',
     }));

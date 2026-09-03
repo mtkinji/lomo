@@ -19,6 +19,10 @@ import {
   listHouseholdDevices,
   type HouseholdDeviceSetupSession,
 } from './data/householdDeviceParticipation';
+import {
+  openFamilyScreenTimeProPaywall,
+  requestFamilyScreenTimeProAccess,
+} from './screenTime/familyScreenTimeProAccess';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsHouseholdDeviceSetup'>;
 
@@ -65,16 +69,25 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
 
   const start = useCallback(async () => {
     if (!client || busy) return;
+    if (!requestFamilyScreenTimeProAccess()) {
+      navigation.goBack();
+      return;
+    }
     setStartError(null);
     setBusy(true);
     try {
       setSession(await createHouseholdDeviceSetupSession(client, childMembershipId));
     } catch (error) {
+      if (error instanceof Error && error.message.includes('kwilt_pro_required')) {
+        openFamilyScreenTimeProPaywall();
+        navigation.goBack();
+        return;
+      }
       setStartError(error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setBusy(false);
     }
-  }, [busy, childMembershipId, client]);
+  }, [busy, childMembershipId, client, navigation]);
 
   useEffect(() => {
     if (!client || hasStarted.current) return;

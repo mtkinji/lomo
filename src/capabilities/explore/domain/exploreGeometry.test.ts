@@ -24,10 +24,22 @@ describe('Explore geometry', () => {
     expect(geometry.points.length + geometry.segmentStarts.length).toBeLessThanOrEqual(256);
   });
 
-  it('keeps a 65-foot clear core and a separate 100-foot feather reference', () => {
+  it('bounds a long continuous trip without exhausting the call stack', () => {
+    const points = Array.from({ length: 10_000 }, (_, index) => ({
+      latitude: 40 + index * 0.00008,
+      longitude: -105 + (index % 2 === 0 ? -0.00008 : 0.00008),
+      recordedAt: new Date(1_750_000_000_000 + index * 1_000).toISOString(),
+    }));
+
+    const geometry = buildFogRenderGeometry([points], 256);
+
+    expect(geometry.points.length + geometry.segmentStarts.length).toBeLessThanOrEqual(256);
+  });
+
+  it('keeps a 65-foot clear core while doubling the atmospheric feather reference', () => {
     expect(EXPLORE_REVEAL_RADIUS_M).toBeCloseTo(65 * 0.3048, 3);
-    expect(EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(100 * 0.3048, 3);
-    expect(EXPLORE_REVEAL_RADIUS_M / EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(0.65, 3);
+    expect(EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(200 * 0.3048, 3);
+    expect(EXPLORE_REVEAL_RADIUS_M / EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(0.325, 3);
   });
 
   it('creates a stable coarse cell for nearby points', () => {

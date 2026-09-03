@@ -245,7 +245,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     expect(await screen.findByText('Set rules that fit real life.')).toBeTruthy();
     expect(screen.getByText(
-      'Pause or allow apps based on daily use, time of day, a budget, Focus, or a completed to-do. You’ll approve Screen Time before creating a rule.',
+      'Start with a simple Focus or daily-use rule. Pro adds schedules, combined conditions, completed to-dos, and Money. You’ll approve Screen Time before creating a rule.',
     )).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
@@ -257,6 +257,30 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Allow Screen Time' }));
 
     await waitFor(() => expect(mockRequestScreenTimeAuthorization).toHaveBeenCalledTimes(1));
+  });
+
+  it('offers a Free in-person child setup without creating a Household binding', async () => {
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Set up for a child' }));
+    expect(screen.getByText('Set up rules on this child’s iPhone.')).toBeTruthy();
+    expect(screen.getByText(/stay on this iPhone/i)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Allow Screen Time' }));
+
+    await waitFor(() => expect(mockRequestScreenTimeAuthorization).toHaveBeenCalledWith('child'));
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', expect.objectContaining({
+      entry: 'inventory',
+      setupIntent: 'settings_discovery',
+      entrySurface: 'settings',
+      authorizationMember: 'child',
+    }));
   });
 
   it('waits for Apple status before deciding that an existing installation needs onboarding', async () => {

@@ -8,13 +8,15 @@ export type PersonalRuleAccessClass = 'free_basic' | 'pro_advanced';
 export function classifyPersonalRuleAccess(input: Pick<PersonalCompositeScreenTimeRule, 'conditions'>): PersonalRuleAccessClass {
   if (input.conditions.length !== 1) return 'pro_advanced';
   const type = input.conditions[0]?.type;
-  return type === 'focus_active' || type === 'time_of_day' || type === 'daily_usage'
+  return type === 'focus_active' || type === 'daily_usage'
     ? 'free_basic'
     : 'pro_advanced';
 }
 
 export function conditionRequiresPro(condition: Pick<PersonalRuleCondition, 'type'>): boolean {
-  return condition.type === 'real_step_complete' || condition.type === 'budget';
+  return condition.type === 'time_of_day'
+    || condition.type === 'real_step_complete'
+    || condition.type === 'budget';
 }
 
 export type FamilyScreenTimeAction =

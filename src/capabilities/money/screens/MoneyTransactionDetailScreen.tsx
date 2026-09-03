@@ -34,6 +34,7 @@ import {
 } from '../runtime/transactionTruthAnalytics';
 import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/moneyMutationTelemetry';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
+import { requestWorkflowFeedback } from '../../../features/workflow-feedback';
 
 type RuleMatchMode = 'exact' | 'partial';
 
@@ -73,6 +74,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [noteEditorOpen, setNoteEditorOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
+  const categoryCorrectionFeedbackPendingRef = useRef(false);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [partialRuleMatch, setPartialRuleMatch] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -138,6 +140,16 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     }
   };
 
+  const requestCategoryCorrectionFeedback = () => {
+    if (!categoryCorrectionFeedbackPendingRef.current) return;
+    categoryCorrectionFeedbackPendingRef.current = false;
+    requestWorkflowFeedback({
+      promptId: 'money_transaction_correction_ease_v1',
+      sourceKey: 'money-transaction-category-corrected',
+      placement: 'standalone',
+    });
+  };
+
   const selectCategory = async (category: MoneyCategory) => {
     if (!transaction) return;
     const choice = `category:${category.sourceId}`;
@@ -166,6 +178,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       }
       return;
     }
+    categoryCorrectionFeedbackPendingRef.current = true;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
     setDismissedRuleCategoryId(null);
@@ -176,6 +189,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       await refresh();
       navigation.popTo('MoneySummary');
     }
+    requestCategoryCorrectionFeedback();
   };
 
   const selectMeaning = async (meaning: 'income' | 'transfer' | 'not_counted') => {
@@ -284,6 +298,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         await refresh();
         navigation.popTo('MoneySummary');
       }
+      requestCategoryCorrectionFeedback();
     }
   };
 
@@ -295,6 +310,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       await refresh();
       navigation.popTo('MoneySummary');
     }
+    requestCategoryCorrectionFeedback();
   };
 
   const saveSplit = async (allocations: Parameters<typeof splitTransaction>[0]['allocations']) => {

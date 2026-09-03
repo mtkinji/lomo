@@ -12,12 +12,13 @@ type Props = {
   answer: Answer;
   freshness: string;
   showHeader?: boolean;
+  onAdjustPlan?: () => void;
   onExplain: () => void;
   onReviewIncome: () => void;
   onReviewOverages?: () => void;
 };
 
-export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onExplain, onReviewIncome, onReviewOverages }: Props) {
+export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onAdjustPlan, onExplain, onReviewIncome, onReviewOverages }: Props) {
   const [explanationOpen, setExplanationOpen] = useState(false);
   const content = formatMoneyPlanLimitAnswer(answer, freshness);
   if (answer.state === 'missing_income_basis') {
@@ -121,6 +122,23 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onE
           <Button fullWidth onPress={onReviewOverages} size="sm" variant="outline">Review overages</Button>
         ) : null}
       </Card>
+      {answer.facts.overLimitCents > 0 ? (
+        <View testID="money-plan-target-notice" style={styles.planTargetNotice}>
+          <View style={styles.planTargetCopy}>
+            <Text style={styles.planTargetTitle}>
+              Plan is {formatBudgetOverviewMoney(answer.facts.overLimitCents)} above target
+            </Text>
+            <Text style={styles.planTargetSupport}>
+              {formatBudgetOverviewMoney(answer.facts.plannedCents)} planned · {answer.facts.livingPercent}% target {formatBudgetOverviewMoney(answer.facts.livingLimitCents ?? 0)}
+            </Text>
+          </View>
+          {onAdjustPlan ? (
+            <Button accessibilityLabel="Adjust monthly plan" onPress={onAdjustPlan} size="inline" variant="link">
+              Adjust plan
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -138,15 +156,6 @@ function compactAnswer(answer: Answer, fallback: { headline: string; support: st
   surfaceTone: 'on_track' | 'watch' | 'over' | 'neutral';
 } {
   const { facts } = answer;
-  if (answer.state === 'over_limit') {
-    return {
-      label: 'Monthly plan this month',
-      amount: formatBudgetOverviewMoney(Math.abs(answer.headlineAmountCents ?? facts.overLimitCents)),
-      status: 'over limit',
-      support: `Your ${facts.livingPercent}% living limit is ${formatBudgetOverviewMoney(facts.livingLimitCents ?? 0)}`,
-      surfaceTone: 'over',
-    };
-  }
   if (answer.state === 'no_flexible_room') {
     return { label: 'Flexible spending', amount: '$0', status: 'left', support: 'Protected costs use your full living limit', surfaceTone: 'watch' };
   }
@@ -171,6 +180,10 @@ const styles = StyleSheet.create({
   sectionHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   conceptExplanation: { maxWidth: 330, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  planTargetNotice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  planTargetCopy: { minWidth: 0, flex: 1, gap: 2 },
+  planTargetTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  planTargetSupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   amountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   amountValueRow: { minWidth: 0, flexDirection: 'row', alignItems: 'flex-start' },
   currencySymbol: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, fontWeight: '800', marginTop: 2 },

@@ -18,6 +18,7 @@ type SegmentedControlProps<Value extends string> = {
   options: SegmentedOption<Value>[];
   style?: StyleProp<ViewStyle>;
   size?: SegmentedControlSize;
+  fullWidth?: boolean;
   accessibilityLabel?: string;
   accessibilityHint?: string;
   accessibilityState?: AccessibilityState;
@@ -40,6 +41,7 @@ export function SegmentedControl<Value extends string>({
   options,
   style,
   size = 'default',
+  fullWidth = false,
   testIDPrefix,
   accessibilityLabel,
   accessibilityHint,
@@ -80,7 +82,7 @@ export function SegmentedControl<Value extends string>({
   }, [layouts, reduceMotionEnabled, thumbWidth, thumbX, value]);
 
   return (
-    <View style={[styles.outer, style]}>
+    <View style={[styles.outer, fullWidth && styles.outerFullWidth, style]}>
       <Animated.View
         pointerEvents="none"
         style={[
@@ -108,7 +110,7 @@ export function SegmentedControl<Value extends string>({
             aria-invalid={ariaInvalid}
             aria-describedby={ariaDescribedBy}
             disabled={accessibilityState?.disabled}
-            style={[styles.segment, isCompact && styles.segmentCompact]}
+            style={[styles.segment, fullWidth && styles.segmentFullWidth, isCompact && styles.segmentCompact]}
             onLayout={(event) => {
               const { x, width } = event.nativeEvent.layout;
               setLayouts((current) => {
@@ -157,6 +159,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.shellAlt,
   },
+  outerFullWidth: {
+    alignSelf: 'stretch',
+  },
   thumb: {
     position: 'absolute',
     top: trackPadding,
@@ -171,6 +176,9 @@ const styles = StyleSheet.create({
     // Horizontal padding defines the pill width around the label.
     paddingHorizontal: spacing.md,
     marginHorizontal: segmentGap,
+  },
+  segmentFullWidth: {
+    flex: 1,
   },
   segmentCompact: {
     paddingVertical: spacing.sm * 0.75,

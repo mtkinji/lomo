@@ -1,5 +1,11 @@
 # Converge: Adventure route, elevation, and playback
 
+## Approved refinement — 2026-09-02
+
+Automatic Explore no longer owns a path. Its sparse trusted observations clear the existing Silver Mist pattern as isolated areas, with the 65-foot fully clear core preserved and the atmospheric feather reference expanded from 100 to 200 feet. Nearby automatic observations are never connected merely because geometry makes a line plausible.
+
+**Record a Path** is the sole owner of route semantics. While it is active, Kwilt requests the denser location profile for walking, cycling, and driving; after it ends, only supported recorded or explicitly reconstructed evidence may appear as a path. This is one map with two honest levels of evidence, not two visual modes or another setting.
+
 ## Approved refinement — 2026-08-03
 
 “Adventure” is no longer user-facing because ordinary walks, errands, drives, and outings can be worth recording. The surface uses **Record a Path**, **Recording**, **Explore Recap**, and **Recorded Paths**. The visual route is the hero, with Silver Mist reveal and elevation as synchronized supporting layers.

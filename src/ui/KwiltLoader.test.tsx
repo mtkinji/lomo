@@ -14,6 +14,14 @@ function productSourceFiles(directory: string): string[] {
 
 describe('canonical Kwilt loading boundaries', () => {
   const files = productSourceFiles(SRC_ROOT);
+  const loaderSource = readFileSync(path.join(SRC_ROOT, 'ui/KwiltLoader.tsx'), 'utf8');
+
+  it('keeps the indeterminate branded cycle autonomous on the UI thread', () => {
+    expect(loaderSource).toContain("from 'react-native-reanimated'");
+    expect(loaderSource).toContain('withRepeat(');
+    expect(loaderSource).toContain("phase === undefined");
+    expect(loaderSource).not.toMatch(/\.start\(\([^)]*\)\s*=>/);
+  });
 
   it('keeps native activity indicators behind the canonical loader', () => {
     const rawIndicatorFiles = files

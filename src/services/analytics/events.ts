@@ -1,4 +1,10 @@
 export const AnalyticsEvent = {
+  // Manual lifecycle events. Automatic PostHog lifecycle capture is disabled
+  // because its Application Opened payload can include the raw initial URL.
+  ApplicationOpened: 'Application Opened',
+  ApplicationBecameActive: 'Application Became Active',
+  ApplicationBackgrounded: 'Application Backgrounded',
+
   FtueStarted: 'ftue_started',
   FtueCompleted: 'ftue_completed',
   FtueDismissed: 'ftue_dismissed',
@@ -8,6 +14,17 @@ export const AnalyticsEvent = {
   CapabilityOnboardingPageViewed: 'capability_onboarding_page_viewed',
   CapabilityOnboardingDoorStarted: 'capability_onboarding_door_started',
   CapabilityOnboardingExplored: 'capability_onboarding_explored',
+
+  FocusSessionStarted: 'focus_session_started',
+  FocusSessionCompleted: 'focus_session_completed',
+  FocusSessionEnded: 'focus_session_ended',
+  ExploreRecordingStarted: 'explore_recording_started',
+  ExploreRecordingCompleted: 'explore_recording_completed',
+  ChoreCreated: 'chore_created',
+  ChoreCompleted: 'chore_completed',
+  GameTimerStarted: 'game_timer_started',
+  GameTimerCompleted: 'game_timer_completed',
+  GlobalSearchResultOpened: 'global_search_result_opened',
 
   NotificationsPermissionPrompted: 'notifications_permission_prompted',
   NotificationsPermissionResult: 'notifications_permission_result',
@@ -56,6 +73,7 @@ export const AnalyticsEvent = {
   MealChoiceResponseCompleted: 'meal_choice_response_completed',
   MealChoiceRoundClosed: 'meal_choice_round_closed',
   MealPlanFinalized: 'meal_plan_finalized',
+  MealPlanFinalizeFailed: 'meal_plan_finalize_failed',
   GroceryListCompiled: 'grocery_list_compiled',
   GroceryListCorrected: 'grocery_list_corrected',
   GroceryListReviewed: 'grocery_list_reviewed',
@@ -115,6 +133,7 @@ export const AnalyticsEvent = {
   MoneyTransactionSplitSaveFailed: 'money_transaction_split_save_failed',
   MoneyTransactionSplitAbandoned: 'money_transaction_split_abandoned',
   MoneyMutationCompleted: 'money_mutation_completed',
+  MoneyTrustedDecisionCompleted: 'money_trusted_decision_completed',
   MoneyBudgetAnswerViewed: 'money_budget_answer_viewed',
   MoneyBudgetExplanationOpened: 'money_budget_explanation_opened',
   MoneyRebalancePreviewViewed: 'money_rebalance_preview_viewed',
@@ -151,6 +170,13 @@ export const AnalyticsEvent = {
   ScreenTimeTemporaryOpenApplied: 'screen_time_temporary_open_applied',
   ScreenTimeTemporaryOpenDenied: 'screen_time_temporary_open_denied',
   ScreenTimeTemporaryOpenFailed: 'screen_time_temporary_open_failed',
+
+  // Registered contextual experience feedback. Metadata only: opaque
+  // presentation id and product-controlled registry dimensions.
+  WorkflowFeedbackShown: 'workflow_feedback_shown',
+  WorkflowFeedbackDismissed: 'workflow_feedback_dismissed',
+  WorkflowFeedbackSubmitted: 'workflow_feedback_submitted',
+  WorkflowFeedbackFollowupSubmitted: 'workflow_feedback_followup_submitted',
 
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.

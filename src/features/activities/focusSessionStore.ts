@@ -9,6 +9,10 @@ import {
   completeExpiredFocusSession,
   resumePausedFocusSession,
 } from './focusSessionLifecycle';
+import { buildFocusSessionAnalyticsProps } from './focusSessionAnalytics';
+import { posthogClient } from '../../services/analytics/posthogClient';
+import { track } from '../../services/analytics/analytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 type StartFocusSessionParams = {
   activityId: string;
@@ -51,6 +55,10 @@ export const useFocusSessionStore = create<FocusSessionState>()(
           startedAtMs: params.startedAtMs ?? Date.now(),
         });
         set({ activeSession: session });
+        track(posthogClient, AnalyticsEvent.FocusSessionStarted, buildFocusSessionAnalyticsProps({
+          activityId: session.activityId,
+          durationMinutes: Math.max(1, Math.floor(params.minutes)),
+        }, 'started'));
         return session;
       },
 
@@ -74,6 +82,13 @@ export const useFocusSessionStore = create<FocusSessionState>()(
         const activeSession = get().activeSession;
         if (!matchesActiveSession(activeSession, sessionId)) return null;
         set({ activeSession: null });
+        const durationMinutes = activeSession.mode === 'running'
+          ? Math.max(1, Math.round((activeSession.endAtMs - activeSession.startedAtMs) / 60_000))
+          : Math.max(1, Math.round(activeSession.remainingMs / 60_000));
+        track(posthogClient, AnalyticsEvent.FocusSessionEnded, buildFocusSessionAnalyticsProps({
+          activityId: activeSession.activityId,
+          durationMinutes,
+        }, 'ended'));
         return {
           sessionId: activeSession.sessionId,
           notificationId: activeSession.notificationId,
@@ -85,6 +100,7 @@ export const useFocusSessionStore = create<FocusSessionState>()(
         const completed = completeExpiredFocusSession(activeSession, nowMs);
         if (!completed) return null;
         set({ activeSession: null });
+        track(posthogClient, AnalyticsEvent.FocusSessionCompleted, buildFocusSessionAnalyticsProps(completed, 'completed'));
         return completed;
       },
 

@@ -79,7 +79,7 @@ The approved policy is documented in [Explore Use Cases And Adaptive GPS Policy]
 - `Start Exploring` selects Adventure: soft sleep after three credible stationary minutes, deep sleep after approximately fifteen, and one outing across pauses up to approximately thirty minutes.
 - Explicit live family sharing will select Presence: coarse stationary updates with visible freshness. Presence is not part of the local-only implementation.
 - Speed, accuracy, and stop-and-go motion modify sampling inside a policy; they do not create user-facing GPS settings.
-- Fog clearing keeps a fixed 65-foot clear core with a separate 100-foot feather reference. Altitude may color the route but never expands revealed territory.
+- Fog clearing keeps a fixed 65-foot clear core with a separate 200-foot atmospheric feather reference. Automatic observations are sparse, isolated clearings; only a deliberate Recorded Path connects observations into a route. Altitude may color that deliberate route but never expands revealed territory.
 - Poor or implausible location evidence freezes fog clearing rather than inventing territory.
 - Explore is not emergency or guaranteed location infrastructure.
 

@@ -12,6 +12,9 @@ import {
   stopExploreBackgroundUpdates,
 } from './exploreLocationUpdates';
 import { useExploreStore } from './useExploreStore';
+import { posthogClient } from '../../../services/analytics/posthogClient';
+import { track } from '../../../services/analytics/analytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 
 export type ExploreRecorderStatus =
   | 'idle'
@@ -109,6 +112,10 @@ export function useExploreRecorder() {
     consumeLocation(initial);
     await startForegroundWatcher(mode);
     setStatus('recording');
+    track(posthogClient, AnalyticsEvent.ExploreRecordingStarted, {
+      recording_mode: mode,
+      outcome: 'recording',
+    });
   }, [consumeLocation, startForegroundWatcher, startSession]);
 
   const beginAutomaticRecording = useCallback(async () => {
@@ -127,7 +134,14 @@ export function useExploreRecorder() {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
     void stopBackgroundUpdates();
-    if (useExploreStore.getState().activeSession) stopSession();
+    const session = useExploreStore.getState().activeSession;
+    if (session) {
+      stopSession();
+      track(posthogClient, AnalyticsEvent.ExploreRecordingCompleted, {
+        recording_mode: session.trackingPolicy,
+        outcome: reason === 'background' ? 'background_stopped' : 'completed',
+      });
+    }
     setStatus('idle');
     setMessage(reason === 'background'
       ? 'This outing stopped because background location is not allowed.'

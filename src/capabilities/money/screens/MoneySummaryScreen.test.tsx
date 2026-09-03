@@ -365,6 +365,44 @@ describe('MoneySummaryScreen living limit answer', () => {
     ))).toBe(false);
   });
 
+  it('keeps actual spending primary and routes an above-target plan to adjustment', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      livingLimitAnswer: {
+        ...mockAnswer,
+        state: 'over_limit',
+        headlineAmountCents: 5000,
+        facts: {
+          ...mockAnswer.facts,
+          livingLimitCents: 75000,
+          flexibleCapacityCents: 60000,
+          countedFlexibleSpendCents: 40000,
+          flexibleRoomCents: 20000,
+          flexibleRoomLowCents: 20000,
+          flexibleRoomHighCents: 20000,
+          plannedCents: 80000,
+          overLimitCents: 5000,
+        },
+      },
+      monthlyPlan: {
+        ...initialSnapshot.monthlyPlan!,
+        regularPlanCents: 80000,
+        committedPlanCents: 20000,
+        flexiblePlanCents: 60000,
+        plannedOutflowCents: 80000,
+      },
+    };
+
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'actual-first', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$200 left');
+    expect(screen.queryByRole('button', { name: 'Review overages' })).toBeNull();
+    expect(screen.getByText('Plan is $50 above target')).toBeTruthy();
+    expect(screen.getByText('$800 planned · 70% target $750')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Adjust monthly plan' }));
+    expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
+  });
+
   it('shows actual spending without charging saved-money or outside-plan spending to the plan result', () => {
     mockSnapshot = {
       ...initialSnapshot,

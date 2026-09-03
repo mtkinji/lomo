@@ -21,6 +21,11 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import {
+  getDevelopmentProStoreOfferState,
+  setDevelopmentProStoreOfferState,
+  type DevelopmentProStoreOfferState,
+} from '../../services/entitlements';
+import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
   type CoachChatTurn,
   type DevCoachChatLogEntry,
@@ -215,6 +220,8 @@ export function DevToolsScreen() {
 
   const [devToastMessage, setDevToastMessage] = useState('');
   const [devToastVariant, setDevToastVariant] = useState<ToastVariant>('default');
+  const [developmentOfferState, setDevelopmentOfferState] =
+    useState<DevelopmentProStoreOfferState>(getDevelopmentProStoreOfferState);
   const showDevToast = useCallback((message: string, variant: ToastVariant = 'default') => {
     setDevToastVariant(variant);
     setDevToastMessage(message);
@@ -1372,6 +1379,27 @@ export function DevToolsScreen() {
                 ]}
                 style={{ marginTop: spacing.md }}
               />
+
+              <Text style={[styles.meta, { marginTop: spacing.md }]}>Offer data</Text>
+              <SegmentedControl<DevelopmentProStoreOfferState>
+                value={developmentOfferState}
+                onChange={(next) => {
+                  setDevelopmentProStoreOfferState(next);
+                  setDevelopmentOfferState(next);
+                }}
+                size="compact"
+                testIDPrefix="devtools.proStoreOffer"
+                options={[
+                  { value: 'eligible', label: 'Trial' },
+                  { value: 'ineligible', label: 'No trial' },
+                  { value: 'unavailable', label: 'Unavailable' },
+                  { value: 'live', label: 'Live Apple' },
+                ]}
+                style={{ marginTop: spacing.sm }}
+              />
+              <Text style={[styles.meta, { marginTop: spacing.sm }]}>
+                Preview states use planned prices. Live Apple requires working StoreKit and RevenueCat configuration.
+              </Text>
 
               <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
                 <Button

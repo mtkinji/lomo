@@ -6,7 +6,7 @@ export const KWILT_TERMS_URL = 'https://go.kwilt.app/terms';
 export const KWILT_PRIVACY_URL = 'https://go.kwilt.app/privacy';
 
 type SubscriptionLegalLinksTone = 'default' | 'inverse';
-type SubscriptionLegalLinksVariant = 'sentence' | 'footer';
+type SubscriptionLegalLinksVariant = 'sentence' | 'purchase' | 'footer';
 
 export function openSubscriptionLegalUrl(url: string) {
   return Linking.openURL(url).catch(() => undefined);
@@ -50,6 +50,38 @@ export function SubscriptionLegalLinks({
           >
             Privacy Policy
           </Text>
+        </Text>
+      </View>
+    );
+  }
+
+  if (variant === 'purchase') {
+    return (
+      <View style={[styles.container, style]}>
+        <Text style={[styles.purchaseCopy, copyStyle]}>
+          By continuing, you agree to Kwilt’s{' '}
+          <Text
+            accessibilityRole="link"
+            accessibilityLabel="Open Terms of Use EULA"
+            onPress={() => {
+              openSubscriptionLegalUrl(KWILT_TERMS_URL);
+            }}
+            style={[styles.purchaseLink, linkStyle]}
+          >
+            Terms of Use
+          </Text>{' '}
+          and acknowledge the{' '}
+          <Text
+            accessibilityRole="link"
+            accessibilityLabel="Open Privacy Policy"
+            onPress={() => {
+              openSubscriptionLegalUrl(KWILT_PRIVACY_URL);
+            }}
+            style={[styles.purchaseLink, linkStyle]}
+          >
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </View>
     );
@@ -109,6 +141,15 @@ const styles = StyleSheet.create({
   copy: {
     ...typography.caption,
     textAlign: 'center',
+  },
+  purchaseCopy: {
+    ...typography.bodySm,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  purchaseLink: {
+    ...typography.bodySm,
+    textDecorationLine: 'underline',
   },
   copyDefault: {
     color: colors.textSecondary,

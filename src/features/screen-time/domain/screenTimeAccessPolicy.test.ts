@@ -2,6 +2,7 @@ import {
   canSavePersonalRule,
   classifyFamilyScreenTimeAction,
   classifyPersonalRuleAccess,
+  conditionRequiresPro,
 } from './screenTimeAccessPolicy';
 
 const conditions = {
@@ -11,15 +12,16 @@ const conditions = {
   step: { id: 'step', type: 'real_step_complete' as const, operator: 'is' as const },
 };
 
-it('keeps unlimited one-condition Focus, time, and daily-usage rules Free', () => {
+it('keeps unscheduled one-condition Focus and daily-usage rules Free', () => {
   expect(classifyPersonalRuleAccess({ conditions: [conditions.focus] })).toBe('free_basic');
-  expect(classifyPersonalRuleAccess({ conditions: [conditions.time] })).toBe('free_basic');
   expect(classifyPersonalRuleAccess({ conditions: [conditions.usage] })).toBe('free_basic');
 });
 
-it('classifies compound and Kwilt-linked personal rules as Pro', () => {
+it('classifies schedules, combinations, and Kwilt-linked personal rules as Pro', () => {
+  expect(classifyPersonalRuleAccess({ conditions: [conditions.time] })).toBe('pro_advanced');
   expect(classifyPersonalRuleAccess({ conditions: [conditions.focus, conditions.time] })).toBe('pro_advanced');
   expect(classifyPersonalRuleAccess({ conditions: [conditions.step] })).toBe('pro_advanced');
+  expect(conditionRequiresPro(conditions.time)).toBe(true);
 });
 
 it('allows Free to deactivate a dormant advanced rule but not reactivate it', () => {

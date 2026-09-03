@@ -6,8 +6,9 @@ export const posthogClient: PostHogType | undefined =
   isPosthogEnabled && posthogApiKey
     ? new PostHog(posthogApiKey, {
         ...(posthogHost ? { host: posthogHost } : {}),
-        captureAppLifecycleEvents: true,
+        // The SDK's Application Opened event may include the raw initial URL.
+        // Kwilt emits lifecycle events manually with bounded, URL-free props.
+        captureAppLifecycleEvents: false,
       })
     : undefined;
-
 

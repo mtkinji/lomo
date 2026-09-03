@@ -271,16 +271,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         SettingsGames: 'settings/games',
         // Trial-expiry and Pro-grant emails deep-link into the Manage
         // Subscription screen, so paying users land on the right place.
-        SettingsManageSubscription: {
-          path: 'settings/subscription',
-          parse: {
-            openPricingDrawer: (v: string) => v === '1' || v === 'true',
-            openPricingDrawerNonce: (v: string) => {
-              const parsed = Number(v);
-              return Number.isFinite(parsed) ? parsed : undefined;
-            },
-          },
-        },
+        SettingsManageSubscription: 'settings/subscription',
         SettingsConnectedTools: {
           path: 'settings/connections',
         },

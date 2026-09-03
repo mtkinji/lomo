@@ -110,6 +110,7 @@
       "extends": "production",
       "env": {
         "KWILT_APP_ENV": "test",
+        "POSTHOG_ENABLED": "true",
         "AFFILIATE_RETAILER_TESTING": "1"
       }
     },
@@ -117,6 +118,7 @@
       "extends": "production-widgets",
       "env": {
         "KWILT_APP_ENV": "test",
+        "POSTHOG_ENABLED": "true",
         "AFFILIATE_RETAILER_TESTING": "1"
       }
     }

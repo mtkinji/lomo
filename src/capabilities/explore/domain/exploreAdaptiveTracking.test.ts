@@ -93,17 +93,17 @@ describe('Explore adaptive tracking', () => {
 
   it('uses policy and movement to choose hidden battery profiles', () => {
     expect(adaptiveLocationProfile('ambient', 'active', 'pedestrian')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 30, deferredIntervalMs: 120_000,
+      accuracy: 'high', distanceIntervalM: 60, deferredIntervalMs: 180_000,
     }));
     expect(adaptiveLocationProfile('adventure', 'active', 'pedestrian')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 25, deferredIntervalMs: 90_000,
+      accuracy: 'high', distanceIntervalM: 6, deferredIntervalMs: 15_000,
     }));
     expect(adaptiveLocationProfile('ambient', 'active', 'vehicle')).toEqual(expect.objectContaining({
       accuracy: 'high',
-      distanceIntervalM: 22,
-      timeIntervalMs: 2_000,
-      deferredDistanceM: 200,
-      deferredIntervalMs: 30_000,
+      distanceIntervalM: 60,
+      timeIntervalMs: 120_000,
+      deferredDistanceM: 300,
+      deferredIntervalMs: 180_000,
     }));
     expect(adaptiveLocationProfile('adventure', 'active', 'vehicle')).toEqual(expect.objectContaining({
       accuracy: 'high',
@@ -111,6 +111,9 @@ describe('Explore adaptive tracking', () => {
       timeIntervalMs: 1_000,
       deferredDistanceM: 60,
       deferredIntervalMs: 15_000,
+    }));
+    expect(adaptiveLocationProfile('adventure', 'active', 'cycling')).toEqual(expect.objectContaining({
+      accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000,
     }));
     expect(adaptiveLocationProfile('ambient', 'soft-sleep', 'stationary')).toEqual(expect.objectContaining({
       accuracy: 'balanced', distanceIntervalM: 75, timeIntervalMs: 120_000,

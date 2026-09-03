@@ -1,5 +1,7 @@
 import type { MealPlanProjection } from '../data/mealPlanningRepository';
 import { buildDefaultMealOccasions, occasionNeedsAttention } from './MealPlanFinalizeScreen';
+import { readFileSync } from 'fs';
+import path from 'path';
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'native-uuid' }));
 
@@ -13,6 +15,15 @@ const plan: MealPlanProjection = {
 };
 
 describe('Meal Plan finalization occasions', () => {
+  it('hands successful finalization to Next Meals and emits only a bounded failure class', () => {
+    const source = readFileSync(path.join(__dirname, 'MealPlanFinalizeScreen.tsx'), 'utf8');
+
+    expect(source).toContain("feedbackPromptId: 'meal_plan_finalized_satisfaction_v1'");
+    expect(source).toContain('AnalyticsEvent.MealPlanFinalizeFailed');
+    expect(source).toContain('failure_class: classifyMealPlanFinalizeFailure(error)');
+    expect(source).not.toContain('MealPlanFinalizeFailed, { error');
+  });
+
   it('uses the native UUID provider when building new occasions', () => {
     const [occasion] = buildDefaultMealOccasions({ ...plan, candidates: [plan.candidates[0]] }, ['adult'], 2);
 

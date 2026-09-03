@@ -62,8 +62,21 @@ import {
 } from './src/features/onboarding/launchCadence';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
-import { identify as identifyPosthog } from './src/services/analytics/analytics';
+import {
+  identify as identifyPosthog,
+  resetAnalyticsIdentity,
+  track as trackPosthog,
+} from './src/services/analytics/analytics';
+import { AnalyticsEvent } from './src/services/analytics/events';
+import {
+  trackApplicationOpened,
+  trackAppStateTransition,
+} from './src/services/analytics/appLifecycleAnalytics';
 import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
+import {
+  WorkflowFeedbackHost,
+  WorkflowFeedbackProvider,
+} from './src/features/workflow-feedback';
 import { SignInInterstitial, type SignInResult } from './src/features/onboarding/SignInInterstitial';
 import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
 import { CapabilityDiscoveryRuntimeHost } from './src/navigation/CapabilityDiscoveryRuntimeHost';
@@ -170,6 +183,16 @@ export default function App() {
   const returningUserProbeRef = useRef<string | null>(null);
 
   useEffect(() => {
+    let previousState = AppState.currentState;
+    trackApplicationOpened(posthogClient);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      trackAppStateTransition(posthogClient, previousState, nextState);
+      previousState = nextState;
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     resolveLaunchScreenDurationForToday()
       .then(setLaunchScreenDurationMs)
       .catch(() => undefined);
@@ -224,6 +247,7 @@ export default function App() {
       if (isStaleRun()) return;
       const previousUserId = useAppStore.getState().authIdentity?.userId?.trim();
       if (previousUserId) void moneySnapshotCache.remove(previousUserId).catch(() => undefined);
+      if (previousUserId) resetAnalyticsIdentity(posthogClient);
       setSupabaseAutoRefreshEnabled(false);
       clearAuthIdentity();
       setAuthStartupState('signedOut');
@@ -240,6 +264,7 @@ export default function App() {
       const prevUserId = useAppStore.getState().authIdentity?.userId;
       if (prevUserId && prevUserId !== identity.userId) {
         void moneySnapshotCache.remove(prevUserId).catch(() => undefined);
+        resetAnalyticsIdentity(posthogClient);
         resetUserSpecificState();
       }
       setAuthIdentity(identity);
@@ -588,6 +613,10 @@ export default function App() {
         receiptId: receipt.receiptId,
         now: Date.now(),
       });
+      trackPosthog(posthogClient, AnalyticsEvent.CapabilityOnboardingPathCompleted, {
+        path_id: receipt.pathId,
+        outcome: 'completed',
+      });
     },
     [authIdentity?.userId, dispatchCapabilityOnboarding],
   );
@@ -694,17 +723,20 @@ export default function App() {
       // via `extra.posthogDebug` when needed.
       debug={__DEV__ && isPosthogDebugEnabled}
     >
-      <RootNavigatorWithPostHog />
-      <FirstTimeUxFlow
-        entryMode={firstTimeUxEntryMode}
-        onCapabilityComplete={handleCapabilityOnboardingComplete}
-      />
-      <CelebrationInterstitialHost />
-      <PartnerProgressGuideHost />
-      <GlobalSearchDrawer />
+      <WorkflowFeedbackProvider>
+        <RootNavigatorWithPostHog />
+        <FirstTimeUxFlow
+          entryMode={firstTimeUxEntryMode}
+          onCapabilityComplete={handleCapabilityOnboardingComplete}
+        />
+        <CelebrationInterstitialHost />
+        <PartnerProgressGuideHost />
+        <GlobalSearchDrawer />
+        <WorkflowFeedbackHost />
+      </WorkflowFeedbackProvider>
     </PostHogProvider>
   ) : (
-    <>
+    <WorkflowFeedbackProvider>
       <RootNavigator />
       <FirstTimeUxFlow
         entryMode={firstTimeUxEntryMode}
@@ -713,7 +745,8 @@ export default function App() {
       <CelebrationInterstitialHost />
       <PartnerProgressGuideHost />
       <GlobalSearchDrawer />
-    </>
+      <WorkflowFeedbackHost />
+    </WorkflowFeedbackProvider>
   );
 
   return (

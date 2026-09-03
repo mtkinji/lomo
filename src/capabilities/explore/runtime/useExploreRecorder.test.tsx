@@ -129,10 +129,10 @@ describe('useExploreRecorder recording modes', () => {
       'kwilt-explore-background-location-v1',
       expect.objectContaining({
         accuracy: Location.Accuracy.High,
-        distanceInterval: 30,
-        timeInterval: 60_000,
-        deferredUpdatesDistance: 100,
-        deferredUpdatesInterval: 120_000,
+        distanceInterval: 60,
+        timeInterval: 120_000,
+        deferredUpdatesDistance: 300,
+        deferredUpdatesInterval: 180_000,
         pausesUpdatesAutomatically: false,
       }),
     );

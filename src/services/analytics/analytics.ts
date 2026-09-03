@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import type { PostHog } from 'posthog-react-native';
 import { getEnvVar } from '../../utils/getEnv';
 import type { AnalyticsEventName } from './events';
+import { isAllowedStringProperty } from './eventPropertySchemas';
 
 export type AnalyticsProps = Record<
   string,
@@ -14,10 +15,6 @@ const SENSITIVE_KEY = /(?:^|_)(?:access_?token|audio|balance|calendar|coordinate
 const SENSITIVE_CAMEL_KEY = /(?:accessToken|calendarEvent|coachContext|fullName|groceryItem|healthSummary|inviteCode|inviteToken|messageBody|precisePath|recipeText)/;
 const SENSITIVE_AMOUNT_KEY = /(?:amount|income|expense)(?:_|[A-Z]|$)/;
 
-const SAFE_STRING_KEY = /^(?:action|app_env|capability|capability_id|channel|code|duration_bucket|error_code|event_name|fallback_reason|job_intent|kind|method|mode|next_status|outcome|paywall_reason|paywall_source|platform|product_id|provider|reason|route_name|source|source_kind|source_type|sourceType|state|status|store|surface|target_route|task|trigger|type|upgrade_entry_source|variant|visibilityContract|visibility_contract|warm_state)$/;
-const SAFE_IDENTIFIER_KEY = /(?:_id|Id)$/;
-const SAFE_HASH_KEY = /(?:_hash|Hash)$/;
-
 function isSensitiveAnalyticsKey(key: string): boolean {
   if (key === 'error_code') return false;
 
@@ -29,6 +26,7 @@ function isSensitiveAnalyticsKey(key: string): boolean {
 }
 
 export function sanitizeAnalyticsProps(
+  event: AnalyticsEventName,
   props: AnalyticsProps | undefined,
 ): PosthogProps | undefined {
   if (!props) return undefined;
@@ -36,18 +34,13 @@ export function sanitizeAnalyticsProps(
 
   for (const [key, value] of Object.entries(props)) {
     if (!key) continue;
-    if (isSensitiveAnalyticsKey(key)) continue;
+    const explicitlyAllowedString = isAllowedStringProperty(event, key);
+    if (isSensitiveAnalyticsKey(key) && !explicitlyAllowedString) continue;
     if (value === undefined) continue;
 
     if (typeof value === 'string') {
       if (value.length > 120) continue;
-      if (
-        !SAFE_STRING_KEY.test(key) &&
-        !SAFE_IDENTIFIER_KEY.test(key) &&
-        !SAFE_HASH_KEY.test(key)
-      ) {
-        continue;
-      }
+      if (!explicitlyAllowedString) continue;
       next[key] = value;
       continue;
     }
@@ -74,7 +67,7 @@ export function track(
   try {
     posthog.capture(event, {
       ...baseProps,
-      ...(sanitizeAnalyticsProps(props) ?? {}),
+      ...(sanitizeAnalyticsProps(event, props) ?? {}),
     });
   } catch (error) {
     if (__DEV__) {
@@ -91,10 +84,43 @@ export function identify(
   if (!posthog) return;
 
   try {
-    posthog.identify(distinctId, sanitizeAnalyticsProps(props));
+    posthog.identify(distinctId, sanitizeIdentityProps(props));
   } catch (error) {
     if (__DEV__) {
       console.warn('[analytics] posthog identify failed', error);
     }
+  }
+}
+
+function sanitizeIdentityProps(props: AnalyticsProps | undefined): PosthogProps | undefined {
+  if (!props) return undefined;
+  const next: PosthogProps = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (!['account_type', 'app_env', 'platform'].includes(key)) continue;
+    if (value === undefined || (typeof value === 'string' && value.length > 120)) continue;
+    next[key] = value;
+  }
+  return next;
+}
+
+export function resetAnalyticsIdentity(posthog: PostHog | undefined): void {
+  if (!posthog) return;
+  try {
+    posthog.reset();
+  } catch (error) {
+    if (__DEV__) console.warn('[analytics] posthog reset failed', error);
+  }
+}
+
+export function trackScreen(posthog: PostHog | undefined, screenName: string): void {
+  if (!posthog || !/^[A-Za-z0-9_.:-]{1,80}$/.test(screenName)) return;
+  const environment = getEnvVar<string>('environment');
+  try {
+    posthog.screen(screenName, {
+      app_env: environment ?? 'unknown',
+      platform: Platform.OS,
+    });
+  } catch (error) {
+    if (__DEV__) console.warn('[analytics] posthog screen failed', error);
   }
 }

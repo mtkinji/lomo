@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps 
 import { Alert, View, StyleSheet, Platform, Text, Linking } from 'react-native';
 import { KwiltLoader } from '../ui/KwiltLoader';
 import { useAnalytics } from '../services/analytics/useAnalytics';
+import { trackScreen as captureSafeScreen } from '../services/analytics/analytics';
 import { AnalyticsEvent } from '../services/analytics/events';
 import {
   NavigationContainer,
@@ -75,6 +76,7 @@ import { DestinationDetailScreen } from '../features/account/DestinationDetailSc
 import { BuiltInDestinationDetailScreen } from '../features/account/BuiltInDestinationDetailScreen';
 import { SuperAdminToolsScreen } from '../features/account/SuperAdminToolsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
+import { ProPlanChooserScreen } from '../features/account/ProPlanChooserScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { LegalPrivacyScreen } from '../features/account/LegalPrivacyScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
@@ -207,6 +209,7 @@ export type RootDrawerParamList = {
    */
   UnifiedChat: UnifiedChatRouteParams | undefined;
   SharedHome: { deliveryId?: string; source?: 'manual' | 'push' | 'link' } | undefined;
+  ProPlanChooser: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: {
     familyScreenTimeChild?: {
@@ -434,20 +437,7 @@ export type SettingsStackParamList = {
     | { mode: 'edit'; targetId: string };
   SettingsBuiltInDestinationDetail: { kind: 'amazon' | 'home_depot' | 'instacart' | 'doordash' };
   SettingsSuperAdminTools: undefined;
-  SettingsManageSubscription:
-    | {
-        /**
-         * When true, open the plan/pricing bottom drawer immediately on mount/focus.
-         * Useful when arriving from an in-context paywall CTA.
-         */
-        openPricingDrawer?: boolean;
-        /**
-         * Optional nonce to force re-opening the drawer even if already on the
-         * subscriptions screen (e.g. paywall overlay).
-         */
-        openPricingDrawerNonce?: number;
-      }
-    | undefined;
+  SettingsManageSubscription: undefined;
   SettingsChangePlan: undefined;
   SettingsPaywall: {
     reason: import('../services/paywall').PaywallReason;
@@ -497,11 +487,7 @@ const navTheme: Theme = {
   },
 };
 
-type TrackScreenFn = (
-  screenName: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  params?: Record<string, any>,
-) => void;
+type TrackScreenFn = (screenName: string) => void;
 
 function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const showDevTools = __DEV__;
@@ -704,7 +690,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         const currentRoute = rootNavigationRef.getCurrentRoute();
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
-          trackScreen?.(currentRoute.name, currentRoute.params as any);
+          trackScreen?.(currentRoute.name);
         }
       }}
       onStateChange={(state) => {
@@ -718,7 +704,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         const routeName = activeRoute?.name;
         if (routeName && routeName !== lastTrackedRouteNameRef.current) {
           lastTrackedRouteNameRef.current = routeName;
-          trackScreen?.(routeName, activeRoute?.params as any);
+          trackScreen?.(routeName);
         }
 
         // Widget adoption: detect widget-origin deep links (tagged as source=widget).
@@ -824,6 +810,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               component={FoodCapabilityHost}
               options={{ title: 'Food', drawerItemStyle: { display: 'none' } }}
             />
+            <Drawer.Screen
+              name="ProPlanChooser"
+              component={ProPlanChooserScreen}
+              options={{ title: 'Choose your plan', drawerItemStyle: { display: 'none' } }}
+            />
             {showDevTools ? (
               <>
                 <Drawer.Screen
@@ -871,15 +862,7 @@ export function RootNavigatorWithPostHog() {
   return (
     <ChromeVisibilityProvider>
       <RootNavigatorBase
-        trackScreen={(screenName, params) => {
-          try {
-            posthog?.screen(screenName, params);
-          } catch (error) {
-            if (__DEV__) {
-              console.warn('[posthog] failed to capture screen', error);
-            }
-          }
-        }}
+        trackScreen={(screenName) => captureSafeScreen(posthog, screenName)}
       />
     </ChromeVisibilityProvider>
   );

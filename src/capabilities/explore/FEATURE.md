@@ -23,17 +23,17 @@ last_reviewed: 2026-08-01
 
 # explore
 
-Turns explicitly recorded real-world movement into a private, persistent map of explored territory and meaningful Place visits.
+Turns deliberate real-world movement into trustworthy Recorded Paths while sparse automatic observations build a private, persistent map of broadly explored territory and meaningful Place visits.
 
 ## Surfaces in this folder
 
 - `screens/ExploreMapScreen.tsx` - primary map, recording, fog, trail, and layer surface.
 - Its single Places drawer separates foreground-only Nearby suggestions from canonical My Places. Suggestions neither clear fog nor enter visit history or Missions.
-- Every outing renders a bounded high-contrast evidence trace. Creating a Place adds a soft familiarity bloom at three times the normal reveal radius without asserting a park boundary or an unobserved path.
+- Deliberate Recorded Paths render a bounded high-contrast evidence trace. Automatic observations create isolated broad Silver Mist clearings and never assert an unobserved path. Creating a Place adds a soft familiarity bloom without asserting a park boundary.
 - A single completed deliberate Recorded Path recap can replay its continuous presentation route and fog reveal while an elevation-by-distance profile tracks or scrubs the same playback position. Raw samples stay intact; bounded Apple directions can reconstruct plausible quarter-mile misses without exposing “Adventure” language.
 - `domain/` - point acceptance, explored-cell geometry, elevation presentation, privacy projections, and Place relationships.
 - `runtime/` - explicit foreground/background session recording, bounded placemark resolution, recap delivery, and local persistence.
 
 ## Notes
 
-Explore remains local-first. Signed-in owner history is durably synchronized without changing location acquisition, while map rendering and offline capture continue from the device store. Both manual outings and the explicit Always Exploring mode are designed to continue through screen lock. Their internal Adventure and Ambient policies adapt sampling to motion and accuracy, sleep after credible stillness, and retain a low-power exit wake condition in deep sleep. Recording mode never changes sharing, and remote family delivery remains unavailable until its separate trust and revocation contracts are implemented. Locked-screen wake reliability, restore scale, and battery behavior still require signed-device field proof.
+Explore remains local-first. Signed-in owner history is durably synchronized without changing location acquisition, while map rendering and offline capture continue from the device store. Deliberate recordings and automatic atlas building are designed to continue through screen lock, but they make different promises: Adventure requests dense observations for a trustworthy path; Ambient retains sparse observations that clear fog without forming a route. Both policies sleep after credible stillness and retain a low-power exit wake condition in deep sleep. Recording mode never changes sharing, and remote family delivery remains unavailable until its separate trust and revocation contracts are implemented. Locked-screen wake reliability, route fidelity, restore scale, and battery behavior still require signed-device field proof.

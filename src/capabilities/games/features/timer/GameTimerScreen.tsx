@@ -16,6 +16,9 @@ import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { adjustDuration, formatTimerDuration, MAX_DURATION_MS, MIN_DURATION_MS } from './gameTimerDuration';
 import { useGameTimer } from './useGameTimer';
 import { useTimerTickAudio } from './useTimerTickAudio';
+import { posthogClient } from '@/src/services/analytics/posthogClient';
+import { track } from '@/src/services/analytics/analytics';
+import { AnalyticsEvent } from '@/src/services/analytics/events';
 
 const DEFAULT_DURATION_MS = 60_000;
 const PRESETS = [
@@ -84,11 +87,21 @@ export function GameTimerScreen() {
     if (isFocused && previousPhase.current === 'running' && timer.phase === 'finished') {
       void feedback.success('chime');
       void AccessibilityInfo.announceForAccessibility('Time is up');
+      track(posthogClient, AnalyticsEvent.GameTimerCompleted, {
+        timer_bucket: durationMs <= 60_000 ? 'up_to_1m' : durationMs <= 300_000 ? '2_to_5m' : 'over_5m',
+        outcome: 'completed',
+      });
     }
     previousPhase.current = timer.phase;
   }, [feedback, isFocused, timer.phase]);
 
-  const startTimer = () => timer.start(durationMs);
+  const startTimer = () => {
+    timer.start(durationMs);
+    track(posthogClient, AnalyticsEvent.GameTimerStarted, {
+      timer_bucket: durationMs <= 60_000 ? 'up_to_1m' : durationMs <= 300_000 ? '2_to_5m' : 'over_5m',
+      outcome: 'started',
+    });
+  };
   const displayTime = timer.phase === 'running'
     ? formatTimerDuration(timer.remainingMs)
     : formatTimerDuration(durationMs);

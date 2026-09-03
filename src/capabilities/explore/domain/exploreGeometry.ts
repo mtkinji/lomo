@@ -1,7 +1,7 @@
 import type { ExploreCoordinate, ExploredCell } from './types';
 
 export const EXPLORE_REVEAL_RADIUS_M = 65 * 0.3048;
-export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 100 * 0.3048;
+export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 200 * 0.3048;
 export const EXPLORE_CELL_SIZE_M = 24;
 export const MAX_CONTINUOUS_TRACE_GAP_M = 60;
 export const MAX_RECONSTRUCTABLE_TRACE_GAP_M = 0.25 * 1609.344;
@@ -194,23 +194,54 @@ function pointToSegmentDistanceM(
 function simplifyTrace<T extends ExploreCoordinate>(
   points: readonly T[],
   toleranceM: number,
-): T[] {
+  maxSegments = Number.POSITIVE_INFINITY,
+): T[] | null {
+  if (Math.max(0, points.length - 1) > maxSegments) return null;
   if (points.length <= 2) return [...points];
-  let furthestIndex = -1;
-  let furthestDistanceM = 0;
-  const start = points[0];
-  const end = points[points.length - 1];
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const distanceM = pointToSegmentDistanceM(points[index], start, end);
-    if (distanceM > furthestDistanceM) {
-      furthestDistanceM = distanceM;
-      furthestIndex = index;
+  const retained = new Uint8Array(points.length);
+  retained[0] = 1;
+  retained[points.length - 1] = 1;
+  let retainedCount = 2;
+  const pending: Array<[number, number]> = [[0, points.length - 1]];
+
+  while (pending.length) {
+    const [startIndex, endIndex] = pending.pop()!;
+    let furthestIndex = -1;
+    let furthestDistanceM = 0;
+    const start = points[startIndex];
+    const end = points[endIndex];
+    for (let index = startIndex + 1; index < endIndex; index += 1) {
+      const distanceM = pointToSegmentDistanceM(points[index], start, end);
+      if (distanceM > furthestDistanceM) {
+        furthestDistanceM = distanceM;
+        furthestIndex = index;
+      }
     }
+    if (furthestIndex < 0 || furthestDistanceM <= toleranceM) continue;
+
+    retained[furthestIndex] = 1;
+    retainedCount += 1;
+    if (retainedCount - 1 > maxSegments) return null;
+    pending.push([furthestIndex, endIndex], [startIndex, furthestIndex]);
   }
-  if (furthestIndex < 0 || furthestDistanceM <= toleranceM) return [start, end];
-  const before = simplifyTrace(points.slice(0, furthestIndex + 1), toleranceM);
-  const after = simplifyTrace(points.slice(furthestIndex), toleranceM);
-  return [...before.slice(0, -1), ...after];
+
+  return points.filter((_, index) => retained[index] === 1);
+}
+
+function simplifyTracesWithinSegmentBudget<T extends ExploreCoordinate>(
+  traces: readonly (readonly T[])[],
+  toleranceM: number,
+  maxSegments: number,
+): T[][] | null {
+  const simplified: T[][] = [];
+  let remainingSegments = maxSegments;
+  for (const trace of traces) {
+    const next = simplifyTrace(trace, toleranceM, remainingSegments);
+    if (!next) return null;
+    simplified.push(next);
+    remainingSegments -= Math.max(0, next.length - 1);
+  }
+  return simplified;
 }
 
 function continuousTraceGroups<T extends ExploreCoordinate>(
@@ -243,11 +274,13 @@ export function buildFogRenderGeometry<T extends ExploreCoordinate>(
 ): ExploreFogRenderGeometry<T> {
   const traces = continuousTraceGroups(pointGroups);
   let toleranceM = FOG_TRACE_SIMPLIFICATION_TOLERANCE_M;
-  let simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
-  const segmentCount = () => simplified.reduce((total, trace) => total + Math.max(0, trace.length - 1), 0);
-  while (segmentCount() > maxSegments && toleranceM < 192) {
+  let simplified = simplifyTracesWithinSegmentBudget(traces, toleranceM, maxSegments);
+  while (!simplified && toleranceM < 192) {
     toleranceM *= 2;
-    simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
+    simplified = simplifyTracesWithinSegmentBudget(traces, toleranceM, maxSegments);
+  }
+  if (!simplified) {
+    simplified = traces.map((trace) => simplifyTrace(trace, toleranceM)!);
   }
 
   const points: T[] = [];

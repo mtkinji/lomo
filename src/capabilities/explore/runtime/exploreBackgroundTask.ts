@@ -25,9 +25,12 @@ import {
   EXPLORE_WAKE_TASK,
 } from './exploreLocationTaskNames';
 import { KWILT_LABS_STORAGE_KEY, parsePersistedKwiltLabs } from '../../../labs/kwiltLabs';
+import {
+  EXPLORE_LEGACY_STORAGE_KEY,
+  exploreShardedStorage,
+} from './exploreShardedStorage';
 
 export { EXPLORE_BACKGROUND_TASK } from './exploreLocationTaskNames';
-const EXPLORE_STORAGE_KEY = 'kwilt-explore-v1';
 const APP_STORAGE_KEY = 'kwilt-store';
 
 async function exploreLabIsEnabled(): Promise<boolean> {
@@ -78,15 +81,12 @@ function upgradeSession(
   };
 }
 
-type PersistEnvelope = Record<string, unknown> & { state?: unknown; version?: number };
-
-function parsePersistedExplore(raw: string | null): { data: ExploreData; envelope: PersistEnvelope } | null {
-  if (!raw) return null;
+function parsePersistedExplore(
+  stored: { state: unknown; version?: number } | null,
+): ExploreData | null {
+  if (!stored) return null;
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const envelope = parsed as PersistEnvelope;
-    const persisted = (envelope.state ?? envelope) as Partial<ExploreData>;
+    const persisted = stored.state as Partial<ExploreData>;
     const defaults = createEmptyExploreData();
     const activeFallbackPolicy = persisted.tracking?.policy === 'adventure' || persisted.tracking?.policy === 'ambient'
       ? persisted.tracking.policy
@@ -110,12 +110,9 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
           persisted.activeSession?.startedAt ?? null,
         ),
       } as ExploreData;
-    return {
-      envelope,
-      data: (envelope.version ?? persisted.version ?? 0) < 7
-        ? rebuildExploreTerritory(data)
-        : data,
-    };
+    return (stored.version ?? persisted.version ?? 0) < 7
+      ? rebuildExploreTerritory(data)
+      : data;
   } catch {
     return null;
   }
@@ -129,7 +126,7 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
   const locations = (data as { locations?: Location.LocationObject[] } | undefined)?.locations ?? [];
   if (!locations.length) return;
-  const persisted = parsePersistedExplore(await AsyncStorage.getItem(EXPLORE_STORAGE_KEY));
+  const persisted = parsePersistedExplore(await exploreShardedStorage.getItem(EXPLORE_LEGACY_STORAGE_KEY));
   if (!persisted) return;
   const samples = locations.map((location) => ({
     latitude: location.coords.latitude,
@@ -142,7 +139,7 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     recordedAt: new Date(location.timestamp).toISOString(),
   }));
   const preparedBatch = prepareExploreBackgroundBatch(
-    persisted.data,
+    persisted,
     samples[0],
     `automatic-${samples[0].recordedAt}`,
   );
@@ -182,10 +179,7 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     ) => void | Promise<void>;
     await persistLiveState({ ...next, lastPointDecision: 'background-location' });
   } else {
-    const envelope = 'state' in persisted.envelope
-      ? { ...persisted.envelope, state: next, version: 10 }
-      : { state: next, version: 10 };
-    await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
+    await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 10 });
   }
   if (result.trackingAction === 'deep-sleep' && next.tracking.wakeAnchor) {
     await enterExploreDeepSleep(next.tracking.wakeAnchor).catch(() => undefined);
@@ -212,19 +206,16 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     event?.eventType !== Location.GeofencingEventType.Exit ||
     event.region?.identifier !== EXPLORE_WAKE_REGION_ID
   ) return;
-  const persisted = parsePersistedExplore(await AsyncStorage.getItem(EXPLORE_STORAGE_KEY));
-  if (!persisted?.data.activeSession || !persisted.data.tracking.policy) {
+  const persisted = parsePersistedExplore(await exploreShardedStorage.getItem(EXPLORE_LEGACY_STORAGE_KEY));
+  if (!persisted?.activeSession || !persisted.tracking.policy) {
     await stopExploreBackgroundUpdates();
     return;
   }
   const next: ExploreData = {
-    ...persisted.data,
-    tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
+    ...persisted,
+    tracking: resumeExploreTracking(persisted.tracking, new Date().toISOString()),
   };
-  const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 10 }
-    : { state: next, version: 10 };
-  await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
+  await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 10 });
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });
   }

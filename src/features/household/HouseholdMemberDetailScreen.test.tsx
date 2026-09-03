@@ -3,6 +3,8 @@ import { Alert } from 'react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { usePaywallStore } from '../../store/usePaywallStore';
 import { HouseholdMemberDetailScreen } from './HouseholdMemberDetailScreen';
 
 const mockSnapshot = jest.fn();
@@ -60,7 +62,10 @@ const props = {
 describe('HouseholdMemberDetailScreen', () => {
   beforeEach(() => {
     resetAllStores();
+    props.navigation.goBack.mockReset();
+    props.navigation.navigate.mockReset();
     useAppStore.getState().setAuthIdentity({ userId: 'user-1', name: 'Andrew' });
+    useEntitlementsStore.setState({ isPro: true });
     mockSnapshot.mockReset().mockResolvedValue(baseSnapshot);
     mockResolve.mockReset().mockResolvedValue({});
     mockRemove.mockReset().mockResolvedValue({ avatarSource: 'initials', avatarUrl: null });
@@ -127,6 +132,21 @@ describe('HouseholdMemberDetailScreen', () => {
     fireEvent.press(getByText("Connect Riley's device"));
     expect(props.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', {
       childMembershipId: 'child-1', childDisplayName: 'Riley', householdId: 'household-1',
+    });
+  });
+
+  it('keeps named-child Household device connection in Pro', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByText('No device connected')).toBeTruthy());
+
+    fireEvent.press(getByText("Connect Riley's device"));
+
+    expect(props.navigation.navigate).not.toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', expect.anything());
+    expect(usePaywallStore.getState()).toMatchObject({
+      visible: true,
+      reason: 'pro_family_screen_time',
+      source: 'screen_time_family',
     });
   });
 

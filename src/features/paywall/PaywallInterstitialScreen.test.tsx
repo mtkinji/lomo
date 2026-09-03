@@ -2,6 +2,10 @@ import { fireEvent } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 
+jest.mock('../account/useProStoreOffer', () => ({
+  useProStoreOffer: () => ({ status: 'unavailable', snapshot: null, retry: jest.fn() }),
+}));
+
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   const goBack = jest.fn();
@@ -26,8 +30,11 @@ describe('PaywallInterstitialScreen', () => {
   });
 
   it('renders the underlying paywall content for the route params', () => {
-    const { getByText } = renderWithProviders(<PaywallInterstitialScreen />);
+    const { getByLabelText, getByTestId, getByText, queryByTestId } = renderWithProviders(<PaywallInterstitialScreen />);
     expect(getByText('Know what’s left. Stay in control.')).toBeTruthy();
+    expect(getByTestId('bottom-drawer.bottom-accessory')).toBeTruthy();
+    expect(queryByTestId('bottom-drawer.footer')).toBeNull();
+    expect(getByLabelText('Upgrade to Pro')).toBeTruthy();
   });
 
   it('calls navigation.goBack when the close button is pressed', () => {
