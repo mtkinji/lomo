@@ -69,13 +69,49 @@ The Simulator pass does not prove that optional analytics produces no network tr
 - The active Metro runtime resolved `environment = development`. A PostHog project key and host were configured, but the non-production override was not enabled. Under `src/services/analytics/posthog.ts`, this means the development session intentionally does not create a PostHog client. The UI persistence result above is valid, but this runtime cannot establish production ingestion or network silence after withdrawal.
 - A read-only production Supabase inventory confirmed that the synthetic Simulator account still exists with one email identity, one Kwilt person binding, and one install identity. It had no push token, Plaid connection, calendar account, grocery-provider account, active external OAuth token, or active Phone Agent link. No email address, user ID, token, or provider record was captured in this evidence.
 - The account is suitable for a later basic standalone deletion smoke, but it cannot exercise the connected-provider cleanup matrix by itself.
-- Production project `sqxwjtorodqjdfnuvprf` did not list migration `20260903141350_account_deletion_integrity`; its deployed `account-delete` function was the pre-existing version 21, and `account-deletion-token-register` was not deployed. Running irreversible deletion now would exercise the older production path and would not verify the new fail-closed provider/storage/session orchestration. The account was therefore preserved.
+- At the time of the initial pass, production did not yet contain the new
+  account-deletion migration or token-registration function. That deployment
+  gap has since been corrected as recorded below; the initial decision to
+  preserve the account remains part of the test chronology.
+
+## Production account-deletion deployment
+
+- Production project: `sqxwjtorodqjdfnuvprf`.
+- Live migration: `20260903230301_account_deletion_integrity`.
+- Deployed `account-delete`: version 23, deployment
+  `ffc5ade2-cc48-4fab-92a3-595813987c0a`, SHA-256
+  `caee98cf1610d92ebadf263f00eb52b818d115643e7e1079135407e3951ac768`.
+- Deployed `account-deletion-token-register`: version 1, deployment
+  `d2f73f06-24a4-4ce4-98d4-0ea75541d18b`, SHA-256
+  `97b43c6747e657052b932ae605d73fa75dc0d09b1ce198a3477e751b329a7c0f`.
+- Both HTTP entry points rejected unauthenticated POST requests with 401. Both
+  functions keep gateway JWT verification disabled because they perform their
+  own `auth.getUser` validation before privileged work.
+- The production secret inventory contains the required deletion, Apple,
+  calendar, and RevenueCat secret names. Values were neither read nor recorded.
+  The protected `production-auth` rotation workflow completed successfully:
+  <https://github.com/mtkinji/lomo/actions/runs/33816318153>.
+- The deletion RPC and service-only tables are live. Anonymous and authenticated
+  roles cannot execute the RPC; `service_role` can. The four deletion-cleanup
+  storage buckets are present.
+- The production security advisor still reports pre-existing repository-wide
+  findings. Its no-policy notices for the deletion tables are consistent with
+  their service-only design and revoked client grants; this check is not
+  represented as a clean global advisor result.
+- Deployment wiring is in commits `d9792e0c` and `8bcd9385`, both pushed to
+  `origin/main`.
+- A destructive standalone deletion smoke and the connected-provider cleanup
+  matrix remain separate runtime gates. No account was deleted by deployment
+  verification alone.
 
 ## Remaining ASR-004 gates
 
 1. Build the exact signed candidate from committed source, confirm version/build provenance, and generate its Xcode privacy report.
 2. Recheck the processed candidate's aggregate App Store preview, including the linked/not-linked presentation and the released Privacy Choices URL.
-3. Deploy and record the account-deletion migration and both Edge Functions, then exercise a fully authorized disposable-account deletion/provider cleanup. The current synthetic Simulator account can cover only the standalone smoke; separate sandbox-connected fixtures are required for the provider matrix.
+3. Exercise a fully authorized disposable-account deletion/provider cleanup
+   against the deployed backend. The current synthetic Simulator account can
+   cover only the standalone smoke; separate sandbox-connected fixtures are
+   required for the provider matrix.
 4. Exercise analytics withdrawal in a production-equivalent signed build while observing outbound traffic; the development Simulator runtime is intentionally analytics-disabled and cannot supply this proof.
 5. Run the smaller physical-device pass for native-only privacy boundaries.
 6. Obtain the required second review and counsel review for counsel-owned policy decisions.

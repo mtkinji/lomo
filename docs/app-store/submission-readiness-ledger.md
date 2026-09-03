@@ -445,6 +445,17 @@ Progress evidence:
   The active Simulator runtime also resolved to `development`, where PostHog is
   intentionally disabled without an explicit override; its consent UI result
   therefore does not claim production network or ingestion proof.
+- 2026-09-03: Deployed production migration
+  `20260903230301_account_deletion_integrity`, `account-delete` version 23, and
+  `account-deletion-token-register` version 1 to project
+  `sqxwjtorodqjdfnuvprf`. Required secret names and cleanup buckets are present,
+  unauthenticated requests return 401, and the deletion RPC is executable only
+  by `service_role`. The protected secret-initialization/Apple-rotation run
+  completed successfully. See
+  [`2026-09-03-production-backend-deployment.md`](../delivery-evidence/account-deletion/2026-09-03-production-backend-deployment.md).
+- A destructive standalone deletion smoke is still pending. The synthetic
+  Simulator fixture has no connected providers, so it cannot close the separate
+  provider-cleanup matrix.
 
 ### ASR-005 — UGC reporting, filtering, and response workflow
 
