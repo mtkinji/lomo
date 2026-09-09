@@ -1,9 +1,9 @@
 import { canRenderExploreLayer, createDefaultExplorePreferences } from './explorePrivacy';
 
 describe('Explore privacy projections', () => {
-  it('defaults to private recording with only the personal path visible', () => {
+  it('defaults to private ambient exploration with recorded paths visible', () => {
     expect(createDefaultExplorePreferences()).toEqual({
-      recording: 'manual',
+      recording: 'automatic',
       sharing: 'private',
       showMyPath: true,
       showFamilyTerritory: false,

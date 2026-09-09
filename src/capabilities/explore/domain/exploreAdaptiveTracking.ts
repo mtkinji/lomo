@@ -9,7 +9,7 @@ import type {
 } from './types';
 
 export type ExploreAdaptiveLocationProfile = {
-  accuracy: 'balanced' | 'high';
+  accuracy: 'balanced' | 'high' | 'navigation';
   distanceIntervalM: number;
   timeIntervalMs: number;
   deferredDistanceM: number;
@@ -171,7 +171,7 @@ export function transitionExploreTracking(
 
   const stationarySince = current.stationarySince ?? sample.recordedAt;
   const elapsedMs = Math.max(0, Date.parse(sample.recordedAt) - Date.parse(stationarySince));
-  const phase: ExploreTrackingPhase = elapsedMs >= DEEP_SLEEP_MS[current.policy]
+  const phase: ExploreTrackingPhase = current.policy === 'adventure' ? 'active' : elapsedMs >= DEEP_SLEEP_MS[current.policy]
     ? 'deep-sleep'
     : elapsedMs >= SOFT_SLEEP_MS[current.policy]
       ? 'soft-sleep'
@@ -206,7 +206,7 @@ export function adaptiveLocationProfile(
   phase: Exclude<ExploreTrackingPhase, 'deep-sleep'>,
   movement: ExploreMovementClass,
 ): ExploreAdaptiveLocationProfile {
-  if (phase === 'soft-sleep') {
+  if (phase === 'soft-sleep' && policy !== 'adventure') {
     return {
       accuracy: 'balanced',
       distanceIntervalM: 75,
@@ -236,6 +236,7 @@ export function adaptiveLocationProfile(
       pausesAutomatically: false,
     };
   }
+  // Manual profiles request all available fixes (iOS ignores timeIntervalMs).
   if (movement === 'vehicle') {
     return policy === 'ambient' ? {
       accuracy: 'high',
@@ -245,21 +246,21 @@ export function adaptiveLocationProfile(
       deferredIntervalMs: 180_000,
       pausesAutomatically: false,
     } : {
-      accuracy: 'high',
-      distanceIntervalM: 6,
-      timeIntervalMs: 1_000,
-      deferredDistanceM: 60,
-      deferredIntervalMs: 15_000,
+      accuracy: 'navigation',
+      distanceIntervalM: 0,
+      timeIntervalMs: 500,
+      deferredDistanceM: 0,
+      deferredIntervalMs: 0,
       pausesAutomatically: false,
     };
   }
   if (movement === 'cycling') {
     return policy === 'adventure' ? {
-      accuracy: 'high',
-      distanceIntervalM: 6,
-      timeIntervalMs: 1_000,
-      deferredDistanceM: 60,
-      deferredIntervalMs: 15_000,
+      accuracy: 'navigation',
+      distanceIntervalM: 0,
+      timeIntervalMs: 500,
+      deferredDistanceM: 0,
+      deferredIntervalMs: 0,
       pausesAutomatically: false,
     } : {
       accuracy: 'high',
@@ -272,11 +273,11 @@ export function adaptiveLocationProfile(
   }
   return policy === 'adventure'
     ? {
-      accuracy: 'high',
-      distanceIntervalM: 6,
-      timeIntervalMs: 1_000,
-      deferredDistanceM: 60,
-      deferredIntervalMs: 15_000,
+      accuracy: 'navigation',
+      distanceIntervalM: 0,
+      timeIntervalMs: 500,
+      deferredDistanceM: 0,
+      deferredIntervalMs: 0,
       pausesAutomatically: false,
     }
     : {

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const sql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260903144422_repair_legacy_planned_recipe_scale.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260903230307_repair_legacy_planned_recipe_scale.sql'),
   'utf8',
 ).toLowerCase();
 

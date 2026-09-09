@@ -12,9 +12,9 @@ export type ExplorePointDecision =
 
 const MAX_HORIZONTAL_ACCURACY_M = 45;
 const MIN_MOVEMENT_M = 3;
-export const EXPLORE_SAMPLE_HORIZON_SECONDS = 0.8;
-export const MIN_EXPLORE_SAMPLE_DISTANCE_M = 6;
-export const MAX_EXPLORE_SAMPLE_DISTANCE_M = 22;
+// Manual recording favors detail once moving at 3 mph; never widen spacing at speed.
+export const DENSE_EXPLORE_MIN_SPEED_MPS = 3 * 0.44704;
+export const MIN_EXPLORE_SAMPLE_DISTANCE_M = 1;
 export const COURSE_CHANGE_RETENTION_DEG = 10;
 export const COURSE_RETENTION_MIN_SPEED_MPS = 3;
 export const AMBIENT_EXPLORE_SAMPLE_DISTANCE_M = 60;
@@ -26,13 +26,9 @@ export function normalizeCourseDeg(value: number | null | undefined): number | n
 }
 
 export function adaptiveExploreSampleDistanceM(speedMps: number | null): number {
-  if (speedMps === null || !Number.isFinite(speedMps) || speedMps < 0) {
-    return MIN_EXPLORE_SAMPLE_DISTANCE_M;
-  }
-  return Math.max(
-    MIN_EXPLORE_SAMPLE_DISTANCE_M,
-    Math.min(MAX_EXPLORE_SAMPLE_DISTANCE_M, speedMps * EXPLORE_SAMPLE_HORIZON_SECONDS),
-  );
+  return speedMps !== null && Number.isFinite(speedMps) && speedMps >= DENSE_EXPLORE_MIN_SPEED_MPS
+    ? MIN_EXPLORE_SAMPLE_DISTANCE_M
+    : MIN_MOVEMENT_M;
 }
 
 export function circularCourseDifferenceDeg(from: number, to: number): number {
@@ -97,12 +93,15 @@ export function acceptExplorePoint(
   candidate: ExploreLocationSample,
   policy: ExploreTrackingPolicy = 'adventure',
 ): ExplorePointDecision {
-  if (!Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude)) {
+  if (!Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude) ||
+    Math.abs(candidate.latitude) > 90 || Math.abs(candidate.longitude) > 180 ||
+    !Number.isFinite(Date.parse(candidate.recordedAt))) {
     return { accepted: false, reason: 'invalid' };
   }
   if (
     typeof candidate.horizontalAccuracyM === 'number' &&
-    candidate.horizontalAccuracyM > MAX_HORIZONTAL_ACCURACY_M
+    (!Number.isFinite(candidate.horizontalAccuracyM) || candidate.horizontalAccuracyM < 0 ||
+      candidate.horizontalAccuracyM > (policy === 'adventure' ? 25 : MAX_HORIZONTAL_ACCURACY_M))
   ) {
     return { accepted: false, reason: 'weak-accuracy' };
   }
@@ -111,7 +110,11 @@ export function acceptExplorePoint(
     return { accepted: false, reason: 'stale' };
   }
   const distanceM = coordinateDistanceM(previous, candidate);
-  if (distanceM < MIN_MOVEMENT_M) {
+  const speedMps = inferredSpeedMps(previous, candidate, distanceM);
+  const minimumMovementM = policy === 'adventure'
+    ? adaptiveExploreSampleDistanceM(speedMps)
+    : MIN_MOVEMENT_M;
+  if (distanceM < minimumMovementM) {
     return { accepted: false, reason: 'too-close' };
   }
   const passiveDistanceM = policy === 'ambient'
@@ -124,7 +127,6 @@ export function acceptExplorePoint(
       ? { accepted: true, reason: 'adaptive-distance' }
       : { accepted: false, reason: 'sampling-window' };
   }
-  const speedMps = inferredSpeedMps(previous, candidate, distanceM);
   const previousCourse = normalizeCourseDeg(previous.courseDeg);
   const candidateCourse = normalizeCourseDeg(candidate.courseDeg);
   if (
@@ -136,7 +138,8 @@ export function acceptExplorePoint(
   ) {
     return { accepted: true, reason: 'course-change' };
   }
-  if (distanceM >= adaptiveExploreSampleDistanceM(speedMps)) {
+  // Preserve dense observations, including walking turns without a reliable GPS heading.
+  if (distanceM >= minimumMovementM) {
     return { accepted: true, reason: 'adaptive-distance' };
   }
   return { accepted: false, reason: 'sampling-window' };

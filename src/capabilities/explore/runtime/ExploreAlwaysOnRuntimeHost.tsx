@@ -13,6 +13,7 @@ export function ExploreAlwaysOnRuntimeHost() {
     const reconcile = async () => {
       const state = useExploreStore.getState();
       if (state.preferences.recording !== 'automatic') return;
+      if (state.activeSession?.trackingPolicy === 'adventure') return;
       const [foreground, background, started] = await Promise.all([
         Location.getForegroundPermissionsAsync().catch(() => null),
         Location.getBackgroundPermissionsAsync().catch(() => null),

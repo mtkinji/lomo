@@ -117,7 +117,7 @@ async function evaluateLivingPlan(
       const { data, error } = await client.from('budget_transactions').select('id,date,direction,amount_cents,name,merchant_name,original_description,budget_id,pending,money_meaning,financial_account_id,personal_finance_category_primary').eq('user_id', userId).order('date', { ascending: true }).order('id', { ascending: true }).range(from, to);
       if (error) throw error;
       return data ?? [];
-    }),
+    }, 1000, 3),
     client.from('budget_financial_accounts').select('id,type,subtype').eq('user_id', userId),
     client.from('budget_forecast_settings').select('budget_id,forecast_mode,scheduled_amount_cents').eq('user_id', userId),
     client.from('budget_living_plan_overrides').select('category_id,amount_cents').eq('user_id', userId).eq('active', true),

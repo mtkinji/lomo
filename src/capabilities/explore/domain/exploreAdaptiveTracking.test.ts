@@ -46,14 +46,14 @@ describe('Explore adaptive tracking', () => {
     expect(tracking.phase).toBe('deep-sleep');
   });
 
-  it('gives a deliberate Adventure three minutes before soft sleep and fifteen before deep sleep', () => {
+  it('keeps deliberate recording ready to capture departure after long stops', () => {
     let tracking = createExploreTrackingState('adventure', at(0));
     tracking = transitionExploreTracking(tracking, point(0), sample(0));
     expect(transitionExploreTracking(tracking, point(0), sample(2)).phase).toBe('active');
     tracking = transitionExploreTracking(tracking, point(0), sample(3));
-    expect(tracking.phase).toBe('soft-sleep');
+    expect(tracking.phase).toBe('active');
     tracking = transitionExploreTracking(tracking, point(0), sample(15));
-    expect(tracking.phase).toBe('deep-sleep');
+    expect(tracking.phase).toBe('active');
   });
 
   it('returns immediately to active tracking when credible movement resumes', () => {
@@ -96,7 +96,7 @@ describe('Explore adaptive tracking', () => {
       accuracy: 'high', distanceIntervalM: 60, deferredIntervalMs: 180_000,
     }));
     expect(adaptiveLocationProfile('adventure', 'active', 'pedestrian')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 6, deferredIntervalMs: 15_000,
+      accuracy: 'navigation', distanceIntervalM: 0, timeIntervalMs: 500, deferredIntervalMs: 0,
     }));
     expect(adaptiveLocationProfile('ambient', 'active', 'vehicle')).toEqual(expect.objectContaining({
       accuracy: 'high',
@@ -106,14 +106,14 @@ describe('Explore adaptive tracking', () => {
       deferredIntervalMs: 180_000,
     }));
     expect(adaptiveLocationProfile('adventure', 'active', 'vehicle')).toEqual(expect.objectContaining({
-      accuracy: 'high',
-      distanceIntervalM: 6,
-      timeIntervalMs: 1_000,
-      deferredDistanceM: 60,
-      deferredIntervalMs: 15_000,
+      accuracy: 'navigation',
+      distanceIntervalM: 0,
+      timeIntervalMs: 500,
+      deferredDistanceM: 0,
+      deferredIntervalMs: 0,
     }));
     expect(adaptiveLocationProfile('adventure', 'active', 'cycling')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000,
+      accuracy: 'navigation', distanceIntervalM: 0, timeIntervalMs: 500,
     }));
     expect(adaptiveLocationProfile('ambient', 'soft-sleep', 'stationary')).toEqual(expect.objectContaining({
       accuracy: 'balanced', distanceIntervalM: 75, timeIntervalMs: 120_000,
@@ -164,3 +164,9 @@ describe('Explore adaptive tracking', () => {
     }));
   });
 });
+
+ it('keeps deliberate acquisition dense even when restoring an old soft-sleep session', () => {
+   expect(adaptiveLocationProfile('adventure', 'soft-sleep', 'stationary')).toEqual(expect.objectContaining({
+     accuracy: 'navigation', distanceIntervalM: 0, timeIntervalMs: 500, deferredDistanceM: 0, deferredIntervalMs: 0,
+   }));
+ });

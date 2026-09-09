@@ -56,10 +56,15 @@ describe('Explore point policy', () => {
     ).toEqual({ accepted: true, reason: 'adaptive-distance' });
   });
 
-  it('scales straight-line retention with speed over a bounded time horizon', () => {
-    expect(adaptiveExploreSampleDistanceM(25 * 0.44704)).toBeCloseTo(8.94, 1);
-    expect(adaptiveExploreSampleDistanceM(1.4)).toBe(6);
-    expect(adaptiveExploreSampleDistanceM(65 * 0.44704)).toBe(22);
+  it('keeps one-meter detail above 3 mph instead of thinning faster travel', () => {
+    for (const mph of [3, 4, 5, 25, 65]) {
+      const speed = mph * 0.44704;
+      expect(adaptiveExploreSampleDistanceM(speed)).toBe(1);
+      expect(acceptExplorePoint({ ...base, speedMps: speed }, movedSample(1.2, 0, speed)).accepted).toBe(true);
+    }
+    expect(adaptiveExploreSampleDistanceM(0)).toBe(3);
+    expect(adaptiveExploreSampleDistanceM(null)).toBe(3);
+    expect(acceptExplorePoint({ ...base, speedMps: 0 }, movedSample(1.2, 0, 0)).accepted).toBe(false);
   });
 
   it('measures course changes correctly across north', () => {
@@ -75,17 +80,17 @@ describe('Explore point policy', () => {
     });
   });
 
-  it('does not turn low-speed course jitter into recorded territory', () => {
+  it('retains measured low-speed movement without trusting heading jitter', () => {
     expect(acceptExplorePoint(
       { ...base, speedMps: 1.2 },
       movedSample(4, 90, 1.2),
-    )).toEqual({ accepted: false, reason: 'sampling-window' });
+    )).toEqual({ accepted: true, reason: 'adaptive-distance' });
   });
 
-  it('thins straight residential observations until the adaptive spacing is reached', () => {
+  it('retains dense residential observations before the next turn', () => {
     expect(acceptExplorePoint(base, movedSample(6, 0))).toEqual({
-      accepted: false,
-      reason: 'sampling-window',
+      accepted: true,
+      reason: 'adaptive-distance',
     });
     expect(acceptExplorePoint(base, movedSample(9, 0))).toEqual({
       accepted: true,
@@ -116,3 +121,12 @@ describe('Explore point policy', () => {
     }));
   });
 });
+
+ it('retains a walking corner at three meters without needing a trustworthy heading', () => {
+   expect(acceptExplorePoint({ ...base, speedMps: 1.5, courseDeg: null },
+     { ...movedSample(3.5, 90, 1.5), courseDeg: null }).accepted).toBe(true);
+ });
+ it('rejects invalid coordinates and timestamps before they become path evidence', () => {
+   expect(acceptExplorePoint(null, { ...base, latitude: 100 }).accepted).toBe(false);
+   expect(acceptExplorePoint(null, { ...base, recordedAt: 'invalid' }).accepted).toBe(false);
+ });

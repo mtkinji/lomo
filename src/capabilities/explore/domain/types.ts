@@ -91,7 +91,7 @@ export type ExploreSyncMetadata = {
 };
 
 export type ExploreData = {
-  version: 10;
+  version: 11;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;

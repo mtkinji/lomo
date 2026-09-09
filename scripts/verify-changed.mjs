@@ -105,7 +105,7 @@ if (needsEasUploadPolicy(files)) {
 if (matches(/^(assets\/audio\/|modules\/kwilt-seamless-loop\/|src\/services\/(soundscape|soundscapeCatalog|soundscapeLoop|audioAsset)|scripts\/audio\/)/)) {
   add('npm run audio:audit:soundscape-contract', 'require every visible Focus soundscape to have admitted immutable loop bytes');
   add(
-    'node --test scripts/audio/soundscape-loop-contract.test.mjs scripts/audio/loop-seam-lib.test.mjs scripts/audio/master-loop.test.mjs scripts/audio/rendered-loop-probe.test.mjs',
+    'node --test scripts/audio/soundscape-loop-contract.test.mjs scripts/audio/loop-seam-lib.test.mjs scripts/audio/master-loop.test.mjs scripts/audio/rendered-loop-probe.test.mjs scripts/audio/ios-pcm-cache.test.mjs',
     'test source-seam, mastering, admission, and rendered-continuity policies',
   );
 }

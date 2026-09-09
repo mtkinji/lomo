@@ -14,7 +14,7 @@ describe('Explore recording modes', () => {
       deferredDistanceM: 300, deferredIntervalMs: 180_000, pausesAutomatically: false,
     });
     expect(locationProfileForExploreMode('manual', 'foreground')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000,
+      accuracy: 'navigation', distanceIntervalM: 0, timeIntervalMs: 500,
     }));
   });
 

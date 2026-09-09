@@ -71,7 +71,7 @@ function makeId(prefix: string): string {
   return `${prefix}-${suffix}`;
 }
 
-function dataFromStore(state: ExploreStore): ExploreData {
+export function dataFromStore(state: ExploreStore): ExploreData {
   return {
     version: state.version,
     activeSession: state.activeSession,
@@ -285,16 +285,16 @@ export const useExploreStore = create<ExploreStore>()(
         const startedAt = new Date(Date.now() - 12 * 60_000).toISOString();
         const anchor = { latitude: 40.58526, longitude: -105.08442 };
         let next = beginExploreSession(createEmptyExploreData(), makeId('preview-session'), startedAt);
-        const points = Array.from({ length: 18 }, (_, index): ExplorePoint => ({
+        const points = Array.from({ length: 180 }, (_, index): ExplorePoint => ({
           id: `preview-point-${index}`,
-          latitude: anchor.latitude + index * 0.00017,
-          longitude: anchor.longitude + Math.sin(index / 2.6) * 0.00045,
+          latitude: anchor.latitude + index * 0.000017,
+          longitude: anchor.longitude + Math.sin(index / 26) * 0.00045,
           altitudeM: 1518 + index * 22,
           horizontalAccuracyM: 6,
           altitudeAccuracyM: 5,
           speedMps: null,
           courseDeg: null,
-          recordedAt: new Date(Date.parse(startedAt) + index * 40_000).toISOString(),
+          recordedAt: new Date(Date.parse(startedAt) + index * 4_000).toISOString(),
         }));
         points.forEach((point) => {
           next = appendExplorePoint(next, point);
@@ -319,7 +319,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: EXPLORE_LEGACY_STORAGE_KEY,
-      version: 10,
+      version: 11,
       storage: exploreShardedStorage,
       // Explore history can grow to tens of megabytes. ExploreNavigator hydrates it only
       // when Explore opens, while the storage adapter restores immutable trip/point/cell
@@ -378,7 +378,7 @@ export const useExploreStore = create<ExploreStore>()(
         return rebuildExploreTerritory({
           ...defaults,
           ...persisted,
-          version: 10,
+          version: 11,
           activeSession,
           sessions: Array.isArray(persisted.sessions)
             ? persisted.sessions.map((session) => upgradeSession(session))

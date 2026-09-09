@@ -25,16 +25,16 @@ describe('Explore background policy', () => {
     }));
   });
 
-  it('deep-sleeps an Adventure after fifteen stationary minutes without ending its intent', () => {
+  it('keeps an Adventure ready after fifteen stationary minutes without painting GPS drift', () => {
     const state = beginExploreSession(createEmptyExploreData(), 'session-1', sample(0).recordedAt, 'adventure');
     const result = applyBackgroundSamples(state, [0, 5, 10, 15].map((minute) => ({
       ...sample(minute),
       speedMps: 0,
     })));
     expect(result.completedSessionId).toBeNull();
-    expect(result.trackingAction).toBe('deep-sleep');
+    expect(result.trackingAction).toBe('active');
     expect(result.data.activeSession?.id).toBe('session-1');
-    expect(result.data.tracking.phase).toBe('deep-sleep');
+    expect(result.data.tracking.phase).toBe('active');
     expect(result.data.activeSession?.points).toHaveLength(0);
   });
 
@@ -60,7 +60,7 @@ describe('Explore background policy', () => {
     expect(result.data.tracking.movement).toBe('airplane');
   });
 
-  it('thins straight 25-mph observations but retains successive course changes through a turn', () => {
+  it('retains dense 25-mph observations and successive course changes through a turn', () => {
     const startedAt = Date.parse('2026-07-27T18:00:00.000Z');
     const origin = { latitude: 40.5, longitude: -105.1 };
     const straightSix = destinationCoordinate(origin, 6, 0);
@@ -84,7 +84,7 @@ describe('Explore background policy', () => {
     ]);
 
     expect(result.data.activeSession?.points.map((point) => point.courseDeg)).toEqual([
-      0, 0, 15, 30, 45, 60, 75, 90,
+      0, 0, 0, 15, 30, 45, 60, 75, 90,
     ]);
   });
 });

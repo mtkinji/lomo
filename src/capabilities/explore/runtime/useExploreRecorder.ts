@@ -24,7 +24,8 @@ export type ExploreRecorderStatus =
   | 'permission-denied'
   | 'unavailable';
 
-function expoAccuracy(accuracy: 'balanced' | 'high'): Location.Accuracy {
+function expoAccuracy(accuracy: 'balanced' | 'high' | 'navigation'): Location.Accuracy {
+  if (accuracy === 'navigation') return Location.Accuracy.BestForNavigation;
   return accuracy === 'balanced' ? Location.Accuracy.Balanced : Location.Accuracy.High;
 }
 
@@ -34,6 +35,13 @@ export function useExploreRecorder() {
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const backgroundAuthorizedRef = useRef(false);
   const permissionPromptActiveRef = useRef(false);
+  const desiredAppStateRef = useRef(AppState.currentState);
+  const acquisitionQueueRef = useRef(Promise.resolve());
+  const enqueueAcquisition = useCallback((work: () => Promise<void>) => {
+    const operation = acquisitionQueueRef.current.then(work);
+    acquisitionQueueRef.current = operation.catch(() => undefined);
+    return operation;
+  }, []);
   const startSession = useExploreStore((state) => state.startSession);
   const appendSample = useExploreStore((state) => state.appendSample);
   const stopSession = useExploreStore((state) => state.stopSession);
@@ -105,8 +113,20 @@ export function useExploreRecorder() {
 
   const beginForegroundSession = useCallback(async (mode: ExplorePreferences['recording']) => {
     setStatus('locating');
+    const nextPolicy = trackingPolicyForRecordingMode(mode);
+    const current = useExploreStore.getState();
+    if (current.activeSession && current.activeSession.trackingPolicy !== nextPolicy) {
+      if (current.activeSession.points.length) {
+        current.stopSession(
+          new Date().toISOString(),
+          current.activeSession.trackingPolicy === 'ambient' ? 'background-stillness' : 'interrupted',
+        );
+      } else {
+        current.recoverInterruptedSession();
+      }
+    }
     if (!useExploreStore.getState().activeSession) {
-      startSession(undefined, undefined, trackingPolicyForRecordingMode(mode));
+      startSession(undefined, undefined, nextPolicy);
     }
     const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     consumeLocation(initial);
@@ -130,10 +150,10 @@ export function useExploreRecorder() {
     setStatus('recording');
   }, [consumeLocation, startBackgroundUpdates, startSession]);
 
-  const stop = useCallback((reason?: 'background') => {
+  const stop = useCallback(async (reason?: 'background') => {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
-    void stopBackgroundUpdates();
+    await stopBackgroundUpdates();
     const session = useExploreStore.getState().activeSession;
     if (session) {
       stopSession();
@@ -142,11 +162,21 @@ export function useExploreRecorder() {
         outcome: reason === 'background' ? 'background_stopped' : 'completed',
       });
     }
+    const shouldResumeAmbient =
+      reason !== 'background' &&
+      session?.trackingPolicy === 'adventure' &&
+      useExploreStore.getState().preferences.recording === 'automatic' &&
+      backgroundAuthorizedRef.current;
+    if (shouldResumeAmbient) {
+      await beginAutomaticRecording();
+      setMessage(null);
+      return;
+    }
     setStatus('idle');
     setMessage(reason === 'background'
       ? 'This outing stopped because background location is not allowed.'
       : null);
-  }, [stopBackgroundUpdates, stopSession]);
+  }, [beginAutomaticRecording, stopBackgroundUpdates, stopSession]);
 
   const start = useCallback(async () => {
     if (subscriptionRef.current) return;
@@ -155,34 +185,36 @@ export function useExploreRecorder() {
     try {
       const permission = await requestRecordingPermissions();
       if (!permission.foregroundGranted) return;
+      await stopBackgroundUpdates();
       await beginForegroundSession('manual');
     } catch {
       if (useExploreStore.getState().activeSession) stopSession();
       setStatus('unavailable');
       setMessage('Kwilt could not start location recording. Try again when location is available.');
     }
-  }, [beginForegroundSession, requestRecordingPermissions, stopSession]);
+  }, [beginForegroundSession, requestRecordingPermissions, stopBackgroundUpdates, stopSession]);
 
   const beginOnboarding = useCallback(async () => {
     if (subscriptionRef.current) return;
     setMessage(null);
     setStatus('requesting-permission');
     try {
-      const permitted = await requestForegroundPermission();
-      if (!permitted) return;
+      const permission = await requestRecordingPermissions();
+      if (!permission.foregroundGranted) return;
+      await stopBackgroundUpdates();
       await beginForegroundSession('manual');
     } catch {
       if (useExploreStore.getState().activeSession) stopSession();
       setStatus('unavailable');
       setMessage('Kwilt could not start your Explore history. Try again when location is available.');
     }
-  }, [beginForegroundSession, requestForegroundPermission, stopSession]);
+  }, [beginForegroundSession, requestRecordingPermissions, stopBackgroundUpdates, stopSession]);
 
   const setRecordingMode = useCallback(async (mode: ExplorePreferences['recording']): Promise<boolean> => {
     if (mode === 'manual') {
       const wasAutomatic = useExploreStore.getState().preferences.recording === 'automatic';
       updatePreferences({ recording: 'manual' });
-      if (wasAutomatic) stop();
+      if (wasAutomatic && useExploreStore.getState().activeSession?.trackingPolicy === 'ambient') await stop();
       return true;
     }
     setMessage(null);
@@ -191,6 +223,7 @@ export function useExploreRecorder() {
       const permission = await requestRecordingPermissions();
       if (!permission.foregroundGranted || !permission.backgroundGranted) return false;
       updatePreferences({ recording: 'automatic' });
+      if (useExploreStore.getState().activeSession?.trackingPolicy === 'adventure') return true;
       await beginAutomaticRecording();
       return true;
     } catch {
@@ -227,53 +260,91 @@ export function useExploreRecorder() {
   }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active' && subscriptionRef.current) {
-        if (permissionPromptActiveRef.current) return;
-        subscriptionRef.current.remove();
+    let cancelled = false;
+    const reconcile = async () => {
+      if (cancelled || permissionPromptActiveRef.current) return;
+      const state = useExploreStore.getState();
+      if (!state.activeSession) return;
+      if (desiredAppStateRef.current !== 'active') {
+        subscriptionRef.current?.remove();
         subscriptionRef.current = null;
         if (backgroundAuthorizedRef.current) {
-          void startBackgroundUpdates().catch(() => stop('background'));
-        } else {
-          stop('background');
-        }
-      } else if (nextState === 'active') {
-        const currentMode = useExploreStore.getState().preferences.recording;
-        if (currentMode === 'automatic') {
-          useExploreStore.getState().resumeTracking();
-          void startBackgroundUpdates('automatic').then(() => setStatus('recording')).catch(() => setStatus('unavailable'));
+          await startBackgroundUpdates(state.activeSession.trackingPolicy === 'adventure' ? 'manual' : 'automatic')
+            .catch(() => stop('background'));
+        } else await stop('background');
+        return;
+      }
+      if (state.activeSession.trackingPolicy !== 'adventure' && state.preferences.recording === 'automatic') {
+        state.resumeTracking();
+        await startBackgroundUpdates('automatic');
+      } else {
+        await stopBackgroundUpdates();
+        if (cancelled || desiredAppStateRef.current !== 'active') return;
+        const current = useExploreStore.getState();
+        if (!current.activeSession) return;
+        current.resumeTracking();
+        await startForegroundWatcher(current.activeSession.trackingPolicy === 'adventure' ? 'manual' : current.preferences.recording);
+        // watchPositionAsync can resolve after another lock or after unmount.
+        if (cancelled || desiredAppStateRef.current !== 'active') {
+          subscriptionRef.current?.remove();
+          subscriptionRef.current = null;
           return;
         }
-        void stopBackgroundUpdates().then(async () => {
-          const state = useExploreStore.getState();
-          if (state.activeSession) {
-            state.resumeTracking();
-            await startForegroundWatcher(state.preferences.recording).catch(() => stop());
-            setStatus('recording');
-          } else {
-            setStatus('idle');
-          }
-        });
       }
+      if (!cancelled) setStatus('recording');
+    };
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      desiredAppStateRef.current = nextState;
+      // Serialize native start/stop calls. A pending resume must never replace the
+      // background manager after the user has already locked the phone again.
+      void enqueueAcquisition(reconcile).catch(() => {
+        if (!cancelled) setStatus('unavailable');
+      });
     });
     return () => {
+      cancelled = true;
       subscription.remove();
       subscriptionRef.current?.remove();
       subscriptionRef.current = null;
     };
-  }, [startBackgroundUpdates, startForegroundWatcher, stop, stopBackgroundUpdates]);
+  }, [enqueueAcquisition, startBackgroundUpdates, startForegroundWatcher, stop, stopBackgroundUpdates]);
 
   useEffect(() => {
     let cancelled = false;
     const reconcileHydratedSession = async () => {
+      if (cancelled) return;
       const state = useExploreStore.getState();
       const foreground = await Location.getForegroundPermissionsAsync().catch(() => null);
       const background = await Location.getBackgroundPermissionsAsync().catch(() => null);
       if (cancelled) return;
+      if (useExploreStore.getState().activeSession?.id !== state.activeSession?.id) return;
       backgroundAuthorizedRef.current = background?.status === 'granted';
       const backgroundStarted = await isExploreLocationServiceStarted();
       if (cancelled) return;
-      if (
+      if (state.activeSession?.trackingPolicy === 'adventure' && desiredAppStateRef.current !== 'active' && backgroundAuthorizedRef.current) {
+        await startBackgroundUpdates('manual');
+        if (!cancelled) setStatus('recording');
+        return;
+      }
+      if (state.activeSession?.trackingPolicy === 'adventure') {
+        if (backgroundStarted) {
+          await stopBackgroundUpdates();
+          if (cancelled || desiredAppStateRef.current !== 'active' ||
+            useExploreStore.getState().activeSession?.id !== state.activeSession.id) return;
+          state.resumeTracking();
+          await startForegroundWatcher('manual');
+          if (cancelled || desiredAppStateRef.current !== 'active') {
+            subscriptionRef.current?.remove();
+            subscriptionRef.current = null;
+            return;
+          }
+          setStatus('recording');
+        } else {
+          state.recoverInterruptedSession();
+          setStatus('idle');
+          setMessage('Your last recorded path was saved.');
+        }
+      } else if (
         state.preferences.recording === 'automatic' &&
         foreground?.status === 'granted' &&
         background?.status === 'granted'
@@ -295,18 +366,21 @@ export function useExploreRecorder() {
         setMessage('Always Exploring is paused until Always Location is allowed.');
       }
     };
-    if (useExploreStore.persist.hasHydrated()) void reconcileHydratedSession();
-    const unsubscribe = useExploreStore.persist.onFinishHydration(() => {
-      void reconcileHydratedSession();
-    });
+    const restoreSession = () => {
+      void enqueueAcquisition(reconcileHydratedSession).catch(() => {
+        if (!cancelled) setStatus('unavailable');
+      });
+    };
+    if (useExploreStore.persist.hasHydrated()) restoreSession();
+    const unsubscribe = useExploreStore.persist.onFinishHydration(restoreSession);
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [beginAutomaticRecording, startForegroundWatcher, stopBackgroundUpdates]);
+  }, [beginAutomaticRecording, enqueueAcquisition, startBackgroundUpdates, startForegroundWatcher, stopBackgroundUpdates]);
 
   return {
-    active: Boolean(activeSession) && status === 'recording',
+    active: activeSession?.trackingPolicy === 'adventure' && status === 'recording',
     status,
     message,
     beginOnboarding,

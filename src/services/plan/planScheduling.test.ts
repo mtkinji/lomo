@@ -61,8 +61,8 @@ describe('planScheduling', () => {
     const proposal = {
       activityId: staleActivity.id,
       title: staleActivity.title,
-      startDate: '2026-06-22T09:00:00.000Z',
-      endDate: '2026-06-22T09:30:00.000Z',
+      startDate: '2026-06-22T13:00:00.000Z',
+      endDate: '2026-06-22T13:30:00.000Z',
       calendarId: 'calendar-1',
       domain: 'personal' as const,
     };
@@ -70,6 +70,27 @@ describe('planScheduling', () => {
     expect(
       filterVisiblePlanProposals({ proposals: [proposal], activities: [staleActivity], now: TARGET_DATE }),
     ).toEqual([proposal]);
+  });
+
+  it('excludes elapsed and already-started suggestions at 11:05 while retaining future slots', () => {
+    const now = new Date('2026-09-08T11:05:00-06:00');
+    const starts = [
+      ['2026-09-08T06:00:00-06:00', '2026-09-08T06:30:00-06:00'],
+      ['2026-09-08T09:00:00-06:00', '2026-09-08T11:00:00-06:00'],
+      ['2026-09-08T11:00:00-06:00', '2026-09-08T12:00:00-06:00'],
+      ['2026-09-08T11:15:00-06:00', '2026-09-08T11:45:00-06:00'],
+      ['2026-09-09T06:00:00-06:00', '2026-09-09T06:30:00-06:00'],
+    ];
+    const activities = starts.map((_, index) => activity({ id: `act-${index}` }));
+    const proposals = starts.map(([startDate, endDate], index) => ({
+      activityId: activities[index].id,
+      title: 'Still needs doing',
+      startDate,
+      endDate,
+      calendarId: 'calendar-1',
+      domain: 'personal' as const,
+    }));
+    expect(filterVisiblePlanProposals({ proposals, activities, now })).toEqual(proposals.slice(3));
   });
 
   it('recovers an unfinished activity after its scheduled block has passed', () => {

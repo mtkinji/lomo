@@ -2,7 +2,7 @@ import type { ExplorePreferences, ExploreSharingLevel } from './types';
 
 export function createDefaultExplorePreferences(): ExplorePreferences {
   return {
-    recording: 'manual',
+    recording: 'automatic',
     sharing: 'private',
     showMyPath: true,
     showFamilyTerritory: false,

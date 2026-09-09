@@ -14,7 +14,8 @@ import {
   EXPLORE_WAKE_TASK,
 } from './exploreLocationTaskNames';
 
-function expoAccuracy(accuracy: 'balanced' | 'high'): Location.Accuracy {
+function expoAccuracy(accuracy: 'balanced' | 'high' | 'navigation'): Location.Accuracy {
+  if (accuracy === 'navigation') return Location.Accuracy.BestForNavigation;
   return accuracy === 'balanced' ? Location.Accuracy.Balanced : Location.Accuracy.High;
 }
 

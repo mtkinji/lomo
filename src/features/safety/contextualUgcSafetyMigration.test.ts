@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const migration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260903132918_contextual_ugc_safety.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260903230157_contextual_ugc_safety.sql'),
   'utf8',
 ).toLowerCase();
 
