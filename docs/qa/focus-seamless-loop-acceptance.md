@@ -6,6 +6,7 @@ This sheet keeps source, transport, Simulator, signed-device, TestFlight, and pr
 
 - `npm run audio:audit:soundscape-contract` — all visible soundscapes have immutable admitted bytes at 48 kHz stereo.
 - `npm run audio:audit:loops -- --enforce <files...>` — source seam passes silence, level, endpoint, and derivative policy.
+- `node --test scripts/audio/ios-pcm-cache.test.mjs` — the production Swift cache decodes an admitted MP3 through its exact final frame and reopens the finalized PCM CAF.
 - `npm run audio:probe:rendered-loop -- <probe.json>` — at least three natively rendered boundaries, no underruns, and worst jump at or below -36 dBFS.
 - `npm run verify:changed -- --run` — diff-routed TypeScript, Jest, product, architecture, and audio gates.
 
@@ -18,7 +19,7 @@ Record checkout, branch, commit, dirty state, Simulator model/OS, and build prov
 - Background/foreground and an interruption recover without duplicated playback.
 - Capture native diagnostics before and after: `completedBoundaries`, `queuedSegments`, `underrunCount`, and `lastErrorCode`.
 
-Status: native iOS compile/link passed on 2026-08-13; audible Simulator acceptance and rendered-probe capture pending.
+Status: on 2026-09-07, an iPhone 17 Pro Simulator running iOS 26.5 was rebuilt from the normal `main` checkout at `88cb2b77` plus the working-tree PCM EOF fix. Canyon Spring decoded to a validated 48 kHz stereo PCM CAF with 13,977,600 frames, and the native transport reached `playing` without rollback. The checkout also contained unrelated Explore work. Audible Simulator boundary acceptance and rendered-probe capture remain pending.
 
 ## Signed physical iPhone gate
 

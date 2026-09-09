@@ -253,6 +253,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
             .order('date', { ascending: false })
             .order('id', { ascending: false })
             .range(from, to)),
+        1000, 3,
       ),
     ]);
 

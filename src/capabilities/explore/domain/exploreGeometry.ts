@@ -8,6 +8,8 @@ export const MAX_RECONSTRUCTABLE_TRACE_GAP_M = 0.25 * 1609.344;
 const MAX_ACQUISITION_AWARE_TRACE_INTERVAL_S = 180;
 const TRACE_POSITION_ALLOWANCE_M = 8;
 const FOG_TRACE_SIMPLIFICATION_TOLERANCE_M = 3;
+const PRESENTATION_CORNER_RADIUS_M = 6;
+const PRESENTATION_CORNER_FRACTION = 0.35;
 
 const EARTH_RADIUS_M = 6_371_000;
 const METERS_PER_LATITUDE_DEGREE = 111_320;
@@ -303,4 +305,159 @@ export function buildFogRenderGeometry<T extends ExploreCoordinate>(
     });
   });
   return { points, segmentStarts, segmentEnds, traces: renderTraces };
+}
+
+type ExplorePresentationPoint = ExploreCoordinate & { altitudeM?: number | null };
+
+function interpolatePresentationPoint<T extends ExplorePresentationPoint>(
+  from: T,
+  to: T,
+  progress: number,
+): T {
+  const point = {
+    ...(progress < 0.5 ? from : to),
+    latitude: from.latitude + (to.latitude - from.latitude) * progress,
+    longitude: from.longitude + (to.longitude - from.longitude) * progress,
+  } as T;
+  if ('altitudeM' in from || 'altitudeM' in to) {
+    const fromAltitude = from.altitudeM;
+    const toAltitude = to.altitudeM;
+    point.altitudeM = typeof fromAltitude === 'number' && typeof toAltitude === 'number'
+      ? fromAltitude + (toAltitude - fromAltitude) * progress
+      : fromAltitude ?? toAltitude ?? null;
+  }
+  return point;
+}
+
+function quadraticPresentationPoint<T extends ExplorePresentationPoint>(
+  start: T,
+  control: T,
+  end: T,
+  progress: number,
+): T {
+  const inverse = 1 - progress;
+  const point = {
+    ...control,
+    latitude:
+      inverse * inverse * start.latitude +
+      2 * inverse * progress * control.latitude +
+      progress * progress * end.latitude,
+    longitude:
+      inverse * inverse * start.longitude +
+      2 * inverse * progress * control.longitude +
+      progress * progress * end.longitude,
+  } as T;
+  if ('altitudeM' in start || 'altitudeM' in control || 'altitudeM' in end) {
+    const fallback = control.altitudeM ?? start.altitudeM ?? end.altitudeM ?? null;
+    const startAltitude = start.altitudeM ?? fallback;
+    const controlAltitude = control.altitudeM ?? fallback;
+    const endAltitude = end.altitudeM ?? fallback;
+    point.altitudeM = typeof startAltitude === 'number' &&
+      typeof controlAltitude === 'number' &&
+      typeof endAltitude === 'number'
+      ? inverse * inverse * startAltitude +
+        2 * inverse * progress * controlAltitude +
+        progress * progress * endAltitude
+      : fallback;
+  }
+  return point;
+}
+
+/**
+ * Rounds only the visible recorded-path line. Stored samples and fog evidence
+ * keep their original geometry, while short quadratic arcs remove mitered turns.
+ */
+export function smoothExplorePresentationTrace<T extends ExplorePresentationPoint>(
+  points: readonly T[],
+): T[] {
+  if (points.length < 3) return [...points];
+  const smoothed: T[] = [points[0]];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const corner = points[index];
+    const next = points[index + 1];
+    const incomingDistanceM = coordinateDistanceM(previous, corner);
+    const outgoingDistanceM = coordinateDistanceM(corner, next);
+    if (incomingDistanceM <= 0 || outgoingDistanceM <= 0) {
+      smoothed.push(corner);
+      continue;
+    }
+    const radiusM = Math.min(
+      PRESENTATION_CORNER_RADIUS_M,
+      incomingDistanceM * PRESENTATION_CORNER_FRACTION,
+      outgoingDistanceM * PRESENTATION_CORNER_FRACTION,
+    );
+    const entry = interpolatePresentationPoint(corner, previous, radiusM / incomingDistanceM);
+    const exit = interpolatePresentationPoint(corner, next, radiusM / outgoingDistanceM);
+    smoothed.push(
+      entry,
+      quadraticPresentationPoint(entry, corner, exit, 1 / 3),
+      quadraticPresentationPoint(entry, corner, exit, 2 / 3),
+      exit,
+    );
+  }
+  smoothed.push(points.at(-1)!);
+  return smoothed;
+}
+
+/** Recorded travel has a stricter evidence contract than broad ambient territory. */
+export function isRecordedPathContinuous(from: ExploreContinuityCoordinate, to: ExploreContinuityCoordinate): boolean {
+  const distanceM = coordinateDistanceM(from, to);
+  if (!Number.isFinite(distanceM) || distanceM > 100) return false;
+  const accuracyIsWeak = [from, to].some(point => typeof point.horizontalAccuracyM === 'number' &&
+    (!Number.isFinite(point.horizontalAccuracyM) || point.horizontalAccuracyM < 0 || point.horizontalAccuracyM > 25));
+  if (accuracyIsWeak) return false;
+  // Coordinate-only callers have no temporal evidence; retain the short-distance fallback.
+  if (from.recordedAt === undefined && to.recordedAt === undefined) return distanceM <= 60;
+  const seconds = (Date.parse(to.recordedAt ?? '') - Date.parse(from.recordedAt ?? '')) / 1000;
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 10) return false;
+  const speeds = [trustworthySpeedMps(from), trustworthySpeedMps(to)].filter((speed): speed is number => speed !== null);
+  const maximumSpeed = speeds.length ? Math.max(...speeds) : 55;
+  const allowanceM = Math.min(12, trustworthyAccuracyM(from) + trustworthyAccuracyM(to));
+  return distanceM <= maximumSpeed * seconds + allowanceM + 3 && distanceM / seconds <= 55;
+}
+
+type RecordedPathRegion = ExploreCoordinate & { latitudeDelta: number; longitudeDelta: number };
+
+/**
+ * Split on raw evidence BEFORE simplification. Never increase the one-meter error
+ * bound to meet a fog budget. Cull offscreen edges without joining across them;
+ * chunk long visible polylines with a shared endpoint to keep native calls bounded.
+ */
+export function buildRecordedPathTraces<T extends ExploreContinuityCoordinate>(
+  groups: readonly (readonly T[])[],
+  region?: RecordedPathRegion,
+): T[][] {
+  const visible = (a: T, b: T) => !region || (
+    Math.max(a.latitude, b.latitude) >= region.latitude - region.latitudeDelta * 0.75 &&
+    Math.min(a.latitude, b.latitude) <= region.latitude + region.latitudeDelta * 0.75 &&
+    Math.max(a.longitude, b.longitude) >= region.longitude - region.longitudeDelta * 0.75 &&
+    Math.min(a.longitude, b.longitude) <= region.longitude + region.longitudeDelta * 0.75
+  );
+  const traces: T[][] = [];
+  const emit = (points: T[]) => {
+    if (!points.length) return;
+    const simplified = simplifyTrace(points, 1)!;
+    for (let start = 0; start < simplified.length; start += 511) {
+      const chunk = simplified.slice(start, start + 512);
+      if (start === 0 || chunk.length > 1) traces.push(chunk);
+    }
+  };
+  for (const group of groups) {
+    let current: T[] = [];
+    for (let index = 0; index < group.length; index += 1) {
+      const point = group[index];
+      const previous = current.at(-1);
+      if (previous && (!isRecordedPathContinuous(previous, point) || !visible(previous, point))) {
+        emit(current);
+        current = [];
+      }
+      if (!current.length) {
+        const next = group[index + 1];
+        if (visible(point, point) || (next && visible(point, next))) current.push(point);
+      } else current.push(point);
+    }
+    emit(current);
+  }
+  return traces;
 }

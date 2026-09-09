@@ -75,6 +75,7 @@ import {
   upsertActivityScheduleSession,
 } from '../../services/plan/activityScheduleSessions';
 import { usePlanSessionEditor } from './usePlanSessionEditor';
+import { usePlanClock } from './usePlanClock';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -124,6 +125,7 @@ export function PlanPager({
   /** Called when the user swipes the calendar canvas left/right to change day. */
   onNavigateDay?: (deltaDays: number) => void;
 }) {
+  const planNow = usePlanClock();
   const [uncontrolledSheetSnapIndex, setUncontrolledSheetSnapIndex] = useState(0);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [allowRerun, setAllowRerun] = useState(false);
@@ -565,6 +567,8 @@ export function PlanPager({
     }
   }, [dateKey]);
 
+  const hasExpiredProposals = proposals.some((proposal) => new Date(proposal.startDate) < planNow);
+
   useEffect(() => {
     // Avoid showing stale proposals from the previous day while we fetch this day's calendar data.
     // We'll re-propose once busy intervals are loaded.
@@ -607,6 +611,7 @@ export function PlanPager({
     dateKey,
     dailyActivityResolutions,
     hasLoadedProposalsOnce,
+    hasExpiredProposals,
   ]);
 
   const scheduleProposals = useMemo(() => {
@@ -614,8 +619,9 @@ export function PlanPager({
       proposals: [...sheetCreatedProposals, ...proposals],
       activities,
       skippedActivityIds: skippedIds,
+      now: planNow,
     });
-  }, [activities, proposals, sheetCreatedProposals, skippedIds]);
+  }, [activities, proposals, sheetCreatedProposals, skippedIds, planNow]);
 
   const recommendations = useMemo<PlanRecommendation[]>(() => {
     const goalById = new Map(goals.map((g) => [g.id, g]));
@@ -900,7 +906,8 @@ export function PlanPager({
   }, [activities, committingActivityId, writeRef, dateKey]);
 
   const handleCommit = async (activityId: string) => {
-    const proposal = scheduleProposals.find((p) => p.activityId === activityId);
+    const proposal = filterVisiblePlanProposals({ proposals: scheduleProposals, activities })
+      .find((p) => p.activityId === activityId);
     if (!proposal) return;
     const committed = await commitProposal(activityId, proposal);
     if (committed) recordCommitted(activityId);
@@ -972,6 +979,7 @@ export function PlanPager({
       const windows = getWindowsForMode(dayAvailability, mode);
       const stepMinutes = 15;
       const candidates: Date[] = [];
+      const earliestStart = new Date();
 
       function roundUpToStep(d: Date): Date {
         const next = new Date(d);
@@ -995,7 +1003,7 @@ export function PlanPager({
           const conflicts =
             busyIntervals.some((b) => b.start < newEnd && newStart < b.end) ||
             otherProposalIntervals.some((b) => b.start < newEnd && newStart < b.end);
-          if (!conflicts) {
+          if (!conflicts && newStart >= earliestStart) {
             candidates.push(new Date(newStart));
           }
           cursor = new Date(cursor.getTime() + stepMinutes * 60000);
@@ -1021,6 +1029,10 @@ export function PlanPager({
     const proposal = scheduleProposals.find((p) => p.activityId === activityId);
     const activity = activities.find((a) => a.id === activityId);
     if (!proposal || !activity) return;
+    if (newStart < new Date()) {
+      Alert.alert('Time has passed', 'Choose a time later today or on a future day.');
+      return;
+    }
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
     const newEnd = new Date(newStart.getTime() + duration * 60000);
     const mode = getPlanModeForActivity(activity);

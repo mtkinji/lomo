@@ -22,9 +22,11 @@ export function locationProfileForExploreMode(
       'unknown',
     );
   }
+  // iOS controls cadence: zero distance filter requests every available fix.
+  // Android also receives a 500 ms interval; neither platform batches manual fixes.
   return mode === 'automatic'
     ? { accuracy: 'high', distanceIntervalM: 60, timeIntervalMs: 120_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false }
-    : { accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false };
+    : { accuracy: 'navigation', distanceIntervalM: 0, timeIntervalMs: 500, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false };
 }
 
 function lastCompletedPoint(state: ExploreData): ExplorePoint | null {

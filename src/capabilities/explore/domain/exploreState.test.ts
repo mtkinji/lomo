@@ -24,7 +24,7 @@ const point = {
 
 describe('Explore state transitions', () => {
   it('starts with the current persisted Explore schema', () => {
-    expect(createEmptyExploreData().version).toBe(10);
+    expect(createEmptyExploreData().version).toBe(11);
   });
 
   it('starts, records, and completes an explicit adventure', () => {
@@ -55,7 +55,7 @@ describe('Explore state transitions', () => {
     expect(started.activeSession?.trackingPolicy).toBe('ambient');
   });
 
-  it('clears only observed ambient cells while deliberate paths retain a continuous corridor', () => {
+  it('clears a continuous fog corridor for both ambient travel and deliberate paths', () => {
     const secondPoint = {
       ...point,
       id: 'point-2',
@@ -69,7 +69,7 @@ describe('Explore state transitions', () => {
     adventure = appendExplorePoint(adventure, point);
     adventure = appendExplorePoint(adventure, secondPoint);
 
-    expect(Object.keys(ambient.exploredCells)).toHaveLength(2);
+    expect(Object.keys(ambient.exploredCells).length).toBeGreaterThan(2);
     expect(Object.keys(adventure.exploredCells).length).toBeGreaterThan(2);
   });
 
@@ -128,7 +128,7 @@ describe('Explore state transitions', () => {
     expect(Object.keys(repaired.exploredCells).length).toBeGreaterThan(2);
   });
 
-  it('rebuilds legacy ambient history as observations rather than an inferred corridor', () => {
+  it('rebuilds a trustworthy corridor through legacy ambient observations', () => {
     const farPoint = {
       ...point,
       id: 'point-2',
@@ -147,7 +147,7 @@ describe('Explore state transitions', () => {
     const repaired = rebuildExploreTerritory(legacy);
 
     expect(repaired.sessions[0].points).toEqual([point, farPoint]);
-    expect(Object.keys(repaired.exploredCells)).toHaveLength(2);
+    expect(Object.keys(repaired.exploredCells).length).toBeGreaterThan(2);
   });
 
   it('does not resurface a dismissed recap when Place enrichment finishes', () => {

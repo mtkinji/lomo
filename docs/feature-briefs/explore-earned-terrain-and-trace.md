@@ -48,10 +48,13 @@ Constraint posture: `Extend the system`.
 
 ### Evidence line
 
-- Route presentation reuses the bounded, topology-preserving geometry used by Silver Mist rather than creating one unbounded MapKit overlay per raw point pair.
-- Each continuous trace receives a high-contrast casing that remains visible across hybrid/satellite map content.
-- Altitude color remains an inner stroke built from the same bounded segments.
-- Separate sessions always remain separate. Adjacent observations up to 60 meters apart connect directly; a 60-to-120-meter freeway gap connects only when its timestamps, recorded speed, and location accuracy make that displacement plausible within five seconds. Every other larger or stale gap remains separate. Simplification may remove redundant observations but may not bridge an untrusted gap.
+- Recorded travel uses its own fixed one-meter simplification bound. It does not share Silver Mist's geometry budget. Native chunks retain a shared endpoint and never imply a recording gap.
+- On iOS, completed deliberate history forms one quiet green coverage layer with no per-trip casing. Repeated travel within one outing does not increase heat; separate outings brighten the fixed-width line toward pale mint. Nearby distinct observations are not snapped together. Heat never changes fog clearing.
+- Only the active deliberate recording or one reviewed completed journey receives an elevation-colored foreground stroke and thin white casing. Active recording wins. Review remains selected at full playback progress, and the entire reviewed journey is excluded from background history during scrubbing.
+- Native stroke caps and joins are round; geographic vertices are not rounded or interpolated. The current heatmap trial uses a 4-point green core with a 6-point combined dark edge at 0.94 opacity (0.62 with foreground). Each outing blends 16% toward pale mint, approaching a fixed color ceiling. Foreground remains 4.5 points with a 6.5-point casing.
+- Separate sessions and missing observations remain separate. Ordered observations must be at most ten seconds and 100 meters apart, with acceptable accuracy and plausible displacement. No road matching or repaired legacy geometry is implied.
+- A selected journey has at most a recording-start and recorded-end marker; active recording uses the existing live location indicator. Genuine gaps receive a short explanation in the existing review drawer.
+- Android retains its existing trace presentation pending separate native history parity. My Path hides both iOS layers; Silver Mist and Places remain independent.
 
 ### Place-earned terrain
 
@@ -66,7 +69,7 @@ Constraint posture: `Extend the system`.
 
 - Job: When I complete an intentional outdoor outing, I need the map to recognize the terrain I experienced while showing exactly where Kwilt observed me, so the result feels meaningful and trustworthy.
 - Primary action: existing **Name current Place**.
-- Must show: exact contrast-backed trace, fully clear narrow corridor, and one softer bloom around each user-created Place.
+- Must show: quiet explored history, one contrast-backed current or reviewed trace, the narrow clearing corridor, and one softer bloom around each user-created Place.
 - Reveal later: park names or boundaries only after a separate trustworthy data-source decision.
 - Must not add: mode toggle, terrain setting, acreage, percent complete, badge, streak, legend, new onboarding, or park claim.
 - Reuse map: existing Explore map, Place relationship, Silver Mist renderer, and My Path preference.

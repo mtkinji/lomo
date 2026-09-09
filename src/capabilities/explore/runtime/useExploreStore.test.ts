@@ -1,4 +1,5 @@
 import { beginExploreSession, completeExploreSession, createEmptyExploreData } from '../domain/exploreState';
+import { destinationCoordinate } from '../domain/exploreGeometry';
 import type { ExploreData } from '../domain/types';
 import { useExploreStore } from './useExploreStore';
 
@@ -27,7 +28,7 @@ describe('Explore store persistence', () => {
     expect(migrate).toBeDefined();
     const upgraded = await migrate!(legacy, 8) as ExploreData;
 
-    expect(upgraded.version).toBe(10);
+    expect(upgraded.version).toBe(11);
     expect(upgraded.activeSession?.trackingPolicy).toBe('adventure');
     expect(upgraded.sessions[0].trackingPolicy).toBe('ambient');
     expect(upgraded.sync).toEqual({
@@ -35,6 +36,38 @@ describe('Explore store persistence', () => {
       deletedPlaceIds: {},
       lastSyncedAt: null,
     });
+  });
+
+  it('backfills continuous fog cells when upgrading version ten ambient history', async () => {
+    const startedAt = '2026-09-04T12:00:00.000Z';
+    const first = {
+      id: 'ambient-1', latitude: 40.5, longitude: -105.1, altitudeM: 1500,
+      horizontalAccuracyM: 8, altitudeAccuracyM: 6, speedMps: 20, courseDeg: 0,
+      recordedAt: startedAt,
+    };
+    const second = {
+      ...first,
+      id: 'ambient-2',
+      ...destinationCoordinate(first, 100, 0),
+      recordedAt: '2026-09-04T12:00:05.000Z',
+    };
+    const legacy = {
+      ...createEmptyExploreData(),
+      version: 10,
+      activeSession: null,
+      sessions: [{
+        ...beginExploreSession(createEmptyExploreData(), 'ambient-trip', startedAt, 'ambient').activeSession!,
+        endedAt: second.recordedAt,
+        points: [first, second],
+      }],
+      exploredCells: {},
+    };
+
+    const migrate = useExploreStore.persist.getOptions().migrate;
+    const upgraded = await migrate!(legacy, 10) as ExploreData;
+
+    expect(upgraded.version).toBe(11);
+    expect(Object.keys(upgraded.exploredCells).length).toBeGreaterThan(2);
   });
 
   it('persists reset and Place tombstones for cross-device deletion', () => {

@@ -96,7 +96,7 @@ final class LoopPCMCache {
       }
       guard source.length > 0 else { throw LoopPCMCacheError.emptyAudio }
 
-      let output = try AVAudioFile(
+      var output: AVAudioFile? = try AVAudioFile(
         forWriting: partial,
         settings: format.settings,
         commonFormat: format.commonFormat,
@@ -106,15 +106,25 @@ final class LoopPCMCache {
         throw LoopPCMCacheError.decodeFailed
       }
       var framesWritten: AVAudioFramePosition = 0
-      while true {
+      while source.framePosition < source.length {
         guard generation == self.generation else { throw CancellationError() }
         buffer.frameLength = 0
-        try source.read(into: buffer, frameCount: buffer.frameCapacity)
-        if buffer.frameLength == 0 { break }
-        try output.write(from: buffer)
+        let remainingFrames = source.length - source.framePosition
+        let frameCount = AVAudioFrameCount(min(
+          AVAudioFramePosition(buffer.frameCapacity),
+          remainingFrames
+        ))
+        try source.read(into: buffer, frameCount: frameCount)
+        guard buffer.frameLength > 0 else { throw LoopPCMCacheError.decodeFailed }
+        try output?.write(from: buffer)
         framesWritten += AVAudioFramePosition(buffer.frameLength)
       }
       guard framesWritten > 0 else { throw LoopPCMCacheError.emptyAudio }
+      guard framesWritten == source.length else { throw LoopPCMCacheError.decodeFailed }
+
+      // AVAudioFile finalizes the CAF header when released. Close it before moving
+      // and reopening the completed cache entry for validation.
+      output = nil
 
       try fileManager.moveItem(at: partial, to: destination)
       var values = URLResourceValues()

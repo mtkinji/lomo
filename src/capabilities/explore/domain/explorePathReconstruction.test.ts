@@ -57,7 +57,7 @@ describe('Explore path reconstruction', () => {
     expect(validateExploreReconstruction({ from, to, coordinates: [from, to], routeDistanceM: 1200 })).toBeNull();
   });
 
-  it('interleaves a validated road path while retaining the original recorded endpoints', () => {
+  it('keeps inferred directions out of observed travel', () => {
     const from = point('a', 0, 0);
     const to = point('b', 300, 30);
     const bend = destinationCoordinate(from, 160, 25);
@@ -71,14 +71,6 @@ describe('Explore path reconstruction', () => {
 
     const displayed = displayPointsForExploreSession(session([from, to], [reconstructed!]));
 
-    expect(displayed).toHaveLength(3);
-    expect(displayed[0]).toBe(from);
-    expect(displayed[2]).toBe(to);
-    expect(displayed[1]).toEqual(expect.objectContaining({
-      latitude: bend.latitude,
-      longitude: bend.longitude,
-    }));
-    expect(Date.parse(displayed[1].recordedAt)).toBeGreaterThan(Date.parse(from.recordedAt));
-    expect(Date.parse(displayed[1].recordedAt)).toBeLessThan(Date.parse(to.recordedAt));
+    expect(displayed).toEqual([from, to]);
   });
 });

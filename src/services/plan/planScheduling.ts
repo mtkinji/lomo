@@ -86,6 +86,8 @@ export function filterVisiblePlanProposals(params: {
   const now = params.now ?? new Date();
 
   for (const proposal of params.proposals) {
+    const start = new Date(proposal.startDate).getTime();
+    if (!Number.isFinite(start) || start < now.getTime()) continue;
     const activity = activityById.get(proposal.activityId);
     if (!activity) continue;
     if (!getPlanCandidateEligibility({ activity, now }).eligible) continue;

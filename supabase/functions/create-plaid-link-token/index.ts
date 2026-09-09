@@ -96,6 +96,7 @@ Deno.serve(async (request) => {
       client_name: PLAID_CLIENT_NAME,
       country_codes: countryCodes,
       language: 'en',
+      webhook: `${getRequiredEnv('SUPABASE_URL')}/functions/v1/plaid-webhook`,
       user: {
         client_user_id: user.id,
       },

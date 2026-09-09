@@ -41,9 +41,11 @@ jest.mock('./exploreLocationUpdates', () => ({
 }));
 
 jest.mock('./useExploreStore', () => ({
+  dataFromStore: (state: ExploreData) => state,
   useExploreStore: {
     persist: { hasHydrated: jest.fn(() => false) },
     setState: jest.fn(),
+    getState: jest.fn(),
   },
 }));
 
@@ -58,6 +60,7 @@ const storedState = async (): Promise<ExploreData & { activeSession: ExploreSess
 describe('Explore background tasks', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    (useExploreStore.persist.hasHydrated as jest.Mock).mockReturnValue(false);
     await exploreShardedStorage.flushPendingWrites();
     await AsyncStorage.clear();
     await AsyncStorage.setItem(KWILT_LABS_STORAGE_KEY, JSON.stringify({
@@ -191,7 +194,7 @@ describe('Explore background tasks', () => {
     });
 
     const upgraded = await storedState();
-    expect(upgraded.version).toBe(10);
+    expect(upgraded.version).toBe(11);
     expect(upgraded.activeSession.points[0]).toEqual(expect.objectContaining({
       speedMps: null,
       courseDeg: null,
@@ -230,6 +233,8 @@ describe('Explore background tasks', () => {
     await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state, version: 10 });
     jest.clearAllMocks();
     (useExploreStore.persist.hasHydrated as jest.Mock).mockReturnValue(true);
+    (useExploreStore.getState as jest.Mock).mockReturnValue(state);
+    const readHistory = jest.spyOn(exploreShardedStorage, 'getItem');
     (useExploreStore.setState as jest.Mock).mockImplementation(async (nextState) => {
       await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: nextState, version: 10 });
     });
@@ -247,6 +252,8 @@ describe('Explore background tasks', () => {
       timestamp: Date.parse(startedAt),
     }] } });
 
+    expect(readHistory).not.toHaveBeenCalled();
+    readHistory.mockRestore();
     const setItemCalls = (AsyncStorage.setItem as jest.Mock).mock.calls as Array<[string, string]>;
     expect(setItemCalls.filter(([key]) => key === EXPLORE_INDEX_STORAGE_KEY)).toHaveLength(1);
     expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
@@ -258,4 +265,17 @@ describe('Explore background tasks', () => {
     }));
     expect((await storedState()).activeSession.points).toHaveLength(1);
   });
+  it('retains every observation when native background batches overlap', async () => {
+    const startedAt = '2026-07-28T12:00:00.000Z';
+    (useExploreStore.persist.hasHydrated as jest.Mock).mockReturnValue(false);
+    const state = beginExploreSession(createEmptyExploreData(), 'drive', startedAt, 'adventure');
+    await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state, version: 11 });
+    await Promise.all(Array.from({length: 12}, (_, index) => mockTasks[EXPLORE_BACKGROUND_TASK]({data: {locations: [{
+      coords: {latitude: 40.5 + index * 0.00009, longitude: -105.1, altitude: 1500,
+        accuracy: 4, altitudeAccuracy: 5, speed: 10, heading: 0},
+      timestamp: Date.parse(startedAt) + index * 1000,
+    }]}})));
+    expect((await storedState()).activeSession.points).toHaveLength(12);
+  });
+
 });

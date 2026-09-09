@@ -113,8 +113,8 @@ describe('clampToNextQuarterHour', () => {
     expect(result.getMinutes()).toBe(15);
   });
 
-  it('does not move dates already on a quarter-hour mark (but zeroes seconds)', () => {
-    const result = clampToNextQuarterHour(new Date(2026, 3, 15, 10, 30, 45));
+  it('does not move dates exactly on a quarter-hour mark', () => {
+    const result = clampToNextQuarterHour(new Date(2026, 3, 15, 10, 30, 0));
     expect(result.getHours()).toBe(10);
     expect(result.getMinutes()).toBe(30);
     expect(result.getSeconds()).toBe(0);
@@ -143,4 +143,9 @@ describe('format helpers (smoke tests)', () => {
     const end = new Date(2026, 3, 15, 10, 0);
     expect(formatTimeRange(start, end)).toMatch(/-/);
   });
+});
+
+it('rounds a partially elapsed quarter hour forward instead of into the past', () => {
+  const now = new Date(2026, 8, 8, 11, 15, 30);
+  expect(clampToNextQuarterHour(now)).toEqual(new Date(2026, 8, 8, 11, 30));
 });

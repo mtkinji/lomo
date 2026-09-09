@@ -111,21 +111,13 @@ export function ExploreSettingsScreen({
       </SettingsGroup>
 
       <SettingsGroup
-        footer="Always Exploring adapts location sampling to movement and rests when you are still."
+        footer="Clear fog quietly without drawing a recorded path. Recording a path remains a separate action on the map."
         title="Tracking"
       >
-        <ChoiceRow
-          detail="Remember trips without starting each one"
-          label="Always Exploring"
-          onPress={() => setRecordingMode('automatic')}
-          selected={preferences.recording === 'automatic'}
-        />
-        <SettingsDivider />
-        <ChoiceRow
-          detail="Record paths only when you choose"
-          label="Only when I start"
-          onPress={() => setRecordingMode('manual')}
-          selected={preferences.recording === 'manual'}
+        <SettingsToggleRow
+          enabled={preferences.recording === 'automatic'}
+          onPress={() => setRecordingMode(preferences.recording === 'automatic' ? 'manual' : 'automatic')}
+          title="Ambient exploration"
         />
       </SettingsGroup>
 

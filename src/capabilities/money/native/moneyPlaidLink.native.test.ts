@@ -1,7 +1,8 @@
+import { Alert } from 'react-native';
 import { createPlaidLinkSession } from 'react-native-plaid-link-sdk';
 
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
-import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken } from '../data/moneyPlaidApi';
+import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken, completeMoneyPlaidRepair } from '../data/moneyPlaidApi';
 import { prepareMoneyPlaidLink } from './moneyPlaidLink.native';
 
 jest.mock('react-native-plaid-link-sdk', () => ({ createPlaidLinkSession: jest.fn() }));
@@ -9,6 +10,7 @@ jest.mock('../../../services/backend/supabaseClient', () => ({ getSupabaseClient
 jest.mock('../data/moneyPlaidApi', () => ({
   createMoneyPlaidLinkToken: jest.fn(),
   exchangeMoneyPlaidToken: jest.fn(),
+  completeMoneyPlaidRepair: jest.fn(async()=>undefined),
 }));
 
 const mockedCreateSession = jest.mocked(createPlaidLinkSession);
@@ -134,4 +136,28 @@ describe('prepared Money Plaid Link session', () => {
 
     await expect(session.open()).rejects.toThrow('already been used');
   });
+});
+
+it('does not report repaired when server verification fails', async () => {
+  mockedGetClient.mockReturnValue({} as ReturnType<typeof getSupabaseClient>);
+  mockedCreateToken.mockResolvedValue({link_token:'token'});
+  mockedCreateSession.mockResolvedValue({open:jest.fn()} as never);
+  jest.mocked(completeMoneyPlaidRepair).mockRejectedValueOnce(new Error('Consent not renewed'));
+  const session=await prepareMoneyPlaidLink({connectionId:'connection-1'});
+  const result=session.open();
+  mockedCreateSession.mock.calls.at(-1)![0].onSuccess({publicToken:'unused',metadata:{}} as never);
+  await expect(result).rejects.toThrow('Consent not renewed');
+});
+
+it('cancelling an ambiguous duplicate does not exchange the token again', async () => {
+  mockedCreateToken.mockResolvedValue({link_token:'token'});
+  mockedCreateSession.mockResolvedValue({open:jest.fn()} as never);
+  mockedExchangeToken.mockRejectedValueOnce(Object.assign(new Error('possible duplicate'),{diagnosticCode:'POSSIBLE_DUPLICATE_ITEM'}));
+  const alert=jest.spyOn(Alert,'alert').mockImplementation((_title,_message,buttons)=>buttons?.[0]?.onPress?.());
+  const before=mockedExchangeToken.mock.calls.length;
+  const session=await prepareMoneyPlaidLink();const result=session.open();
+  mockedCreateSession.mock.calls.at(-1)![0].onSuccess({publicToken:'public',metadata:{}} as never);
+  await expect(result).resolves.toEqual({status:'cancelled'});
+  expect(mockedExchangeToken.mock.calls.length).toBe(before+1);
+  alert.mockRestore();
 });

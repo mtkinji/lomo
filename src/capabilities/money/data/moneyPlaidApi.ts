@@ -34,9 +34,10 @@ export async function exchangeMoneyPlaidToken(
   client: SupabaseClient,
   publicToken: string,
   metadata: unknown,
+  allowPossibleDuplicate = false,
 ): Promise<MoneyPlaidExchangeResult> {
   const { data, error } = await client.functions.invoke<MoneyPlaidExchangeResult>('exchange-plaid-public-token', {
-    body: { publicToken, metadata },
+    body: { publicToken, metadata, ...(allowPossibleDuplicate ? { allowPossibleDuplicate: true } : {}) },
   });
   if (error) throw await normalizeMoneyPlaidError(error, 'exchange');
   if (!data?.connectionId) throw new Error('Plaid did not return a connected account.');
@@ -48,4 +49,9 @@ export async function syncMoneyTransactions(client: SupabaseClient): Promise<Mon
   if (error) throw await normalizeMoneyPlaidError(error, 'sync');
   if (!data?.sync?.connectionId) throw new Error('Plaid sync did not return a connection.');
   return data.sync;
+}
+
+export async function completeMoneyPlaidRepair(client: SupabaseClient, connectionId: string): Promise<void> {
+  const { error } = await client.functions.invoke('sync-plaid-transactions', {body:{connectionId,repair:true}});
+  if (error) throw await normalizeMoneyPlaidError(error, 'sync');
 }

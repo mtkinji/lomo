@@ -90,7 +90,7 @@ export function clampToNextQuarterHour(date: Date): Date {
   const d = new Date(date);
   d.setSeconds(0, 0);
   const remainder = d.getMinutes() % 15;
-  if (remainder !== 0) {
+  if (remainder !== 0 || d.getTime() < date.getTime()) {
     d.setMinutes(d.getMinutes() + (15 - remainder));
   }
   return d;

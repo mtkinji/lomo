@@ -6,7 +6,7 @@ import type { ExploreData, ExplorePoint, ExploreSession, ExploreTrackingPolicy, 
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 10,
+    version: 11,
     activeSession: null,
     sessions: [],
     exploredCells: {},
@@ -51,9 +51,9 @@ export function beginExploreSession(
 export function appendExplorePoint(state: ExploreData, point: ExplorePoint): ExploreData {
   if (!state.activeSession) return state;
   const previousPoint = state.activeSession.points.at(-1);
-  const cells = state.activeSession.trackingPolicy === 'adventure'
-    ? exploreCellsForRecordedStep(previousPoint ?? null, point)
-    : [exploreCellForCoordinate(point)];
+  const cells = state.activeSession.trackingPolicy === 'presence'
+    ? [exploreCellForCoordinate(point)]
+    : exploreCellsForRecordedStep(previousPoint ?? null, point);
   const exploredCells = { ...state.exploredCells };
   cells.forEach((cell) => {
     const currentCell = exploredCells[cell.id];
@@ -93,9 +93,9 @@ export function rebuildExploreTerritory(state: ExploreData): ExploreData {
 
   pointGroups.forEach(({ points, policy }) => {
     points.forEach((point, index) => {
-      const cells = policy === 'adventure'
-        ? exploreCellsForRecordedStep(points[index - 1] ?? null, point)
-        : [exploreCellForCoordinate(point)];
+      const cells = policy === 'presence'
+        ? [exploreCellForCoordinate(point)]
+        : exploreCellsForRecordedStep(points[index - 1] ?? null, point);
       cells.forEach((cell) => {
         const current = exploredCells[cell.id];
         exploredCells[cell.id] = {

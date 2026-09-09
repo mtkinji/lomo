@@ -59,12 +59,12 @@ function interpolatedAltitudes<T extends AltitudePoint>(points: readonly T[]): A
   });
 }
 
-export function buildAltitudeGradients<T extends AltitudePoint>(points: readonly T[]) {
+export function buildAltitudeGradients<T extends AltitudePoint>(points: readonly T[], continuityChecked = false) {
   const traces: T[][] = [];
   let current: T[] = [];
   points.forEach((point) => {
     const previous = current.at(-1);
-    if (previous && !isExploreTraceContinuous(previous, point)) {
+    if (!continuityChecked && previous && !isExploreTraceContinuous(previous, point)) {
       if (current.length > 1) traces.push(current);
       current = [];
     }

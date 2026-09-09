@@ -54,7 +54,8 @@ describe('ExploreSettingsScreen', () => {
 
     expect(screen.getByText('Explore')).toBeTruthy();
     expect(screen.getByLabelText('Fog')).toBeTruthy();
-    expect(screen.getByLabelText('Always Exploring')).toBeTruthy();
+    expect(screen.getByLabelText('Ambient exploration')).toBeTruthy();
+    expect(screen.getByText(/Clear fog quietly without drawing a recorded path\./)).toBeTruthy();
     expect(screen.getByLabelText('One recap notification')).toBeTruthy();
     expect(screen.getByLabelText('Share Private')).toBeTruthy();
     expect(screen.queryByText('Visited Places')).toBeNull();
@@ -75,7 +76,7 @@ describe('ExploreSettingsScreen', () => {
   it('delegates tracking changes to the recorder without changing sharing', () => {
     const screen = renderScreen();
 
-    fireEvent.press(screen.getByLabelText('Always Exploring'));
+    fireEvent.press(screen.getByLabelText('Ambient exploration'));
 
     expect(mockSetRecordingMode).toHaveBeenCalledWith('automatic');
     expect(useExploreStore.getState().preferences.sharing).toBe('private');

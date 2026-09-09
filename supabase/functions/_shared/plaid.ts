@@ -40,16 +40,16 @@ function isProductionSupabaseUrl(value: string) {
   }
 }
 
-export async function plaidPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const environment = getPlaidEnvironment();
+export async function plaidPost<T>(path: string, body: Record<string, unknown>, environment: PlaidEnvironment = getPlaidEnvironment()): Promise<T> {
   const response = await fetch(`${plaidBaseUrls[environment]}${path}`, {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       client_id: getRequiredEnv('PLAID_CLIENT_ID'),
-      secret: getRequiredEnv('PLAID_SECRET'),
+      secret: getRequiredEnv(environment === getPlaidEnvironment() ? 'PLAID_SECRET' : `PLAID_${environment.toUpperCase()}_SECRET`),
       ...body,
     }),
   });

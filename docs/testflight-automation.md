@@ -12,7 +12,7 @@ npm run ios:testflight
 
 This runs:
 
-- `eas build --platform ios --profile production-widgets --non-interactive --auto-submit`
+- `eas build --platform ios --profile testflight-widgets --non-interactive --auto-submit`
 
 There is also a convenience wrapper:
 
@@ -59,7 +59,7 @@ OR
 
 ## Notes
 
-- iOS submission for widgets-enabled TestFlight builds uses the `submit.production-widgets` profile in `eas.json` (ASC app id is already set).
-- If EAS Submit prompts for credentials locally, run `eas submit --platform ios --profile production-widgets` once interactively to store/verify settings, then rerun `npm run ios:testflight`.
+- iOS submission for widgets-enabled TestFlight builds uses the `submit.testflight-widgets` profile in `eas.json` (ASC app id is already set).
+- If EAS Submit prompts for credentials locally, run `eas submit --platform ios --profile testflight-widgets` once interactively to store/verify settings, then rerun `npm run ios:testflight`.
 
 

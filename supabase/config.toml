@@ -396,6 +396,23 @@ verify_jwt = false
 [functions.create-plaid-link-token]
 verify_jwt = true
 
+[functions.plaid-webhook]
+# Handler verifies Plaid ES256 signature, token age and raw-body hash.
+verify_jwt = false
+
+[functions.plaid-sync-worker]
+# Dedicated service secret; no user JWT grants worker access.
+verify_jwt = false
+
+[functions.disconnect-money-connection]
+verify_jwt = true
+
+[functions.sync-plaid-transactions]
+verify_jwt = true
+
+[functions.exchange-plaid-public-token]
+verify_jwt = true
+
 [functions.secrets-expiry-monitor]
 verify_jwt = false
 

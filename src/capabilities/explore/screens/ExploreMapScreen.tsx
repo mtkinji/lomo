@@ -1,6 +1,6 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import { AccessibilityInfo, Animated, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -42,12 +42,15 @@ import {
   EXPLORE_FEATHER_REFERENCE_RADIUS_M,
   EXPLORE_REVEAL_RADIUS_M,
   isCoordinateExplored,
+  buildRecordedPathTraces,
 } from '../domain/exploreGeometry';
 import type { ExploreNearbyRadius, ExploreNearbyRecommendation } from '../domain/exploreNearby';
 import {
   buildExplorePlaybackFrame,
   explorePlaybackDurationMs,
 } from '../domain/explorePlayback';
+import { buildHistoryHeatGeometry } from '../domain/exploreHistoryHeat';
+import { buildPathPresentation, completedPathHistory } from '../domain/explorePathPresentation';
 import { displayPointsForExploreSession } from '../domain/explorePathReconstruction';
 import { pendingExploreRecap, type ExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExplorePreferences, ExploreSession, Place } from '../domain/types';
@@ -56,7 +59,6 @@ import { useExploreRecorder } from '../runtime/useExploreRecorder';
 import { useExploreNearbyPlaces } from '../runtime/useExploreNearbyPlaces';
 import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
-import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
 import { NavigationDiscoveryDot } from '../../../ui/NavigationDiscoveryDot';
 import { shouldShowCapabilityMenuDiscoveryDot } from '../../../navigation/capabilityDiscovery';
 import { useCapabilityDiscoveryStore } from '../../../store/useCapabilityDiscoveryStore';
@@ -97,7 +99,7 @@ function fogPointGroupsInDisplayOrder(
       : session.trackingPolicy === 'adventure'
         ? displayPointsForExploreSession(session)
         : session.points;
-    if (session.trackingPolicy === 'adventure') {
+    if (session.trackingPolicy === 'adventure' || session.trackingPolicy === 'ambient') {
       groups.push(points);
       return;
     }
@@ -105,6 +107,22 @@ function fogPointGroupsInDisplayOrder(
   };
   [...sessions].reverse().forEach(appendSession);
   if (active) appendSession(active);
+  return groups;
+}
+
+function recordedPathPointGroupsInDisplayOrder(
+  sessions: ExploreSession[],
+  active: ExploreSession | null,
+  playback?: { sessionId: string; visiblePointCount: number } | null,
+): ExplorePoint[][] {
+  const groups = [...sessions].reverse().flatMap((session) => {
+    if (session.trackingPolicy !== 'adventure') return [];
+    const points = displayPointsForExploreSession(session);
+    return [playback?.sessionId === session.id
+      ? points.slice(0, playback.visiblePointCount)
+      : points];
+  });
+  if (active?.trackingPolicy === 'adventure') groups.push(active.points);
   return groups;
 }
 
@@ -171,10 +189,11 @@ export function ExploreMapScreen() {
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
+  const { height: windowHeight } = useWindowDimensions();
   const [reviewRecap, setReviewRecap] = useState<ExploreRecap | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(1);
   const [playbackPlaying, setPlaybackPlaying] = useState(false);
-  const reconstructionSessionIdRef = useRef<string | null>(null);
+  const followsCurrentLocationRef = useRef(true);
   const reviewAdventureSession = useMemo(() => {
     if (reviewRecap?.sessionIds.length !== 1) return null;
     const session = sessions.find((candidate) => candidate.id === reviewRecap.sessionIds[0]);
@@ -276,9 +295,50 @@ export function ExploreMapScreen() {
     () => buildFogRenderGeometry([...displayedFogPointGroups].reverse()),
     [displayedFogPointGroups],
   );
+  const recordedPathPointGroups = useMemo(
+    () => recordedPathPointGroupsInDisplayOrder(
+      sessions,
+      activeSession,
+      playbackActive && reviewAdventureSession && playbackFrame
+        ? { sessionId: reviewAdventureSession.id, visiblePointCount: playbackFrame.visiblePointCount }
+        : null,
+    ),
+    [activeSession, playbackActive, playbackFrame, reviewAdventureSession, sessions],
+  );
+  const pathPresentation = useMemo(() => buildPathPresentation({
+    sessions, activeSession, reviewedSessionId: reviewAdventureSession?.id ?? null,
+    playbackVisiblePointCount: playbackFrame?.visiblePointCount ?? null,
+    showMyPath: preferences.showMyPath,
+  }), [sessions, activeSession, reviewAdventureSession?.id, playbackFrame?.visiblePointCount, preferences.showMyPath]);
+  const foregroundPointGroups = useMemo(() => pathPresentation.foreground
+    ? [pathPresentation.foreground.points] : [], [pathPresentation.foreground]);
+  const historyGroups = useMemo(() => preferences.showMyPath
+    ? completedPathHistory(sessions, pathPresentation.foreground?.sessionId ?? null) : [],
+  [sessions, pathPresentation.foreground?.sessionId, preferences.showMyPath]);
+  const nativeHistoryGeometry = useMemo(() => buildHistoryHeatGeometry(historyGroups), [historyGroups]);
+  const nativeHistoryMapProps = useMemo(() => Platform.OS === 'ios' ? ({
+    historyEnabled: preferences.showMyPath,
+    historyCoordinates: nativeHistoryGeometry.coordinates,
+    historySegmentStarts: nativeHistoryGeometry.segmentStarts,
+    historySegmentSessionIds: nativeHistoryGeometry.segmentSessionIds,
+    historyStrokeColor: '#4CA77F', historyStrokeWidth: 4,
+    historyOpacity: pathPresentation.foreground ? 0.62 : 0.94,
+  } as unknown as ComponentProps<typeof MapView>) : {},
+  [nativeHistoryGeometry, pathPresentation.foreground, preferences.showMyPath]);
+  const recordedPathGeometry = useMemo(
+    // MapKit clips overlays itself. Changing the native child list on each pan
+    // races Fabric's deferred legacy mounts (AIRMap receives a nil subview).
+    // Keep full, precision-bounded traces mounted across viewport changes.
+    () => buildRecordedPathTraces(Platform.OS === 'ios' ? foregroundPointGroups : [...recordedPathPointGroups].reverse()),
+    [foregroundPointGroups, recordedPathPointGroups],
+  );
+  const presentationTraces = useMemo(
+    () => recordedPathGeometry.filter((trace) => trace.length > 1),
+    [recordedPathGeometry],
+  );
   const altitudeGradients = useMemo(
-    () => fogGeometry.traces.flatMap((trace) => buildAltitudeGradients(trace)),
-    [fogGeometry],
+    () => presentationTraces.flatMap((trace) => buildAltitudeGradients(trace, true)),
+    [presentationTraces],
   );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
@@ -385,7 +445,7 @@ export function ExploreMapScreen() {
   }, [playbackPlaying, reduceMotion]);
 
   useEffect(() => {
-    if (!latestPoint) return;
+    if (!latestPoint || !followsCurrentLocationRef.current) return;
     mapRef.current?.animateToRegion(regionAround(latestPoint, needsOnboarding ? 0.18 : 0), 450);
   }, [latestPoint, needsOnboarding]);
 
@@ -431,8 +491,14 @@ export function ExploreMapScreen() {
   };
 
   const centerOnCurrentLocation = async () => {
+    followsCurrentLocationRef.current = true;
     const coordinate = await recorder.locate();
     if (coordinate) centerMap(coordinate);
+  };
+
+  const suspendMapFollowing = () => {
+    followsCurrentLocationRef.current = false;
+    setPlaybackPlaying(false);
   };
 
   const showPlaceOnMap = (place: Place) => {
@@ -487,7 +553,7 @@ export function ExploreMapScreen() {
     }
     if (playbackProgress >= 1) {
       mapRef.current?.fitToCoordinates(recapRecordedPathPoints, {
-        edgePadding: { top: 120, right: 48, bottom: 360, left: 48 },
+        edgePadding: { top: insets.top + 80, right: 40, bottom: windowHeight * 0.58 + spacing.lg, left: 40 },
         animated: true,
       });
       setPlaybackProgress(0);
@@ -502,26 +568,16 @@ export function ExploreMapScreen() {
 
   const openRecapReview = () => {
     if (!recap) return;
-    const adventureSession = recapAdventureSession;
+    setPlaybackPlaying(false);
+    setPlaybackProgress(1);
     setReviewRecap(recap);
-    markRecapsSeen(recap.sessionIds);
-    if (
-      !adventureSession ||
-      adventureSession.reconstructedSegments?.length ||
-      reconstructionSessionIdRef.current === adventureSession.id
-    ) return;
-    reconstructionSessionIdRef.current = adventureSession.id;
-    void reconstructExploreRecordedPath(adventureSession.points)
-      .then((segments) => {
-        if (segments.length) {
-          useExploreStore.getState().setSessionPathReconstruction(adventureSession.id, segments);
-        }
-      })
-      .finally(() => {
-        if (reconstructionSessionIdRef.current === adventureSession.id) {
-          reconstructionSessionIdRef.current = null;
-        }
+    if (recapAdventureSession) {
+      followsCurrentLocationRef.current = false;
+      mapRef.current?.fitToCoordinates(recapAdventureSession.points, {
+        edgePadding: { top: insets.top + 80, right: 40, bottom: windowHeight * 0.58 + spacing.lg, left: 40 }, animated: !reduceMotion,
       });
+    }
+    markRecapsSeen(recap.sessionIds);
   };
 
   return (
@@ -540,8 +596,9 @@ export function ExploreMapScreen() {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         {...metalFogMapProps}
-        onTouchStart={() => setPlaybackPlaying(false)}
-        onPanDrag={() => setPlaybackPlaying(false)}
+        {...nativeHistoryMapProps}
+        onTouchStart={suspendMapFollowing}
+        onPanDrag={suspendMapFollowing}
         onRegionChangeComplete={setVisibleRegion}
       >
         {shouldRenderPolygonFog ? <>
@@ -577,13 +634,14 @@ export function ExploreMapScreen() {
         />
         </> : null}
         {preferences.showMyPath ? <>
-          {fogGeometry.traces.map((trace, index) => (
+          {presentationTraces.map((trace, index) => (
             <Polyline
               key={`path-casing-${index}`}
               testID="explore.path.casing"
+              zIndex={1}
               coordinates={trace}
-              strokeColor="rgba(255, 255, 255, 0.92)"
-              strokeWidth={8}
+              strokeColor={Platform.OS === 'ios' ? "rgba(255, 255, 255, 0.85)" : "rgba(255, 255, 255, 0.92)"}
+              strokeWidth={Platform.OS === 'ios' ? 6.5 : 8}
               lineCap="round"
               lineJoin="round"
             />
@@ -592,6 +650,7 @@ export function ExploreMapScreen() {
               <Polyline
                 key={`altitude-gradient-${index}`}
                 testID="explore.path.altitude"
+                zIndex={2}
                 coordinates={gradient.coordinates}
                 strokeColors={gradient.strokeColors}
                 strokeWidth={4.5}
@@ -600,6 +659,18 @@ export function ExploreMapScreen() {
               />
             ))}
         </> : null}
+        {Platform.OS === 'ios' && pathPresentation.foreground?.recordingStart ? (
+          <Marker testID="explore.path.start" coordinate={pathPresentation.foreground.recordingStart}
+            title="Recording started" anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 3, borderColor: '#5F7E54', backgroundColor: 'white' }} />
+          </Marker>
+        ) : null}
+        {Platform.OS === 'ios' && pathPresentation.foreground?.recordingEnd ? (
+          <Marker testID="explore.path.end" coordinate={pathPresentation.foreground.recordingEnd}
+            title="Recording ended" anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={{ width: 16, height: 16, borderRadius: 3, borderWidth: 3, borderColor: 'white', backgroundColor: '#2F6F89' }} />
+          </Marker>
+        ) : null}
         {mapPlaces.map((place) => (
           <Marker
             key={place.id}
@@ -609,7 +680,7 @@ export function ExploreMapScreen() {
             pinColor={colors.turmeric600}
           />
         ))}
-        {playbackActive && playbackFrame?.cursor ? (
+        {preferences.showMyPath && !recorder.active && playbackActive && playbackFrame?.cursor ? (
           <Marker
             testID="explore.playback.cursor"
             coordinate={playbackFrame.cursor}
@@ -775,7 +846,7 @@ export function ExploreMapScreen() {
           <Text style={styles.emptyTitle}>The world is still waiting.</Text>
           <Text style={styles.emptyCopy}>
             {preferences.recording === 'automatic'
-              ? 'Your map stays private. Move through the world to clear a path through the fog.'
+              ? 'Your map stays private. Move through the world to clear the fog around places you visit.'
               : 'Your map stays private. Record a path to reveal the world around it.'}
           </Text>
         </View>
@@ -795,17 +866,6 @@ export function ExploreMapScreen() {
         ]}
       >
         {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
-        {preferences.recording === 'manual' ? <Button
-          testID="explore.recording.toggle"
-          accessibilityLabel={recorder.active ? 'Stop recording' : 'Record a path'}
-          variant={recorder.active ? 'inverse' : 'primary'}
-          size="lg"
-          disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
-          onPress={recorder.active ? recorder.stop : recorder.start}
-          style={styles.primaryAction}
-        >
-          {recorder.active ? 'Stop Recording' : recorder.status === 'locating' ? 'Finding you…' : 'Record a Path'}
-        </Button> : null}
         <View style={styles.hereControlsAnchor}>
           <View testID="explore.hereControls" style={styles.hereControls}>
             <BlurView
@@ -846,24 +906,55 @@ export function ExploreMapScreen() {
           </View>
         </View>
         <View testID="explore.mapToolsRow" style={styles.mapToolsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open Places"
-            onPress={openPlaces}
-            style={({ pressed }) => [styles.placeSearchControl, pressed ? styles.pressed : null]}
-          >
-            <BlurView
-              pointerEvents="none"
-              intensity={floatingControl.material.intensity}
-              tint={floatingControl.material.tint}
-              style={StyleSheet.absoluteFillObject}
-            />
-            <View pointerEvents="none" style={styles.floatingControlTint} />
-            <Icon name="pin" size={20} color={colors.textPrimary} />
-            <Text numberOfLines={1} style={styles.placeSearchLabel}>
-              Places
-            </Text>
-          </Pressable>
+          {recorder.active ? (
+            <Button
+              testID="explore.recording.toggle"
+              accessibilityLabel="Stop recording"
+              variant="inverse"
+              size="md"
+              onPress={recorder.stop}
+              style={styles.recordingStatusAction}
+            >
+              Stop recording
+            </Button>
+          ) : (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open Places"
+                onPress={openPlaces}
+                style={({ pressed }) => [styles.placeSearchControl, pressed ? styles.pressed : null]}
+              >
+                <BlurView
+                  pointerEvents="none"
+                  intensity={floatingControl.material.intensity}
+                  tint={floatingControl.material.tint}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <View pointerEvents="none" style={styles.floatingControlTint} />
+                <Icon name="pin" size={20} color={colors.textPrimary} />
+                <Text numberOfLines={1} style={styles.placeSearchLabel}>
+                  Places
+                </Text>
+              </Pressable>
+              <Button
+                testID="explore.recording.toggle"
+                accessibilityLabel="Record a path"
+                variant="primary"
+                size="md"
+                disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
+                onPress={() => {
+                  setReviewRecap(null);
+                  setPlaybackPlaying(false);
+                  setPlaybackProgress(1);
+                  void recorder.start();
+                }}
+                style={styles.startPathAction}
+              >
+                {recorder.status === 'locating' ? 'Finding…' : 'Start path'}
+              </Button>
+            </>
+          )}
         </View>
       </Animated.View> : null}
 
@@ -1064,7 +1155,7 @@ export function ExploreMapScreen() {
       </BottomDrawer>
 
       <BottomGuide
-        visible={Boolean(recap)}
+        visible={Boolean(recap) && !recorder.active}
         onClose={() => recap && markRecapsSeen(recap.sessionIds)}
         scrim="none"
         dynamicSizing
@@ -1112,6 +1203,9 @@ export function ExploreMapScreen() {
                 onTogglePlayback={toggleAdventurePlayback}
                 onProgressChange={scrubAdventurePlayback}
               />
+            ) : null}
+            {pathPresentation.foreground?.kind === 'review' && pathPresentation.foreground.hasMissingObservations ? (
+              <Text testID="explore.path.gaps" style={styles.searchEmpty}>Some parts of this path weren’t recorded.</Text>
             ) : null}
             {reviewPlaces.length ? (
               <View style={styles.recapPlaces}>
@@ -1265,7 +1359,9 @@ const styles = StyleSheet.create({
   },
   mapToolsRow: {
     height: RESTING_COMPOSER_HEIGHT_PX,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   hereControlsAnchor: {
     alignItems: 'flex-end',
@@ -1308,7 +1404,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray50,
   },
   placeSearchControl: {
-    width: '100%',
+    flex: 1,
     height: RESTING_COMPOSER_HEIGHT_PX,
     borderRadius: RESTING_COMPOSER_HEIGHT_PX / 2,
     overflow: 'hidden',
@@ -1326,6 +1422,14 @@ const styles = StyleSheet.create({
   },
   floatingControlTint: { ...StyleSheet.absoluteFillObject, backgroundColor: floatingControl.material.overlayColor },
   placeSearchLabel: { ...typography.bodySm, flex: 1, color: colors.textPrimary },
+  startPathAction: {
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    minWidth: 128,
+  },
+  recordingStatusAction: {
+    width: '100%',
+    height: RESTING_COMPOSER_HEIGHT_PX,
+  },
   mapMenuButton: {
     width: 44,
     height: 44,

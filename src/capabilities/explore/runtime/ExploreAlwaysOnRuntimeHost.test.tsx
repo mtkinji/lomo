@@ -46,4 +46,16 @@ describe('ExploreAlwaysOnRuntimeHost', () => {
     await waitFor(() => expect(startExploreBackgroundUpdates).toHaveBeenCalledWith('automatic'));
     expect(useExploreStore.getState().activeSession).not.toBeNull();
   });
+
+  it('does not replace an active deliberate path with ambient tracking', async () => {
+    act(() => {
+      useExploreStore.getState().startSession('2026-09-04T12:00:00.000Z', 'path-1', 'adventure');
+    });
+
+    render(<ExploreAlwaysOnRuntimeHost />);
+    await act(async () => { await Promise.resolve(); });
+
+    expect(startExploreBackgroundUpdates).not.toHaveBeenCalled();
+    expect(useExploreStore.getState().activeSession?.trackingPolicy).toBe('adventure');
+  });
 });

@@ -9,7 +9,7 @@ jest.mock('./exploreBackgroundTask', () => ({
 }));
 
 jest.mock('expo-location', () => ({
-  Accuracy: { Balanced: 3, High: 4 },
+  Accuracy: { Balanced: 3, High: 4, BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   requestBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
@@ -44,18 +44,18 @@ describe('useExploreRecorder recording modes', () => {
     expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(Location.requestBackgroundPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(Location.watchPositionAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ accuracy: Location.Accuracy.High, distanceInterval: 6, timeInterval: 1_000 }),
+      expect.objectContaining({ accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 0, timeInterval: 500 }),
       expect.any(Function),
     );
     expect(useExploreStore.getState().activeSession).not.toBeNull();
   });
 
-  it('creates the first stationary clearing with foreground permission only', async () => {
+  it('starts the first recorded path with permission to resume ambient exploration afterward', async () => {
     const { result } = renderHook(() => useExploreRecorder());
     await act(async () => result.current.beginOnboarding());
 
     expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(Location.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(Location.requestBackgroundPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: Location.Accuracy.High });
     expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
     expect(useExploreStore.getState().activeSession?.points).toHaveLength(1);
@@ -142,6 +142,56 @@ describe('useExploreRecorder recording modes', () => {
     expect(useExploreStore.getState().activeSession).toBeNull();
   });
 
+  it('temporarily replaces ambient exploration with a deliberate recorded path', async () => {
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
+    act(() => {
+      useExploreStore.getState().updatePreferences({ recording: 'automatic' });
+      useExploreStore.getState().startSession('2026-07-28T11:55:00.000Z', 'ambient-1', 'ambient');
+      useExploreStore.getState().appendSample({
+        latitude: 40.49,
+        longitude: -105.1,
+        altitudeM: 1500,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: '2026-07-28T11:55:00.000Z',
+      }, 'ambient-point-1');
+    });
+    const { result } = renderHook(() => useExploreRecorder());
+
+    await act(async () => result.current.start());
+
+    expect(useExploreStore.getState().sessions[0]).toEqual(expect.objectContaining({
+      id: 'ambient-1',
+      trackingPolicy: 'ambient',
+      endedAt: expect.any(String),
+    }));
+    expect(useExploreStore.getState().activeSession?.trackingPolicy).toBe('adventure');
+    expect(Location.watchPositionAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ distanceInterval: 0, timeInterval: 500 }),
+      expect.any(Function),
+    );
+  });
+
+  it('resumes ambient exploration after a deliberate recorded path stops', async () => {
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
+    act(() => useExploreStore.getState().updatePreferences({ recording: 'automatic' }));
+    const { result } = renderHook(() => useExploreRecorder());
+    await act(async () => result.current.start());
+
+    await act(async () => result.current.stop());
+
+    expect(useExploreStore.getState().sessions[0]?.trackingPolicy).toBe('adventure');
+    expect(useExploreStore.getState().activeSession?.trackingPolicy).toBe('ambient');
+    expect(Location.startLocationUpdatesAsync).toHaveBeenLastCalledWith(
+      'kwilt-explore-background-location-v1',
+      expect.objectContaining({ distanceInterval: 60, timeInterval: 120_000 }),
+    );
+  });
+
   it('keeps the current outing alive while the Always Location system prompt makes the app inactive', async () => {
     let appStateListener: ((state: string) => void) | null = null;
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
@@ -149,9 +199,11 @@ describe('useExploreRecorder recording modes', () => {
       return { remove: jest.fn() };
     });
     let resolveBackgroundPermission: ((value: { status: string }) => void) | null = null;
-    (Location.requestBackgroundPermissionsAsync as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => {
-      resolveBackgroundPermission = resolve;
-    }));
+    (Location.requestBackgroundPermissionsAsync as jest.Mock)
+      .mockResolvedValueOnce({ status: 'granted' })
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveBackgroundPermission = resolve;
+      }));
 
     const { result } = renderHook(() => useExploreRecorder());
     await act(async () => result.current.beginOnboarding());
@@ -194,3 +246,49 @@ describe('useExploreRecorder recording modes', () => {
     expect(useExploreStore.getState().tracking.phase).toBe('active');
   });
 });
+
+ it('does not leave a foreground-only watcher running when lock races with resume', async () => {
+   let listener: (state: string) => void = () => undefined;
+   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+     listener = callback as typeof listener;
+     return { remove: jest.fn() };
+   });
+   const { result } = renderHook(() => useExploreRecorder());
+   await act(async () => result.current.start());
+   await act(async () => listener('background'));
+   let release: (subscription: {remove: jest.Mock}) => void = () => undefined;
+   (Location.watchPositionAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+   await act(async () => listener('active'));
+   await act(async () => listener('background'));
+   const remove = jest.fn();
+   await act(async () => release({remove}));
+   await waitFor(() => expect(remove).toHaveBeenCalled());
+   expect(Location.startLocationUpdatesAsync).toHaveBeenLastCalledWith(
+     'kwilt-explore-background-location-v1', expect.objectContaining({accuracy: Location.Accuracy.BestForNavigation}));
+ });
+
+ it('keeps background acquisition when lock interrupts hydrated-session recovery', async () => {
+   jest.clearAllMocks();
+   const previousAppState = AppState.currentState;
+   AppState.currentState = 'active';
+   try {
+   jest.spyOn(useExploreStore.persist, 'hasHydrated').mockReturnValue(true);
+   let listener: (state: string) => void = () => undefined;
+   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+     listener = callback as typeof listener;
+     return { remove: jest.fn() };
+   });
+   (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({status: 'granted'});
+   (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({status: 'granted'});
+   (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
+   useExploreStore.getState().startSession('2026-07-28T12:00:00.000Z', 'recover-drive', 'adventure');
+   let release: () => void = () => undefined;
+   (Location.stopLocationUpdatesAsync as jest.Mock).mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
+   renderHook(() => useExploreRecorder());
+   await waitFor(() => expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled());
+   await act(async () => listener('background'));
+   await act(async () => release());
+   await waitFor(() => expect(Location.startLocationUpdatesAsync).toHaveBeenCalled());
+   expect(Location.watchPositionAsync).not.toHaveBeenCalled();
+   } finally { AppState.currentState = previousAppState; }
+ });

@@ -1,7 +1,8 @@
+import { logMoneyPlaidDiagnostic } from './moneyPlaidDiagnostics';
 import { createPlaidLinkSession, type LinkExit, type LinkSuccess } from 'react-native-plaid-link-sdk';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
-import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken } from '../data/moneyPlaidApi';
+import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken, completeMoneyPlaidRepair } from '../data/moneyPlaidApi';
 import type {
   MoneyPlaidLinkPhase,
   MoneyPlaidLinkResult,
@@ -46,8 +47,9 @@ export async function prepareMoneyPlaidLink(options: { connectionId?: string } =
   };
   const nativeSession = await createPlaidLinkSession({
     token: token.link_token,
-    onEvent: () => undefined,
+    onEvent: (event) => logMoneyPlaidDiagnostic(event.eventName, event.metadata),
     onExit: (exit: LinkExit) => {
+      logMoneyPlaidDiagnostic('EXIT', { linkSessionId: exit.metadata?.linkSessionId, errorCode: exit.error?.errorCode });
       if (exchangeStarted) return;
       if (hasPlaidLinkExitError(exit.error)) {
         fail(new Error(exit.error.displayMessage ?? exit.error.errorMessage ?? 'Plaid Link closed with an error.'));
@@ -56,15 +58,28 @@ export async function prepareMoneyPlaidLink(options: { connectionId?: string } =
       finish({ status: 'cancelled' });
     },
     onSuccess: (success: LinkSuccess) => {
+      logMoneyPlaidDiagnostic('SUCCESS', { linkSessionId: success.metadata?.linkSessionId });
       if (exchangeStarted) return;
       exchangeStarted = true;
       if (options.connectionId) {
-        finish({ status: 'repaired', connectionId: options.connectionId });
+        const connectionId = options.connectionId;
+        void completeMoneyPlaidRepair(client, connectionId).then(() => finish({ status: 'repaired', connectionId })).catch(fail);
         return;
       }
       onPhaseChange?.('exchanging');
       void exchangeMoneyPlaidToken(client, success.publicToken, success.metadata)
-        .then((exchange) => finish({ status: 'linked', exchange }))
+        .catch(async (error: unknown) => {
+          if ((error as { diagnosticCode?: string })?.diagnosticCode !== 'POSSIBLE_DUPLICATE_ITEM') throw error;
+          const proceed = await new Promise<boolean>((resolve) => Alert.alert(
+            'This bank may already be connected',
+            'Connecting it again could show the same transactions twice. Connect a separate account at this bank?',
+            [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Connect separate account', onPress: () => resolve(true) }],
+            { cancelable: false },
+          ));
+          if (!proceed) { finish({ status: 'cancelled' }); return null; }
+          return exchangeMoneyPlaidToken(client, success.publicToken, success.metadata, true);
+        })
+        .then((exchange) => { if (exchange) finish({ status: 'linked', exchange }); })
         .catch(fail);
     },
   });

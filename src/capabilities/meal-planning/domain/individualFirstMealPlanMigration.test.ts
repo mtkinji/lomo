@@ -6,7 +6,7 @@ const sql = readFileSync(
   'utf8',
 ).toLowerCase();
 const activePersonalGroceryAuthoritySql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260903142313_restore_personal_meal_plan_grocery_authority.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260903142344_restore_personal_meal_plan_grocery_authority.sql'),
   'utf8',
 ).toLowerCase();
 

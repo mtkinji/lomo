@@ -18,7 +18,7 @@ import {
   startExploreBackgroundUpdates,
   stopExploreBackgroundUpdates,
 } from './exploreLocationUpdates';
-import { useExploreStore } from './useExploreStore';
+import { dataFromStore, useExploreStore } from './useExploreStore';
 import {
   EXPLORE_BACKGROUND_TASK,
   EXPLORE_WAKE_REGION_ID,
@@ -94,7 +94,7 @@ function parsePersistedExplore(
     const data = {
         ...defaults,
         ...persisted,
-        version: 10,
+        version: 11,
         activeSession: persisted.activeSession
           ? upgradeSession(persisted.activeSession, activeFallbackPolicy)
           : null,
@@ -110,7 +110,7 @@ function parsePersistedExplore(
           persisted.activeSession?.startedAt ?? null,
         ),
       } as ExploreData;
-    return (stored.version ?? persisted.version ?? 0) < 7
+    return (stored.version ?? persisted.version ?? 0) < 11
       ? rebuildExploreTerritory(data)
       : data;
   } catch {
@@ -118,7 +118,7 @@ function parsePersistedExplore(
   }
 }
 
-TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
+async function handleBackgroundLocations({ data, error }: { data?: unknown; error?: unknown }): Promise<void> {
   if (error) return;
   if (!await exploreLabIsEnabled()) {
     await stopExploreBackgroundUpdates().catch(() => undefined);
@@ -126,7 +126,9 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
   const locations = (data as { locations?: Location.LocationObject[] } | undefined)?.locations ?? [];
   if (!locations.length) return;
-  const persisted = parsePersistedExplore(await exploreShardedStorage.getItem(EXPLORE_LEGACY_STORAGE_KEY));
+  const persisted = useExploreStore.persist.hasHydrated()
+    ? dataFromStore(useExploreStore.getState())
+    : parsePersistedExplore(await exploreShardedStorage.getItem(EXPLORE_LEGACY_STORAGE_KEY));
   if (!persisted) return;
   const samples = locations.map((location) => ({
     latitude: location.coords.latitude,
@@ -179,7 +181,7 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     ) => void | Promise<void>;
     await persistLiveState({ ...next, lastPointDecision: 'background-location' });
   } else {
-    await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 10 });
+    await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 11 });
   }
   if (result.trackingAction === 'deep-sleep' && next.tracking.wakeAnchor) {
     await enterExploreDeepSleep(next.tracking.wakeAnchor).catch(() => undefined);
@@ -190,6 +192,15 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
       next.tracking.movement,
     ).catch(() => undefined);
   }
+}
+
+// Native callbacks may overlap while storage is awaiting I/O. Process each against
+// the result of the previous batch instead of overwriting newer observations.
+let backgroundBatches: Promise<void> = Promise.resolve();
+TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, (body) => {
+  const batch = backgroundBatches.then(() => handleBackgroundLocations(body));
+  backgroundBatches = batch.catch(() => undefined);
+  return batch;
 });
 
 TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
@@ -215,7 +226,7 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     ...persisted,
     tracking: resumeExploreTracking(persisted.tracking, new Date().toISOString()),
   };
-  await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 10 });
+  await exploreShardedStorage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next, version: 11 });
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });
   }

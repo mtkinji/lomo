@@ -93,60 +93,7 @@ export function validateExploreReconstruction({
   };
 }
 
-function reconstructedPoint(
-  from: ExplorePoint,
-  to: ExplorePoint,
-  coordinate: ExploreCoordinate,
-  progress: number,
-  index: number,
-): ExplorePoint {
-  const fromTime = Date.parse(from.recordedAt);
-  const toTime = Date.parse(to.recordedAt);
-  const altitudeM = typeof from.altitudeM === 'number' && typeof to.altitudeM === 'number'
-    ? from.altitudeM + (to.altitudeM - from.altitudeM) * progress
-    : null;
-  const altitudeAccuracyM = altitudeM === null
-    ? null
-    : Math.max(from.altitudeAccuracyM ?? 0, to.altitudeAccuracyM ?? 0);
-  return {
-    id: `reconstructed:${from.id}:${to.id}:${index}`,
-    ...coordinate,
-    altitudeM,
-    horizontalAccuracyM: null,
-    altitudeAccuracyM,
-    speedMps: (from.speedMps ?? to.speedMps) ?? null,
-    courseDeg: null,
-    recordedAt: new Date(fromTime + (toTime - fromTime) * progress).toISOString(),
-  };
-}
-
+/** Directions are estimates, never recorded movement or earned territory. */
 export function displayPointsForExploreSession(session: ExploreSession): ExplorePoint[] {
-  if (session.points.length < 2 || !session.reconstructedSegments?.length) return session.points;
-  const segments = new Map(session.reconstructedSegments.map((segment) => [
-    `${segment.fromPointId}:${segment.toPointId}`,
-    segment,
-  ]));
-  const displayed: ExplorePoint[] = [session.points[0]];
-  session.points.slice(1).forEach((to, pointIndex) => {
-    const from = session.points[pointIndex];
-    const segment = segments.get(`${from.id}:${to.id}`);
-    if (segment && segment.coordinates.length > 2) {
-      const distances = segment.coordinates.slice(1).map((coordinate, index) =>
-        coordinateDistanceM(segment.coordinates[index], coordinate));
-      const totalDistanceM = distances.reduce((total, distance) => total + distance, 0);
-      let traveledM = 0;
-      segment.coordinates.slice(1, -1).forEach((coordinate, index) => {
-        traveledM += distances[index];
-        displayed.push(reconstructedPoint(
-          from,
-          to,
-          coordinate,
-          totalDistanceM > 0 ? traveledM / totalDistanceM : (index + 1) / (segment.coordinates.length - 1),
-          index,
-        ));
-      });
-    }
-    displayed.push(to);
-  });
-  return displayed;
+  return session.points;
 }

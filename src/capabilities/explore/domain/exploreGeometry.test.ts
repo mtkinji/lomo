@@ -9,6 +9,7 @@ import {
   exploreCellForCoordinate,
   isCoordinateExplored,
   buildFogRenderGeometry,
+  smoothExplorePresentationTrace,
 } from './exploreGeometry';
 
 describe('Explore geometry', () => {
@@ -235,5 +236,24 @@ describe('Explore geometry', () => {
 
     expect(geometry.segmentStarts.length).toBeLessThan(10);
     expect([...geometry.segmentStarts, ...geometry.segmentEnds]).toContainEqual(corner);
+  });
+
+  it('rounds recorded-path corners without changing the stored endpoints', () => {
+    const start = { latitude: 40.58526, longitude: -105.08442, altitudeM: 1500 };
+    const corner = { ...destinationCoordinate(start, 12, 0), altitudeM: 1510 };
+    const end = { ...destinationCoordinate(corner, 12, 90), altitudeM: 1520 };
+
+    const smoothed = smoothExplorePresentationTrace([start, corner, end]);
+
+    expect(smoothed.length).toBeGreaterThan(3);
+    expect(smoothed[0]).toEqual(start);
+    expect(smoothed.at(-1)).toEqual(end);
+    expect(smoothed).not.toContainEqual(corner);
+    expect(smoothed.every((point) =>
+      coordinateDistanceM(point, corner) <= 12 ||
+      coordinateDistanceM(point, start) <= 12 ||
+      coordinateDistanceM(point, end) <= 12,
+    )).toBe(true);
+    expect(smoothed.map((point) => point.altitudeM)).not.toContain(null);
   });
 });

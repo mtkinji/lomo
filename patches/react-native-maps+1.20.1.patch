@@ -1,13 +1,21 @@
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
-index 5aa5fed..f1c6e57 100644
+index 5aa5fed..f7bd004 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
-@@ -47,6 +47,17 @@ extern const NSInteger AIRMapMaxZoomLevel;
+@@ -47,6 +47,25 @@ extern const NSInteger AIRMapMaxZoomLevel;
  @property (nonatomic, assign) CGPoint compassOffset;
  @property (nonatomic, assign) UIEdgeInsets mapPadding;
 
 +// Kwilt Explore's native Silver Mist overlay. Isolated coordinates remain
 +// circular clearings; explicit segment pairs form trustworthy route corridors.
++@property (nonatomic, assign) BOOL historyEnabled;
++@property (nonatomic, copy) NSArray *historyCoordinates;
++@property (nonatomic, copy) NSArray<NSNumber *> *historySegmentStarts;
++@property (nonatomic, copy) NSArray<NSNumber *> *historySegmentSessionIds;
++@property (nonatomic, strong) UIColor *historyStrokeColor;
++@property (nonatomic, assign) CGFloat historyStrokeWidth;
++@property (nonatomic, assign) CGFloat historyOpacity;
++@property (nonatomic, strong, readonly) MKOverlayRenderer *historyRenderer;
 +@property (nonatomic, assign) BOOL fogEnabled;
 +@property (nonatomic, strong) NSArray *fogCoordinates;
 +@property (nonatomic, strong) NSArray *fogSegmentStarts;
@@ -21,18 +29,20 @@ index 5aa5fed..f1c6e57 100644
  @property (nonatomic, assign) MKCoordinateSpan pendingSpan;
 
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
-index 07a4638..3aa3fca 100644
+index 07a4638..a24c9b4 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
-@@ -20,6 +20,7 @@
+@@ -20,6 +20,9 @@
  #import "AIRMapWMSTile.h"
  #import "AIRMapLocalTile.h"
  #import "AIRMapOverlay.h"
 +#import "AIRMapMetalFogView.h"
++#import "AIRMapHistoryOverlay.h"
++#import "AIRMapHistoryRenderer.h"
 
  const NSTimeInterval AIRMapRegionChangeObserveInterval = 0.1;
  const CGFloat AIRMapZoomBoundBuffer = 0.01;
-@@ -43,6 +44,7 @@ @interface AIRMap ()
+@@ -43,6 +46,7 @@ @interface AIRMap ()
 
  - (void)updateScrollEnabled;
  - (void)updateZoomEnabled;
@@ -40,13 +50,16 @@ index 07a4638..3aa3fca 100644
 
  @end
 
-@@ -62,6 +64,16 @@ @implementation AIRMap
+@@ -62,6 +66,19 @@ @implementation AIRMap
      // Implementation based on RCTTextField, another component with indirect children
      // https://github.com/facebook/react-native/blob/v0.16.0/Libraries/Text/RCTTextField.m#L20
      NSMutableArray<UIView *> *_reactSubviews;
 +    AIRMapMetalFogView *_metalFogView;
 +    UIView *_metalFogFallbackView;
 +    BOOL _fogEnabled;
++    AIRMapHistoryOverlay *_historyOverlay;
++    AIRMapHistoryRenderer *_historyRenderer;
++    BOOL _historyUpdateScheduled;
 +    NSArray *_fogCoordinates;
 +    NSArray *_fogSegmentStarts;
 +    NSArray *_fogSegmentEnds;
@@ -57,7 +70,7 @@ index 07a4638..3aa3fca 100644
  }
 
  - (instancetype)init
-@@ -89,10 +101,130 @@ - (instancetype)init
+@@ -89,10 +106,183 @@ - (instancetype)init
          self.maxZoomLevel = AIRMapMaxZoomLevel;
          self.compassOffset = CGPointMake(0, 0);
          self.legacyZoomConstraintsEnabled = YES;
@@ -93,6 +106,38 @@ index 07a4638..3aa3fca 100644
 +    _metalFogFallbackView.accessibilityElementsHidden = YES;
 +    [self addSubview:_metalFogFallbackView];
 +}
++
++// Batch React prop setters so coordinates and segment indexes become one snapshot.
++- (void)scheduleHistoryUpdate {
++    if (_historyUpdateScheduled) return;
++    _historyUpdateScheduled = YES;
++    __weak AIRMap *weakSelf = self;
++    dispatch_async(dispatch_get_main_queue(), ^{
++        AIRMap *map = weakSelf;
++        if (!map) return;
++        map->_historyUpdateScheduled = NO;
++        if (!map->_historyOverlay && map.historyEnabled) {
++            map->_historyOverlay = [AIRMapHistoryOverlay new];
++            map->_historyRenderer = [[AIRMapHistoryRenderer alloc] initWithOverlay:map->_historyOverlay];
++            [map addOverlay:map->_historyOverlay];
++        }
++        [map->_historyRenderer updateCoordinates:map.historyCoordinates ?: @[] segmentStarts:map.historySegmentStarts ?: @[] sessionIds:map.historySegmentSessionIds ?: @[]];
++        [map updateHistoryStyle];
++    });
++}
++- (MKOverlayRenderer *)historyRenderer { return _historyRenderer; }
++- (void)updateHistoryStyle {
++    [_historyRenderer updateColor:self.historyStrokeColor ?: [UIColor clearColor]
++                           width:self.historyStrokeWidth
++                         opacity:self.historyEnabled ? self.historyOpacity : 0];
++}
++- (void)setHistoryEnabled:(BOOL)value { _historyEnabled = value; [self scheduleHistoryUpdate]; }
++- (void)setHistoryCoordinates:(NSArray *)value { _historyCoordinates = [value copy]; [self scheduleHistoryUpdate]; }
++- (void)setHistorySegmentStarts:(NSArray<NSNumber *> *)value { _historySegmentStarts = [value copy]; [self scheduleHistoryUpdate]; }
++- (void)setHistorySegmentSessionIds:(NSArray<NSNumber *> *)value { _historySegmentSessionIds = [value copy]; [self scheduleHistoryUpdate]; }
++- (void)setHistoryStrokeColor:(UIColor *)value { _historyStrokeColor = value; [self updateHistoryStyle]; }
++- (void)setHistoryStrokeWidth:(CGFloat)value { _historyStrokeWidth = value; [self updateHistoryStyle]; }
++- (void)setHistoryOpacity:(CGFloat)value { _historyOpacity = value; [self updateHistoryStyle]; }
 +
 +- (BOOL)fogEnabled
 +{
@@ -185,10 +230,31 @@ index 07a4638..3aa3fca 100644
 +    _metalFogView.placeRevealRadiusMeters = _fogPlaceRevealRadiusMeters;
 +}
 +
++// Preserve explicit polyline layers even when a prop update removes/re-adds
++// an overlay. React child order alone does not survive AIRMapPolyline.update.
++- (void)addOverlay:(id<MKOverlay>)overlay {
++    if ([overlay isKindOfClass:[AIRMapHistoryOverlay class]]) {
++        if (self.overlays.count) [super insertOverlay:overlay belowOverlay:self.overlays.firstObject];
++        else [super addOverlay:overlay];
++        return;
++    }
++    if ([overlay isKindOfClass:[AIRMapPolyline class]]) {
++        NSInteger zIndex = ((AIRMapPolyline *)overlay).zIndex;
++        for (id<MKOverlay> existing in self.overlays) {
++            if ([existing isKindOfClass:[AIRMapPolyline class]] &&
++                ((AIRMapPolyline *)existing).zIndex > zIndex) {
++                [super insertOverlay:overlay belowOverlay:existing];
++                return;
++            }
++        }
++    }
++    [super addOverlay:overlay];
++}
++
  -(void)addSubview:(UIView *)view {
      if([view isKindOfClass:[AIRMapMarker class]]) {
          [self addAnnotation:(id <MKAnnotation>)view];
-@@ -707,6 +839,17 @@ - (void)layoutSubviews {
+@@ -707,6 +897,17 @@ - (void)layoutSubviews {
      [super layoutSubviews];
      [self cacheViewIfNeeded];
 
@@ -206,14 +272,216 @@ index 07a4638..3aa3fca 100644
      if (self.overlayCompassButton == nil) {
          for (UIView *subview in self.subviews) {
              if (![NSStringFromClass(subview.class) isEqualToString:@"MKPassThroughStackView"]) continue;
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryDrawing.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryDrawing.h
+new file mode 100644
+index 0000000..450a87b
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryDrawing.h
+@@ -0,0 +1,47 @@
++#import <CoreGraphics/CoreGraphics.h>
++
++// Stroke the compound path into a single nonzero-filled coverage shape. All
++// subpaths are rasterized together, then receive alpha once: repeated trips
++// cannot darken either the interior or antialiased edges. Core Graphics clips
++// this work to MapKit's tile context; no world-sized backing bitmap is created.
++static inline void AIRMapDrawHistoryCoverage(CGContextRef context, CGPathRef path,
++                                             CGFloat width, CGColorRef color, CGFloat opacity) {
++    if (!path || !color || width <= 0 || opacity <= 0) return;
++    CGPathRef coverage = CGPathCreateCopyByStrokingPath(path, NULL, width,
++                                                      kCGLineCapRound, kCGLineJoinRound, 10);
++    CGContextSaveGState(context);
++    CGContextSetAlpha(context, opacity);
++    CGContextSetFillColorWithColor(context, color);
++    CGContextAddPath(context, coverage);
++    CGContextFillPath(context);
++    CGContextRestoreGState(context);
++    CGPathRelease(coverage);
++}
++
++// A clearly legible baseline plus bounded, per-outing brightening. Compound
++// paths make self-overlap and native chunk duplication count only once per trip.
++// Heat affects line ink only; no geographic widening or fog data is involved.
++static inline void AIRMapDrawHistoryHeat(CGContextRef context, CGPathRef combined,
++                                         CGPathRef const *outings, size_t count,
++                                         CGFloat width, CGColorRef base, CGFloat opacity) {
++    if (!combined || !base || width <= 0 || opacity <= 0) return;
++    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
++    CGFloat edgeRGBA[] = {0.055, 0.15, 0.12, 1};
++    CGFloat hotRGBA[] = {0.81, 1.0, 0.88, 1};
++    CGColorRef edge = CGColorCreate(space, edgeRGBA);
++    CGColorRef hot = CGColorCreate(space, hotRGBA);
++    CGContextSaveGState(context);
++    CGContextSetAlpha(context, opacity);
++    CGContextBeginTransparencyLayer(context, NULL);
++    AIRMapDrawHistoryCoverage(context, combined, width * 1.5, edge, 0.75);
++    AIRMapDrawHistoryCoverage(context, combined, width, base, 1);
++    for (size_t i = 0; i < count; i++) {
++        // Source-over asymptotically approaches pale mint, never unbounded white.
++        AIRMapDrawHistoryCoverage(context, outings[i], width, hot, 0.16);
++    }
++    CGContextEndTransparencyLayer(context);
++    CGContextRestoreGState(context);
++    CGColorRelease(edge);
++    CGColorRelease(hot);
++    CGColorSpaceRelease(space);
++}
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.h
+new file mode 100644
+index 0000000..3386219
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.h
+@@ -0,0 +1,3 @@
++#import <MapKit/MapKit.h>
++@interface AIRMapHistoryOverlay : NSObject <MKOverlay>
++@end
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.m
+new file mode 100644
+index 0000000..93dc3dd
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryOverlay.m
+@@ -0,0 +1,6 @@
++#import "AIRMapHistoryOverlay.h"
++@implementation AIRMapHistoryOverlay
++// Stable bounds let geometry change without removing/reinserting the overlay.
++- (CLLocationCoordinate2D)coordinate { return CLLocationCoordinate2DMake(0, 0); }
++- (MKMapRect)boundingMapRect { return MKMapRectWorld; }
++@end
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.h
+new file mode 100644
+index 0000000..00b856f
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.h
+@@ -0,0 +1,5 @@
++#import <MapKit/MapKit.h>
++@interface AIRMapHistoryRenderer : MKOverlayRenderer
++- (void)updateCoordinates:(NSArray *)coordinates segmentStarts:(NSArray<NSNumber *> *)starts sessionIds:(NSArray<NSNumber *> *)sessionIds;
++- (void)updateColor:(UIColor *)color width:(CGFloat)width opacity:(CGFloat)opacity;
++@end
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.m
+new file mode 100644
+index 0000000..0d9d671
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapHistoryRenderer.m
+@@ -0,0 +1,96 @@
++#import "AIRMapHistoryRenderer.h"
++#import "AIRMapHistoryDrawing.h"
++@implementation AIRMapHistoryRenderer {
++    CGPathRef _historyPath;
++    CGPathRef *_outingPaths;
++    NSUInteger _outingCount;
++    UIColor *_historyColor;
++    CGFloat _historyWidth;
++    CGFloat _historyOpacity;
++}
++- (void)releaseOutingPaths {
++    for (NSUInteger i = 0; i < _outingCount; i++) CGPathRelease(_outingPaths[i]);
++    free(_outingPaths); _outingPaths = NULL; _outingCount = 0;
++}
++- (void)dealloc { if (_historyPath) CGPathRelease(_historyPath); [self releaseOutingPaths]; }
++- (void)updateCoordinates:(NSArray *)coordinates segmentStarts:(NSArray<NSNumber *> *)starts sessionIds:(NSArray<NSNumber *> *)sessionIds {
++    CGMutablePathRef path = CGPathCreateMutable();
++    NSMutableArray<NSNumber *> *validStarts = [NSMutableArray new];
++    NSMutableArray<NSNumber *> *validSessionIds = [NSMutableArray new];
++    NSInteger previous = -1;
++    for (NSUInteger entry = 0; entry < starts.count; entry++) {
++        id value = starts[entry];
++        if (![value isKindOfClass:[NSNumber class]]) continue;
++        double raw = [value doubleValue];
++        if (!isfinite(raw) || raw != floor(raw) || raw < 0 || raw >= coordinates.count || raw <= previous) continue;
++        previous = (NSInteger)raw;
++        [validStarts addObject:@(previous)];
++        id sessionId = entry < sessionIds.count ? sessionIds[entry] : @0;
++        double owner = [sessionId isKindOfClass:[NSNumber class]] ? [sessionId doubleValue] : 0;
++        [validSessionIds addObject:isfinite(owner) && owner >= 0 && owner == floor(owner) ? @(owner) : @0];
++    }
++    CGPathRef *outingPaths = calloc(MAX((NSUInteger)1, validStarts.count), sizeof(CGPathRef));
++    if (!outingPaths) { CGPathRelease(path); return; }
++    NSMutableDictionary<NSNumber *, NSNumber *> *outingIndexes = [NSMutableDictionary new];
++    NSUInteger outingCount = 0;
++    for (NSUInteger segment = 0; segment < validStarts.count; segment++) {
++        NSUInteger start = validStarts[segment].unsignedIntegerValue;
++        NSUInteger end = segment + 1 < validStarts.count ? validStarts[segment + 1].unsignedIntegerValue : coordinates.count;
++        NSNumber *sessionId = validSessionIds[segment];
++        NSNumber *outingIndex = outingIndexes[sessionId];
++        if (!outingIndex) {
++            outingIndex = @(outingCount);
++            outingIndexes[sessionId] = outingIndex;
++            outingPaths[outingCount++] = CGPathCreateMutable();
++        }
++        CGMutablePathRef outing = (CGMutablePathRef)outingPaths[outingIndex.unsignedIntegerValue];
++        BOOL hasPrevious = NO;
++        for (NSUInteger i = start; i < end; i++) {
++            id value = coordinates[i];
++            if (![value isKindOfClass:[NSDictionary class]] ||
++                ![value[@"latitude"] isKindOfClass:[NSNumber class]] ||
++                ![value[@"longitude"] isKindOfClass:[NSNumber class]]) { hasPrevious = NO; continue; }
++            CLLocationCoordinate2D coordinate = CLLocationCoordinate2DMake([value[@"latitude"] doubleValue], [value[@"longitude"] doubleValue]);
++            if (!isfinite(coordinate.latitude) || !isfinite(coordinate.longitude) || !CLLocationCoordinate2DIsValid(coordinate)) { hasPrevious = NO; continue; }
++            CGPoint point = [self pointForMapPoint:MKMapPointForCoordinate(coordinate)];
++            if (!hasPrevious) {
++                CGPathMoveToPoint(path, NULL, point.x, point.y);
++                CGPathMoveToPoint(outing, NULL, point.x, point.y);
++            } else {
++                CGPathAddLineToPoint(path, NULL, point.x, point.y);
++                CGPathAddLineToPoint(outing, NULL, point.x, point.y);
++            }
++            hasPrevious = YES;
++        }
++    }
++    @synchronized (self) {
++        if (_historyPath) CGPathRelease(_historyPath);
++        _historyPath = path;
++        [self releaseOutingPaths];
++        _outingPaths = outingPaths;
++        _outingCount = outingCount;
++    }
++    [self setNeedsDisplay];
++}
++- (void)updateColor:(UIColor *)color width:(CGFloat)width opacity:(CGFloat)opacity {
++    @synchronized (self) {
++        _historyColor = color;
++        _historyWidth = isfinite(width) ? MAX(0, MIN(32, width)) : 0;
++        _historyOpacity = isfinite(opacity) ? MAX(0, MIN(1, opacity)) : 0;
++    }
++    [self setNeedsDisplay];
++}
++- (void)drawMapRect:(MKMapRect)mapRect zoomScale:(MKZoomScale)zoomScale inContext:(CGContextRef)context {
++    if (zoomScale <= 0) return;
++    @synchronized (self) {
++        if (!_historyPath || !_historyColor || _historyOpacity <= 0) return;
++        CGRect tile = [self rectForMapRect:mapRect];
++        CGFloat width = _historyWidth / zoomScale;
++        if (!CGRectIntersectsRect(CGRectInset(CGPathGetPathBoundingBox(_historyPath), -width, -width), tile)) return;
++        CGContextSaveGState(context);
++        CGContextClipToRect(context, tile);
++        AIRMapDrawHistoryHeat(context, _historyPath, _outingPaths, _outingCount, width, _historyColor.CGColor, _historyOpacity);
++        CGContextRestoreGState(context);
++    }
++}
++@end
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
-index 8bd7907..2b42586 100644
+index 8bd7907..c5a7055 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
-@@ -110,6 +110,14 @@ - (UIView *)view
+@@ -17,6 +17,7 @@
+ #import <React/RCTViewManager.h>
+ #import <React/UIView+React.h>
+ #import "AIRMap.h"
++#import "AIRMapHistoryOverlay.h"
+ #import "AIRMapMarker.h"
+ #import "AIRMapPolyline.h"
+ #import "AIRMapPolygon.h"
+@@ -110,6 +111,21 @@ - (UIView *)view
  RCT_EXPORT_VIEW_PROPERTY(legalLabelInsets, UIEdgeInsets)
  RCT_EXPORT_VIEW_PROPERTY(mapPadding, UIEdgeInsets)
  RCT_EXPORT_VIEW_PROPERTY(mapType, MKMapType)
++RCT_EXPORT_VIEW_PROPERTY(historyEnabled, BOOL)
++RCT_EXPORT_VIEW_PROPERTY(historyCoordinates, NSArray)
++RCT_EXPORT_VIEW_PROPERTY(historySegmentStarts, NSArray)
++RCT_EXPORT_VIEW_PROPERTY(historySegmentSessionIds, NSArray)
++RCT_EXPORT_VIEW_PROPERTY(historyStrokeColor, UIColor)
++RCT_EXPORT_VIEW_PROPERTY(historyStrokeWidth, CGFloat)
++RCT_EXPORT_VIEW_PROPERTY(historyOpacity, CGFloat)
 +RCT_EXPORT_VIEW_PROPERTY(fogEnabled, BOOL)
 +RCT_EXPORT_VIEW_PROPERTY(fogCoordinates, AIRMapCoordinateArray)
 +RCT_EXPORT_VIEW_PROPERTY(fogSegmentStarts, AIRMapCoordinateArray)
@@ -225,6 +493,16 @@ index 8bd7907..2b42586 100644
  RCT_EXPORT_VIEW_PROPERTY(cameraZoomRange, NSDictionary)
  RCT_EXPORT_VIEW_PROPERTY(onMapReady, RCTBubblingEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
+@@ -765,6 +781,9 @@ - (void)handleMapLongPress:(UITapGestureRecognizer *)recognizer {
+ #pragma mark Polyline stuff
+
+ - (MKOverlayRenderer *)mapView:(MKMapView *)mapView rendererForOverlay:(id <MKOverlay>)overlay{
++    if ([overlay isKindOfClass:[AIRMapHistoryOverlay class]]) {
++        return ((AIRMap *)mapView).historyRenderer;
++    }
+     if ([overlay isKindOfClass:[AIRMapPolyline class]]) {
+         return ((AIRMapPolyline *)overlay).renderer;
+     } else if ([overlay isKindOfClass:[AIRMapPolygon class]]) {
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h
 new file mode 100644
 index 0000000..d0b4b17
@@ -254,7 +532,7 @@ index 0000000..d0b4b17
 +@end
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
 new file mode 100644
-index 0000000..0cebf05
+index 0000000..4ac1a2a
 --- /dev/null
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
 @@ -0,0 +1,375 @@
@@ -633,3 +911,81 @@ index 0000000..0cebf05
 +}
 +
 +@end
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.h
+index 7ccf577..89028f9 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.h
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.h
+@@ -27,6 +27,7 @@
+ @property (nonatomic, strong) UIColor *strokeColor;
+ @property (nonatomic, strong) NSArray<UIColor *> *strokeColors;
+ @property (nonatomic, assign) CGFloat strokeWidth;
++@property (nonatomic, assign) NSInteger zIndex;
+ @property (nonatomic, assign) CGFloat miterLimit;
+ @property (nonatomic, assign) CGLineCap lineCap;
+ @property (nonatomic, assign) CGLineJoin lineJoin;
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.m
+index 4f4596d..fa7c786 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolyline.m
+@@ -12,6 +12,11 @@ @implementation AIRMapPolyline {
+
+ }
+
++- (void)setZIndex:(NSInteger)zIndex {
++    _zIndex = zIndex;
++    [self update];
++}
++
+ - (void)setFillColor:(UIColor *)fillColor {
+     _fillColor = fillColor;
+     [self update];
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineManager.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineManager.m
+index e72e94b..62cb69c 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineManager.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineManager.m
+@@ -37,6 +37,7 @@ - (UIView *)view
+ RCT_EXPORT_VIEW_PROPERTY(strokeColor, UIColor)
+ RCT_EXPORT_VIEW_PROPERTY(strokeColors, UIColorArray)
+ RCT_EXPORT_VIEW_PROPERTY(strokeWidth, CGFloat)
++RCT_EXPORT_VIEW_PROPERTY(zIndex, NSInteger)
+ RCT_EXPORT_VIEW_PROPERTY(lineCap, CGLineCap)
+ RCT_EXPORT_VIEW_PROPERTY(lineJoin, CGLineJoin)
+ RCT_EXPORT_VIEW_PROPERTY(miterLimit, CGFloat)
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineRenderer.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineRenderer.m
+index b9e8c06..0116c6a 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineRenderer.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapPolylineRenderer.m
+@@ -178,14 +178,14 @@ - (void) drawMapRect:(MKMapRect)mapRect zoomScale:(MKZoomScale)zoomScale inConte
+ {
+     CGRect pointsRect = CGPathGetBoundingBox(self.path);
+     CGRect mapRectCG = [self rectForMapRect:mapRect];
+-    if (!CGRectIntersectsRect(pointsRect, mapRectCG)) return;
++    if (!CGRectIntersectsRect(CGRectInset(pointsRect, -self.lineWidth / zoomScale, -self.lineWidth / zoomScale), mapRectCG)) return;
+
+     [self drawWithZoomScale:zoomScale inContext:context];
+ }
+
+ - (void) drawWithZoomScale:(MKZoomScale)zoomScale inContext:(CGContextRef)context
+ {
+-    CGFloat lineWidth = (self.lineWidth / zoomScale) * 2.0;
++    CGFloat lineWidth = self.lineWidth / zoomScale;
+     CGContextSetLineWidth(context, lineWidth);
+     CGContextSetLineCap(context, self.lineCap);
+     CGContextSetLineJoin(context, self.lineJoin);
+@@ -217,6 +217,7 @@ - (void) drawWithZoomScale:(MKZoomScale)zoomScale inContext:(CGContextRef)contex
+             CGGradientRef gradient = CGGradientCreateWithColorComponents(colorSpace, gradientColors, gradientLocation, 2);
+             CGColorSpaceRelease(colorSpace);
+
++            CGContextSaveGState(context);
+             CGContextReplacePathWithStrokedPath(context);
+             CGContextClip(context);
+             CGContextDrawLinearGradient(
+@@ -227,7 +228,7 @@ - (void) drawWithZoomScale:(MKZoomScale)zoomScale inContext:(CGContextRef)contex
+                                         kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation
+                                         );
+             CGGradientRelease(gradient);
+-            CGContextResetClip(context);
++            CGContextRestoreGState(context);
+         }
+         else {
+             CGContextSetStrokeColorWithColor(context, segment.startColor.CGColor);
