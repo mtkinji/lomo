@@ -52,6 +52,7 @@ const mockRecorder = {
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
+  useRoute: () => ({ key: 'ExploreMap', name: 'ExploreMap', params: undefined }),
   useNavigation: () => ({ getParent: () => ({ navigate: mockNavigate }) }),
 }));
 

@@ -1335,3 +1335,15 @@ describe('Unified Chat repository', () => {
     ]));
   });
 });
+
+test.each(['household', 'meal_planning', 'chores', 'groceries'])('loads %s receipts instead of silently dropping completion evidence', async (capabilityId) => {
+  const receipt = { id: 'receipt-new', proposal_id: 'proposal-new', operation_id: 'operation-new', capability_id: capabilityId,
+    status: 'applied', idempotency_key: 'new-receipt', resulting_object_type: 'item', resulting_object_id: 'item-new',
+    result_state: { title: 'Completed change' }, undo_operation: null };
+  const { client } = createClient([
+    { data: threadRow }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+    { data: [receipt] }, { data: [] }, { data: [] }, { data: [] },
+  ]);
+  const loaded = await createUnifiedChatRepository(client as never).loadThread('thread-1');
+  expect(loaded.receipts).toEqual([expect.objectContaining({ id: 'receipt-new', capabilityId, status: 'applied', canUndo: false })]);
+});

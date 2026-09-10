@@ -1,3 +1,3 @@
 export type ExploreStackParamList = {
-  ExploreMap: undefined;
+  ExploreMap: { homeSavedPlace?:string } | undefined;
 };

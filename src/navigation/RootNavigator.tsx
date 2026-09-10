@@ -212,6 +212,10 @@ export type RootDrawerParamList = {
   ProPlanChooser: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: {
+    homePreview?:string;
+    homeItems?:string;
+    homeItemId?:string;
+    homeCapture?:string;
     familyScreenTimeChild?: {
       childMembershipId: string;
       childDisplayName: string;
@@ -1245,7 +1249,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     () => projectChoreReviewQueue(choreRecord, choreRecord.activeMemberId).length,
     [choreRecord],
   );
-  const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
+  const sharedHomeFlag = useFeatureFlag('shared-home-v1', true);
+  const sharedHomeEnabled = __DEV__ || sharedHomeFlag;
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1457,6 +1462,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
       ]}
     >
       <CapabilityMenu
+        menuOpen={menuOpen}
         activeCapabilityId={activeCapabilityId}
         activeChatThreadId={activeChatThreadId}
         chats={chatThreads}
@@ -1501,6 +1507,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         sharedHomeEnabled={sharedHomeEnabled}
+        homeSelected={activeRoute?.name === 'SharedHome'}
         onOpenHome={() => {
           rootNavigationRef.navigate('SharedHome', { source: 'manual' });
           coverMenu();

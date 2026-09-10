@@ -1,7 +1,12 @@
+import { SharedLifeExplorePlaces } from '../../../features/shared-home/SharedLifeExplorePlaces';
+import { shareMomentInHome } from '../../../features/shared-home/sharedLifeShareRequest';
+import { placePostAttachment } from '../../../features/shared-home/sharedLifeDomain';
+import { offerHomeMoment } from '../../../features/shared-home/sharedLifeCelebration';
+import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { AccessibilityInfo, Animated, Platform, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useRoute, type RouteProp, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
@@ -72,7 +77,7 @@ const DEFAULT_REGION: Region = {
 
 export const EXPLORE_PLACE_REVEAL_RADIUS_M = EXPLORE_REVEAL_RADIUS_M * 3;
 
-type PlacesCollection = 'nearby' | 'my-places';
+type PlacesCollection = 'nearby' | 'my-places' | 'from-home';
 
 function pointGroupsInDisplayOrder(
   sessions: ExploreSession[],
@@ -156,6 +161,9 @@ function fogRingForRegion(region: Region) {
 }
 
 export function ExploreMapScreen() {
+  const route=useRoute<RouteProp<ExploreStackParamList,"ExploreMap">>();
+  const sharedLifeFlag = useFeatureFlag('shared-life-v1', true);
+  const sharedLifeEnabled = __DEV__ || sharedLifeFlag;
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
   const navigation = useNavigation<NavigationProp<ExploreStackParamList>>();
@@ -184,6 +192,7 @@ export function ExploreMapScreen() {
   }, [recap, sessions]);
   const [searchVisible, setSearchVisible] = useState(false);
   const [placesCollection, setPlacesCollection] = useState<PlacesCollection>('nearby');
+  useEffect(()=>{if(route.params?.homeSavedPlace){setPlacesCollection("from-home");setSearchVisible(true);navigation.setParams({homeSavedPlace:undefined});}},[route.params?.homeSavedPlace,navigation]);
   const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [collectingPlace, setCollectingPlace] = useState(false);
@@ -450,7 +459,7 @@ export function ExploreMapScreen() {
   }, [latestPoint, needsOnboarding]);
 
   const collectCurrentPlace = () => {
-    const name = placeName.trim();
+    const name = placeName.trim().slice(0, 160);
     if (!latestPoint || !name) return;
     const place: Place = {
       id: `user:${latestPoint.latitude.toFixed(5)}:${latestPoint.longitude.toFixed(5)}:${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
@@ -467,6 +476,10 @@ export function ExploreMapScreen() {
     });
     setPlaceName('');
     setCollectingPlace(false);
+    const accountId = useAppStore.getState().authIdentity?.userId;
+    if (accountId && sharedLifeEnabled) {
+      offerHomeMoment(accountId, placePostAttachment(place), `place:${place.id}`);
+    }
   };
 
   const dismissFirstPlaceGuide = () => {
@@ -1023,10 +1036,11 @@ export function ExploreMapScreen() {
             options={[
               { value: 'nearby', label: 'Nearby' },
               { value: 'my-places', label: 'My Places' },
+              { value: 'from-home', label: 'From Home' },
             ]}
             testIDPrefix="explore.places.segment"
           />
-          {placesCollection === 'nearby' ? <>
+          {placesCollection === 'from-home' ? <SharedLifeExplorePlaces /> : placesCollection === 'nearby' ? <>
             <View style={styles.nearbyToolbar}>
               <SegmentedControl
                 value={nearby.radius}
@@ -1139,6 +1153,7 @@ export function ExploreMapScreen() {
           <TextInput
             accessibilityLabel="Place name"
             autoFocus
+            maxLength={160}
             value={placeName}
             onChangeText={setPlaceName}
             placeholder="Home, park, trail…"
@@ -1213,6 +1228,10 @@ export function ExploreMapScreen() {
                   <View key={place.id} style={styles.recapPlaceRow}>
                     <View style={styles.recapPlaceNumber}><Text style={styles.recapPlaceNumberText}>{index + 1}</Text></View>
                     <Text style={styles.recapPlaceName}>{place.name}</Text>
+                    {sharedLifeEnabled && useAppStore.getState().authIdentity?.userId ? <Button variant="ghost" size="sm" onPress={() => {
+                      const accountId = useAppStore.getState().authIdentity?.userId;
+                      if (accountId) { setReviewRecap(null); shareMomentInHome(accountId, placePostAttachment({ ...place, name: place.name.trim().slice(0, 160) })); }
+                    }}>Share</Button> : null}
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${place.name} from this recap`}
@@ -1225,6 +1244,14 @@ export function ExploreMapScreen() {
                   </View>
                 ))}
               </View>
+            ) : null}
+            {sharedLifeEnabled && useAppStore.getState().authIdentity?.userId ? (
+              <Button variant="outline" onPress={() => {
+                const accountId = useAppStore.getState().authIdentity?.userId;
+                if (!accountId) return;
+                setReviewRecap(null);
+                shareMomentInHome(accountId, { kind: 'outing', title: 'A moment from my outing' });
+              }}>Share a moment from this outing</Button>
             ) : null}
             <Button size="lg" onPress={() => setReviewRecap(null)}>Close</Button>
           </BottomDrawerScrollView>

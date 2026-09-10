@@ -847,7 +847,9 @@ function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
   if (row.capability_id !== 'todos' && row.capability_id !== 'plan' && row.capability_id !== 'goals' &&
       row.capability_id !== 'arcs' && row.capability_id !== 'profile' && row.capability_id !== 'chapters' &&
       row.capability_id !== 'relationships' && row.capability_id !== 'screenTime' &&
-      row.capability_id !== 'money' && row.capability_id !== 'recipes') return null;
+      row.capability_id !== 'money' && row.capability_id !== 'recipes' &&
+      row.capability_id !== 'household' && row.capability_id !== 'meal_planning' &&
+      row.capability_id !== 'chores' && row.capability_id !== 'groceries') return null;
   const status = row.status === 'reserved' || row.status === 'undone' || row.status === 'failed'
     ? row.status
     : 'applied';

@@ -44,6 +44,7 @@ import {
 } from './capabilityMenuPins';
 
 type CapabilityMenuProps = {
+  menuOpen?: boolean;
   activeCapabilityId: CapabilityMenuDestinationId | null;
   activeChatThreadId?: string | null;
   chats: readonly CapabilityMenuChat[];
@@ -65,6 +66,7 @@ type CapabilityMenuProps = {
   onOpenHome?: () => void;
   onOpenChat: () => void;
   sharedHomeEnabled?: boolean;
+  homeSelected?: boolean;
   exploreEnabled?: boolean;
   choresAttentionCount?: number;
   mealPlanNeedsAttention?: boolean;
@@ -84,8 +86,11 @@ type CapabilityPinMenuTrigger = {
 };
 
 const CAPABILITY_MENU_FLOATING_CONTROLS_HEIGHT = 44;
+const RECENT_CHAT_LIMIT = 3;
+const CHAT_REVEAL_BATCH_SIZE = 10;
 
 export function CapabilityMenu({
+  menuOpen = true,
   activeCapabilityId,
   activeChatThreadId,
   chats,
@@ -107,6 +112,7 @@ export function CapabilityMenu({
   onOpenHome,
   onOpenChat,
   sharedHomeEnabled = false,
+  homeSelected = false,
   exploreEnabled = false,
   choresAttentionCount = 0,
   mealPlanNeedsAttention = false,
@@ -122,9 +128,20 @@ export function CapabilityMenu({
     () => activeCapabilityId !== null && moreCapabilityIds.includes(activeCapabilityId),
   );
   const [chatSelectionMode, setChatSelectionMode] = useState(false);
+  const [visibleChatLimit, setVisibleChatLimit] = useState(RECENT_CHAT_LIMIT);
+  const visibleChats = chatSelectionMode ? chats : chats.slice(0, visibleChatLimit);
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set());
   const [chatBulkActionPending, setChatBulkActionPending] = useState(false);
   const pinMenuTriggers = useRef<Partial<Record<CapabilityMenuDestinationId, CapabilityPinMenuTrigger | null>>>({});
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (menuOpen) return;
+    setVisibleChatLimit(RECENT_CHAT_LIMIT);
+    setChatSelectionMode(false);
+    setSelectedChatIds(new Set());
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [menuOpen]);
 
   useEffect(() => {
     if (activeCapabilityId && moreCapabilityIds.includes(activeCapabilityId)) {
@@ -322,12 +339,30 @@ export function CapabilityMenu({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         testID="capability.menu.scroll"
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View testID="capability.menu.primary">
+          {sharedHomeEnabled ? (
+            <Pressable
+              testID="capability.menu.home"
+              accessibilityRole="button"
+              accessibilityLabel="Open Home"
+              accessibilityState={{ selected: homeSelected }}
+              onPress={onOpenHome}
+              style={({ pressed }) => [
+                styles.capabilityRow,
+                homeSelected && styles.capabilityRowSelected,
+                pressed && styles.rowPressed,
+              ]}
+            >
+              <Icon name="home" size={18} color={homeSelected ? colors.gray700 : colors.textSecondary} />
+              <Text style={[styles.capabilityLabel, homeSelected && styles.capabilityLabelSelected]}>Home</Text>
+            </Pressable>
+          ) : null}
           {primaryClusters.map((capabilityIds, index) => (
             <View
               key={capabilityIds.join('.')}
@@ -425,7 +460,7 @@ export function CapabilityMenu({
           <Text style={styles.chatStateText}>{chatsError}</Text>
         ) : chats.length === 0 ? (
           <Text style={styles.chatStateText}>No chats yet.</Text>
-        ) : chats.map((chat) => (
+        ) : visibleChats.map((chat) => (
           <CapabilityMenuChatRow
             key={chat.id}
             chat={chat}
@@ -439,6 +474,17 @@ export function CapabilityMenu({
             onDelete={() => onDeleteChat(chat.id)}
           />
         ))}
+        {chats.length > visibleChatLimit && !chatSelectionMode ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View more chats"
+            accessibilityHint={`Shows ${Math.min(CHAT_REVEAL_BATCH_SIZE, chats.length - visibleChatLimit)} more chats`}
+            onPress={() => setVisibleChatLimit((limit) => limit + CHAT_REVEAL_BATCH_SIZE)}
+            style={({ pressed }) => [styles.sectionHeader, pressed && styles.rowPressed]}
+          >
+            <Text style={[styles.chatStateText, styles.chatViewMoreLabel]}>View more</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <View
@@ -462,26 +508,15 @@ export function CapabilityMenu({
         ) : (
           <>
             {sharedHomeEnabled ? (
-              <View style={styles.footerActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open Home"
-                  onPress={onOpenHome}
-                  style={({ pressed }) => [styles.homeButton, pressed && styles.searchButtonPressed]}
-                >
-                  <Icon name="home" size={17} color={colors.gray700} />
-                  <Text style={styles.homeButtonLabel}>Home</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Ask Kwilt"
-                  onPress={onOpenChat}
-                  style={({ pressed }) => [styles.askButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
-                >
-                  <Icon name="navAiGuide" size={17} color={colors.gray50} />
-                  <Text style={styles.chatButtonLabel}>Ask</Text>
-                </Pressable>
-              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ask Kwilt"
+                onPress={onOpenChat}
+                style={({ pressed }) => [styles.askButton, pressed && styles.chatButtonPressed]}
+              >
+                <Icon name="navAiGuide" size={17} color={colors.gray50} />
+                <Text style={styles.chatButtonLabel}>Ask</Text>
+              </Pressable>
             ) : (
               <Button
                 testID="capability.menu.chat"
@@ -794,6 +829,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
+  chatViewMoreLabel: {
+    color: colors.muted,
+  },
   chatStateText: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -935,31 +973,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: 22,
     backgroundColor: colors.sumi900,
-  },
-  footerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 22,
-    overflow: 'hidden',
-    backgroundColor: colors.gray100,
-  },
-  homeButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderTopLeftRadius: 22,
-    borderBottomLeftRadius: 22,
-  },
-  homeButtonLabel: {
-    ...typography.bodySm,
-    fontFamily: fonts.medium,
-    color: colors.gray700,
-  },
-  askButtonSplit: {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
   },
   chatButtonPressed: {
     backgroundColor: colors.sumi800,

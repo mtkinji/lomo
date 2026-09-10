@@ -88,6 +88,49 @@ function differentDestination(id: CapabilityMenuDestinationId): CapabilityMenuDe
 }
 
 describe('CapabilityMenu', () => {
+  it('reveals ten more chats per tap and hides View more when exhausted', () => {
+    const history = Array.from({ length: 25 }, (_, index) => ({
+      id: `recent-${index}`,
+      title: `Recent chat ${index}`,
+      updatedAt: '2026-09-09T18:00:00.000Z',
+    }));
+    const menu = render(<CapabilityMenu activeCapabilityId={null} chats={history} {...handlers} />);
+
+    expect(menu.getByLabelText('Open chat Recent chat 2')).toBeTruthy();
+    expect(menu.queryByLabelText('Open chat Recent chat 3')).toBeNull();
+    fireEvent.press(menu.getByLabelText('View more chats'));
+    expect(menu.getByLabelText('Open chat Recent chat 12')).toBeTruthy();
+    expect(menu.queryByLabelText('Open chat Recent chat 13')).toBeNull();
+    fireEvent.press(menu.getByLabelText('View more chats'));
+    expect(menu.getByLabelText('Open chat Recent chat 22')).toBeTruthy();
+    expect(menu.queryByLabelText('Open chat Recent chat 23')).toBeNull();
+    fireEvent.press(menu.getByLabelText('View more chats'));
+    fireEvent.press(menu.getByLabelText('Open chat Recent chat 24'));
+    expect(handlers.onSelectChat).toHaveBeenCalledWith('recent-24');
+    expect(menu.queryByLabelText('View more chats')).toBeNull();
+  });
+
+  it('returns to three chats after the menu closes and reopens', () => {
+    const history = Array.from({ length: 5 }, (_, index) => ({
+      id: `recent-${index}`,
+      title: `Recent chat ${index}`,
+      updatedAt: '2026-09-09T18:00:00.000Z',
+    }));
+    const menu = render(<CapabilityMenu menuOpen activeCapabilityId={null} chats={history} {...handlers} />);
+    fireEvent.press(menu.getByLabelText('View more chats'));
+    expect(menu.getByLabelText('Open chat Recent chat 4')).toBeTruthy();
+    fireEvent.press(menu.getByLabelText('Open chat Recent chat 4'));
+    menu.rerender(<CapabilityMenu menuOpen={false} activeCapabilityId={null} chats={history} {...handlers} />);
+    menu.rerender(<CapabilityMenu menuOpen activeCapabilityId={null} chats={history} {...handlers} />);
+    expect(menu.queryByLabelText('Open chat Recent chat 3')).toBeNull();
+    expect(menu.getByLabelText('View more chats')).toBeTruthy();
+  });
+
+  it('does not show View more when there are at most three chats', () => {
+    const menu = render(<CapabilityMenu activeCapabilityId={null} chats={chats} {...handlers} />);
+    expect(menu.queryByLabelText('View more chats')).toBeNull();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -651,8 +694,8 @@ describe('CapabilityMenu', () => {
     expect(handlers.onOpenChat).toHaveBeenCalledTimes(1);
   });
 
-  it('replaces the single Chat footer action with distinct Home and Ask actions when enabled', () => {
-    const { getByLabelText, queryByLabelText } = render(
+  it('places Home first in primary navigation and keeps Ask in the footer', () => {
+    const { getByLabelText, queryByLabelText, getByTestId } = render(
       <CapabilityMenu
         activeCapabilityId="todos"
         displayName="Andy"
@@ -663,6 +706,8 @@ describe('CapabilityMenu', () => {
     );
 
     expect(queryByLabelText('Open chat')).toBeNull();
+    expect(within(getByTestId('capability.menu.primary')).getAllByRole('button')[0].props.accessibilityLabel).toBe('Open Home');
+    expect(within(getByTestId('capability.menu.footer')).queryByLabelText('Open Home')).toBeNull();
     fireEvent.press(getByLabelText('Open Home'));
     fireEvent.press(getByLabelText('Ask Kwilt'));
     expect(handlers.onOpenHome).toHaveBeenCalledTimes(1);

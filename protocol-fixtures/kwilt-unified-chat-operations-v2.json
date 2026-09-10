@@ -1,0 +1,125 @@
+{
+  "todos": [
+    "create_activity",
+    "update_activity",
+    "delete_activity",
+    "create_activity_step",
+    "update_activity_step",
+    "complete_activity_step",
+    "delete_activity_step",
+    "reorder_activity_steps"
+  ],
+  "plan": [
+    "schedule_activity",
+    "schedule_activity_chunk",
+    "reschedule_activity",
+    "remove_activity_from_plan"
+  ],
+  "goals": [
+    "create_goal",
+    "update_goal",
+    "delete_goal"
+  ],
+  "arcs": [
+    "create_arc",
+    "update_arc",
+    "delete_arc"
+  ],
+  "profile": [
+    "update_profile"
+  ],
+  "chapters": [
+    "update_chapter_note",
+    "apply_chapter_alignment",
+    "update_chapter_digest_settings"
+  ],
+  "money": [
+    "create_money_category",
+    "rename_money_category",
+    "update_money_budget",
+    "update_money_transaction_meaning",
+    "update_money_transaction_plan_treatment",
+    "review_money_transfer",
+    "disconnect_money_connection"
+  ],
+  "recipes": [
+    "create_recipe",
+    "update_recipe",
+    "delete_recipe",
+    "recipes.import.approve",
+    "recipes.fork",
+    "recipes.collaborator.invite",
+    "cook_session.start",
+    "cook_session.complete",
+    "recipes.favorite.update",
+    "recipes.visibility.update"
+  ],
+  "meal_planning": [
+    "meal_planning.preferences.update",
+    "meal_planning.plan.create",
+    "meal_planning.plan.update",
+    "meal_planning.candidate.add",
+    "meal_planning.candidate.remove",
+    "meal_planning.round.open",
+    "meal_planning.round.close",
+    "meal_planning.response.submit",
+    "meal_planning.response.withdraw",
+    "meal_planning.plan.finalize",
+    "meal_planning.plan.revise"
+  ],
+  "groceries": [
+    "food_stock.observe",
+    "food_stock.deplete",
+    "groceries.compile",
+    "groceries.item.add",
+    "groceries.item.update",
+    "groceries.item.set_state"
+  ],
+  "relationships": [
+    "remember_relationship",
+    "correct_relationship",
+    "forget_relationship"
+  ],
+  "household": [
+    "household.member.add_dependent",
+    "household.invitation.create",
+    "household.invitation.accept",
+    "household.child_capability.update",
+    "household.caregiver_grant.update",
+    "household.member.update",
+    "household.member.remove",
+    "household.device.update",
+    "household.device.revoke",
+    "household.device.reconcile"
+  ],
+  "screenTime": [
+    "block_family_screen_time_selection",
+    "allow_family_screen_time_selection",
+    "create_family_screen_time_prerequisite_agreement",
+    "update_family_screen_time_agreement",
+    "deactivate_family_screen_time_agreement",
+    "cancel_family_screen_time_override",
+    "decide_family_screen_time_request",
+    "update_personal_screen_time_rule",
+    "deactivate_personal_screen_time_rule",
+    "delete_personal_screen_time_rule"
+  ],
+  "chores": [
+    "chores.definition.create",
+    "chores.definition.update",
+    "chores.definition.pause",
+    "chores.definition.delete",
+    "chores.occurrence.claim",
+    "chores.occurrence.release",
+    "chores.occurrence.complete",
+    "chores.occurrence.reopen",
+    "chores.occurrence.report_earlier",
+    "chores.review.approve",
+    "chores.review.return",
+    "chores.review.leave_missed",
+    "chores.reward.configure",
+    "chores.reward.reserve",
+    "chores.reward.cancel",
+    "chores.reward.settle"
+  ]
+}

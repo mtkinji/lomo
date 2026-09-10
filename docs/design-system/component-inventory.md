@@ -114,3 +114,7 @@ The current source-owned canonical layer lives in `src/ui`. If multiple applicat
 6. `Button`
 
 Validate adoption in at least two real surfaces before expanding the package. Canonicality comes from the constitution, inventory, rendered evidence, and usage contract—not from the package name.
+
+### Home feed candidates
+
+`FeedItemParts` and the Moment, Contribution, Personal message, Invitation/request compositions remain **Candidate**, scoped to Home. They reuse owned Button, DropdownMenu, ProfileAvatar and typography/token contracts; they are not app-wide canonical cards. See [the composition contract](../design-explorations/kwilt-home-feed-items/four-pattern-contract.md) and `Home/Four Feed Patterns` stories. `DeliveryCard` is a compatibility router to message/request, not a separate design pattern.
