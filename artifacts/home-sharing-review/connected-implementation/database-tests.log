@@ -1,0 +1,28 @@
+✔ household publishing is durable, idempotent and excludes nonmembers and children (526.308667ms)
+✔ follows require approval, never backfill, and revocation takes effect (264.898042ms)
+✔ blocking and household removal revoke reads and response authority (269.997917ms)
+✔ rejects unreviewed attachment fields, missing photos, and arbitrary recipient IDs (323.2295ms)
+✔ photos are private, readable only after publication, and revoked on deletion (254.768125ms)
+✔ report snapshots require post access and keep the reporter private (250.579666ms)
+✔ Goal notes retain source membership and never reach a household-only reader (242.774ms)
+✔ authors can delete replies and recipients can report the actual reply author (244.353667ms)
+✔ cleanup retains exact paths until physical removal and draft discard cannot delete a published post (253.515166ms)
+✔ isolates Chores storage authority from Home uploads without exposing the actor helper (247.224208ms)
+✔ completed goal stories share only the title snapshot, never private goal details (244.278542ms)
+✔ chore completion automatically reaches adults in its household, never followers or a composer (242.441125ms)
+✔ nearby chores group, approvals retain responses, and undone items disappear (251.492959ms)
+✔ chore updates reject forged Home writes and revoke household access (247.715708ms)
+✔ no historical backfill; long-separated completions create separate groups (264.657458ms)
+✔ Chores accepts its snapshot timestamp while rejecting missing and stale occurrence versions (281.646166ms)
+✔ automatic update reports identify its household person and route to household management (249.248292ms)
+✔ connected moments saves, collections, seen and previews preserve authority (286.836083ms)
+✔ explicit Explore copies are private, create no visit, and survive source deletion (255.575084ms)
+✔ photo dimensions accept bounded paired metadata and reject malformed dimensions (251.732208ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5553.010208

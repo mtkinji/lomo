@@ -15,6 +15,24 @@ Bottom Dock Geometry is the first Canonical reusable composition. Andrew approve
 
 ## Canonical Patterns
 
+### Short List with Incremental Reveal
+
+Job: Scan the most relevant recent items quickly, then reveal older items only when needed.
+
+Status: Canonical behavior for transient navigation lists. Andrew explicitly requested this pattern on 2026-09-09. Other surfaces still need their own composition and runtime acceptance.
+
+Contract: Start with a small preview. Place a quiet “View more” action directly after the visible rows. Each tap appends one bounded batch in the existing order without replacing the list or moving its scroll position. Hide the action once all items are visible. Closing the containing menu resets the preview and scroll position; the next opening starts compact. Do not persist the reveal count or substitute an unbounded “View all” expansion.
+
+Chat application: Show three recent chats initially; each tap reveals up to ten additional chats (3 → 13 → 23…). Menu close restores three. Existing explicit bulk-selection mode remains a separate management state and also ends on menu close.
+
+Anatomy: Existing menu rows plus a secondary text disclosure action, localized through Kwilt tokens and accessible button semantics. The accessible hint states how many items the next tap reveals. No new card, confirmation, count badge, or collapse action is required.
+
+Reference: User-supplied Codex sidebar “Show more” screenshot, 2026-09-09. Preserve the quiet trailing action and short initial list; translate copy to “View more” and use Kwilt components; reject copying desktop chrome, pixel dimensions, or treating the screenshot as authority for batch size or reset behavior. Those behaviors come from Andrew's explicit instruction.
+
+Implementation: `src/navigation/CapabilityMenu.tsx`; open/close state supplied by `src/navigation/RootNavigator.tsx`. Regression coverage: `src/navigation/CapabilityMenu.test.tsx` for repeated batches, exhausted lists, chat selection, and close/reopen reset.
+
+Last reviewed: 2026-09-09.
+
 ### Secondary Settings Page
 
 Job: When a person opens a pushed management page within a top-level capability or Settings, they need to stay oriented while scanning related controls as one familiar system.
@@ -185,3 +203,18 @@ The rendered reference is part of the contract. Code paths alone are not visual 
 ## Picking Rule
 
 Use the closest Canonical atlas entry first. If none exists, use a Candidate only as a precedent, name the intended hierarchy and differences, render the real surface, and obtain surface-specific visual acceptance. Never assemble a screen from individually valid components without naming the composition pattern they form.
+
+## Home feed — four patterns
+
+Status: **Candidate**, Home-local scope. Andrew accepted the four-pattern direction on September 9, 2026; visual acceptance and canonical promotion remain separate.
+
+Moment, Contribution, Personal message and Invitation/request share identity, context, response and overflow anatomy. Content and source context precede actions; the feed owns the 32pt rhythm. Personal messages emphasize words with a quiet continuation; requests emphasize purpose with one neutral participation action. State controls truthful availability rather than arbitrary urgency.
+
+Contract: [Four feed patterns](../design-explorations/kwilt-home-feed-items/four-pattern-contract.md). Source: `src/features/shared-home/FeedItemParts.tsx` and the post/chore/message/request compositions. Review: `Home/Four Feed Patterns` Storybook, native Feed item lab, and the 46-variant review manager. Backend delivery records are not design-system component categories.
+
+Home trial update: soft content cards with attribution below, accepted for implementation by Andrew on September 9. `FeedItemSurface` uses owned Card with a quiet fill and no elevation; `FeedItemMetadata` sits 8pt below the card, with 32pt between whole items. This supersedes the earlier open-item containment choice, retaining four candidate patterns.
+
+
+### Home purpose-led composition trial (Candidate, September 9, 2026)
+
+Supersedes uniform soft-card anatomy for the current Home trial. Moments use a light outlined compactCard surface, contributions use a compact leading boundary, messages use quotation typography on a neutral surface, and invitations retain one explicit outline action. Smaller name/time and explicit audience share a byline region with 44pt reaction/conversation/overflow targets. Saved and responder details are revealed through the shared menu. See `docs/design-explorations/kwilt-home-feed-items/four-pattern-contract.md`; user acceptance is still required for canonical promotion.

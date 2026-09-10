@@ -1,0 +1,10 @@
+import {mkdir,copyFile,writeFile,readFile} from 'node:fs/promises';
+import path from 'node:path';
+const root=process.cwd(),output=path.join(root,'artifacts/home-sharing-review/feed-item-lab');
+await mkdir(path.join(output,'captures'),{recursive:true});
+for(const name of ['index.html','manager.css','manager.mjs','review-state.mjs']) await copyFile(path.join(root,'scripts/home-feed-review',name),path.join(output,name));
+await copyFile(path.join(root,'src/features/dev/homeFeedItemCatalog.json'),path.join(output,'catalog.json'));
+await copyFile(path.join(root,'docs/design-explorations/kwilt-home-feed-items/README.md'),path.join(output,'review-guide.md'));
+const catalog=JSON.parse(await readFile(path.join(output,'catalog.json'),'utf8'));
+await writeFile(path.join(output,'coverage.json'),JSON.stringify({semanticTypes:catalog.semanticTypeCount,reviewGroups:catalog.types.length,variants:catalog.variants.length,types:catalog.types.map(t=>({...t,variants:catalog.variants.filter(v=>v.typeId===t.id).map(v=>v.id)}))},null,2));
+console.log(`Built review manager: ${catalog.types.length} groups, ${catalog.variants.length} variants.`);

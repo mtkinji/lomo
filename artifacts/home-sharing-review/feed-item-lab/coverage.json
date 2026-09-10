@@ -1,0 +1,152 @@
+{
+  "semanticTypes": 10,
+  "reviewGroups": 11,
+  "variants": 46,
+  "types": [
+    {
+      "id": "text",
+      "label": "Text moment",
+      "semanticType": "moment",
+      "family": "Moment",
+      "description": "Ordinary authored words without a source attachment or media.",
+      "variants": [
+        "text-short",
+        "text-long",
+        "text-saved"
+      ]
+    },
+    {
+      "id": "photo",
+      "label": "Photo moment",
+      "semanticType": "moment",
+      "family": "Moment",
+      "description": "Media formats of the same authored moment type.",
+      "variants": [
+        "photo-landscape",
+        "photo-portrait",
+        "photo-square",
+        "photo-gallery",
+        "photo-unavailable"
+      ]
+    },
+    {
+      "id": "goal",
+      "label": "Goal completed",
+      "semanticType": "goal_completed",
+      "family": "Moment",
+      "description": "An authored reflection with a completed-goal attachment.",
+      "variants": [
+        "goal-reflection",
+        "goal-photo",
+        "goal-cheered"
+      ]
+    },
+    {
+      "id": "place",
+      "label": "Discovered place",
+      "semanticType": "place",
+      "family": "Moment",
+      "description": "An authored place attachment with explicit Explore-copy actions.",
+      "variants": [
+        "place-text",
+        "place-photo",
+        "place-imported"
+      ]
+    },
+    {
+      "id": "outing",
+      "label": "Explore outing",
+      "semanticType": "outing",
+      "family": "Moment",
+      "description": "An authored outing title and reflection; no invented route or visit facts.",
+      "variants": [
+        "outing-text",
+        "outing-photos",
+        "outing-followers"
+      ]
+    },
+    {
+      "id": "chores",
+      "label": "Chore update",
+      "semanticType": "chore_update",
+      "family": "Contribution",
+      "description": "Automatic household-only contributions and approval/reporting states.",
+      "variants": [
+        "chore-single",
+        "chore-pending",
+        "chore-group",
+        "chore-late"
+      ]
+    },
+    {
+      "id": "goal_note",
+      "label": "Encouragement note",
+      "semanticType": "goal_note",
+      "family": "Personal message",
+      "description": "Source-owned recipient content; source capability controls state and action.",
+      "variants": [
+        "goal-note-pending",
+        "goal-note-available",
+        "goal-note-settled",
+        "goal-note-expired",
+        "goal-note-unavailable"
+      ]
+    },
+    {
+      "id": "goal_checkin",
+      "label": "Goal check-in",
+      "semanticType": "goal_checkin",
+      "family": "Personal message",
+      "description": "Source-owned recipient content; source capability controls state and action.",
+      "variants": [
+        "goal-checkin-pending",
+        "goal-checkin-available",
+        "goal-checkin-settled",
+        "goal-checkin-expired",
+        "goal-checkin-unavailable"
+      ]
+    },
+    {
+      "id": "goal_invitation",
+      "label": "Goal invitation",
+      "semanticType": "goal_invitation",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action.",
+      "variants": [
+        "goal-invitation-pending",
+        "goal-invitation-available",
+        "goal-invitation-settled",
+        "goal-invitation-expired",
+        "goal-invitation-unavailable"
+      ]
+    },
+    {
+      "id": "game_turn",
+      "label": "Game turn",
+      "semanticType": "game_turn",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action.",
+      "variants": [
+        "game-turn-pending",
+        "game-turn-available",
+        "game-turn-settled",
+        "game-turn-expired",
+        "game-turn-unavailable"
+      ]
+    },
+    {
+      "id": "meal_choice_round",
+      "label": "Meal-choice request",
+      "semanticType": "meal_choice_round",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action.",
+      "variants": [
+        "meal-choice-round-pending",
+        "meal-choice-round-available",
+        "meal-choice-round-settled",
+        "meal-choice-round-expired",
+        "meal-choice-round-unavailable"
+      ]
+    }
+  ]
+}

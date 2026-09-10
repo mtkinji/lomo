@@ -216,6 +216,7 @@ async function removeAccountStorage(admin: AdminClient, userId: string) {
   };
   const targets = [
     { bucket: 'activity_attachments', prefix: userId },
+    { bucket: 'home-moments', prefix: userId },
     { bucket: 'hero_images', prefix: userId },
     { bucket: 'household-avatars', prefix: `account/${userId}` },
   ];

@@ -1,0 +1,1822 @@
+{
+  "schemaVersion": 1,
+  "revision": 10,
+  "semanticTypeCount": 10,
+  "description": "Current Home type and representative variant inventory; fictional review data.",
+  "types": [
+    {
+      "id": "text",
+      "label": "Text moment",
+      "semanticType": "moment",
+      "family": "Moment",
+      "description": "Ordinary authored words without a source attachment or media."
+    },
+    {
+      "id": "photo",
+      "label": "Photo moment",
+      "semanticType": "moment",
+      "family": "Moment",
+      "description": "Media formats of the same authored moment type."
+    },
+    {
+      "id": "goal",
+      "label": "Goal completed",
+      "semanticType": "goal_completed",
+      "family": "Moment",
+      "description": "An authored reflection with a completed-goal attachment."
+    },
+    {
+      "id": "place",
+      "label": "Discovered place",
+      "semanticType": "place",
+      "family": "Moment",
+      "description": "An authored place attachment with explicit Explore-copy actions."
+    },
+    {
+      "id": "outing",
+      "label": "Explore outing",
+      "semanticType": "outing",
+      "family": "Moment",
+      "description": "An authored outing title and reflection; no invented route or visit facts."
+    },
+    {
+      "id": "chores",
+      "label": "Chore update",
+      "semanticType": "chore_update",
+      "family": "Contribution",
+      "description": "Automatic household-only contributions and approval/reporting states."
+    },
+    {
+      "id": "goal_note",
+      "label": "Encouragement note",
+      "semanticType": "goal_note",
+      "family": "Personal message",
+      "description": "Source-owned recipient content; source capability controls state and action."
+    },
+    {
+      "id": "goal_checkin",
+      "label": "Goal check-in",
+      "semanticType": "goal_checkin",
+      "family": "Personal message",
+      "description": "Source-owned recipient content; source capability controls state and action."
+    },
+    {
+      "id": "goal_invitation",
+      "label": "Goal invitation",
+      "semanticType": "goal_invitation",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action."
+    },
+    {
+      "id": "game_turn",
+      "label": "Game turn",
+      "semanticType": "game_turn",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action."
+    },
+    {
+      "id": "meal_choice_round",
+      "label": "Meal-choice request",
+      "semanticType": "meal_choice_round",
+      "family": "Invitation / request",
+      "description": "Source-owned recipient content; source capability controls state and action."
+    }
+  ],
+  "variants": [
+    {
+      "id": "text-short",
+      "typeId": "text",
+      "name": "A tiny dinner tradition",
+      "family": "Moment",
+      "question": "Can this ordinary moment stand on its own without an achievement or photograph?",
+      "tags": [
+        "household",
+        "no responses"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-text-short",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Maya",
+        "text": "New dinner rule from the kids: everyone tells one tiny good thing from their day. Tonight\u2019s winner was finding a ladybug.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "text-long",
+      "typeId": "text",
+      "name": "A longer reflection",
+      "family": "Moment",
+      "question": "Does Read more preserve a coherent beginning and expand without hiding actions?",
+      "tags": [
+        "chosen people",
+        "long text",
+        "reply"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-text-long",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alexandra Bennett-Williams",
+        "text": "Tonight we tried going for a walk without deciding where we were headed. At the first corner, the kids voted left. At the next one, someone spotted a cat and the route changed again. We stopped to watch the water in the gutter, counted porch swings, and debated which tree would make the best clubhouse. Nothing particularly remarkable happened. But nobody asked for a screen, and we got home talking about doing it again. I want to remember that making room for family time does not always mean planning something impressive. Sometimes it just means putting our shoes on and leaving a little room for surprise.",
+        "audience": "people",
+        "householdId": null,
+        "householdName": null,
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 1,
+        "myReaction": null,
+        "replyPreview": {
+          "id": "fictional-reply",
+          "authorId": "fictional-maya",
+          "authorName": "Maya",
+          "text": "Leaving room for surprise is the part I needed to hear.",
+          "createdAt": "2026-09-09T18:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "text-saved",
+      "typeId": "text",
+      "name": "Already appreciated and saved",
+      "family": "Moment",
+      "question": "Are selected response and save states clear without becoming visually loud?",
+      "tags": [
+        "followers",
+        "saved",
+        "cheered"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-text-saved",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "We made pancakes for dinner. Unanimous vote to do this again.",
+        "audience": "followers",
+        "householdId": null,
+        "householdName": null,
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 3,
+        "replyCount": 0,
+        "myReaction": "heart",
+        "saved": true,
+        "reactors": [
+          {
+            "id": "m",
+            "name": "Maya"
+          },
+          {
+            "id": "b",
+            "name": "Ben"
+          }
+        ]
+      }
+    },
+    {
+      "id": "photo-landscape",
+      "typeId": "photo",
+      "name": "The unplanned afternoon",
+      "family": "Moment",
+      "question": "Does the image lead while caption and conversation remain one story?",
+      "tags": [
+        "landscape",
+        "household",
+        "reply"
+      ],
+      "revision": 10,
+      "note": "",
+      "post": {
+        "id": "fixture-photo-landscape",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "We only meant to walk for ten minutes. Then everyone found a rock worth keeping.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [
+          {
+            "path": "canyon-landscape",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 3,
+        "replyCount": 1,
+        "myReaction": null,
+        "reactors": [
+          {
+            "id": "m",
+            "name": "Maya"
+          },
+          {
+            "id": "b",
+            "name": "Ben"
+          }
+        ],
+        "replyPreview": {
+          "id": "fictional-reply",
+          "authorId": "fictional-maya",
+          "authorName": "Maya",
+          "text": "The best kind of afternoon.",
+          "createdAt": "2026-09-09T18:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "photo-portrait",
+      "typeId": "photo",
+      "name": "Portrait composition",
+      "family": "Moment",
+      "question": "Does a tall frame preserve context and a reachable response row?",
+      "tags": [
+        "portrait frame",
+        "no responses"
+      ],
+      "revision": 10,
+      "note": "Aspect-ratio stress fixture: the existing landscape asset is reused under synthetic portrait metadata; this is a layout test, not a new portrait photo.",
+      "post": {
+        "id": "fixture-photo-portrait",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "A closer look at the water was worth the extra five minutes.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [
+          {
+            "path": "canyon-portrait",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 720,
+            "height": 1280
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "photo-square",
+      "typeId": "photo",
+      "name": "A photograph without a caption",
+      "family": "Moment",
+      "question": "Is person, audience and image enough when the author adds no words?",
+      "tags": [
+        "square frame",
+        "no caption",
+        "followers"
+      ],
+      "revision": 10,
+      "note": "Square frame stress fixture reuses the existing canyon image.",
+      "post": {
+        "id": "fixture-photo-square",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "",
+        "audience": "followers",
+        "householdId": null,
+        "householdName": null,
+        "attachment": null,
+        "media": [
+          {
+            "path": "canyon-square",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1000,
+            "height": 1000
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "photo-gallery",
+      "typeId": "photo",
+      "name": "Four views in one moment",
+      "family": "Moment",
+      "question": "Can readers use buttons or swipe, retain their place and understand mixed shapes?",
+      "tags": [
+        "4 photos",
+        "mixed aspect",
+        "legacy dimensions"
+      ],
+      "revision": 10,
+      "note": "The same local source image is reused to exercise paging and frame metadata; these are not four distinct camera captures.",
+      "post": {
+        "id": "fixture-photo-gallery",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "Four little details from the same afternoon.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [
+          {
+            "path": "canyon-landscape",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          },
+          {
+            "path": "canyon-tall",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 720,
+            "height": 1280
+          },
+          {
+            "path": "canyon-square",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1000,
+            "height": 1000
+          },
+          {
+            "path": "canyon-legacy",
+            "alt": "Canyon stream, older upload without size metadata."
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null,
+        "saved": true
+      }
+    },
+    {
+      "id": "photo-unavailable",
+      "typeId": "photo",
+      "name": "A photo that cannot load",
+      "family": "Moment",
+      "question": "Is the failed image honest, stable in size, and recoverable without losing the post?",
+      "tags": [
+        "unavailable media",
+        "retry"
+      ],
+      "revision": 10,
+      "note": "The local media resolver intentionally rejects this fixture; Retry remains unavailable by design.",
+      "post": {
+        "id": "fixture-photo-unavailable",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "The story should still be readable if the photo cannot load.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [
+          {
+            "path": "missing-photo",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "goal-reflection",
+      "typeId": "goal",
+      "name": "A first 5K",
+      "family": "Moment",
+      "question": "Does milestone context precede the right content, and do responses fit the author\u2019s reflection?",
+      "tags": [
+        "chosen people",
+        "reflection"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-goal-reflection",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "David",
+        "text": "Finished my first 5K without stopping. Six weeks ago I couldn\u2019t make it around the block. Thanks for the early-morning encouragement.",
+        "audience": "people",
+        "householdId": null,
+        "householdName": null,
+        "attachment": {
+          "kind": "goal_completed",
+          "title": "Run my first 5K"
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "goal-photo",
+      "typeId": "goal",
+      "name": "A milestone with a photograph",
+      "family": "Moment",
+      "question": "Does milestone context precede the right content, and do responses fit the author\u2019s reflection?",
+      "tags": [
+        "photo",
+        "household"
+      ],
+      "revision": 10,
+      "note": "",
+      "post": {
+        "id": "fixture-goal-photo",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "David",
+        "text": "Our goal was one outdoor afternoon together every week. Today made twelve.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": {
+          "kind": "goal_completed",
+          "title": "Twelve outdoor afternoons"
+        },
+        "media": [
+          {
+            "path": "canyon-landscape",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "goal-cheered",
+      "typeId": "goal",
+      "name": "A milestone already appreciated",
+      "family": "Moment",
+      "question": "Does milestone context precede the right content, and do responses fit the author\u2019s reflection?",
+      "tags": [
+        "saved",
+        "cheered",
+        "followers"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-goal-cheered",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "David",
+        "text": "Finished the final chapter. Proud that I kept making a little time for this.",
+        "audience": "followers",
+        "householdId": null,
+        "householdName": null,
+        "attachment": {
+          "kind": "goal_completed",
+          "title": "Finish a book"
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 2,
+        "replyCount": 0,
+        "myReaction": "heart",
+        "saved": true
+      }
+    },
+    {
+      "id": "place-text",
+      "typeId": "place",
+      "name": "A place worth returning to",
+      "family": "Moment",
+      "question": "Can you distinguish saving a post, copying a place to Explore, and viewing the map?",
+      "tags": [
+        "text",
+        "not imported"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-place-text",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "Found a quiet picnic spot beside the creek. Next time we\u2019re bringing lunch.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": {
+          "kind": "place",
+          "name": "A little canyon clearing",
+          "latitude": 40,
+          "longitude": -111
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 1,
+        "myReaction": null,
+        "replyPreview": {
+          "id": "fictional-reply",
+          "authorId": "fictional-maya",
+          "authorName": "Maya",
+          "text": "Saturday lunch here?",
+          "createdAt": "2026-09-09T18:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "place-photo",
+      "typeId": "place",
+      "name": "Show the place",
+      "family": "Moment",
+      "question": "Do the photo, description and source actions form one clear item?",
+      "tags": [
+        "photo",
+        "chosen people"
+      ],
+      "revision": 10,
+      "note": "",
+      "post": {
+        "id": "fixture-place-photo",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "Shallow water and a little shade. A good place to slow down.",
+        "audience": "people",
+        "householdId": null,
+        "householdName": null,
+        "attachment": {
+          "kind": "place",
+          "name": "A little canyon clearing",
+          "latitude": 40,
+          "longitude": -111
+        },
+        "media": [
+          {
+            "path": "canyon-landscape",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "place-imported",
+      "typeId": "place",
+      "name": "Already saved to Explore",
+      "family": "Moment",
+      "question": "Does View in Explore clearly reflect the completed import, separately from bookmarking?",
+      "tags": [
+        "imported",
+        "saved",
+        "cheered"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-place-imported",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "Keeping this one for our next free afternoon.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": {
+          "kind": "place",
+          "name": "A little canyon clearing",
+          "latitude": 40,
+          "longitude": -111
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 1,
+        "replyCount": 0,
+        "myReaction": "heart",
+        "savedToExplore": true,
+        "saved": true
+      }
+    },
+    {
+      "id": "outing-text",
+      "typeId": "outing",
+      "name": "An ordinary outing",
+      "family": "Moment",
+      "question": "Is the outing context useful without adding invented distance, duration or route facts?",
+      "tags": [
+        "text",
+        "household"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-outing-text",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "A slow walk after dinner. We let the kids choose every turn.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": {
+          "kind": "outing",
+          "title": "Evening wander"
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "outing-photos",
+      "typeId": "outing",
+      "name": "An outing in photos",
+      "family": "Moment",
+      "question": "How does an outing title fit alongside a gallery and the author\u2019s story?",
+      "tags": [
+        "gallery",
+        "reply"
+      ],
+      "revision": 10,
+      "note": "",
+      "post": {
+        "id": "fixture-outing-photos",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "We followed the sound of the water and stayed a while.",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": {
+          "kind": "outing",
+          "title": "An afternoon by the creek"
+        },
+        "media": [
+          {
+            "path": "canyon-landscape",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1280,
+            "height": 720
+          },
+          {
+            "path": "canyon-square",
+            "alt": "Sunlit water flowing between rocks in a canyon stream.",
+            "width": 1000,
+            "height": 1000
+          }
+        ],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 1,
+        "myReaction": null,
+        "replyPreview": {
+          "id": "fictional-reply",
+          "authorId": "fictional-maya",
+          "authorName": "Maya",
+          "text": "Let\u2019s do this again next weekend.",
+          "createdAt": "2026-09-09T18:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "outing-followers",
+      "typeId": "outing",
+      "name": "An outing shared more widely",
+      "family": "Moment",
+      "question": "Is the audience clear without making the post feel public to everyone?",
+      "tags": [
+        "followers",
+        "no responses"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-outing-followers",
+        "kind": "moment",
+        "authorId": "fictional-alex",
+        "authorName": "Alex",
+        "text": "A small detour on the way home turned into the best part of the day.",
+        "audience": "followers",
+        "householdId": null,
+        "householdName": null,
+        "attachment": {
+          "kind": "outing",
+          "title": "The long way home"
+        },
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null
+      }
+    },
+    {
+      "id": "chore-single",
+      "typeId": "chores",
+      "name": "An everyday contribution",
+      "family": "Contribution",
+      "question": "Can readers distinguish completed work, pending approval and when the work was reported?",
+      "tags": [
+        "completed",
+        "single"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-chore-single",
+        "kind": "chore_update",
+        "authorId": null,
+        "authorName": "Sam",
+        "text": "",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 1,
+        "replyCount": 0,
+        "myReaction": null,
+        "choreUpdate": {
+          "items": [
+            {
+              "occurrenceId": "fictional-take-out-the-recycling",
+              "title": "Take out the recycling",
+              "state": "completed",
+              "scheduledDate": null,
+              "reportedEarlier": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chore-pending",
+      "typeId": "chores",
+      "name": "Marked done; awaiting approval",
+      "family": "Contribution",
+      "question": "Can readers distinguish completed work, pending approval and when the work was reported?",
+      "tags": [
+        "pending only",
+        "single"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-chore-pending",
+        "kind": "chore_update",
+        "authorId": null,
+        "authorName": "Sam",
+        "text": "",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 0,
+        "replyCount": 0,
+        "myReaction": null,
+        "choreUpdate": {
+          "items": [
+            {
+              "occurrenceId": "fictional-water-the-garden",
+              "title": "Water the garden",
+              "state": "waiting_approval",
+              "scheduledDate": null,
+              "reportedEarlier": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chore-group",
+      "typeId": "chores",
+      "name": "Two done; one awaiting approval",
+      "family": "Contribution",
+      "question": "Can readers distinguish completed work, pending approval and when the work was reported?",
+      "tags": [
+        "mixed approval",
+        "grouped",
+        "expand"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-chore-group",
+        "kind": "chore_update",
+        "authorId": null,
+        "authorName": "Sam",
+        "text": "",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 1,
+        "replyCount": 0,
+        "myReaction": null,
+        "choreUpdate": {
+          "items": [
+            {
+              "occurrenceId": "fictional-clear-the-dinner-table",
+              "title": "Clear the dinner table",
+              "state": "completed",
+              "scheduledDate": null,
+              "reportedEarlier": false
+            },
+            {
+              "occurrenceId": "fictional-water-the-garden",
+              "title": "Water the garden",
+              "state": "waiting_approval",
+              "scheduledDate": null,
+              "reportedEarlier": false
+            },
+            {
+              "occurrenceId": "fictional-put-away-clean-towels",
+              "title": "Put away clean towels",
+              "state": "completed",
+              "scheduledDate": null,
+              "reportedEarlier": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chore-late",
+      "typeId": "chores",
+      "name": "An earlier contribution reported today",
+      "family": "Contribution",
+      "question": "Can readers distinguish completed work, pending approval and when the work was reported?",
+      "tags": [
+        "late report",
+        "completed"
+      ],
+      "revision": 8,
+      "note": "",
+      "post": {
+        "id": "fixture-chore-late",
+        "kind": "chore_update",
+        "authorId": null,
+        "authorName": "Sam",
+        "text": "",
+        "audience": "household",
+        "householdId": "fictional-home",
+        "householdName": "Our household",
+        "attachment": null,
+        "media": [],
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "reactionCount": 1,
+        "replyCount": 0,
+        "myReaction": null,
+        "choreUpdate": {
+          "items": [
+            {
+              "occurrenceId": "fictional-sweep-the-porch",
+              "title": "Sweep the porch",
+              "state": "completed",
+              "scheduledDate": "2026-09-07",
+              "reportedEarlier": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "goal-note-pending",
+      "typeId": "goal_note",
+      "name": "Needs a response",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "pending",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-note-pending",
+        "eventKind": "goal_note",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_feed_event",
+        "sourceEntityId": "fictional-goal_note",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "Maya cheered you on",
+        "body": "\u201cI noticed you went for your walk even after that long day. I\u2019m proud of how you keep showing up.\u201d\n\nOn your goal: Make room for a daily walk",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "pending",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-note-available",
+      "typeId": "goal_note",
+      "name": "Available to open",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "available",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-note-available",
+        "eventKind": "goal_note",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_feed_event",
+        "sourceEntityId": "fictional-goal_note",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "Maya cheered you on",
+        "body": "\u201cI noticed you went for your walk even after that long day. I\u2019m proud of how you keep showing up.\u201d\n\nOn your goal: Make room for a daily walk",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "available",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-note-settled",
+      "typeId": "goal_note",
+      "name": "Already handled",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "settled",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-note-settled",
+        "eventKind": "goal_note",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_feed_event",
+        "sourceEntityId": "fictional-goal_note",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "Maya cheered you on",
+        "body": "\u201cI noticed you went for your walk even after that long day. I\u2019m proud of how you keep showing up.\u201d\n\nOn your goal: Make room for a daily walk",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "settled",
+        "settledReason": "handled",
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": "2026-09-09T18:00:00.000Z",
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-note-expired",
+      "typeId": "goal_note",
+      "name": "No longer current",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "expired",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-note-expired",
+        "eventKind": "goal_note",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_feed_event",
+        "sourceEntityId": "fictional-goal_note",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "Maya cheered you on",
+        "body": "\u201cI noticed you went for your walk even after that long day. I\u2019m proud of how you keep showing up.\u201d\n\nOn your goal: Make room for a daily walk",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "expired",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": "2026-09-09T18:00:00.000Z",
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-note-unavailable",
+      "typeId": "goal_note",
+      "name": "Source unavailable",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "unavailable",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-note-unavailable",
+        "eventKind": "goal_note",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_feed_event",
+        "sourceEntityId": "fictional-goal_note",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "Maya cheered you on",
+        "body": "\u201cI noticed you went for your walk even after that long day. I\u2019m proud of how you keep showing up.\u201d\n\nOn your goal: Make room for a daily walk",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "unavailable",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-checkin-pending",
+      "typeId": "goal_checkin",
+      "name": "Needs a response",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "pending",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-checkin-pending",
+        "eventKind": "goal_checkin",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_checkin",
+        "sourceEntityId": "fictional-goal_checkin",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David shared a check-in",
+        "body": "\u201cThree walks this week. The short one on Tuesday still counted, and that helped me keep going.\u201d\n\nOn your shared goal: Evening walks",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "pending",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-checkin-available",
+      "typeId": "goal_checkin",
+      "name": "Available to open",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "available",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-checkin-available",
+        "eventKind": "goal_checkin",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_checkin",
+        "sourceEntityId": "fictional-goal_checkin",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David shared a check-in",
+        "body": "\u201cThree walks this week. The short one on Tuesday still counted, and that helped me keep going.\u201d\n\nOn your shared goal: Evening walks",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "available",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-checkin-settled",
+      "typeId": "goal_checkin",
+      "name": "Already handled",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "settled",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-checkin-settled",
+        "eventKind": "goal_checkin",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_checkin",
+        "sourceEntityId": "fictional-goal_checkin",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David shared a check-in",
+        "body": "\u201cThree walks this week. The short one on Tuesday still counted, and that helped me keep going.\u201d\n\nOn your shared goal: Evening walks",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "settled",
+        "settledReason": "handled",
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": "2026-09-09T18:00:00.000Z",
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-checkin-expired",
+      "typeId": "goal_checkin",
+      "name": "No longer current",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "expired",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-checkin-expired",
+        "eventKind": "goal_checkin",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_checkin",
+        "sourceEntityId": "fictional-goal_checkin",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David shared a check-in",
+        "body": "\u201cThree walks this week. The short one on Tuesday still counted, and that helped me keep going.\u201d\n\nOn your shared goal: Evening walks",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "expired",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": "2026-09-09T18:00:00.000Z",
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-checkin-unavailable",
+      "typeId": "goal_checkin",
+      "name": "Source unavailable",
+      "family": "Personal message",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "unavailable",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-checkin-unavailable",
+        "eventKind": "goal_checkin",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_checkin",
+        "sourceEntityId": "fictional-goal_checkin",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David shared a check-in",
+        "body": "\u201cThree walks this week. The short one on Tuesday still counted, and that helped me keep going.\u201d\n\nOn your shared goal: Evening walks",
+        "destination": {
+          "kind": "goal",
+          "goalId": "fictional-goal"
+        },
+        "state": "unavailable",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-invitation-pending",
+      "typeId": "goal_invitation",
+      "name": "Needs a response",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "pending",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-invitation-pending",
+        "eventKind": "goal_invitation",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_invite",
+        "sourceEntityId": "fictional-goal_invitation",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David invited you to Evening walks",
+        "body": "\u201cA short walk after dinner, a few nights a week. Want to do this together?\u201d",
+        "destination": {
+          "kind": "goal_invite",
+          "inviteCode": "fictional-invite"
+        },
+        "state": "pending",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-invitation-available",
+      "typeId": "goal_invitation",
+      "name": "Available to open",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "available",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-invitation-available",
+        "eventKind": "goal_invitation",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_invite",
+        "sourceEntityId": "fictional-goal_invitation",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David invited you to Evening walks",
+        "body": "\u201cA short walk after dinner, a few nights a week. Want to do this together?\u201d",
+        "destination": {
+          "kind": "goal_invite",
+          "inviteCode": "fictional-invite"
+        },
+        "state": "available",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-invitation-settled",
+      "typeId": "goal_invitation",
+      "name": "Already handled",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "settled",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-invitation-settled",
+        "eventKind": "goal_invitation",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_invite",
+        "sourceEntityId": "fictional-goal_invitation",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David invited you to Evening walks",
+        "body": "\u201cA short walk after dinner, a few nights a week. Want to do this together?\u201d",
+        "destination": {
+          "kind": "goal_invite",
+          "inviteCode": "fictional-invite"
+        },
+        "state": "settled",
+        "settledReason": "handled",
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": "2026-09-09T18:00:00.000Z",
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-invitation-expired",
+      "typeId": "goal_invitation",
+      "name": "No longer current",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "expired",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-invitation-expired",
+        "eventKind": "goal_invitation",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_invite",
+        "sourceEntityId": "fictional-goal_invitation",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David invited you to Evening walks",
+        "body": "\u201cA short walk after dinner, a few nights a week. Want to do this together?\u201d",
+        "destination": {
+          "kind": "goal_invite",
+          "inviteCode": "fictional-invite"
+        },
+        "state": "expired",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": "2026-09-09T18:00:00.000Z",
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "goal-invitation-unavailable",
+      "typeId": "goal_invitation",
+      "name": "Source unavailable",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "unavailable",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-goal-invitation-unavailable",
+        "eventKind": "goal_invitation",
+        "sourceCapability": "goals",
+        "sourceEntityType": "goal_invite",
+        "sourceEntityId": "fictional-goal_invitation",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "David",
+        "title": "David invited you to Evening walks",
+        "body": "\u201cA short walk after dinner, a few nights a week. Want to do this together?\u201d",
+        "destination": {
+          "kind": "goal_invite",
+          "inviteCode": "fictional-invite"
+        },
+        "state": "unavailable",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "game-turn-pending",
+      "typeId": "game_turn",
+      "name": "Needs a response",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "pending",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-game-turn-pending",
+        "eventKind": "game_turn",
+        "sourceCapability": "games",
+        "sourceEntityType": "game_session",
+        "sourceEntityId": "fictional-game_turn",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "It\u2019s your turn with Maya",
+        "body": "Your shared game is ready for your next move. Pick up where you left off.",
+        "destination": {
+          "kind": "game_room",
+          "sessionId": "fictional-game"
+        },
+        "state": "pending",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "game-turn-available",
+      "typeId": "game_turn",
+      "name": "Available to open",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "available",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-game-turn-available",
+        "eventKind": "game_turn",
+        "sourceCapability": "games",
+        "sourceEntityType": "game_session",
+        "sourceEntityId": "fictional-game_turn",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "It\u2019s your turn with Maya",
+        "body": "Your shared game is ready for your next move. Pick up where you left off.",
+        "destination": {
+          "kind": "game_room",
+          "sessionId": "fictional-game"
+        },
+        "state": "available",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "game-turn-settled",
+      "typeId": "game_turn",
+      "name": "Already handled",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "settled",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-game-turn-settled",
+        "eventKind": "game_turn",
+        "sourceCapability": "games",
+        "sourceEntityType": "game_session",
+        "sourceEntityId": "fictional-game_turn",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "It\u2019s your turn with Maya",
+        "body": "Your shared game is ready for your next move. Pick up where you left off.",
+        "destination": {
+          "kind": "game_room",
+          "sessionId": "fictional-game"
+        },
+        "state": "settled",
+        "settledReason": "handled",
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": "2026-09-09T18:00:00.000Z",
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "game-turn-expired",
+      "typeId": "game_turn",
+      "name": "No longer current",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "expired",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-game-turn-expired",
+        "eventKind": "game_turn",
+        "sourceCapability": "games",
+        "sourceEntityType": "game_session",
+        "sourceEntityId": "fictional-game_turn",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "It\u2019s your turn with Maya",
+        "body": "Your shared game is ready for your next move. Pick up where you left off.",
+        "destination": {
+          "kind": "game_room",
+          "sessionId": "fictional-game"
+        },
+        "state": "expired",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": "2026-09-09T18:00:00.000Z",
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "game-turn-unavailable",
+      "typeId": "game_turn",
+      "name": "Source unavailable",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "unavailable",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-game-turn-unavailable",
+        "eventKind": "game_turn",
+        "sourceCapability": "games",
+        "sourceEntityType": "game_session",
+        "sourceEntityId": "fictional-game_turn",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Maya",
+        "title": "It\u2019s your turn with Maya",
+        "body": "Your shared game is ready for your next move. Pick up where you left off.",
+        "destination": {
+          "kind": "game_room",
+          "sessionId": "fictional-game"
+        },
+        "state": "unavailable",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "meal-choice-round-pending",
+      "typeId": "meal_choice_round",
+      "name": "Needs a response",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "pending",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-meal-choice-round-pending",
+        "eventKind": "meal_choice_round",
+        "sourceCapability": "meal-planning",
+        "sourceEntityType": "meal_choice_round",
+        "sourceEntityId": "fictional-meal_choice_round",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Alex",
+        "title": "Help choose dinner",
+        "body": "Alex shared a meal-choice round for tonight. Open it to see the options and choose what sounds good.",
+        "destination": {
+          "kind": "meal_choice",
+          "roundId": "fictional-meal"
+        },
+        "state": "pending",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "meal-choice-round-available",
+      "typeId": "meal_choice_round",
+      "name": "Available to open",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "available",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-meal-choice-round-available",
+        "eventKind": "meal_choice_round",
+        "sourceCapability": "meal-planning",
+        "sourceEntityType": "meal_choice_round",
+        "sourceEntityId": "fictional-meal_choice_round",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Alex",
+        "title": "Help choose dinner",
+        "body": "Alex shared a meal-choice round for tonight. Open it to see the options and choose what sounds good.",
+        "destination": {
+          "kind": "meal_choice",
+          "roundId": "fictional-meal"
+        },
+        "state": "available",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "meal-choice-round-settled",
+      "typeId": "meal_choice_round",
+      "name": "Already handled",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "settled",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-meal-choice-round-settled",
+        "eventKind": "meal_choice_round",
+        "sourceCapability": "meal-planning",
+        "sourceEntityType": "meal_choice_round",
+        "sourceEntityId": "fictional-meal_choice_round",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Alex",
+        "title": "Help choose dinner",
+        "body": "Alex shared a meal-choice round for tonight. Open it to see the options and choose what sounds good.",
+        "destination": {
+          "kind": "meal_choice",
+          "roundId": "fictional-meal"
+        },
+        "state": "settled",
+        "settledReason": "handled",
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": "2026-09-09T18:00:00.000Z",
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "meal-choice-round-expired",
+      "typeId": "meal_choice_round",
+      "name": "No longer current",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "expired",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-meal-choice-round-expired",
+        "eventKind": "meal_choice_round",
+        "sourceCapability": "meal-planning",
+        "sourceEntityType": "meal_choice_round",
+        "sourceEntityId": "fictional-meal_choice_round",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Alex",
+        "title": "Help choose dinner",
+        "body": "Alex shared a meal-choice round for tonight. Open it to see the options and choose what sounds good.",
+        "destination": {
+          "kind": "meal_choice",
+          "roundId": "fictional-meal"
+        },
+        "state": "expired",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": "2026-09-09T18:00:00.000Z",
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    },
+    {
+      "id": "meal-choice-round-unavailable",
+      "typeId": "meal_choice_round",
+      "name": "Source unavailable",
+      "family": "Invitation / request",
+      "question": "Does the item make its current availability and next action clear without offering a dead action?",
+      "tags": [
+        "unavailable",
+        "source owned"
+      ],
+      "revision": 8,
+      "note": "Supported renderer-state fixture. This does not assert that every source producer currently emits every state combination.",
+      "delivery": {
+        "id": "fixture-meal-choice-round-unavailable",
+        "eventKind": "meal_choice_round",
+        "sourceCapability": "meal-planning",
+        "sourceEntityType": "meal_choice_round",
+        "sourceEntityId": "fictional-meal_choice_round",
+        "actorUserId": "fictional-sender",
+        "actorDisplayName": "Alex",
+        "title": "Help choose dinner",
+        "body": "Alex shared a meal-choice round for tonight. Open it to see the options and choose what sounds good.",
+        "destination": {
+          "kind": "meal_choice",
+          "roundId": "fictional-meal"
+        },
+        "state": "unavailable",
+        "settledReason": null,
+        "createdAt": "2026-09-09T18:00:00.000Z",
+        "updatedAt": "2026-09-09T18:00:00.000Z",
+        "settledAt": null,
+        "expiresAt": null,
+        "retainUntil": "2026-10-09T18:00:00.000Z"
+      }
+    }
+  ]
+}

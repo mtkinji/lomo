@@ -1,0 +1,8 @@
+PASS src/features/shared-home/useSharedLife.test.tsx
+PASS src/features/shared-home/SharedLifeBrowser.test.tsx
+
+Test Suites: 2 passed, 2 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        1.559 s
+Ran all test suites matching /src\/features\/shared-home\/useSharedLife.test.tsx|src\/features\/shared-home\/SharedLifeBrowser.test.tsx/i.

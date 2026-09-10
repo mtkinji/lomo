@@ -8,9 +8,9 @@ export type SharedHomeState = 'pending' | 'available' | 'settled' | 'expired' | 
 
 export type SharedHomeDelivery = {
   id: string;
-  eventKind: 'goal_invitation' | 'game_turn' | 'goal_checkin' | 'meal_choice_round';
+  eventKind: 'goal_invitation' | 'game_turn' | 'goal_checkin' | 'goal_note' | 'meal_choice_round';
   sourceCapability: 'goals' | 'games' | 'meal-planning';
-  sourceEntityType: 'goal_invite' | 'game_session' | 'goal_checkin' | 'meal_choice_round';
+  sourceEntityType: 'goal_invite' | 'game_session' | 'goal_checkin' | 'goal_feed_event' | 'meal_choice_round';
   sourceEntityId: string;
   actorUserId?: string | null;
   actorDisplayName: string | null;

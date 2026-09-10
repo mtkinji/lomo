@@ -1,6 +1,6 @@
 {
   "name": "kwilt",
-  "version": "1.0.121",
+  "version": "1.0.122",
   "main": "index.ts",
   "engines": {
     "node": ">=22.13.0 <23"
@@ -117,6 +117,7 @@
     "expo-file-system": "~55.0.24",
     "expo-font": "~55.0.8",
     "expo-haptics": "~55.0.16",
+    "expo-image-manipulator": "~55.0.21",
     "expo-image-picker": "~55.0.22",
     "expo-keep-awake": "~55.0.8",
     "expo-linear-gradient": "~55.0.16",

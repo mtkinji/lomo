@@ -5,6 +5,10 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { HomeFeedItemLab } from './HomeFeedItemLab';
+import { HomeConnectedPreview } from './HomeConnectedPreview';
+import { HomeChorePreview } from './HomeChorePreview';
+import { offerHomeMoment } from '../shared-home/sharedLifeCelebration';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -205,6 +209,10 @@ export function DevToolsScreen() {
   const authUserId = useAppStore((state) => state.authIdentity?.userId ?? 'signed-out');
   const { openMenu } = useCapabilityMenuActions();
 
+  const [homeConnectedPreview,setHomeConnectedPreview]=useState(route.params?.homePreview === "1");
+  const [homeItemLab, setHomeItemLab] = useState(route.params?.homeItems === '1');
+  useEffect(() => { if (route.params?.homeItems === '1') setHomeItemLab(true); }, [route.params?.homeItems, route.params?.homeItemId]);
+  const [homeChorePreview, setHomeChorePreview] = useState(false);
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
@@ -1238,6 +1246,17 @@ export function DevToolsScreen() {
               <Button variant="secondary" onPress={() => celebrateGoalCompleted('Test Goal')} style={styles.cardAction}>
                 <ButtonLabel size="md">Goal Completed 🏆</ButtonLabel>
               </Button>
+              <Button variant="secondary" onPress={() => {
+                const userId = useAppStore.getState().authIdentity?.userId;
+                if (userId) offerHomeMoment(userId, { kind: 'goal_completed', title: 'Finish the garden' }, `preview:${Date.now()}`);
+              }} style={styles.cardAction}>
+                <ButtonLabel size="md">Preview Home sharing celebration</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => { navigation.setParams({ homeCapture: undefined, homeItemId: undefined }); setHomeItemLab(true); }} style={styles.cardAction}>Review Home feed items</Button>
+              <Button variant="secondary" onPress={() => setHomeConnectedPreview(true)} style={styles.cardAction}>Preview Home connected moments</Button>
+              <Button variant="secondary" onPress={() => setHomeChorePreview(true)} style={styles.cardAction}>
+                <ButtonLabel size="md">Preview automatic chore updates</ButtonLabel>
+              </Button>
               <Button variant="secondary" onPress={() => celebrateActivityCompleted('Test To-do')} style={styles.cardAction}>
                 <ButtonLabel size="md">To-do Completed ✨</ButtonLabel>
               </Button>
@@ -1827,6 +1846,9 @@ export function DevToolsScreen() {
           InteractionManager.runAfterInteractions(openMenu);
         }}
       />
+      {homeItemLab ? <HomeFeedItemLab exampleId={route.params?.homeItemId} captureOnly={route.params?.homeCapture === "1"} onClose={() => setHomeItemLab(false)}/> : null}
+      {homeConnectedPreview ? <HomeConnectedPreview onClose={()=>setHomeConnectedPreview(false)}/> : null}
+      {homeChorePreview ? <HomeChorePreview onClose={() => setHomeChorePreview(false)} /> : null}
     </AppShell>
   );
 }

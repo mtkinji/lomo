@@ -1,3 +1,23 @@
+// Callback wiring is isolated from native menu measurement; menu opening is exercised in Simulator.
+jest.mock("../../ui/DropdownMenu", () => {
+  const { View, Text, Pressable } = require("react-native");
+  return {
+    DropdownMenu: View,
+    DropdownMenuTrigger: View,
+    DropdownMenuContent: View,
+    DropdownMenuItem: ({
+      label,
+      onPress,
+    }: {
+      label: string;
+      onPress: () => void;
+    }) => (
+      <Pressable onPress={onPress}>
+        <Text>{label}</Text>
+      </Pressable>
+    ),
+  };
+});
 import { fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -55,7 +75,7 @@ describe('SharedHomeContent', () => {
       />,
     );
     expect(view.getByText('Needs you')).toBeTruthy();
-    expect(view.getByText('Games · 2h ago')).toBeTruthy();
+    expect(view.getByText(/ · 2h/)).toBeTruthy();
     expect(view.queryByText('Unread')).toBeNull();
     fireEvent.press(view.getByText('Take your turn'));
     expect(onOpen).toHaveBeenCalledWith(pending);
@@ -75,8 +95,8 @@ describe('SharedHomeContent', () => {
         onRefresh={jest.fn()}
       />,
     );
-    expect(view.getByText('Shared with you')).toBeTruthy();
-    expect(view.getByText('Unavailable')).toBeTruthy();
+    expect(view.getAllByText('Shared with you')[0]).toBeTruthy();
+    expect(view.getByText('Turn unavailable')).toBeTruthy();
     expect(view.queryByText('Take your turn')).toBeNull();
   });
 
@@ -95,9 +115,9 @@ describe('SharedHomeContent', () => {
         onRefresh={jest.fn()}
       />,
     );
-    expect(view.getByText('Shared with you')).toBeTruthy();
-    expect(view.getByText('David')).toBeTruthy();
-    expect(view.getByText('Goals · 1h ago')).toBeTruthy();
+    expect(view.getAllByText('Shared with you')[0]).toBeTruthy();
+    expect(view.getByText('David · 1h')).toBeTruthy();
+    expect(view.getByText(/ · 1h/)).toBeTruthy();
     expect(view.getByText('Plan our family camping trip')).toBeTruthy();
     fireEvent.press(view.getByText('Open Goal'));
     expect(onOpen).toHaveBeenCalledWith(checkin);
@@ -118,7 +138,9 @@ describe('SharedHomeContent', () => {
         onRefresh={jest.fn()}
       />,
     );
-    fireEvent.press(view.getByLabelText('Report content from David'));
+    expect(view.getByLabelText("Options for David's item")).toBeTruthy();
+    expect(onReport).not.toHaveBeenCalled();
+    fireEvent.press(view.getByText('Report'));
     expect(onReport).toHaveBeenCalledWith(checkin);
   });
 

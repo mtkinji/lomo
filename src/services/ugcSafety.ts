@@ -19,7 +19,9 @@ export type UgcReportTargetKind =
   | 'user'
   | 'household_member'
   | 'meal_reaction'
-  | 'guest_meal_feedback';
+  | 'guest_meal_feedback'
+  | 'home_post'
+  | 'home_reply';
 
 export type UgcReportTarget = {
   kind: UgcReportTargetKind;
@@ -101,6 +103,12 @@ export async function submitUgcReport(input: {
   reason: UgcReportReason;
   note?: string | null;
 }): Promise<{ reportId: string; status: 'submitted'; followup: UgcSafetyFollowup }> {
+  if ((input.target.kind === 'home_post' || input.target.kind === 'home_reply')) {
+    const result = await getSupabaseClient().rpc('kwilt_home_command', { op: 'report', args: { kind: input.target.kind, id: input.target.id, reason: input.reason, note: input.note?.trim() || null } });
+    if (result.error) throw result.error;
+    if (!result.data || result.data.status !== 'submitted' || typeof result.data.reportId !== 'string' || !result.data.followup) throw new Error('invalid_report_receipt');
+    return result.data;
+  }
   const result = await getSupabaseClient().functions.invoke('ugc-report', {
     body: buildUgcReportPayload({
       targetKind: input.target.kind,

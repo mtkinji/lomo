@@ -1,32 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DeliveryCard } from './SharedHomeDeliveryCard';
+import { SharedLifeFeed } from './SharedLifeFeed';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
+import { useFocusEffect } from '@react-navigation/native';
+import { navigateWhenReady } from '../../navigation/rootNavigationRef';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { resolveSharedHomeDestination } from './sharedHomeDestination';
+import { UgcReportDrawer } from '../safety/UgcReportDrawer';
+import type { UgcReportTarget } from '../../services/ugcSafety';
 import {
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
-import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 import { useAppStore } from '../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button, Card, EmptyState, HStack, Text, VStack } from '../../ui/primitives';
-import { AnalyticsEvent } from '../../services/analytics/events';
-import { useAnalytics } from '../../services/analytics/useAnalytics';
-import { resolveSharedHomeDestination } from './sharedHomeDestination';
 import { groupSharedHomeDeliveries } from './sharedHomePresentation';
 import type { SharedHomeDelivery } from './sharedHomeTypes';
 import { useSharedHomeFeed, type SharedHomeFeedState } from './useSharedHomeFeed';
 import { KwiltLoader } from '../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
-import { Icon } from '../../ui/Icon';
-import { Pressable } from '../../ui/HapticPressable';
-import { UgcReportDrawer } from '../safety/UgcReportDrawer';
-import type { UgcReportTarget } from '../../services/ugcSafety';
 type SharedHomeContentProps = Pick<
   SharedHomeFeedState,
   'items' | 'loading' | 'refreshing' | 'stale' | 'error'
@@ -38,102 +40,6 @@ type SharedHomeContentProps = Pick<
   onRefresh: () => void;
   highlightedDeliveryId?: string;
 };
-
-function relativeTime(value: string, now: Date): string {
-  const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - new Date(value).getTime()) / 60_000));
-  if (elapsedMinutes < 1) return 'Just now';
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
-  const hours = Math.floor(elapsedMinutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function capabilityLabel(delivery: SharedHomeDelivery): string {
-  return delivery.sourceCapability === 'goals' ? 'Goals' : 'Games';
-}
-
-function actionLabel(delivery: SharedHomeDelivery): string {
-  if (delivery.eventKind === 'goal_invitation') return 'Review invitation';
-  if (delivery.eventKind === 'goal_checkin') return 'Open Goal';
-  return 'Take your turn';
-}
-
-function actorInitials(value: string | null): string {
-  const words = value?.trim().split(/\s+/).filter(Boolean) ?? [];
-  if (words.length === 0) return 'K';
-  return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
-}
-
-function DeliveryCard({
-  delivery,
-  now,
-  onOpen,
-  onReport,
-  highlighted = false,
-}: {
-  delivery: SharedHomeDelivery;
-  now: Date;
-  onOpen: () => void;
-  onReport?: () => void;
-  highlighted?: boolean;
-}) {
-  const actionable = delivery.state === 'pending' || delivery.state === 'available';
-  return (
-    <View testID={`sharedHome.item.${delivery.id}`}>
-      <Card padding="sm" marginVertical="xs" elevation="none" style={[styles.card, highlighted && styles.highlightedCard]}>
-        <VStack space="sm">
-          <HStack alignItems="center" justifyContent="space-between" space="sm">
-            <HStack alignItems="center" space="sm" style={styles.actorContext}>
-              <View style={styles.avatar} accessibilityElementsHidden>
-                <Text style={styles.avatarText}>{actorInitials(delivery.actorDisplayName)}</Text>
-              </View>
-              <VStack space="xs" style={styles.actorText}>
-                <Text style={styles.actorName}>{delivery.actorDisplayName ?? 'Someone in Kwilt'}</Text>
-                <Text style={styles.sourceLine}>
-                  {capabilityLabel(delivery)} · {relativeTime(delivery.createdAt, now)}
-                </Text>
-              </VStack>
-            </HStack>
-            {onReport ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Report content from ${delivery.actorDisplayName ?? 'this person'}`}
-                onPress={onReport}
-                hitSlop={8}
-                style={styles.reportAction}
-              >
-                <Icon name="more" size={18} color={colors.textSecondary} />
-              </Pressable>
-            ) : null}
-          </HStack>
-          <VStack space="xs">
-            <Text style={styles.cardTitle}>{delivery.title}</Text>
-            <Text style={styles.cardBody}>{delivery.body}</Text>
-          </VStack>
-          {actionable ? (
-            <Button
-              size="sm"
-              variant={delivery.state === 'pending' ? 'primary' : 'outline'}
-              accessibilityLabel={`${actionLabel(delivery)} from ${delivery.actorDisplayName ?? 'your family'}`}
-              onPress={onOpen}
-            >
-              {actionLabel(delivery)}
-            </Button>
-          ) : (
-            <Text style={styles.stateLabel}>
-              {delivery.state === 'unavailable'
-                ? 'Unavailable'
-                : delivery.state === 'expired'
-                  ? 'Expired'
-                  : 'Handled'}
-            </Text>
-          )}
-        </VStack>
-      </Card>
-    </View>
-  );
-}
 
 export function SharedHomeContent({
   items,
@@ -244,6 +150,21 @@ export function SharedHomeContent({
 }
 
 export function SharedHomeScreen() {
+  const enabled = useFeatureFlag('shared-life-v1', true);
+  return __DEV__ || enabled ? <SharedLifeHomeScreen/> : <LegacySharedHomeScreen/>;
+}
+function SharedLifeHomeScreen() {
+  const capabilityShell = useCapabilityShellOptional();
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const route = useRoute<RouteProp<RootDrawerParamList, 'SharedHome'>>();
+  return <SharedLifeFeed key={userId ?? 'signed-out'} userId={userId} highlightedDeliveryId={route.params?.deliveryId}
+    renderFrame={(content, shareAction, moreMenu) => <AppShell>
+      <PageHeader title="Home" onPressMenu={capabilityShell?.openMenu} rightElement={shareAction} moreMenu={moreMenu}/>
+      {content}
+    </AppShell>}/>;
+}
+
+function LegacySharedHomeScreen() {
   const capabilityShell = useCapabilityShellOptional();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const feed = useSharedHomeFeed(userId);

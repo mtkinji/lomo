@@ -11,11 +11,15 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - shared-home
+  - kwilt-home-shared-life
+  - kwilt-home-connected-moments
 status: shipping
-last_reviewed: 2026-08-05
+last_reviewed: 2026-09-09
 ---
 
 # shared-home
+
+The `kwilt-home-connected-moments` v2 PRD is implemented across people catch-up/history, authorized response previews, expressive posts and galleries, source actions, household contributions, private saves/collections, full-page composition and reading continuity. It uses neutral system actions, 32-point list-owned post separation, 16-point text gutters, and canonical dock geometry. The additive Home migrations are deployed; installed release availability is a separate gate. See `artifacts/home-sharing-review/connected-implementation/verification.md` for native and backend evidence.
 
 Gives Maya one feed-first receiving place for content people intentionally
 share with her, while each capability remains authoritative.
@@ -32,3 +36,15 @@ share with her, while each capability remains authoritative.
 This production-hidden experiment is separate from the retired Today concept.
 Shared Home projects authorized recipient items; it does not own Goal, Game, or
 future Explore content, relationship access, or AI Chat records.
+
+The accepted `kwilt-home-shared-life` brief extends this surface with authored
+posts, Explore share offers, Goal encouragement arrivals, responses, durable
+history, private photos, saved places, and approved connections. The first slice
+is implemented in `SharedLifeFeed.tsx` and its composer, conversation, connection,
+repository, and domain modules. Release builds require `shared-life-v1`; development
+builds expose it for validation. The Home migrations and account-delete update are deployed. Dedicated live
+posting, reply, audience, revocation, and Storage checks pass; native composition
+and draft restoration are verified. Native photo/conversation acceptance and
+signed-device verification remain open.
+
+Automatic Chores updates are source-owned household content. The database projects authorized Chores occurrence transitions; Home renders compact grouped cards, Thanks, and comments. Personal posts continue to require explicit publication. Existing adult personal-account Home eligibility is unchanged. See `docs/superpowers/plans/2026-09-09-home-chore-updates.md` for the permission contract and proof boundaries.

@@ -131,6 +131,7 @@ import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { HapticsService } from '../../services/HapticsService';
+import { offerHomeMoment } from '../shared-home/sharedLifeCelebration';
 import { celebrateGoalCompleted } from '../../store/useCelebrationStore';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
@@ -217,6 +218,8 @@ export function GoalDetailScreen() {
   const { capture } = useAnalytics();
   const isFocused = useIsFocused();
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const sharedLifeFlag = useFeatureFlag('shared-life-v1', true);
+  const sharedLifeEnabled = __DEV__ || sharedLifeFlag;
   const sharingRemindersMuted = useSharingSettingsStore(
     (state) => state.masterMuted || state.reminderFrequency === 'off',
   );
@@ -3620,7 +3623,12 @@ export function GoalDetailScreen() {
                     setGoalStatusSheetVisible(false);
                     // Trigger celebration when marking a goal as completed
                     if (nextStatus === 'completed' && wasNotCompleted) {
-                      celebrateGoalCompleted(goal.title);
+                      const offeredHomeMoment = Boolean(sharedLifeEnabled && authIdentity?.userId && offerHomeMoment(
+                        authIdentity.userId,
+                        { kind: 'goal_completed', title: goal.title.trim().slice(0, 160) },
+                        `goal:${goal.id}:${timestamp}`,
+                      ));
+                      if (!offeredHomeMoment) celebrateGoalCompleted(goal.title);
                       // Fire progress signal for shared goals (fire-and-forget)
                       void createProgressSignal({ goalId: goal.id, type: 'goal_completed' });
 
@@ -3640,7 +3648,7 @@ export function GoalDetailScreen() {
                           goalId: goal.id,
                           sourceType: 'goal',
                         });
-                        if (canShowImmediateApprovalPrompt(draft)) {
+                        if (!offeredHomeMoment && canShowImmediateApprovalPrompt(draft)) {
                           store.markPrompted(goal.id);
                           capture(AnalyticsEvent.CheckinDraftShown, {
                             goalId: goal.id,

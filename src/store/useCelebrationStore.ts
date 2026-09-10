@@ -46,6 +46,10 @@ export type CelebrationMoment = {
   subheadline?: string;
   /** Optional custom CTA label (defaults to "Continue") */
   ctaLabel?: string;
+  /** Optional reviewed next step, distinct from dismissing the celebration. */
+  primaryAction?: { label: string; run: () => void };
+  /** Personal share offers must not survive switching accounts. */
+  ownerUserId?: string;
   /** Called when user dismisses the celebration */
   onDismiss?: () => void;
   /** Auto-dismiss after N ms (0 = manual dismiss only) */

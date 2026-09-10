@@ -1,0 +1,24 @@
+import type { ReactNode } from 'react';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { AppState, FlatList, type AppStateStatus } from 'react-native';
+import { SharedLifeBrowser } from './SharedLifeBrowser';
+import type { HomePost } from './sharedLifeTypes';
+import type { SharedLifeRepository } from './sharedLifeRepository';
+jest.mock('./SharedLifePage', () => ({ SharedLifePage: ({children}: {children: ReactNode}) => <>{children}</> }));
+it('restores every authorized loaded history page after backgrounding', async () => {
+ let change!: (state: AppStateStatus) => void;
+ const listener=jest.spyOn(AppState,'addEventListener').mockImplementation((_event,callback)=>{change=callback;return {remove:jest.fn()};});
+ const posts: HomePost[]=Array.from({length:60},(_,i)=>({id:String(i),authorId:'author',authorName:'Alex',text:'Moment',audience:'household',householdId:'home',householdName:'Home',attachment:null,media:[],createdAt:String(i),updatedAt:String(i),reactionCount:0,replyCount:0,myReaction:null}));
+ const command=jest.fn().mockResolvedValueOnce({posts:posts.slice(0,30)}).mockResolvedValueOnce({posts:posts.slice(30)}).mockResolvedValue({posts:posts.filter(p=>p.id!=='12')});
+ const repository={command} as unknown as SharedLifeRepository;
+ const view=render(<SharedLifeBrowser repository={repository} mode={{title:'Alex',authorId:'author'}} onClose={jest.fn()} renderPost={()=>null}/>);
+ await act(async()=>{});
+ await act(async()=>fireEvent.press(view.getByText('More moments')));
+ expect(view.UNSAFE_getByType(FlatList).props.data).toHaveLength(60);
+ act(()=>change('background'));
+ expect(view.UNSAFE_getByType(FlatList).props.data).toHaveLength(0);
+ await act(async()=>change('active'));
+ expect(command).toHaveBeenLastCalledWith('refresh_posts',{ids:posts.map(p=>p.id)});
+ expect(view.UNSAFE_getByType(FlatList).props.data).toHaveLength(59);
+ view.unmount();listener.mockRestore();
+});

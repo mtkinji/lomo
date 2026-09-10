@@ -10,6 +10,17 @@ assert.equal(canonical.protocolVersion, 2);
 assert.equal(canonical.snapshot.context[0]?.version, 2);
 assert.equal(canonical.snapshot.runs[0]?.canRetry, true);
 
+// A single sample conversation cannot prove coverage of the operation catalog.
+const operationFixtureName = 'kwilt-unified-chat-operations-v2.json';
+const operationFixture = JSON.parse(readFileSync(path.join(root, 'protocol-fixtures', operationFixtureName), 'utf8'));
+const nativeProtocol = readFileSync(path.join(root, 'src/features/unifiedChat/workbenchProtocol.ts'), 'utf8');
+const proposalType = nativeProtocol.split('export type AgentWorkbenchProposal = {')[1]?.split('export type AgentWorkbenchReceipt')[0];
+assert.ok(proposalType, 'native proposal declaration is missing');
+const literals = (value) => [...value.matchAll(/'([^']+)'/g)].map((match) => match[1]).sort();
+assert.deepEqual(Object.keys(operationFixture).sort(), literals(proposalType.split('capabilityId:')[1].split(';')[0]), 'operation fixture capability coverage drifted');
+assert.deepEqual(Object.values(operationFixture).flat().sort(), literals(proposalType.split('    type:')[1].split(';')[0]), 'operation fixture is missing or duplicating native operations');
+
+
 const commonGitDir = path.resolve(root, execFileSync('git', ['rev-parse', '--git-common-dir'], { encoding: 'utf8' }).trim());
 const kwiltRepo = path.dirname(commonGitDir);
 const workspaceParent = path.dirname(kwiltRepo);
@@ -52,6 +63,9 @@ for (const companion of companions) {
     assert.doesNotMatch(renderer, /snapshot\.evidence\.length|snapshot\.proposals\.map|snapshot\.receipts\.map/, `${companion.name} renderer still reconstructs chronology from artifact buckets`);
     assert.equal(existsSync(companion.protocol), true, `${companion.name} protocol parser is missing`);
     assert.match(readFileSync(companion.protocol, 'utf8'), /function isTimelineItem/, `${companion.name} protocol parser does not validate timeline items`);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(companion.root, 'protocol-fixtures', operationFixtureName), 'utf8')), operationFixture, 'companion operation fixture drifted');
+    execFileSync(process.execPath, [path.join(companion.root, 'node_modules/tsx/dist/cli.mjs'), '--test', 'lib/unifiedChatProtocol.test.ts'], { cwd: companion.root, stdio: 'pipe' });
+    console.log(`ok ${companion.name}: all ${Object.values(operationFixture).flat().length} native operations accepted by parser`);
     const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: companion.root, encoding: 'utf8' }).trim();
     console.log(`ok ${companion.name} renderer ${sha}`);
   }

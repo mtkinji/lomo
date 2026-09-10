@@ -10,6 +10,7 @@ import { Button } from './Button';
 import { CelebrationGif } from './CelebrationGif';
 import { useCelebrationStore, type CelebrationMoment } from '../store/useCelebrationStore';
 import { useAppStore } from '../store/useAppStore';
+import { useHouseholdModeStore } from '../features/household/sharedDevice/useHouseholdModeStore';
 import { useToastStore } from '../store/useToastStore';
 import { HapticsService } from '../services/HapticsService';
 
@@ -147,17 +148,24 @@ function ConfettiBurst() {
 export function CelebrationInterstitialHost() {
   const activeCelebration = useCelebrationStore((s) => s.activeCelebration);
   const dismiss = useCelebrationStore((s) => s.dismiss);
+  const userId = useAppStore((s) => s.authIdentity?.userId);
+  const householdSession = useHouseholdModeStore((s) => s.session);
+  const belongsToAnotherAccount = Boolean(activeCelebration?.ownerUserId && (activeCelebration.ownerUserId !== userId || householdSession));
+  useEffect(() => {
+    if (belongsToAnotherAccount) dismiss();
+  }, [belongsToAnotherAccount, activeCelebration?.id, dismiss]);
   const showCelebrations = useAppStore(
     (s) => s.userProfile?.preferences?.showCelebrationMedia ?? true,
   );
 
-  if (!showCelebrations || !activeCelebration) {
+  if (!activeCelebration || belongsToAnotherAccount || (!showCelebrations && !activeCelebration.primaryAction)) {
     return null;
   }
 
   return (
     <CelebrationInterstitialContent
       celebration={activeCelebration}
+      showMedia={showCelebrations}
       onDismiss={dismiss}
     />
   );
@@ -165,11 +173,13 @@ export function CelebrationInterstitialHost() {
 
 type CelebrationInterstitialContentProps = {
   celebration: CelebrationMoment;
+  showMedia?: boolean;
   onDismiss: () => void;
 };
 
 function CelebrationInterstitialContent({
   celebration,
+  showMedia = true,
   onDismiss,
 }: CelebrationInterstitialContentProps) {
   const insets = useSafeAreaInsets();
@@ -258,7 +268,7 @@ function CelebrationInterstitialContent({
     return () => clearTimeout(timer);
   }, [canAutoDismiss, celebration.id]);
 
-  const handleDismiss = () => {
+  const handleDismiss = (afterDismiss?: () => void) => {
     if (dismissingRef.current) return;
     dismissingRef.current = true;
 
@@ -277,6 +287,7 @@ function CelebrationInterstitialContent({
       }),
     ]).start(() => {
       onDismiss();
+      afterDismiss?.();
     });
   };
 
@@ -302,7 +313,7 @@ function CelebrationInterstitialContent({
         />
 
         {/* Confetti layer */}
-        <ConfettiBurst />
+        {showMedia ? <ConfettiBurst /> : null}
 
         {/* Content - use Pressable as full-screen tap target after the protected first beat */}
         <Pressable
@@ -325,7 +336,7 @@ function CelebrationInterstitialContent({
             ]}
           >
             {/* GIF Section */}
-            <View style={styles.gifContainer}>
+            {showMedia ? <View style={styles.gifContainer}>
               <CelebrationGif
                 role="celebration"
                 kind={celebration.kind}
@@ -335,7 +346,7 @@ function CelebrationInterstitialContent({
                 variant="dark"
                 maxHeight={220}
               />
-            </View>
+            </View> : null}
 
             {/* Text Section */}
             <View style={styles.textContainer}>
@@ -357,17 +368,23 @@ function CelebrationInterstitialContent({
                   </Text>
                 </View>
               ) : (
-                // Manual dismiss mode: show a button
-                <Button
-                  variant="turmeric"
-                  size="lg"
-                  onPress={handleDismiss}
-                  style={styles.ctaButton}
-                >
-                  <Text style={styles.ctaLabel}>
-                    {celebration.ctaLabel ?? 'Continue'}
-                  </Text>
-                </Button>
+                <>
+                  {celebration.primaryAction ? (
+                    <Button variant="turmeric" size="lg" onPress={() => handleDismiss(celebration.primaryAction?.run)} style={styles.ctaButton}>
+                      <Text style={styles.ctaLabel}>{celebration.primaryAction.label}</Text>
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant={celebration.primaryAction ? 'ghost' : 'turmeric'}
+                    size="lg"
+                    onPress={() => handleDismiss()}
+                    style={styles.ctaButton}
+                  >
+                    <Text style={celebration.primaryAction ? styles.tapToDismissText : styles.ctaLabel}>
+                      {celebration.ctaLabel ?? 'Continue'}
+                    </Text>
+                  </Button>
+                </>
               )}
             </View>
           </Animated.View>
