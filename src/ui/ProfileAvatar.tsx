@@ -33,7 +33,7 @@ const BRAND_PALETTES = [
   { backgroundColor: colors.madder100, textColor: colors.madder900 },
 ];
 
-const getInitials = (name?: string): string => {
+export const profileInitials = (name?: string): string => {
   if (!name) {
     return 'KW';
   }
@@ -66,7 +66,7 @@ export function ProfileAvatar({
   borderRadius,
   style,
 }: ProfileAvatarProps) {
-  const initials = getInitials(name);
+  const initials = profileInitials(name);
   const palette = getBrandPaletteForName(name);
   const radius = borderRadius ?? size / 2;
   const initialsFontSize = Math.max(10, Math.round(size * 0.38));

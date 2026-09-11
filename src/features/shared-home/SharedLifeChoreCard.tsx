@@ -73,6 +73,7 @@ export function SharedLifeChoreCard({
             kind="thanks"
             selected={Boolean(post.myReaction)}
             count={post.reactionCount}
+            replyCount={post.replyCount}
             onReact={onReact}
             onOpen={onOpen}
             authorName={post.authorName}

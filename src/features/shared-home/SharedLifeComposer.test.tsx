@@ -2,7 +2,7 @@ jest.mock(
   "react-native-safe-area-context",
   () => require("react-native-safe-area-context/jest/mock").default,
 );
-import { Alert } from "react-native";
+import { Alert, Keyboard } from "react-native";
 import type { ReactNode } from "react";
 import { act, render, fireEvent, waitFor } from "@testing-library/react-native";
 import { SharedLifeComposer } from "./SharedLifeComposer";
@@ -14,7 +14,10 @@ jest.mock("../../ui/BottomDrawer", () => {
     BottomDrawerSemanticFooter,
   } = require("../../ui/layout/BottomDrawerSemanticFooter");
   return {
-    BottomDrawer: ({ children, footer }: {
+    BottomDrawer: ({
+      children,
+      footer,
+    }: {
       children?: ReactNode;
       footer?: BottomDrawerFooterConfig;
     }) => (
@@ -27,7 +30,8 @@ jest.mock("../../ui/BottomDrawer", () => {
   };
 });
 jest.mock("../../ui/layout/BottomDrawerHeader", () => ({
-  BottomDrawerHeader: () => null,
+  BottomDrawerHeader: ({ rightAction }: { rightAction?: ReactNode }) =>
+    rightAction ?? null,
 }));
 const mockSuggestions = [
   {
@@ -69,6 +73,8 @@ it("renders household and selected-person labels as native text", async () => {
       onPublished={jest.fn()}
     />,
   );
+  await waitFor(() => expect(view.getByLabelText("Your moment")).toBeTruthy());
+  fireEvent(view.getByLabelText("Your moment"), "focus");
   await waitFor(() =>
     expect(view.getByLabelText("Audience: Our family")).toBeTruthy(),
   );
@@ -170,6 +176,7 @@ it("posts a restored photo draft without requiring a separate description", asyn
     expect.any(Function),
   );
   expect(saveHomeDraft).toHaveBeenCalledWith("user", null);
+  expect(onPublished).toHaveBeenCalledWith("birthday");
   expect(
     view.queryByText("Add a short description for each photo."),
   ).toBeNull();
@@ -218,7 +225,7 @@ it("keeps a failed photo draft and lets the same post be retried", async () => {
   expect(publishHomeDraft.mock.calls.at(-1)[0].id).toBe("retry");
 });
 
-it("uses the standard task drawer and keyboard-aware footer", async () => {
+it("starts with suggestions and keeps publication out of the selection step", async () => {
   const { BottomDrawer } = require("../../ui/BottomDrawer");
   const view = render(
     <SharedLifeComposer
@@ -234,19 +241,10 @@ it("uses the standard task drawer and keyboard-aware footer", async () => {
       onPublished={jest.fn()}
     />,
   );
-  await waitFor(() =>
-    expect(view.getByLabelText("Audience: Our family")).toBeTruthy(),
-  );
-  const page = view.UNSAFE_getByType(BottomDrawer);
-  expect(page.props.footer.primaryAction.label).toBe("Post");
-  expect(page.props.keyboardBehavior).toBe("resize");
-  expect(
-    view.queryByPlaceholderText("What would you like to share?"),
-  ).toBeNull();
-  expect(view.getByText("Start with a recent moment")).toBeTruthy();
-  expect(
-    view.getByRole("button", { name: "Post to Our family" }),
-  ).toBeDisabled();
+  await waitFor(() => expect(view.getByText("Suggested moments")).toBeTruthy());
+  expect(view.queryByRole("button", { name: "Post to Our family" })).toBeNull();
+  expect(view.getByLabelText("Your moment")).toBeTruthy();
+  expect(view.UNSAFE_getByType(BottomDrawer).props.footer).toBeUndefined();
 });
 
 it("prepares a suggested moment without posting and preserves it when writing", async () => {
@@ -265,9 +263,7 @@ it("prepares a suggested moment without posting and preserves it when writing", 
       onPublished={jest.fn()}
     />,
   );
-  await waitFor(() =>
-    expect(view.getByText("Start with a recent moment")).toBeTruthy(),
-  );
+  await waitFor(() => expect(view.getByText("Suggested moments")).toBeTruthy());
   await act(async () => {
     fireEvent.press(view.getByRole("button", { name: "Finish the garden" }));
   });
@@ -279,4 +275,40 @@ it("prepares a suggested moment without posting and preserves it when writing", 
   expect(
     view.getByRole("button", { name: "Post to Family" }),
   ).not.toBeDisabled();
+});
+
+it("ends editing without posting and retains words while choosing a source", async () => {
+  const { publishHomeDraft } = require("./sharedLifePublishing");
+  publishHomeDraft.mockClear();
+  const dismiss = jest.spyOn(Keyboard, "dismiss");
+  const view = render(
+    <SharedLifeComposer
+      userId="user"
+      bootstrap={{
+        households: [{ id: "h", name: "Family" }],
+        people: [],
+        householdChoices: [],
+      }}
+      repository={{} as SharedLifeRepository}
+      onClose={jest.fn()}
+      onPublished={jest.fn()}
+    />,
+  );
+  await waitFor(() => expect(view.getByLabelText("Your moment")).toBeTruthy());
+  fireEvent(view.getByLabelText("Your moment"), "focus");
+  fireEvent.changeText(
+    view.getByLabelText("Your moment"),
+    "We made time for a walk.",
+  );
+  fireEvent.press(view.getByRole("button", { name: "Done" }));
+  expect(dismiss).toHaveBeenCalled();
+  expect(view.queryByRole("button", { name: "Done" })).toBeNull();
+  expect(publishHomeDraft).not.toHaveBeenCalled();
+  fireEvent.press(view.getByText("Recent moment"));
+  expect(view.queryByRole("button", { name: "Post to Family" })).toBeNull();
+  fireEvent.press(view.getByRole("button", { name: "Finish the garden" }));
+  expect(view.getByDisplayValue("We made time for a walk.")).toBeTruthy();
+  expect(view.getByText("Finish the garden")).toBeTruthy();
+  expect(publishHomeDraft).not.toHaveBeenCalled();
+  dismiss.mockRestore();
 });

@@ -1,3 +1,5 @@
+import { useToastStore } from "../../store/useToastStore";
+import { shareHomeMoment } from "./shareHomeMoment";
 import {
   useCallback,
   useEffect,
@@ -52,7 +54,10 @@ import {
   type HomeReadingAnchor,
 } from "./sharedLifePresentation";
 import { useHomeRecommendations } from "./useHomeRecommendations";
-import { HomeRecommendations, HomeNextStepsPage } from "./HomeRecommendationRegion";
+import {
+  HomeRecommendations,
+  HomeNextStepsPage,
+} from "./HomeRecommendationRegion";
 import type { HomeRecommendation } from "./homeRecommendations";
 import { homeRecommendationTarget } from "./homeRecommendationNavigation";
 import { useHomeReaction } from "./useHomeReaction";
@@ -103,7 +108,9 @@ export function SharedLifeFeed({
       userId={userId}
       highlightedDeliveryId={highlightedDeliveryId}
       previewRepository={__DEV__ ? previewRepository : undefined}
-      recommendationPreview={__DEV__ && previewRepository ? recommendationPreview : undefined}
+      recommendationPreview={
+        __DEV__ && previewRepository ? recommendationPreview : undefined
+      }
       renderFrame={renderFrame}
     />
   );
@@ -122,7 +129,10 @@ function SignedInSharedLife({
   renderFrame: FeedFrame;
 }) {
   const life = useSharedLife(userId, previewRepository);
-  const liveRecommendations = useHomeRecommendations(userId, !previewRepository);
+  const liveRecommendations = useHomeRecommendations(
+    userId,
+    !previewRepository,
+  );
   const recommendations = recommendationPreview?.model ?? liveRecommendations;
   const [nextSteps, setNextSteps] = useState(false);
   const openRecommendation = (offer: HomeRecommendation) => {
@@ -135,7 +145,11 @@ function SignedInSharedLife({
     const target = homeRecommendationTarget(offer.destination);
     const result = navigateWhenReady(target.name, target.params);
     if (!result.ok) return;
-    recommendations.dispatch({ type: "offer", id: offer.id, status: "accepted" });
+    recommendations.dispatch({
+      type: "offer",
+      id: offer.id,
+      status: "accepted",
+    });
     setNextSteps(false);
   };
   const [momentsOnly, setMomentsOnly] = useState(false);
@@ -536,7 +550,11 @@ function SignedInSharedLife({
   );
   const moreMenu = (
     <SharedLifeFeedMenu
-      onNextSteps={!previewRepository || recommendationPreview ? () => setNextSteps(true) : undefined}
+      onNextSteps={
+        !previewRepository || recommendationPreview
+          ? () => setNextSteps(true)
+          : undefined
+      }
       households={life.bootstrap.households}
       householdId={life.filter.householdId}
       selectedChoice={
@@ -576,11 +594,22 @@ function SignedInSharedLife({
       >
         <CanvasFlatList
           ref={listRef}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
-          onScrollBeginDrag={() => { readerAtTop.current = false; }}
-          onScrollEndDrag={(e) => { readerAtTop.current = e.nativeEvent.contentOffset.y <= 1; }}
-          onMomentumScrollBegin={() => { readerAtTop.current = false; }}
-          onMomentumScrollEnd={(e) => { readerAtTop.current = e.nativeEvent.contentOffset.y <= 1; }}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+            autoscrollToTopThreshold: 0,
+          }}
+          onScrollBeginDrag={() => {
+            readerAtTop.current = false;
+          }}
+          onScrollEndDrag={(e) => {
+            readerAtTop.current = e.nativeEvent.contentOffset.y <= 1;
+          }}
+          onMomentumScrollBegin={() => {
+            readerAtTop.current = false;
+          }}
+          onMomentumScrollEnd={(e) => {
+            readerAtTop.current = e.nativeEvent.contentOffset.y <= 1;
+          }}
           onContentSizeChange={() => {
             if (
               restorePending.current &&
@@ -590,13 +619,17 @@ function SignedInSharedLife({
               const ids = stream.map(
                 (i) => (i.post ? "post:" : "delivery:") + i.id,
               );
-              const y = readerAtTop.current ? 0 : reading.current ? restoreHomeOffset(
-                reading.current,
-                ids,
-                rowHeights.current,
-                headerHeight.current,
-                spacing["2xl"],
-              ) : null;
+              const y = readerAtTop.current
+                ? 0
+                : reading.current
+                  ? restoreHomeOffset(
+                      reading.current,
+                      ids,
+                      rowHeights.current,
+                      headerHeight.current,
+                      spacing.xl,
+                    )
+                  : null;
               if (y !== null) {
                 restorePending.current = false;
                 requestAnimationFrame(() =>
@@ -623,7 +656,7 @@ function SignedInSharedLife({
             </View>
           )}
           ItemSeparatorComponent={() => (
-            <View style={{ height: spacing["2xl"] }} />
+            <View style={{ height: spacing.xl }} />
           )}
           contentContainerStyle={{ paddingBottom: spacing["2xl"] }}
           refreshControl={refreshUi.refreshControl}
@@ -650,7 +683,7 @@ function SignedInSharedLife({
                 };
                 break;
               }
-              top += height + spacing["2xl"];
+              top += height + spacing.xl;
             }
           }}
           scrollEventThrottle={refreshUi.scrollEventThrottle}
@@ -662,13 +695,18 @@ function SignedInSharedLife({
               style={styles.header}
               testID="home.recommendationHeader"
               onLayout={(e) => {
-                const changed = headerHeight.current !== e.nativeEvent.layout.height;
+                const changed =
+                  headerHeight.current !== e.nativeEvent.layout.height;
                 headerHeight.current = e.nativeEvent.layout.height;
                 // Native anchoring can insert an asynchronously loaded header above offset zero.
                 // Keep the invitation visible there; preserve the post anchor once reading starts.
                 if (changed && readerAtTop.current && !restorePending.current) {
                   requestAnimationFrame(() => {
-                    if (readerAtTop.current) listRef.current?.scrollToOffset({ offset: 0, animated: false });
+                    if (readerAtTop.current)
+                      listRef.current?.scrollToOffset({
+                        offset: 0,
+                        animated: false,
+                      });
                   });
                 }
               }}
@@ -736,13 +774,18 @@ function SignedInSharedLife({
               ) : (
                 <>
                   <Text style={styles.emptyTitle}>
-                    {recommendations.featured ? "Your people, your moments" : "Let your people into your day"}
+                    {recommendations.featured
+                      ? "Your people, your moments"
+                      : "Let your people into your day"}
                   </Text>
                   <Text>
                     A photo, a discovery, a little story. Ordinary moments
                     belong here.
                   </Text>
-                  <Button variant={recommendations.featured ? "ghost" : "outline"} onPress={() => setComposer({})}>
+                  <Button
+                    variant={recommendations.featured ? "ghost" : "outline"}
+                    onPress={() => setComposer({})}
+                  >
                     Share a moment
                   </Button>
                 </>
@@ -766,7 +809,13 @@ function SignedInSharedLife({
           }
         />
       </KwiltRefreshFrame>
-      {nextSteps ? <HomeNextStepsPage model={recommendations} onOpen={openRecommendation} onClose={() => setNextSteps(false)}/> : null}
+      {nextSteps ? (
+        <HomeNextStepsPage
+          model={recommendations}
+          onOpen={openRecommendation}
+          onClose={() => setNextSteps(false)}
+        />
+      ) : null}
       {!connections ? browserPage : null}
       {!browse ? overlays : null}
       {composer ? (
@@ -777,9 +826,16 @@ function SignedInSharedLife({
           attachment={composer.attachment}
           intent={composer.intent}
           onClose={() => setComposer(null)}
-          onPublished={() => {
+          onPublished={(postId) => {
             setComposer(null);
-            setNotice("Your moment was shared.");
+            useToastStore
+              .getState()
+              .showToast({
+                message: "Posted to Home",
+                durationMs: 6000,
+                actionLabel: "Share",
+                actionOnPress: () => void shareHomeMoment(postId, userId),
+              });
             void life.refresh();
           }}
         />

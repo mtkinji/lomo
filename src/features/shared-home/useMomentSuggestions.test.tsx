@@ -5,11 +5,13 @@ let mockHousehold: unknown = null;
 const mockRecent = jest.fn();
 const mockRecipes = jest.fn();
 jest.mock("../../store/useAppStore", () => ({
-  useAppStore: (select: (state: {
-    authIdentity: { userId: string };
-    domainHydrated: boolean;
-    goals: unknown[];
-  }) => unknown) =>
+  useAppStore: (
+    select: (state: {
+      authIdentity: { userId: string };
+      domainHydrated: boolean;
+      goals: unknown[];
+    }) => unknown,
+  ) =>
     select({
       authIdentity: { userId: mockUser },
       domainHydrated: true,
@@ -21,11 +23,12 @@ jest.mock("../household/sharedDevice/useHouseholdModeStore", () => ({
     select({ session: mockHousehold }),
 }));
 jest.mock("../../capabilities/explore/runtime/useExploreStore", () => ({
-  useExploreStore: (select: (state: {
-    places: Record<string, unknown>;
-    placeRelationships: Record<string, unknown>;
-  }) => unknown) =>
-    select({ places: {}, placeRelationships: {} }),
+  useExploreStore: (
+    select: (state: {
+      places: Record<string, unknown>;
+      placeRelationships: Record<string, unknown>;
+    }) => unknown,
+  ) => select({ places: {}, placeRelationships: {} }),
 }));
 jest.mock("../../capabilities/recipes/data/recipeCookRepository", () => ({
   createRecipeCookRepository: () => ({ listRecent: mockRecent }),
@@ -49,7 +52,10 @@ it("resolves cooked meals from real records and recipe titles", async () => {
     },
   ]);
   mockRecipes.mockResolvedValue([
-    { recipe: { id: "r" }, currentVersion: { title: "Tacos" } },
+    {
+      recipe: { id: "r", mediaAssets: [] },
+      currentVersion: { title: "Tacos" },
+    },
   ]);
   const { result } = renderHook(() => useMomentSuggestions("u"));
   await waitFor(() => expect(result.current.loading).toBe(false));
@@ -72,14 +78,19 @@ it("keeps failed sources retryable", async () => {
   await waitFor(() => expect(result.current.error).toBe(false));
 });
 it("drops pending results on account switch and household mode", async () => {
-  let resolve!: (value: Array<{ id: string; recipeId: string; completedAt: string }>) => void;
+  let resolve!: (
+    value: Array<{ id: string; recipeId: string; completedAt: string }>,
+  ) => void;
   mockRecent.mockReturnValue(
     new Promise((r) => {
       resolve = r;
     }),
   );
   mockRecipes.mockResolvedValue([
-    { recipe: { id: "r" }, currentVersion: { title: "Private" } },
+    {
+      recipe: { id: "r", mediaAssets: [] },
+      currentVersion: { title: "Private" },
+    },
   ]);
   const { result, rerender } = renderHook(() => useMomentSuggestions("u"));
   mockUser = "other";

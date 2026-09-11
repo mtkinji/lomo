@@ -35,6 +35,10 @@ const DRAWER_COPY: Record<
     inventory: { title: 'Chat about recipes', placeholder: 'Ask about these recipes' },
     detail: { title: 'Chat about this meal', placeholder: 'Ask about this meal' },
   },
+  money: {
+    inventory: { title: 'Chat about this budget', placeholder: 'Ask about your budget' },
+    detail: { title: 'Chat about this budget', placeholder: 'Ask about your budget' },
+  },
 };
 
 const RECIPE_DETAIL_OFFERS: AgentWorkbenchOffer[] = [

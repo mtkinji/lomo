@@ -1,3 +1,4 @@
+import { getEffectiveThumbnailUrl } from "../../domain/getEffectiveThumbnailUrl";
 import type { Goal } from "../../domain/types";
 import type { Place, UserPlaceRelationship } from "../../domain/places";
 import type { HomeAttachment, HomeDraft } from "./sharedLifeTypes";
@@ -8,12 +9,14 @@ export type MomentMeal = {
   recipeId: string;
   title: string;
   completedAt: string;
+  artworkRef?: string;
 };
 export type MomentSuggestion = {
   id: string;
   kind: "place" | "goal" | "meal";
   title: string;
   context: string;
+  artwork?: { kind: "image" | "recipe"; uri: string };
   at: number;
   attachment: HomeAttachment | null;
   text: string;
@@ -27,7 +30,10 @@ export function buildMomentSuggestions({
   now = Date.now(),
 }: {
   userId: string;
-  goals: Pick<Goal, "id" | "title" | "status" | "updatedAt">[];
+  goals: Pick<
+    Goal,
+    "id" | "title" | "status" | "updatedAt" | "thumbnailUrl" | "heroImageMeta"
+  >[];
   places: Record<string, Pick<Place, "id" | "name" | "latitude" | "longitude">>;
   visits: Pick<UserPlaceRelationship, "userId" | "placeId" | "lastVisitedAt">[];
   meals: MomentMeal[];
@@ -70,7 +76,15 @@ export function buildMomentSuggestions({
       id: `goal:${goal.id}`,
       kind: "goal",
       title,
-      context: "Completed goal",
+      context: "Goal completed",
+      ...(getEffectiveThumbnailUrl(goal)
+        ? {
+            artwork: {
+              kind: "image" as const,
+              uri: getEffectiveThumbnailUrl(goal)!,
+            },
+          }
+        : {}),
       at: Date.parse(goal.updatedAt),
       attachment: { kind: "goal_completed", title },
       text: "",
@@ -83,7 +97,10 @@ export function buildMomentSuggestions({
       id: `meal:${meal.recipeId}`,
       kind: "meal",
       title,
-      context: "Meal you cooked",
+      context: "Meal cooked",
+      ...(meal.artworkRef
+        ? { artwork: { kind: "recipe" as const, uri: meal.artworkRef } }
+        : {}),
       at: Date.parse(meal.completedAt),
       attachment: null,
       text: `Made ${title}.`,

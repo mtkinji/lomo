@@ -116,8 +116,8 @@ describe('SharedHomeContent', () => {
       />,
     );
     expect(view.getAllByText('Shared with you')[0]).toBeTruthy();
-    expect(view.getByText('David · 1h')).toBeTruthy();
-    expect(view.getByText(/ · 1h/)).toBeTruthy();
+    expect(view.getByText('David')).toBeTruthy();
+    expect(view.getByText('Shared with you · 1h')).toBeTruthy();
     expect(view.getByText('Plan our family camping trip')).toBeTruthy();
     fireEvent.press(view.getByText('Open Goal'));
     expect(onOpen).toHaveBeenCalledWith(checkin);

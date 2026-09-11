@@ -218,6 +218,7 @@ import {
   applyKanbanDestination,
   buildKanbanMoveUndoSnapshot,
   getKanbanColumnIdForActivity,
+  getKanbanOrderIndexUpdates,
   restoreKanbanMoveUndoSnapshot,
   type KanbanDestination,
 } from './kanbanInteraction';
@@ -332,11 +333,10 @@ export function ActivitiesScreen() {
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const setActivityOrderIndices = useAppStore((state) => state.setActivityOrderIndices);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const restoreRemovedActivity = useAppStore((state) => state.restoreRemovedActivity);
   const reorderActivities = useAppStore((state) => state.reorderActivities);
-  // NOTE: Drag-and-drop reorder is temporarily disabled on this screen.
-  // Manual order remains supported via Activity.orderIndex and the existing sorting logic.
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const isPro = useCanUseProTools('saved_views');
@@ -2403,13 +2403,37 @@ export function ActivitiesScreen() {
       groupBy: KanbanGroupBy;
       toColumnId: string;
       toColumnTitle?: string;
+      beforeActivityId?: string | null;
     }) => {
-      const { groupBy, toColumnId, toColumnTitle } = params;
+      const { groupBy, toColumnId, toColumnTitle, beforeActivityId } = params;
       const atIso = new Date().toISOString();
 
       const activity = activities.find((candidate) => candidate.id === activityId);
       if (!activity) return;
       const undoSnapshot = buildKanbanMoveUndoSnapshot(activity);
+      const hasExactPlacement = beforeActivityId !== undefined;
+      const orderIndexUpdates = hasExactPlacement
+        ? getKanbanOrderIndexUpdates({
+            activities,
+            activityId,
+            groupBy,
+            toColumnId,
+            beforeActivityId,
+          })
+        : [];
+      const draggedOrderIndex = orderIndexUpdates?.find(
+        (update) => update.activityId === activityId,
+      )?.orderIndex ?? null;
+      const neighborOrderUpdates = (orderIndexUpdates ?? []).filter(
+        (update) => update.activityId !== activityId,
+      );
+      const neighborUndoUpdates = neighborOrderUpdates.flatMap((update) => {
+        const neighbor = activities.find((candidate) => candidate.id === update.activityId);
+        return neighbor && typeof neighbor.orderIndex === 'number'
+          ? [{ activityId: neighbor.id, orderIndex: neighbor.orderIndex }]
+          : [];
+      });
+      const didReorder = draggedOrderIndex !== null && draggedOrderIndex !== activity.orderIndex;
       const maxOrderInTarget = activities
         .filter((candidate) => candidate.id !== activityId)
         .filter((candidate) => getKanbanColumnIdForActivity(candidate, groupBy) === toColumnId)
@@ -2419,26 +2443,50 @@ export function ActivitiesScreen() {
         destination: { groupBy, toColumnId },
         validGoalIds: goalIdSet,
         atIso,
-        nextOrderIndex: maxOrderInTarget + 1,
+        nextOrderIndex: draggedOrderIndex ?? maxOrderInTarget + 1,
       });
-      if (!result.didMove) return;
+      if (!result.didMove && !didReorder && neighborOrderUpdates.length === 0) return;
 
-      updateActivity(activityId, () => result.activity);
+      if (result.didMove || didReorder) {
+        const priorityReasonCodes = [...(result.activity.priorityReasonCodes ?? [])];
+        if (!priorityReasonCodes.includes('moved_by_user')) priorityReasonCodes.push('moved_by_user');
+        updateActivity(activityId, () => ({
+          ...result.activity,
+          ...(draggedOrderIndex !== null ? { orderIndex: draggedOrderIndex } : null),
+          priorityRankSource: 'manual',
+          priorityReasonCodes,
+          updatedAt: atIso,
+        }));
+      }
+      if (neighborOrderUpdates.length > 0) setActivityOrderIndices(neighborOrderUpdates);
       void HapticsService.trigger('outcome.success');
       showToast({
-        message: `Moved to ${toColumnTitle ?? 'another column'}`,
+        message: result.didMove
+          ? `Moved to ${toColumnTitle ?? 'another column'}`
+          : 'To-do reordered',
         variant: 'success',
         durationMs: 3200,
         actionLabel: 'Undo',
         actionOnPress: () => {
-          updateActivity(activityId, (current) =>
-            restoreKanbanMoveUndoSnapshot(current, undoSnapshot, new Date().toISOString()),
-          );
+          if (result.didMove || didReorder) {
+            updateActivity(activityId, (current) =>
+              restoreKanbanMoveUndoSnapshot(current, undoSnapshot, new Date().toISOString()),
+            );
+          }
+          if (neighborUndoUpdates.length > 0) setActivityOrderIndices(neighborUndoUpdates);
         },
       });
     },
-    [activities, goalIdSet, showToast, updateActivity],
+    [activities, goalIdSet, setActivityOrderIndices, showToast, updateActivity],
   );
+
+  const handleKanbanReorderUnavailable = React.useCallback(() => {
+    showToast({
+      message: 'Choose Manual sort to reorder to-dos.',
+      variant: 'warning',
+      durationMs: 2400,
+    });
+  }, [showToast]);
 
   const handleOpenKanbanAdd = React.useCallback((destination: KanbanDestination) => {
     setKanbanCaptureTarget(destination);
@@ -3021,22 +3069,18 @@ export function ActivitiesScreen() {
               </View>
 
               <HStack space="sm" alignItems="center">
-                {isKanbanLayout && (
-                  <View style={styles.toolbarButtonWrapper}>
-                    <Button
-                      variant="outline"
-                      size="small"
+                <InventoryControlGroup testID="e2e.activities.toolbar.inventory-controls">
+                  {isKanbanLayout && (
+                    <Pressable
                       onPress={() => setKanbanCardFieldsDrawerVisible(true)}
                       testID="e2e.activities.toolbar.cardFields"
-                      style={styles.toolbarIconButton}
-                      hitSlop={4}
-                      accessibilityLabel="Card fields"
+                      accessibilityRole="button"
+                      accessibilityLabel="Choose visible card fields"
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
                     >
-                      <Icon name="eye" size={14} color={colors.textPrimary} />
-                    </Button>
-                  </View>
-                )}
-                <InventoryControlGroup testID="e2e.activities.toolbar.inventory-controls">
+                      <InventoryControlSurface iconName="eye" />
+                    </Pressable>
+                  )}
                   {isPro ? (
                     <Pressable
                       ref={filterButtonRef}
@@ -3201,6 +3245,8 @@ export function ActivitiesScreen() {
           onTogglePriority={handleTogglePriorityOne}
           onPressActivity={navigateToActivityDetail}
           onMoveActivity={handleMoveActivity}
+          canReorder={isManualOrderEffective}
+          onReorderUnavailable={handleKanbanReorderUnavailable}
           onAddActivity={handleOpenKanbanAdd}
           addCardAnchorRef={kanbanAddCardAnchorRef}
           cardVisibleFields={kanbanCardVisibleFields}

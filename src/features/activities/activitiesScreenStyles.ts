@@ -82,10 +82,6 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
     position: 'relative',
   },
-  toolbarIconButton: {
-    width: 36,
-    paddingHorizontal: 0,
-  },
   toolbarBadgeCorner: {
     position: 'absolute',
     // Keep the badge within the toolbar's animated/clipped wrapper so it can't be

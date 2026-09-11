@@ -13,6 +13,8 @@ describe('classifyUnifiedChatRequest', () => {
       .toMatchObject({ participatingCapabilities: ['recipes'] });
     expect(classifyUnifiedChatRequest({ prompt: 'Create a private recipe for Hokkaido cheese potato mochi' }))
       .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Save this recipe' }))
+      .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'] });
     expect(classifyUnifiedChatRequest({ prompt: 'Delete my lemon pasta recipe' }))
       .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'], usePrivateContext: true });
   });

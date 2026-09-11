@@ -52,6 +52,8 @@ describe('Focus soundscape sources', () => {
 
     await expect(resolveSoundscapeSource('quietRain')).resolves.toEqual({ uri: 'file:///cache/quietRain.mp3' });
 
+    await expect(resolveSoundscapeSource('mountainOverlook')).resolves.toEqual({ uri: 'file:///cache/mountainOverlook.mp3' });
+
     await expect(resolveSoundscapeSource('oceanWaves')).resolves.toEqual({ uri: 'file:///cache/oceanWaves.mp3' });
 
     await expect(resolveSoundscapeSource('fireplace')).resolves.toEqual({ uri: 'file:///cache/fireplace.mp3' });
@@ -69,6 +71,7 @@ describe('Focus soundscape sources', () => {
       'rainlitLibrary',
       'quietRain',
       'canyonSpring',
+      'mountainOverlook',
       'oceanWaves',
       'fireplace',
     ]);
@@ -82,6 +85,7 @@ describe('Focus soundscape sources', () => {
       'Rainlit Library',
       'Quiet Rain',
       'Canyon Spring',
+      'Mountain Overlook',
       'Ocean Waves',
       'Fireplace',
     ]);

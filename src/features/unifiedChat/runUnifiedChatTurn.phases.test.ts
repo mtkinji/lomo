@@ -194,7 +194,7 @@ test('conversation turns expose privacy-safe phase milestones in order', async (
     'context_ready',
     'answer_ready',
   ]);
-  expect(classifications).toEqual([{ planningStrategy: 'fast_direct', requestClass: 'general' }]);
+  expect(classifications).toEqual([{ planningStrategy: 'full', requestClass: 'general' }]);
   expect(sendCoachChat).toHaveBeenCalledWith(
     expect.any(Array),
     expect.objectContaining({
@@ -202,9 +202,10 @@ test('conversation turns expose privacy-safe phase milestones in order', async (
       launchContextSummary: expect.stringContaining('Conversation mode: answer first'),
     }),
   );
-  expect(requestJudgment).not.toHaveBeenCalled();
-  expect(routeRequest).not.toHaveBeenCalled();
-  expect(progressCues).toEqual([]);
+  expect(requestJudgment).toHaveBeenCalledTimes(1);
+  expect(routeRequest).toHaveBeenCalledTimes(1);
+  expect(progressCues).toHaveLength(1);
+  expect(progressCues[0]).toMatch(/^general_work_/);
 });
 
 test('a longer conversation turn emits one fixed progress cue before planning completes', async () => {

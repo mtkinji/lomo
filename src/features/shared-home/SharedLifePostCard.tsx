@@ -1,8 +1,8 @@
+import { ShareMomentButton } from "./ShareMomentButton";
+import { HStack } from "../../ui/Stack";
 import { useState } from "react";
 import { Linking, Platform, View } from "react-native";
 import { Button, Text, VStack } from "../../ui/primitives";
-import { Pressable } from "../../ui/HapticPressable";
-import { spacing } from "../../theme";
 import { SharedLifeMediaGallery } from "./SharedLifeMediaGallery";
 import { audienceLabel } from "./sharedLifePresentation";
 import {
@@ -57,6 +57,28 @@ export function SharedLifePostCard({
     post.reactors?.map((p) => p.name) ?? [],
     post.reactionCount,
   );
+  const attachmentLabel = post.attachment
+    ? post.attachment.kind === "place"
+      ? `Explore · ${post.attachment.name}`
+      : post.attachment.kind === "goal_completed"
+        ? `Goal · ${post.attachment.title}`
+        : `Outing · ${post.attachment.title}`
+    : undefined;
+  const mediaCaption = post.media.length && post.text ? post.text : undefined;
+  const mediaCaptionFooter =
+    mediaCaption && (overflow || post.text.length > 220) ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        accessibilityState={{ expanded: localExpanded }}
+        onPress={() => {
+          setExpanded(!localExpanded);
+          onExpand?.();
+        }}
+      >
+        {localExpanded ? "Less" : "Read more"}
+      </Button>
+    ) : undefined;
   return (
     <View style={[feedStyles.item, feedStyles.inset]}>
       <FeedItemSurface padded={false}>
@@ -65,9 +87,11 @@ export function SharedLifePostCard({
             post={post}
             index={index}
             onIndexChange={onIndexChange}
+            sourceLabel={attachmentLabel}
           />
         ) : null}
-        {post.text || post.attachment ? (
+        {(!post.media.length && post.text) ||
+        (!post.media.length && post.attachment) ? (
           <VStack space="md" style={feedStyles.content}>
             {post.text ? (
               <View>
@@ -163,37 +187,30 @@ export function SharedLifePostCard({
             : []),
         ]}
       >
-        <FeedItemResponses
-          selected={Boolean(post.myReaction)}
-          onReact={onReact}
-          onOpen={onOpen}
-          authorName={post.authorName}
-        />
+        <HStack alignItems="center" justifyContent="space-between">
+          <FeedItemResponses
+            selected={Boolean(post.myReaction)}
+            count={post.reactionCount}
+            replyCount={post.replyCount}
+            onReact={onReact}
+            onOpen={onOpen}
+            authorName={post.authorName}
+          />
+          <ShareMomentButton postId={post.id} />
+        </HStack>
       </FeedItemActions>
       <FeedItemMetadata
         name={post.authorName}
         context={audienceLabel(post)}
         createdAt={post.createdAt}
         onAuthor={onAuthor}
+        caption={mediaCaption}
+        captionNumberOfLines={localExpanded ? undefined : 4}
+        onCaptionTextLayout={(e) => {
+          if (e.nativeEvent.lines.length >= 4) setOverflow(true);
+        }}
+        captionFooter={mediaCaptionFooter}
       />
-      {post.replyPreview ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Reply from ${post.replyPreview.authorName}. View conversation`}
-          onPress={onOpen}
-          style={{ gap: spacing.xs }}
-        >
-          <Text style={feedStyles.body} numberOfLines={2}>
-            <Text style={feedStyles.name}>{post.replyPreview.authorName} </Text>
-            {post.replyPreview.text}
-          </Text>
-          <Text style={feedStyles.meta}>
-            {post.replyCount > 1
-              ? `View all ${post.replyCount} comments`
-              : "Reply"}
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }

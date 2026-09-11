@@ -1,22 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
-
-const followDeviceDuringVideoFocus = () => Platform.OS === 'ios'
-  ? ScreenOrientation.lockPlatformAsync({
-      screenOrientationArrayIOS: [
-        ScreenOrientation.Orientation.PORTRAIT_UP,
-        ScreenOrientation.Orientation.LANDSCAPE_LEFT,
-        ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
-      ],
-    })
-  : ScreenOrientation.unlockAsync();
 
 export function applyNavigationOrientation(
   routeName: string | undefined,
   context: { focusVideoActive?: boolean } = {},
 ) {
-  if (context.focusVideoActive) return followDeviceDuringVideoFocus();
+  if (context.focusVideoActive) {
+    return ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+  }
   return routeName === 'Food' || routeName === 'RecipeCookMode'
     ? ScreenOrientation.unlockAsync()
     : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);

@@ -1,3 +1,4 @@
+import { ShareMomentButton } from "./ShareMomentButton";
 import { useEffect, useRef, useState } from "react";
 import { AppState, ScrollView, StyleSheet, View } from "react-native";
 import { randomUUID } from "expo-crypto";
@@ -121,6 +122,13 @@ export function SharedLifeConversation({
     <SharedLifePage
       title={editing ? "Edit your words" : "Conversation"}
       onClose={onClose}
+      rightElement={
+        !editing &&
+        conversation &&
+        conversation.post.kind !== "chore_update" ? (
+          <ShareMomentButton postId={conversation.post.id} />
+        ) : undefined
+      }
       footer={
         <View
           onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}

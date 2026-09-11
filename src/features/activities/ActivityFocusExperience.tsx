@@ -6,7 +6,11 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';
 import { type SoundscapeId } from '../../services/soundscape';
-import { SOUND_SCAPES, type FocusVideoEnvironmentId } from '../../services/soundscapeCatalog';
+import {
+  SOUND_SCAPES,
+  isFocusVideoEnvironmentId,
+  type FocusVideoEnvironmentId,
+} from '../../services/soundscapeCatalog';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Icon } from '../../ui/Icon';
@@ -17,6 +21,7 @@ import { Text } from '../../ui/Typography';
 import { styles } from './activityDetailStyles';
 import { FocusSetupContent } from './FocusSetupContent';
 import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
+import { focusVideoEnvironment } from './focusEnvironmentCatalog';
 import { FocusSessionOverlay } from './FocusSessionOverlay';
 import { formatFocusTimer } from './focusSessionPresentation';
 import type { ActivityFocusController } from './useActivityFocusController';
@@ -79,6 +84,9 @@ export function ActivityFocusExperience({
   });
   const hasScreenTimeOffer = screenTimeOffer != null;
   const videoEnvironmentActive = focusVideoEnvironmentId != null;
+  const videoEnvironmentTitle = focusVideoEnvironmentId
+    ? focusVideoEnvironment(focusVideoEnvironmentId)?.title
+    : null;
   const snapPoints = useMemo(() => {
     if (Platform.OS === 'ios') {
       if (controller.customExpanded) return hasScreenTimeOffer ? ['92%' as const] : ['82%' as const];
@@ -147,7 +155,7 @@ export function ActivityFocusExperience({
             onCustomExpandedChange={controller.setCustomExpanded}
             audio={soundscapeEnabled ? soundscapeTrackId : 'none'}
             onAudioChange={(nextAudio) => {
-              setFocusVideoEnvironmentId(nextAudio === 'canyonSpring' ? 'canyonSpring' : null);
+              setFocusVideoEnvironmentId(isFocusVideoEnvironmentId(nextAudio) ? nextAudio : null);
               setSoundscapeEnabled(nextAudio !== 'none');
               if (nextAudio !== 'none') setSoundscapeTrackId(nextAudio);
             }}
@@ -181,7 +189,7 @@ export function ActivityFocusExperience({
           <Pressable
             onPress={videoEnvironmentActive ? undefined : shiftOverlayColor}
             accessibilityRole={videoEnvironmentActive ? 'image' : 'button'}
-            accessibilityLabel={videoEnvironmentActive ? 'Canyon Spring Focus environment' : 'Focus color'}
+            accessibilityLabel={videoEnvironmentActive ? `${videoEnvironmentTitle ?? 'Video'} Focus environment` : 'Focus color'}
             accessibilityHint={videoEnvironmentActive ? undefined : 'Double tap to shift focus background color'}
             style={{ flex: 1 }}
           >
@@ -221,19 +229,19 @@ export function ActivityFocusExperience({
                             <Pressable
                               key={item.id}
                               onPress={() => {
-                                setFocusVideoEnvironmentId(item.id === 'canyonSpring' ? 'canyonSpring' : null);
+                                setFocusVideoEnvironmentId(isFocusVideoEnvironmentId(item.id) ? item.id : null);
                                 setSoundscapeTrackId(item.id);
                                 setSoundscapeMenuOpen(false);
                               }}
                               style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
                               accessibilityRole="button"
-                              accessibilityLabel={item.id === 'canyonSpring'
-                                ? 'Select Canyon Spring video environment'
+                              accessibilityLabel={isFocusVideoEnvironmentId(item.id)
+                                ? `Select ${item.title} video environment`
                                 : `Select ${item.title} soundscape`}
                             >
                               <HStack space="sm" alignItems="center" style={{ flex: 1 }}>
                                 <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
-                                {item.id === 'canyonSpring' ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
+                                {isFocusVideoEnvironmentId(item.id) ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
                               </HStack>
                               {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
                             </Pressable>

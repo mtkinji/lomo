@@ -25,4 +25,25 @@ describe('KanbanCard metadata', () => {
     expect(screen.getByText('Past due')).toBeTruthy();
     expect(screen.getByText('~30 min')).toBeTruthy();
   });
+
+  it('keeps the completion circle visually unchanged in the drag preview', () => {
+    const screen = render(<KanbanCard activity={activity} onToggleComplete={jest.fn()} />);
+
+    expect(screen.getByTestId('kanban-card-leading-control')).toBeTruthy();
+    expect(screen.getByTestId('kanban-card-completion-control')).toHaveStyle({
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+    });
+    expect(screen.queryByTestId('kanban-card-move-feedback')).toBeNull();
+
+    screen.rerender(<KanbanCard activity={activity} showCompletionControl />);
+    expect(screen.getByTestId('kanban-card-leading-control')).toBeTruthy();
+    expect(screen.getByTestId('kanban-card-completion-control')).toHaveStyle({
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+    });
+    expect(screen.queryByTestId('kanban-card-move-feedback')).toBeNull();
+  });
 });

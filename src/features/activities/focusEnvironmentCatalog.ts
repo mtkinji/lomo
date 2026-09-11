@@ -9,10 +9,17 @@ const canyonSpringVideoUri = __DEV__ && process.env.EXPO_PUBLIC_FOCUS_CANYON_SPR
   : `${PUBLIC_FOCUS_ENVIRONMENT_ROOT}/focus/canyon-spring-stream-b0d1f2c83a2a.mp4`;
 
 export type FocusVideoEnvironment = {
-  id: Extract<SoundscapeId, 'canyonSpring'>;
+  id: Extract<SoundscapeId, 'canyonSpring' | 'mountainOverlook'>;
   title: string;
   poster: ImageSourcePropType;
   video: VideoSource;
+};
+
+export const MOUNTAIN_OVERLOOK_ENVIRONMENT: FocusVideoEnvironment = {
+  id: 'mountainOverlook',
+  title: 'Mountain Overlook',
+  poster: require('../../../assets/images/focus/mountain-overlook-poster.jpg'),
+  video: require('../../../assets/videos/focus/mountain-overlook-loop-5c6b9596589d.mp4'),
 };
 
 export const CANYON_SPRING_ENVIRONMENT: FocusVideoEnvironment = {
@@ -26,5 +33,7 @@ export const CANYON_SPRING_ENVIRONMENT: FocusVideoEnvironment = {
 };
 
 export function focusVideoEnvironment(id: SoundscapeId): FocusVideoEnvironment | null {
-  return id === CANYON_SPRING_ENVIRONMENT.id ? CANYON_SPRING_ENVIRONMENT : null;
+  if (id === CANYON_SPRING_ENVIRONMENT.id) return CANYON_SPRING_ENVIRONMENT;
+  if (id === MOUNTAIN_OVERLOOK_ENVIRONMENT.id) return MOUNTAIN_OVERLOOK_ENVIRONMENT;
+  return null;
 }

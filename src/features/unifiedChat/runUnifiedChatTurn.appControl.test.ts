@@ -123,6 +123,70 @@ test('stages walking follow-through without inventing an Activity Goal id', asyn
   expect(repository.createProposal).toHaveBeenCalledTimes(1);
 });
 
+test('exposes Recipe creation when the AI maps a natural save follow-up to that ability', async () => {
+  const runtimeSender = jest.fn(async (_history: unknown, options: {
+    runtimeTools?: Array<{ id: string }>;
+    runtimeToolChoice?: 'auto' | 'required';
+    executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+  }) => {
+    expect(options.runtimeToolChoice).toBe('required');
+    const recipeTool = options.runtimeTools?.find((tool) => tool.id === 'recipes.create');
+    expect(recipeTool).toBeDefined();
+    await options.executeRuntimeTool?.({
+      id: 'recipe-create', toolId: 'recipes.create', arguments: {
+        recipe: {
+          title: 'Sourdough Crepes',
+          ingredients: ['2 cups sourdough starter', '2 cups almond milk', '4 eggs'],
+          instructions: ['Whisk the ingredients.', 'Cook in a buttered skillet.'],
+        },
+        idempotencyKey: 'recipe-create-sourdough-crepes',
+      },
+    }, recipeTool);
+    return 'I prepared Sourdough Crepes for review.';
+  });
+  const { repository, send } = harness(runtimeSender);
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Hang onto that recipe for me.' },
+    {
+      repository: repository as never,
+      sendCoachChat: send as never,
+      enableRuntimeTools: true,
+      requestJudgment: async () => ({
+        schemaVersion: 1,
+        userJob: 'Keep the recipe in Kwilt',
+        desiredOutcome: 'A reviewable private Recipe draft exists',
+        requestClass: 'capability_action',
+        participatingCapabilities: ['recipes'],
+        usePrivateContext: false,
+        informationNeed: 'stable',
+        authorization: 'explicit_request',
+        evidenceScope: 'none',
+        responseContract: 'direct',
+        executionMode: 'single_tool',
+        constraints: [],
+        steps: [{ sequence: 1, objective: 'Prepare the recipe for review', toolId: 'recipes.create', dependsOn: null }],
+        clarificationQuestion: null,
+        confidence: 0.98,
+        reason: 'The user wants to retain the recipe from the conversation.',
+      }),
+      routeRequest: async () => null,
+      loadCapabilitySnapshots: async () => ({
+        goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        recipes: { recipes: [] },
+      }),
+    },
+  );
+
+  expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+    capabilityId: 'recipes',
+    operation: expect.objectContaining({
+      type: 'create_recipe',
+      payload: expect.objectContaining({ reviewedData: expect.objectContaining({ title: 'Sourdough Crepes' }) }),
+    }),
+  }));
+});
+
 test('preserves the next-week bound when the model omits the Goal target date', async () => {
   const runtimeSender = jest.fn(async (_history: unknown, options: {
     runtimeTools?: Array<{ id: string }>;

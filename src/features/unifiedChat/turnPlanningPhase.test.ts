@@ -133,6 +133,69 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     expect(result.requestPolicy.participatingCapabilities).toEqual(['plan']);
   });
 
+  it('keeps an explicit Recipe save on the write path when model planning is unavailable', async () => {
+    const routeRequest = jest.fn(async () => null);
+    const result = await plan({
+      prompt: 'Save this recipe',
+      requestJudgment: async () => null,
+      routeRequest,
+    });
+
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['recipes'],
+      policyReason: 'typed-capability-proposal-required',
+    });
+    expect(result.turnContract).toMatchObject({
+      authorization: 'explicit_request',
+      action: { targetQuery: 'Save this recipe' },
+    });
+  });
+
+  it('lets the AI match a natural conversational follow-up to the Recipe create ability', async () => {
+    const aggregate = {
+      ...emptyAggregate,
+      messages: [{
+        id: 'assistant-recipe', threadId: 'thread-1', role: 'assistant',
+        body: 'Sourdough Crepes\n\nIngredients\n- sourdough starter\n- almond milk\n- eggs\n\nInstructions\n1. Whisk.\n2. Cook.',
+        feedback: null, createdAt: '2026-08-01T12:01:00.000Z',
+        updatedAt: '2026-08-01T12:01:00.000Z', attachments: [],
+      }],
+    } as UnifiedChatThreadAggregate;
+    const recipeJudgment: AgentJudgment = {
+      ...dentistJudgment,
+      userJob: 'Keep the recipe from the conversation in Kwilt',
+      desiredOutcome: 'A reviewable private Recipe draft exists',
+      requestClass: 'capability_action',
+      participatingCapabilities: ['recipes'],
+      usePrivateContext: false,
+      authorization: 'explicit_request',
+      evidenceScope: 'none',
+      responseContract: 'direct',
+      constraints: [],
+      steps: [{ sequence: 1, objective: 'Prepare the recipe for review', toolId: 'recipes.create', dependsOn: null }],
+      reason: 'The user wants to retain the recipe just created in the conversation.',
+    };
+    const requestJudgment = jest.fn(async () => recipeJudgment);
+
+    const result = await plan({
+      prompt: 'Hang onto that for me',
+      interactionMode: 'conversation',
+      aggregate,
+      requestJudgment,
+    });
+
+    expect(requestJudgment).toHaveBeenCalledTimes(1);
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['recipes'],
+      usePrivateContext: false,
+    });
+    expect(result.agentJudgment?.steps).toEqual([
+      expect.objectContaining({ toolId: 'recipes.create' }),
+    ]);
+  });
+
   it('does not make the semantic planning call after a valid judgment', async () => {
     const routeRequest = jest.fn(async () => null);
     const result = await plan({ routeRequest });

@@ -68,6 +68,20 @@ describe('useStandaloneFocusController', () => {
     expect(useAppStore.getState().focusVideoEnvironmentId).toBe('canyonSpring');
   });
 
+  it('selects the Mountain Overlook visual with its paired Focus soundscape', async () => {
+    const { result } = renderHook(() =>
+      useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),
+    );
+
+    await act(async () => {
+      expect(await result.current.start(25, 'mountainOverlook')).toBe(true);
+    });
+
+    expect(useAppStore.getState().focusVideoEnvironmentId).toBe('mountainOverlook');
+    expect(useAppStore.getState().soundscapeTrackId).toBe('mountainOverlook');
+    expect(preloadSoundscape).toHaveBeenCalledWith({ soundscapeId: 'mountainOverlook' });
+  });
+
   it('can start silently from a widget configured with no audio', async () => {
     const { result } = renderHook(() =>
       useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),

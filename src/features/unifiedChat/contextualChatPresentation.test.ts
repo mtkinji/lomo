@@ -47,6 +47,17 @@ describe('contextual Chat presentation', () => {
     });
   });
 
+  test('uses decision-shaped language for the Budget drawer', () => {
+    expect(getFreshDrawerCopy({
+      capabilityId: 'money',
+      surface: 'inventory',
+      returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+    })).toEqual({
+      title: 'Chat about this budget',
+      placeholder: 'Ask about your budget',
+    });
+  });
+
   test('offers editable recipe-specific ways into a fresh Recipe detail chat', () => {
     const launchContext = {
       capabilityId: 'recipes' as const,

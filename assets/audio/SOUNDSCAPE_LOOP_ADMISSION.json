@@ -72,6 +72,14 @@
     "channels": 2
   },
   {
+    "id": "mountainOverlook",
+    "assetKey": "mountain-overlook-wind-5c273d4ddf9f",
+    "source": { "kind": "bundled", "key": "mountain-overlook" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
     "id": "oceanWaves",
     "assetKey": "ocean-waves-1bc54848be4d",
     "source": { "kind": "remote", "id": "focus.ocean-waves" },

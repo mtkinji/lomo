@@ -68,6 +68,8 @@ import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 import { requestMoneyProAccess } from '../runtime/moneyProAccess';
+import { UnifiedChatDrawer } from '../../../features/unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../../../features/unifiedChat/launchContext';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
@@ -88,6 +90,8 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const [accountSourcesOpen, setAccountSourcesOpen] = useState(false);
   const [accountConnectionPending, setAccountConnectionPending] = useState(false);
   const [accountConnectionMessage, setAccountConnectionMessage] = useState<string | null>(null);
+  const [budgetChatVisible, setBudgetChatVisible] = useState(false);
+  const [budgetChatThreadId, setBudgetChatThreadId] = useState<string | null>(null);
   const [refreshReceipt, setRefreshReceipt] = useState<'idle' | 'checking' | 'fresh' | 'error'>('idle');
   const freshHandoff = route.params?.onboardingHandoff ?? null;
   const [onboardingHandoff, setOnboardingHandoff] = useState<MoneyOnboardingHandoffState | null>(() => (
@@ -119,6 +123,11 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     ));
   }, [snapshot]);
   const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
+  const budgetChatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'money',
+    surface: 'inventory',
+    returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+  }), []);
   const refreshBudget = useCallback(async () => {
     if (!liveSnapshot?.accounts.length) {
       await refresh();
@@ -428,6 +437,16 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     </MoneyScreenFrame>
     {!isPristineMoney && snapshot && currentPeriod ? (
       <ActionDock
+        leftItems={[{
+          id: 'chat-about-budget',
+          icon: 'navAiGuide',
+          accessibilityLabel: 'Chat about this budget',
+          testID: 'money-contextual-chat',
+          onPress: () => {
+            void HapticsService.trigger('canvas.selection');
+            setBudgetChatVisible(true);
+          },
+        }]}
         rightItem={{
           id: 'add-category',
           icon: 'plus',
@@ -435,6 +454,17 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
           testID: 'money-add-category-fab',
           onPress: () => navigation.navigate('MoneyCategoryCreate'),
         }}
+      />
+    ) : null}
+    {currentPeriod ? (
+      <UnifiedChatDrawer
+        visible={budgetChatVisible}
+        onClose={() => setBudgetChatVisible(false)}
+        launchContext={budgetChatLaunchContext}
+        scopeLabel={`${currentPeriod.periodLabel} Budget`}
+        source="money_budget_contextual_drawer"
+        threadId={budgetChatThreadId}
+        onThreadIdChange={setBudgetChatThreadId}
       />
     ) : null}
     <BottomDrawer

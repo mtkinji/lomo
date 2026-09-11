@@ -67,6 +67,8 @@ describe('FocusSetupContent', () => {
     expect(getByText('Quiet Rain')).toBeTruthy();
     expect(getByText('Canyon Spring')).toBeTruthy();
     expect(getByLabelText('Canyon Spring, video environment')).toBeTruthy();
+    expect(getByText('Mountain Overlook')).toBeTruthy();
+    expect(getByLabelText('Mountain Overlook, video environment')).toBeTruthy();
     expect(getByText('Quiet')).toBeTruthy();
     expect(queryByText('Forest Stream')).toBeNull();
     expect(queryByText('Night Meadow')).toBeNull();

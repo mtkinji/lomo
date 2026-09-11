@@ -30,8 +30,7 @@ function isLightweightSocialTurn(prompt: string): boolean {
 export function resolveConversationPlanningStrategy(
   input: ConversationPlanningInput,
 ): ConversationPlanningStrategy {
-  const canAnswerWithoutPlanning = input.interactionMode === 'conversation' ||
-    isLightweightSocialTurn(input.prompt) ||
+  const canAnswerWithoutPlanning = isLightweightSocialTurn(input.prompt) ||
     classifyOnDeviceChatTask(input.prompt) !== null;
   return canAnswerWithoutPlanning &&
     input.requestClass === 'general' &&

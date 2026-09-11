@@ -12,6 +12,7 @@ import { formatFocusTimer } from './focusSessionPresentation';
 import { styles } from './activityDetailStyles';
 import type { StandaloneFocusController } from './useStandaloneFocusController';
 import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
+import { focusVideoEnvironment } from './focusEnvironmentCatalog';
 import { FocusSessionOverlay } from './FocusSessionOverlay';
 
 const palette = [
@@ -37,6 +38,9 @@ export function StandaloneFocusExperience(props: {
   const normalizedColorIndex = Math.floor(Math.max(0, colorIndex)) % palette.length;
   const session = props.controller.session;
   const videoEnvironmentActive = focusVideoEnvironmentId != null;
+  const videoEnvironmentTitle = focusVideoEnvironmentId
+    ? focusVideoEnvironment(focusVideoEnvironmentId)?.title
+    : null;
 
   if (!session) return null;
 
@@ -46,7 +50,7 @@ export function StandaloneFocusExperience(props: {
     >
           <Pressable
             accessibilityRole={videoEnvironmentActive ? 'image' : 'button'}
-            accessibilityLabel={videoEnvironmentActive ? 'Canyon Spring Focus environment' : 'Focus color'}
+            accessibilityLabel={videoEnvironmentActive ? `${videoEnvironmentTitle ?? 'Video'} Focus environment` : 'Focus color'}
             accessibilityHint={videoEnvironmentActive ? undefined : 'Double tap to shift focus background color'}
             onPress={videoEnvironmentActive
               ? undefined

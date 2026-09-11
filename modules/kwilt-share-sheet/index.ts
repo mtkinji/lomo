@@ -1,7 +1,7 @@
-import { NativeModule, requireOptionalNativeModule } from 'expo';
+import { NativeModule, requireOptionalNativeModule } from "expo";
 
 export type KwiltShareSheetResult = {
-  action: 'askHousehold' | 'shared' | 'dismissed';
+  action: "askHousehold" | "shared" | "dismissed";
   activityType: string | null;
 };
 
@@ -10,7 +10,17 @@ type KwiltShareSheetEvents = {
 };
 
 declare class KwiltShareSheetNativeModule extends NativeModule<KwiltShareSheetEvents> {
-  present(url: string, subject: string | null, askHouseholdTitle: string | null): Promise<KwiltShareSheetResult>;
+  presentMoment?(
+    message: string,
+    photoURLs: string[],
+  ): Promise<KwiltShareSheetResult>;
+  present(
+    url: string,
+    subject: string | null,
+    askHouseholdTitle: string | null,
+  ): Promise<KwiltShareSheetResult>;
 }
 
-export default requireOptionalNativeModule<KwiltShareSheetNativeModule>('KwiltShareSheet');
+export default requireOptionalNativeModule<KwiltShareSheetNativeModule>(
+  "KwiltShareSheet",
+);

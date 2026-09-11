@@ -2,7 +2,7 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { VStack, HStack, Text } from '../../ui/primitives';
-import { Icon, type IconName } from '../../ui/Icon';
+import { Icon } from '../../ui/Icon';
 import { GoalPill } from '../../ui/GoalPill';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -31,16 +31,26 @@ export type KanbanCardProps = {
    * Handler for tapping the card.
    */
   onPress?: () => void;
+  /** Alternative non-drag path for assistive technologies. */
+  onRequestMove?: () => void;
   /**
    * Whether card is in loading/enriching state.
    */
   isLoading?: boolean;
-  /**
-   * Dedicated movement control. Keeping this separate from the card surface lets
-   * taps open details and swipes navigate/scroll without also beginning a move.
-   */
-  moveHandle?: React.ReactNode;
+  /** Keeps the completion indicator visible in a non-interactive card preview. */
+  showCompletionControl?: boolean;
 };
+
+function CompletionCircle({ isCompleted }: { isCompleted: boolean }) {
+  return (
+    <View
+      testID="kanban-card-completion-control"
+      style={[styles.checkbox, isCompleted && styles.checkboxCompleted]}
+    >
+      {isCompleted ? <Icon name="check" size={12} color={colors.canvas} /> : null}
+    </View>
+  );
+}
 
 /**
  * Whether the card is due today.
@@ -52,8 +62,9 @@ export function KanbanCard({
   visibleFields,
   onToggleComplete,
   onPress,
+  onRequestMove,
   isLoading = false,
-  moveHandle,
+  showCompletionControl,
 }: KanbanCardProps) {
   const isCompleted = activity.status === 'done';
   const hasAttachments = (activity.attachments?.length ?? 0) > 0;
@@ -72,6 +83,7 @@ export function KanbanCard({
   const showPriority = isFieldVisible('priority') && activity.priority === 1;
   const showEstimate = isFieldVisible('estimate') && Boolean(estimateMeta);
   const showMetaRow = showSteps || showAttachments || showTiming || showPriority || showEstimate;
+  const shouldShowCompletionControl = showCompletionControl ?? Boolean(onToggleComplete);
 
   return (
     <View style={styles.cardWrapper}>
@@ -80,6 +92,11 @@ export function KanbanCard({
         style={({ pressed }) => [styles.cardInner, pressed && styles.cardPressed]}
         accessibilityRole="button"
         accessibilityLabel={activity.title}
+        accessibilityHint={onRequestMove ? 'Double tap to open. Touch and hold to move.' : undefined}
+        accessibilityActions={onRequestMove ? [{ name: 'move', label: 'Move' }] : undefined}
+        onAccessibilityAction={onRequestMove ? (event) => {
+          if (event.nativeEvent.actionName === 'move') onRequestMove();
+        } : undefined}
       >
         <VStack space="xs" style={styles.cardContent}>
           {/* Goal badge */}
@@ -89,27 +106,31 @@ export function KanbanCard({
 
           {/* Title and metadata share the same text column as the standard list card. */}
           <HStack alignItems="flex-start" space="sm">
-            {onToggleComplete && (
+            {shouldShowCompletionControl && onToggleComplete ? (
               <Pressable
+                accessibilityRole="checkbox"
+                accessibilityLabel={isCompleted ? 'Mark to-do as not done' : 'Mark to-do as done'}
+                accessibilityState={{ checked: isCompleted }}
                 onPress={(e) => {
                   e.stopPropagation?.();
                   onToggleComplete();
                 }}
                 hitSlop={8}
                 style={styles.checkboxHitArea}
+                testID="kanban-card-leading-control"
               >
-                <View
-                  style={[
-                    styles.checkbox,
-                    isCompleted && styles.checkboxCompleted,
-                  ]}
-                >
-                  {isCompleted && (
-                    <Icon name="check" size={12} color={colors.canvas} />
-                  )}
+                <View style={styles.leadingControl}>
+                  <CompletionCircle isCompleted={isCompleted} />
                 </View>
               </Pressable>
-            )}
+            ) : shouldShowCompletionControl ? (
+              <View
+                testID="kanban-card-leading-control"
+                style={styles.leadingControl}
+              >
+                <CompletionCircle isCompleted={isCompleted} />
+              </View>
+            ) : null}
             <VStack style={styles.textBlock} space="xs">
               <Text
                 style={[
@@ -169,7 +190,6 @@ export function KanbanCard({
                 </HStack>
               ) : null}
             </VStack>
-            {moveHandle}
           </HStack>
         </VStack>
       </Pressable>
@@ -218,6 +238,12 @@ const styles = StyleSheet.create({
   },
   checkboxHitArea: {
     marginTop: 2,
+  },
+  leadingControl: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkbox: {
     width: 20,

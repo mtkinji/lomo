@@ -77,6 +77,7 @@ ElevenLabs Sound Effects v2 produced four 30-second loop-enabled candidates per 
 | Ocean Waves | `vU1DnIbxUSpPSVQxBQRb`, candidate 3 | 2 s seam; 28 s unit tiled 8x | 224.040 s; -24.2 LUFS; -3.1 dBTP; 0 ms lead/tail; 1.97 dB boundary delta | `1bc54848be4d5e6aa7191723c6aa9d647000d01d1748d05498d5ac5fed9e482a` | Published; automated pass; listening pending |
 | Fireplace | `y8EVp6AsoKXQMpZGQfsQ`, candidate 4 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.2 LUFS; -3.0 dBTP; 0 ms lead/tail; 0.69 dB boundary delta | `437701bb0f201add2f5034753848eddc952b8d4f5c9a62e093700b2f22439b4c` | Published; automated pass; listening pending |
 | Night Meadow | `YiqNkeyhoLwnZhsPugTR`, candidate 1 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.2 LUFS; -13.8 dBTP; 0 ms lead/tail; 0.58 dB boundary delta | `652815cb09d9367a19808cc6f555b05562919911414baba706e6593c69f85de9` | Published; automated pass; listening pending |
+| Mountain Overlook | Original default stereo soundtrack from Andrew's supplied MOV; no replacement ambience | 4 s equal-power seam; 51.316 s unit tiled 4x | 205.264 s; 48 kHz stereo; 0 ms lead/tail; 1.83 dB boundary delta; -45.79 dBFS endpoint; 7.12 dB local outlier | `5c273d4ddf9f165a862164d0ce94d51b344fc6b9aaa12f261d210355059c894f` | Bundled with the app; automated seam pass; Simulator decoded the exact master to a 205.264-second PCM cache; physical-iPhone listening pending |
 
 ### Runtime proof
 

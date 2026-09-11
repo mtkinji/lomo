@@ -127,6 +127,23 @@ jest.mock('../../../ui/CelebrationGif', () => {
   const { View } = require('react-native');
   return { CelebrationGif: () => <View testID="money-budget-ready-celebration" /> };
 });
+jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => {
+  const { View } = require('react-native');
+  return {
+    UnifiedChatDrawer: ({ visible, launchContext, scopeLabel, source, threadId }: {
+      visible: boolean;
+      launchContext: unknown;
+      scopeLabel: string;
+      source?: string;
+      threadId: string | null;
+    }) => visible ? (
+      <View
+        testID="money-contextual-chat-drawer"
+        accessibilityValue={{ text: JSON.stringify({ launchContext, scopeLabel, source, threadId }) }}
+      />
+    ) : null,
+  };
+});
 jest.mock('../../../ui/DropdownMenu', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
@@ -365,6 +382,24 @@ describe('MoneySummaryScreen living limit answer', () => {
     ))).toBe(false);
   });
 
+  it('opens contextual Chat from the action dock with Budget scope', () => {
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-chat', name: 'MoneySummary' } as never} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Chat about this budget' }));
+
+    const drawer = screen.getByTestId('money-contextual-chat-drawer');
+    expect(JSON.parse(drawer.props.accessibilityValue.text)).toEqual({
+      launchContext: {
+        capabilityId: 'money',
+        surface: 'inventory',
+        returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+      },
+      scopeLabel: 'July 2026 Budget',
+      source: 'money_budget_contextual_drawer',
+      threadId: null,
+    });
+  });
+
   it('keeps actual spending primary and routes an above-target plan to adjustment', () => {
     mockSnapshot = {
       ...initialSnapshot,
@@ -556,6 +591,7 @@ describe('MoneySummaryScreen living limit answer', () => {
 
     expect(screen.getByText('Build your budget from real life')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Connect another account' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Chat about this budget' })).toBeNull();
     fireEvent.press(screen.getByText('Connect accounts'));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyEntry', {
       requestedPlace: 'MoneySummary',

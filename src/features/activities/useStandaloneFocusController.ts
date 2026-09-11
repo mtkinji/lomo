@@ -4,6 +4,7 @@ import { HapticsService } from '../../services/HapticsService';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { preloadSoundscape, type SoundscapeId } from '../../services/soundscape';
+import { isFocusVideoEnvironmentId } from '../../services/soundscapeCatalog';
 import { useAppStore } from '../../store/useAppStore';
 import {
   STANDALONE_FOCUS_ACTIVITY_ID,
@@ -61,7 +62,7 @@ export function useStandaloneFocusController(params: {
     }
     if (audio !== undefined) {
       useAppStore.getState().setFocusVideoEnvironmentId(
-        audio === 'canyonSpring' ? 'canyonSpring' : null,
+        isFocusVideoEnvironmentId(audio) ? audio : null,
       );
     }
     const replaced = useFocusSessionStore.getState().endSession();

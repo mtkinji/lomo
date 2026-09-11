@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { Button, Card, HStack, Text, VStack } from "../../ui/primitives";
-import { ProfileAvatar } from "../../ui/ProfileAvatar";
+import { ProfileAvatar, profileInitials } from "../../ui/ProfileAvatar";
 import { Pressable } from "../../ui/HapticPressable";
+import { withHapticPress } from "../../ui/haptics/withHapticPress";
 import { Icon } from "../../ui/Icon";
 import {
   DropdownMenu,
@@ -24,45 +25,70 @@ export function FeedItemMetadata({
   createdAt,
   now,
   onAuthor,
+  caption,
+  captionNumberOfLines,
+  onCaptionTextLayout,
+  captionFooter,
 }: {
   name: string;
   context: string;
   createdAt: string;
   now?: number;
   onAuthor?: () => void;
+  caption?: string;
+  captionNumberOfLines?: number;
+  onCaptionTextLayout?: React.ComponentProps<typeof Text>["onTextLayout"];
+  captionFooter?: ReactNode;
 }) {
-  const identity = (
-    <VStack space="xs" style={feedStyles.identity}>
-      <HStack space="sm" alignItems="center">
-        <ProfileAvatar name={name} size={20} />
-        <Text style={[feedStyles.metadataName, feedStyles.grow]}>
-          {name}
-          <Text
-            style={feedStyles.meta}
-          >{` · ${momentTime(createdAt, now)}`}</Text>
-        </Text>
-      </HStack>
-      <Text style={[feedStyles.meta, { paddingLeft: 20 + spacing.sm }]}>
-        {context}
-      </Text>
-    </VStack>
+  const authorPill = (
+    <HStack space="xs" alignItems="center" style={feedStyles.authorPill}>
+      <ProfileAvatar name={name} size={18} />
+      <Text style={feedStyles.metadataName}>{name}</Text>
+    </HStack>
   );
   return (
-    <HStack space="sm" alignItems="center">
-      {onAuthor ? (
+    <VStack space="xs" style={feedStyles.identity}>
+      {caption ? (
+        <Text
+          style={feedStyles.body}
+          numberOfLines={captionNumberOfLines}
+          onTextLayout={onCaptionTextLayout}
+        >
+          <Text
+            style={feedStyles.inlineAuthorPill}
+            accessibilityRole={onAuthor ? "button" : undefined}
+            accessibilityLabel={onAuthor ? `Moments from ${name}` : undefined}
+            onPress={
+              onAuthor
+                ? withHapticPress(onAuthor, "canvas.selection")
+                : undefined
+            }
+          >
+            <Text style={feedStyles.inlineAvatar}>
+              {` ${profileInitials(name)} `}
+            </Text>
+            {` ${name} `}
+          </Text>
+          {` ${caption}`}
+        </Text>
+      ) : onAuthor ? (
         <Pressable
-          style={feedStyles.grow}
+          style={feedStyles.authorPillPressable}
           accessibilityRole="button"
           accessibilityLabel={`Moments from ${name}`}
           accessibilityHint={`${context} · ${momentTime(createdAt, now)}`}
           onPress={onAuthor}
         >
-          {identity}
+          {authorPill}
         </Pressable>
       ) : (
-        identity
+        authorPill
       )}
-    </HStack>
+      {captionFooter}
+      <Text style={feedStyles.meta}>
+        {`${context} · ${momentTime(createdAt, now)}`}
+      </Text>
+    </VStack>
   );
 }
 /** One toolbar precedes every byline; optional source utilities belong in overflow. */
@@ -153,6 +179,7 @@ export function FeedItemResponses({
   kind = "cheer",
   selected,
   count,
+  replyCount,
   onReact,
   onOpen,
   authorName,
@@ -160,6 +187,7 @@ export function FeedItemResponses({
   kind?: "cheer" | "thanks";
   selected: boolean;
   count?: number;
+  replyCount?: number;
   onReact: () => void;
   onOpen: () => void;
 
@@ -168,10 +196,9 @@ export function FeedItemResponses({
   const thanks = kind === "thanks";
   return (
     <View style={feedStyles.responses}>
-      <Button
-        variant="ghost"
-        size="icon"
-        iconButtonSize={44}
+      <Pressable
+        style={feedStyles.responseAction}
+        accessibilityRole="button"
         accessibilityState={{ selected }}
         accessibilityValue={
           count
@@ -195,16 +222,22 @@ export function FeedItemResponses({
           color={colors.textSecondary}
           fill={selected ? colors.textPrimary : "none"}
         />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        iconButtonSize={44}
+        {count ? <Text style={feedStyles.actionCount}>{count}</Text> : null}
+      </Pressable>
+      <Pressable
+        style={feedStyles.responseAction}
+        accessibilityRole="button"
         accessibilityLabel="Comment"
+        accessibilityValue={
+          replyCount ? { text: `${replyCount} comments` } : undefined
+        }
         onPress={onOpen}
       >
         <Icon name="messageCircle" size={20} color={colors.textSecondary} />
-      </Button>
+        {replyCount ? (
+          <Text style={feedStyles.actionCount}>{replyCount}</Text>
+        ) : null}
+      </Pressable>
     </View>
   );
 }
@@ -232,7 +265,31 @@ export const feedStyles = StyleSheet.create({
   compact: { gap: spacing.sm },
   inset: { paddingHorizontal: spacing.lg },
   grow: { flex: 1 },
-  identity: { flex: 1, minWidth: 0, minHeight: 44 },
+  identity: { minWidth: 0 },
+  authorPillPressable: { alignSelf: "flex-start" },
+  authorPill: {
+    alignSelf: "flex-start",
+    minHeight: 28,
+    paddingLeft: spacing.xs,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.card,
+  },
+  inlineAuthorPill: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: "600",
+    backgroundColor: colors.card,
+    borderRadius: radii.pill,
+  },
+  inlineAvatar: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: "700",
+    backgroundColor: colors.gray200,
+    borderRadius: radii.pill,
+  },
   name: { ...typography.bodyBold, color: colors.textPrimary },
   meta: { ...typography.bodySm, color: colors.textSecondary },
   body: { ...typography.body, color: colors.textPrimary },
@@ -252,6 +309,20 @@ export const feedStyles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  responseAction: {
+    minWidth: 44,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  actionCount: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: "600",
   },
   bookmark: { marginLeft: "auto" },
 });

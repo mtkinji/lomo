@@ -363,6 +363,32 @@ describe('useAppStore object lifecycles', () => {
     expect(updatedSecond?.status).toBe(second.status);
   });
 
+  it('updates a bounded set of manual order indices without touching unrelated activities', () => {
+    const first = activity({ id: 'act-first', orderIndex: 0, updatedAt: 'first-before' });
+    const second = activity({ id: 'act-second', orderIndex: 0, updatedAt: 'second-before' });
+    const unrelated = activity({ id: 'act-unrelated', orderIndex: 100, updatedAt: 'unrelated-before' });
+    useAppStore.getState().addActivity(first);
+    useAppStore.getState().addActivity(second);
+    useAppStore.getState().addActivity(unrelated);
+    const unrelatedBefore = useAppStore.getState().activities.find(
+      (item) => item.id === 'act-unrelated',
+    );
+
+    useAppStore.getState().setActivityOrderIndices([
+      { activityId: 'act-first', orderIndex: 0.25 },
+      { activityId: 'act-second', orderIndex: 0.5 },
+    ]);
+
+    const state = useAppStore.getState();
+    expect(state.activities.find((item) => item.id === 'act-first')).toMatchObject({
+      orderIndex: 0.25,
+      priorityRankSource: 'manual',
+      priorityReasonCodes: expect.arrayContaining(['moved_by_user']),
+    });
+    expect(state.activities.find((item) => item.id === 'act-second')?.orderIndex).toBe(0.5);
+    expect(state.activities.find((item) => item.id === 'act-unrelated')).toBe(unrelatedBefore);
+  });
+
   it('archive/restore is a status change (non-destructive) for arcs', () => {
     useAppStore.getState().addArc(arc({ id: 'arc-1', status: 'active' }));
 

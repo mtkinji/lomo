@@ -39,6 +39,13 @@ export function useMomentSuggestions(userId: string) {
           ? await createRecipeRepository().list()
           : [];
         if (!active) return;
+        const artwork = new Map(
+          recipes.map((r) => [
+            r.recipe.id,
+            r.recipe.mediaAssets.find((m) => m.lifecycle === "active")
+              ?.storageRef,
+          ]),
+        );
         const titles = new Map(
           recipes.map((r) => [r.recipe.id, r.currentVersion.title]),
         );
@@ -52,6 +59,7 @@ export function useMomentSuggestions(userId: string) {
                   recipeId: r.recipeId,
                   title,
                   completedAt: r.completedAt,
+                  artworkRef: artwork.get(r.recipeId),
                 },
               ]
             : [];

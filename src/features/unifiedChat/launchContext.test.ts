@@ -42,6 +42,16 @@ describe('resolveUnifiedChatLaunchAttachment', () => {
     });
   });
 
+  test('projects Budget inventory context for the shared drawer', () => {
+    expect(resolveUnifiedChatLaunchAttachment({
+      capabilityId: 'money', surface: 'inventory', returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+    }, { goals: [], activities: [], chapters: [] })).toEqual({
+      capabilityId: 'money', objectType: 'capability', objectId: 'money',
+      label: 'Budget', secondaryLabel: 'Current capability',
+      returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+    });
+  });
+
   test('projects the selected Plan day without loading a private object', () => {
     const planReturnTarget = {
       name: 'MainTabs',

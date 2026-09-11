@@ -1,9 +1,17 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Alert, Image, Keyboard, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import type { TextInput } from "react-native";
 import { randomUUID } from "expo-crypto";
 import { Button, Input, Text, VStack, HStack } from "../../ui/primitives";
-import { colors, spacing } from "../../theme";
+import { colors, radii, spacing, typography } from "../../theme";
 import { useAppStore } from "../../store/useAppStore";
 import { useHouseholdModeStore } from "../household/sharedDevice/useHouseholdModeStore";
 import {
@@ -26,7 +34,13 @@ import type { SharedLifeRepository } from "./sharedLifeRepository";
 import { NavigationContext } from "@react-navigation/native";
 import { BottomDrawer, BottomDrawerScrollView } from "../../ui/BottomDrawer";
 import { BottomDrawerHeader } from "../../ui/layout/BottomDrawerHeader";
-import { SettingsRow } from "../../ui/SettingsSurface";
+import {
+  MomentSuggestionRow,
+  MomentSourcePreview,
+  MomentSourceSummary,
+} from "./MomentSuggestionRow";
+import { Icon } from "../../ui/Icon";
+import { ButtonLabel } from "../../ui/Typography";
 import { useMomentSuggestions } from "./useMomentSuggestions";
 import { applyMomentSuggestion } from "./sharedLifeSuggestions";
 import { useFullWidthActionDockClearance } from "../../ui/FullWidthActionDock";
@@ -45,7 +59,7 @@ export function SharedLifeComposer({
   attachment?: HomeAttachment;
   intent?: "photo" | "write";
   onClose: () => void;
-  onPublished: () => void;
+  onPublished: (id: string) => void;
 }) {
   const navigation = useContext(NavigationContext);
   const [focused, setFocused] = useState(() => navigation?.isFocused() ?? true);
@@ -67,7 +81,13 @@ export function SharedLifeComposer({
   const [writing, setWriting] = useState(
     intent === "photo" || Boolean(attachment),
   );
-  const [focusWriting, setFocusWriting] = useState(false);
+  const textInput = useRef<TextInput>(null);
+  const [textFocused, setTextFocused] = useState(false);
+  const finishEditing = () => {
+    textInput.current?.blur();
+    Keyboard.dismiss();
+    setTextFocused(false);
+  };
   const [choosing, setChoosing] = useState(false);
   const [suggestionLimit, setSuggestionLimit] = useState(3);
   const [draft, setDraft] = useState<HomeDraft | null>(null);
@@ -75,7 +95,6 @@ export function SharedLifeComposer({
   const [audienceOpen, setAudienceOpen] = useState(false);
   const [photoEdit, setPhotoEdit] = useState(false);
   const [minimized, setMinimized] = useState(false);
-  const [savedStatus, setSavedStatus] = useState("");
   const [draftMenu, setDraftMenu] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const started = useRef(false);
@@ -155,11 +174,8 @@ export function SharedLifeComposer({
     const next = { ...draft, ...patch };
     setDraft(next);
     setError(null);
-    setSavedStatus("Saving draft…");
     void saveHomeDraft(userId, next)
-      .then(() => {
-        if (mounted.current) setSavedStatus("Draft saved on this device");
-      })
+      .then(() => undefined)
       .catch(() => {
         if (mounted.current)
           setError("Your draft could not be saved on this device.");
@@ -212,7 +228,8 @@ export function SharedLifeComposer({
       );
       await saveHomeDraft(userId, null);
       removeHomeDraftPhotos(draft);
-      if (!(await startIncomingMoment()) && mounted.current) onPublished();
+      if (!(await startIncomingMoment()) && mounted.current)
+        onPublished(draft.id);
     } catch (e) {
       if (mounted.current) {
         setMinimized(false);
@@ -267,6 +284,22 @@ export function SharedLifeComposer({
       : draft.audience === "people"
         ? `${draft.recipientIds.length} people`
         : "Approved followers";
+  const isChoosing =
+    choosing ||
+    Boolean(
+      draft &&
+      !writing &&
+      !draft.text.trim() &&
+      !draft.photos.length &&
+      !draft.attachment,
+    );
+  const selectedSuggestion = draft?.attachment
+    ? suggestions.find(
+        (suggestion) =>
+          JSON.stringify(suggestion.attachment) ===
+          JSON.stringify(draft.attachment),
+      )
+    : undefined;
   return (
     <>
       {minimized ? (
@@ -289,63 +322,90 @@ export function SharedLifeComposer({
         snapPoints={["95%"]}
         keyboardBehavior="resize"
         contentLayout="edgeToEdge"
-        footer={{
-          primaryAction: {
-            label: "Post",
-            loading: busy,
-            loadingLabel: "Posting…",
-            accessibilityLabel: `Post to ${audience}`,
-            disabled:
-              choosing || !draft ||
-              (!draft.text.trim() && !draft.photos.length && !draft.attachment),
-            onPress: () => void publish(),
-          },
-        }}
       >
-        <View style={styles.header}>
-          <BottomDrawerHeader
-            title="Share a moment"
-            variant="withClose"
-            onClose={() => void close()}
-            closeAccessibilityLabel="Close Share a moment"
-          />
-        </View>
-        {error || status ? (
-          <View style={styles.feedback}>
+        <BottomDrawerScrollView
+          key={isChoosing ? "moment-picker" : "moment-review"}
+          stickyHeaderIndices={[0]}
+          style={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={styles.body}
+        >
+          <View style={styles.header}>
+            <BottomDrawerHeader
+              title="Share a moment"
+              variant={isChoosing ? "withClose" : "navbar"}
+              onClose={() => void close()}
+              closeAccessibilityLabel="Close Share a moment"
+              leftAction={
+                !isChoosing ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    iconButtonSize={44}
+                    accessibilityLabel="Choose a different starting point"
+                    onPress={() => {
+                      finishEditing();
+                      setChoosing(true);
+                      setSuggestionLimit(3);
+                    }}
+                  >
+                    <Icon
+                      name="chevronLeft"
+                      size={20}
+                      color={colors.textPrimary}
+                    />
+                  </Button>
+                ) : undefined
+              }
+              rightAction={
+                !isChoosing && draft ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={busy}
+                    accessibilityLabel={`Post to ${audience}`}
+                    disabled={
+                      choosing ||
+                      (!draft.text.trim() &&
+                        !draft.photos.length &&
+                        !draft.attachment)
+                    }
+                    onPress={() => void publish()}
+                  >
+                    Post
+                  </Button>
+                ) : undefined
+              }
+            />
+          </View>
+          {error || status ? (
             <Text
               accessibilityRole={error ? "alert" : undefined}
               accessibilityLiveRegion="polite"
             >
               {error || status}
             </Text>
-          </View>
-        ) : null}
-        <BottomDrawerScrollView
-          style={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentContainerStyle={styles.body}
-        >
+          ) : null}
           {draft ? (
             <VStack space="lg">
-              <HStack>
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  accessibilityLabel={`Audience: ${audience}`}
-                  onPress={() => setAudienceOpen(!audienceOpen)}
-                >
-                  {`${audience} ⌄`}
-                </Button>
-                <Button
-                  disabled={busy}
-                  accessibilityLabel="Draft options"
-                  onPress={() => setDraftMenu(!draftMenu)}
-                >
-                  •••
-                </Button>
-              </HStack>
-              {audienceOpen ? (
+              {!isChoosing ? (
+                <HStack alignItems="center" justifyContent="space-between">
+                  <Text style={typography.bodySm} tone="secondary">
+                    Visible to {audience}
+                  </Text>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    accessibilityLabel={`Audience: ${audience}`}
+                    onPress={() => setAudienceOpen(!audienceOpen)}
+                  >
+                    Change
+                  </Button>
+                </HStack>
+              ) : null}
+              {audienceOpen && !isChoosing ? (
                 <VStack space="sm">
                   <Text tone="secondary">Who can see this?</Text>
                   <Text tone="secondary">
@@ -463,42 +523,33 @@ export function SharedLifeComposer({
                       ) : null}
                     </VStack>
                   )}
-                  <Button
-                      onPress={() => setAudienceOpen(false)}
-                  >
-                    Done
-                  </Button>
+                  <Button onPress={() => setAudienceOpen(false)}>Done</Button>
                 </VStack>
               ) : null}
-              {choosing ||
-              (!writing &&
-                !draft.text.trim() &&
-                !draft.photos.length &&
-                !draft.attachment) ? (
+              {isChoosing ? (
                 <VStack space="sm">
-                  <Text>Start with a recent moment</Text>
+                  <Text style={typography.bodySm}>Suggested moments</Text>
                   {suggestions.slice(0, suggestionLimit).map((suggestion) => (
-                    <SettingsRow
+                    <MomentSuggestionRow
                       key={suggestion.id}
-                      title={suggestion.title}
-                      value={suggestion.context}
-                      multiline
+                      suggestion={suggestion}
                       disabled={busy}
                       onPress={() => {
                         change(applyMomentSuggestion(draft, suggestion));
                         setWriting(true);
-                        setFocusWriting(false);
+                        setTextFocused(false);
                         setChoosing(false);
                         setSuggestionLimit(3);
                       }}
                     />
                   ))}
                   {suggestionsLoading ? (
-                    <Text tone="secondary">Finding recent moments…</Text>
+                    <Text tone="secondary">Finding moments…</Text>
                   ) : null}
                   {!suggestionsLoading && !suggestions.length ? (
                     <Text tone="secondary">
-                      Share a photo or something from your day.
+                      No suggested moments yet. You can still share a story or
+                      photo.
                     </Text>
                   ) : null}
                   {suggestionsError ? (
@@ -508,128 +559,247 @@ export function SharedLifeComposer({
                   ) : null}
                   {suggestions.length > suggestionLimit ? (
                     <Button
-                          size="sm"
+                      variant="ghost"
+                      size="inline"
+                      style={styles.inlineAction}
                       onPress={() => setSuggestionLimit((n) => n + 3)}
                     >
-                      View more moments
+                      View more ›
                     </Button>
                   ) : null}
-                  <HStack>
+                  {choosing ? (
                     <Button
-                      variant="outline"
-                      disabled={busy}
-                      onPress={() => {
-                        setWriting(true);
-                        setChoosing(false);
-                        setFocusWriting(true);
-                      }}
+                      variant="ghost"
+                      size="inline"
+                      style={styles.inlineAction}
+                      onPress={() => setChoosing(false)}
                     >
-                      Write something
+                      Back to your post
                     </Button>
-                    <Button
-                          disabled={busy}
-                      onPress={() => {
-                        setWriting(true);
-                        setChoosing(false);
-                        void addPhotos();
-                      }}
-                    >
-                      Add photos
-                    </Button>
-                  </HStack>
+                  ) : null}
                 </VStack>
-              ) : (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setChoosing(true);
-                    setSuggestionLimit(3);
-                  }}
-                >
-                  Choose a recent moment
-                </Button>
-              )}
-              {draft.attachment && !choosing ? (
-                <View>
-                  {draft.attachment.kind === "goal_completed" ? (
-                    <Text tone="secondary">
-                      Goal completed · Only this title will be shared.
-                    </Text>
-                  ) : null}
-                  <Text>
-                    {draft.attachment.kind === "place"
-                      ? draft.attachment.name
-                      : draft.attachment.title}
-                  </Text>
-                  {draft.attachment.kind === "place" ? (
-                    <Text tone="secondary">
-                      The name and exact location will be shared. Your route
-                      stays private.
-                    </Text>
-                  ) : null}
-                  <Button
-                    size="sm"
-                      onPress={() => change({ attachment: null })}
-                  >
-                    Remove attachment
-                  </Button>
-                </View>
               ) : null}
-              {(writing ||
-                draft.text.trim() ||
-                draft.photos.length ||
-                draft.attachment) &&
-              !choosing ? (
-                <Input
-                  surfaceRole="composer"
-                  accentLabelOnFocus={false}
-                  label={
-                    draft.attachment
-                      ? "Add a few words (optional)"
-                      : "Your moment"
-                  }
-                  placeholder="What would you like to share?"
-                  autoFocus={focusWriting}
-                  multiline
-                  value={draft.text}
-                  onChangeText={(text) => change({ text })}
-                  maxLength={4000}
-                  editable={!busy}
-                />
-              ) : null}
-              {draft.photos.length ? (
+              {draft.photos.length && !photoEdit && !choosing ? (
                 <VStack space="xs">
-                  {!photoEdit ? (
+                  <Image
+                    source={{ uri: draft.photos[0].uri }}
+                    style={styles.photoHero}
+                    resizeMode="cover"
+                    accessibilityLabel={
+                      draft.photos[0].alt || "Selected photo 1"
+                    }
+                  />
+                  {draft.photos.length > 1 ? (
                     <ScrollView
                       horizontal
                       keyboardShouldPersistTaps="handled"
                       contentContainerStyle={styles.photos}
                     >
-                      {draft.photos.map((photo, index) => (
+                      {draft.photos.slice(1).map((photo, index) => (
                         <Image
                           key={photo.id}
                           source={{ uri: photo.uri }}
                           style={styles.thumbnail}
+                          resizeMode="cover"
                           accessibilityLabel={
-                            photo.alt || `Selected photo ${index + 1}`
+                            photo.alt || `Selected photo ${index + 2}`
                           }
                         />
                       ))}
                     </ScrollView>
                   ) : null}
-                  <Button
-                      size="sm"
-                    disabled={busy}
-                    onPress={() => setPhotoEdit(!photoEdit)}
-                  >
-                    {photoEdit ? "Done editing photos" : "Edit photos"}
-                  </Button>
+                  <HStack justifyContent="flex-end">
+                    <Button
+                      variant="link"
+                      size="inline"
+                      disabled={busy}
+                      onPress={() => setPhotoEdit(true)}
+                    >
+                      Edit photos
+                    </Button>
+                  </HStack>
+                </VStack>
+              ) : null}
+              {draft.attachment && !choosing ? (
+                <VStack space="xs">
+                  {draft.photos.length ? (
+                    <MomentSourceSummary
+                      suggestion={{
+                        kind:
+                          draft.attachment.kind === "place" ? "place" : "goal",
+                        title:
+                          draft.attachment.kind === "place"
+                            ? draft.attachment.name
+                            : draft.attachment.title,
+                        context:
+                          draft.attachment.kind === "place"
+                            ? "Place from Explore"
+                            : draft.attachment.kind === "goal_completed"
+                              ? "Goal completed"
+                              : "Outing",
+                        artwork: selectedSuggestion?.artwork,
+                      }}
+                    />
+                  ) : (
+                    <MomentSourcePreview
+                      suggestion={{
+                        kind:
+                          draft.attachment.kind === "place" ? "place" : "goal",
+                        title:
+                          draft.attachment.kind === "place"
+                            ? draft.attachment.name
+                            : draft.attachment.title,
+                        context:
+                          draft.attachment.kind === "place"
+                            ? "Place from Explore"
+                            : draft.attachment.kind === "goal_completed"
+                              ? "Goal completed"
+                              : "Outing",
+                        artwork: selectedSuggestion?.artwork,
+                      }}
+                    />
+                  )}
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <Text tone="secondary" style={typography.caption}>
+                      {draft.attachment.kind === "goal_completed"
+                        ? "Only the goal title will be shared."
+                        : draft.attachment.kind === "place"
+                          ? "The place and exact location will be shared."
+                          : "This moment will be included in your post."}
+                    </Text>
+                    <Button
+                      variant="link"
+                      size="inline"
+                      disabled={busy}
+                      accessibilityLabel="Remove recent moment"
+                      onPress={() => change({ attachment: null })}
+                    >
+                      Remove
+                    </Button>
+                  </HStack>
+                  {draft.attachment.kind === "place" ? (
+                    <Text tone="secondary" style={typography.caption}>
+                      Your route stays private.
+                    </Text>
+                  ) : null}
+                </VStack>
+              ) : null}
+              {!choosing ? (
+                <VStack key="moment-entry" space="sm">
+                  {isChoosing ? (
+                    <View style={styles.invitation}>
+                      <Text style={typography.bodyBold}>
+                        Share a story or photo
+                      </Text>
+                      <Text tone="secondary" style={typography.bodySm}>
+                        Help family and friends catch up with you.
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Input
+                    key="moment-text"
+                    ref={textInput}
+                    surfaceRole="composer"
+                    accessibilityLabel="Your moment"
+                    label={
+                      isChoosing
+                        ? undefined
+                        : draft.attachment
+                          ? "Add a few words (optional)"
+                          : "Your moment"
+                    }
+                    placeholder={
+                      isChoosing
+                        ? "Write a note…"
+                        : "What would you like to share?"
+                    }
+                    multiline
+                    multilineMinHeight={isChoosing ? 56 : draft.text ? 88 : 72}
+                    multilineMaxHeight={isChoosing ? 56 : 220}
+                    footerElement={
+                      <HStack
+                        space="sm"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        style={styles.composerTools}
+                      >
+                        <HStack space="sm" alignItems="center">
+                          <Button
+                            variant="ghost"
+                            size="inline"
+                            disabled={busy || draft.photos.length >= 4}
+                            onPress={() => {
+                              setWriting(true);
+                              void addPhotos();
+                            }}
+                          >
+                            <HStack space="xs" alignItems="center">
+                              <Icon
+                                name="image"
+                                size={17}
+                                color={colors.textPrimary}
+                              />
+                              <ButtonLabel tone="default">Photo</ButtonLabel>
+                            </HStack>
+                          </Button>
+                          {!isChoosing ? (
+                            <Button
+                              variant="ghost"
+                              size="inline"
+                              disabled={busy}
+                              onPress={() => {
+                                finishEditing();
+                                setChoosing(true);
+                                setSuggestionLimit(3);
+                              }}
+                            >
+                              {draft.attachment
+                                ? "Choose another"
+                                : "Recent moment"}
+                            </Button>
+                          ) : null}
+                        </HStack>
+                        {isChoosing ? (
+                          <Text tone="secondary" style={typography.caption}>
+                            Words, photos, or both.
+                          </Text>
+                        ) : textFocused ? (
+                          <Button
+                            variant="ghost"
+                            size="inline"
+                            onPress={finishEditing}
+                          >
+                            Done
+                          </Button>
+                        ) : null}
+                      </HStack>
+                    }
+                    onFocus={() => {
+                      setWriting(true);
+                      setTextFocused(true);
+                    }}
+                    onBlur={() => setTextFocused(false)}
+                    value={draft.text}
+                    onChangeText={(text) => {
+                      setWriting(true);
+                      change({ text });
+                    }}
+                    maxLength={4000}
+                    editable={!busy}
+                  />
                 </VStack>
               ) : null}
               {photoEdit ? (
                 <VStack space="md">
+                  <HStack justifyContent="flex-end">
+                    <Button
+                      variant="link"
+                      size="inline"
+                      onPress={() => setPhotoEdit(false)}
+                    >
+                      Done editing photos
+                    </Button>
+                  </HStack>
                   {draft.photos.map((photo) => (
                     <VStack space="xs" key={photo.id}>
                       <Image
@@ -639,7 +809,7 @@ export function SharedLifeComposer({
                       />
                       <HStack>
                         <Button
-                                  size="sm"
+                          size="sm"
                           disabled={busy || draft.photos[0].id === photo.id}
                           onPress={() => {
                             const next = [...draft.photos];
@@ -667,7 +837,7 @@ export function SharedLifeComposer({
                         editable={!busy}
                       />
                       <Button
-                              size="sm"
+                        size="sm"
                         onPress={() => {
                           change({
                             photos: draft.photos.filter(
@@ -698,23 +868,23 @@ export function SharedLifeComposer({
                 </VStack>
               ) : null}
 
-              {draft.photos.length < 4 &&
-              (writing ||
-                draft.text.trim() ||
-                draft.attachment ||
-                draft.photos.length) &&
-              !choosing ? (
+              {!isChoosing && !draft.attachment ? (
                 <Button
-                  disabled={busy}
-                  onPress={() => void addPhotos()}
+                  variant="link"
+                  size="inline"
+                  style={styles.maintenanceAction}
+                  accessibilityLabel="Draft options"
+                  onPress={() => setDraftMenu(!draftMenu)}
                 >
-                  Add photos
+                  Draft options
                 </Button>
               ) : null}
               {draftMenu ? (
-                <>
+                <HStack justifyContent="flex-end">
                   <Button
-                      disabled={busy}
+                    variant="link"
+                    size="inline"
+                    disabled={busy}
                     onPress={() =>
                       Alert.alert(
                         "Discard this draft?",
@@ -756,12 +926,7 @@ export function SharedLifeComposer({
                   >
                     Discard draft
                   </Button>
-                </>
-              ) : null}
-              {draftMenu && savedStatus && !busy ? (
-                <Text tone="secondary" accessibilityLiveRegion="polite">
-                  {savedStatus}
-                </Text>
+                </HStack>
               ) : null}
             </VStack>
           ) : (
@@ -774,11 +939,30 @@ export function SharedLifeComposer({
 }
 const styles = StyleSheet.create({
   body: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  header: { paddingHorizontal: spacing.lg },
-  photo: { width: "100%", height: 220 },
+  header: { backgroundColor: colors.card },
+  invitation: { gap: spacing.xs, paddingTop: spacing.sm },
+  photo: {
+    width: "100%",
+    height: 220,
+    borderRadius: radii.card,
+  },
+  photoHero: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    borderRadius: radii.card,
+    backgroundColor: colors.shellAlt,
+  },
   scroll: { flex: 1 },
   feedback: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   photos: { gap: spacing.sm },
-  thumbnail: { width: 160, height: 160, backgroundColor: colors.shellAlt },
+  thumbnail: {
+    width: 88,
+    height: 88,
+    borderRadius: radii.input,
+    backgroundColor: colors.shellAlt,
+  },
+  composerTools: { flexWrap: "wrap" },
+  inlineAction: { alignSelf: "flex-start" },
+  maintenanceAction: { alignSelf: "flex-end" },
   wrap: { flexWrap: "wrap" },
 });

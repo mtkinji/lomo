@@ -43,7 +43,7 @@ const NATIVE_CONTROL_PATTERN =
 const SELF_MONEY_APP_CONTROL_PATTERN =
   /\b(?:for me|my (?:phone|device)|on this (?:phone|device))\b[\s\S]*\b(?:block|pause|restrict|shield)\b|\b(?:block|pause|restrict|shield)\b[\s\S]*\b(?:apps?|amazon|shopping)\b[\s\S]*\b(?:budget|spend(?:ing|ings)?|over budget|ahead of pace|time of (?:the )?month)\b/i;
 const ACTION_PATTERN =
-  /\b(move|put|rename|reschedule|schedule|mark|complete|create|add|make|remember|update|change|delete|remove|remind me|call me|turn|enable|disable|open|manage)\b/i;
+  /\b(move|put|rename|reschedule|schedule|mark|complete|create|add|make|save|remember|update|change|delete|remove|remind me|call me|turn|enable|disable|open|manage)\b/i;
 const GOAL_PARTNER_UPDATE_PATTERN =
   /\b(?:tell|notify|send|share)\b[^.!?]{0,100}\bgoal\s+partners?\b/i;
 const AMBIGUOUS_ACTION_TARGET_PATTERN =

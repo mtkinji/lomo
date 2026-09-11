@@ -23,7 +23,10 @@ import { render, fireEvent } from "@testing-library/react-native";
 import { SharedLifePostCard } from "./SharedLifePostCard";
 import type { HomePost } from "./sharedLifeTypes";
 jest.mock("./SharedLifeMediaGallery", () => ({
-  SharedLifeMediaGallery: () => null,
+  SharedLifeMediaGallery: ({ sourceLabel }: { sourceLabel?: string }) => {
+    const { Text } = require("react-native");
+    return sourceLabel ? <Text>{sourceLabel}</Text> : null;
+  },
 }));
 it("offers Organize in the shared menu without unsaving the moment", () => {
   const organize = jest.fn();
@@ -102,4 +105,54 @@ it("offers expansion when larger text reaches the six-line preview limit", () =>
   });
   fireEvent.press(view.getByText("Read more"));
   expect(view.getByText(post.text).props.numberOfLines).toBeUndefined();
+});
+
+it("keeps a media post quiet while preserving source, author, and comment actions", () => {
+  const noop = jest.fn();
+  const post: HomePost = {
+    id: "place-post",
+    authorId: "alex",
+    authorName: "Alex",
+    text: "Found a little canyon trail we should try together.",
+    audience: "household",
+    householdId: "home",
+    householdName: "Our household",
+    media: [{ path: "trail.jpg", alt: "A canyon trail" }],
+    attachment: {
+      kind: "place",
+      name: "A little canyon trail",
+      latitude: 40.1,
+      longitude: -111.7,
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    reactionCount: 3,
+    replyCount: 2,
+    myReaction: null,
+    replyPreview: {
+      id: "reply",
+      authorId: "maya",
+      authorName: "Maya",
+      text: "I want to go!",
+      createdAt: new Date().toISOString(),
+    },
+  };
+  const view = render(
+    <SharedLifePostCard
+      post={post}
+      onOpen={noop}
+      onReact={noop}
+      onSave={noop}
+      onAuthor={noop}
+      onReport={noop}
+    />,
+  );
+
+  expect(view.getByText("Explore · A little canyon trail")).toBeTruthy();
+  expect(view.getByLabelText("Moments from Alex")).toBeTruthy();
+  expect(view.queryByTestId("profile-avatar-fallback")).toBeNull();
+  expect(view.queryByText("I want to go!")).toBeNull();
+  expect(view.getByLabelText("Comment").props.accessibilityValue).toEqual({
+    text: "2 comments",
+  });
 });

@@ -1,8 +1,15 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fireEvent, screen } from '@testing-library/react-native';
 import type { Activity } from '../../domain/types';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { KanbanBoard } from './KanbanBoard';
+
+const boardSource = readFileSync(
+  path.join(__dirname, 'KanbanBoard.tsx'),
+  'utf8',
+);
 
 jest.mock('../../ui/hooks/useAccessibilityPreferences', () => ({
   getAccessibleAnimationDuration: (durationMs: number) => durationMs,
@@ -26,6 +33,11 @@ const activity: Activity = {
 };
 
 describe('KanbanBoard move picker', () => {
+  it('leaves the board scroll view direct so a delayed card pan can yield normal swipes', () => {
+    expect(boardSource).not.toContain('horizontalScrollGesture');
+    expect(boardSource).not.toContain('scrollableGesture=');
+  });
+
   it('offers every destination without opening the card', () => {
     const onMoveActivity = jest.fn();
     const onPressActivity = jest.fn();
@@ -42,12 +54,17 @@ describe('KanbanBoard move picker', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Show To Do column').props.accessibilityState).toEqual({
+    expect(
+      screen.getByLabelText('Show To Do column').props.accessibilityState,
+    ).toEqual({
       selected: true,
     });
     expect(screen.getByLabelText('Show In Progress column')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Move Call Jenny'));
+    expect(screen.queryByLabelText('Move Call Jenny')).toBeNull();
+    fireEvent(screen.getByLabelText('Call Jenny'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'move' },
+    });
     expect(screen.getByLabelText('To Do, current column')).toBeDisabled();
     expect(screen.getByLabelText('Move to In Progress')).toBeTruthy();
     expect(screen.getByLabelText('Move to Done')).toBeTruthy();

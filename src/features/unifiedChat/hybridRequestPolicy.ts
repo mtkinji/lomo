@@ -123,8 +123,9 @@ function hasCoherentShape(route: SemanticRequestRoute): boolean {
       return !hasCapabilities && !route.usePrivateContext;
     case 'general_with_kwilt_context':
     case 'capability_question':
-    case 'capability_action':
       return hasCapabilities && route.usePrivateContext;
+    case 'capability_action':
+      return hasCapabilities;
     case 'native_control':
       return route.participatingCapabilities.includes('screenTime') && !route.usePrivateContext;
     case 'better_served_elsewhere':

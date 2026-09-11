@@ -1,7 +1,11 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
-import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscapeCatalog';
+import {
+  SOUND_SCAPES,
+  isFocusVideoEnvironmentId,
+  type SoundscapeId,
+} from '../../services/soundscapeCatalog';
 import { colors, spacing } from '../../theme';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
@@ -159,7 +163,7 @@ export function FocusSetupContent({
                 <DropdownMenuCheckboxItem
                   key={item.id}
                   testID={`focus-soundscape-option-${item.id}`}
-                  accessibilityLabel={item.id === 'canyonSpring' ? 'Canyon Spring, video environment' : undefined}
+                  accessibilityLabel={isFocusVideoEnvironmentId(item.id) ? `${item.title}, video environment` : undefined}
                   style={styles.focusSoundscapeMenuItem}
                   checked={item.id === audio}
                   onCheckedChange={(checked) => {
@@ -168,7 +172,7 @@ export function FocusSetupContent({
                 >
                   <HStack alignItems="center" style={styles.focusSoundscapeMenuItemContent}>
                     <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
-                    {item.id === 'canyonSpring' ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
+                    {isFocusVideoEnvironmentId(item.id) ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
                   </HStack>
                 </DropdownMenuCheckboxItem>
               ))}

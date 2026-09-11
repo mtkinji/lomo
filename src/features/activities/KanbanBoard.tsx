@@ -1,8 +1,15 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import type { RefObject } from 'react';
-import { StyleSheet, View, useWindowDimensions, Platform, UIManager } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  Platform,
+  UIManager,
+} from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   interpolate,
   runOnJS,
@@ -12,7 +19,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KanbanColumn } from './KanbanColumn';
+import { KanbanColumn, type KanbanColumnDragScroller } from './KanbanColumn';
 import { Icon, type IconName } from '../../ui/Icon';
 import { HStack, Text } from '../../ui/primitives';
 import { colors } from '../../theme/colors';
@@ -23,6 +30,20 @@ import { KanbanCard, type KanbanCardField } from './KanbanCard';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { HapticsService } from '../../services/HapticsService';
+import {
+  getAccessibleAnimationDuration,
+  useAccessibilityPreferences,
+} from '../../ui/hooks/useAccessibilityPreferences';
+import {
+  getKanbanAutoScrollDelta,
+  getKanbanDestinationStripIndex,
+  getKanbanDropMode,
+  resolveKanbanDropCommitColumnId,
+  resolveKanbanDropPlacement,
+  resolveKanbanDropSettleTarget,
+  type KanbanDropPlacement,
+  type KanbanDropZoneMeasurement,
+} from './kanbanInteraction';
 
 export type KanbanBoardProps = {
   /**
@@ -59,8 +80,18 @@ export type KanbanBoardProps = {
    */
   onMoveActivity?: (
     activityId: string,
-    params: { groupBy: KanbanGroupBy; toColumnId: string; toColumnTitle?: string },
+    params: {
+      groupBy: KanbanGroupBy;
+      toColumnId: string;
+      toColumnTitle?: string;
+      /** Exact manual-order slot; null appends and undefined leaves active sorting in control. */
+      beforeActivityId?: string | null;
+    },
   ) => void;
+  /** Whether the current view is using manual order rather than an explicit sort. */
+  canReorder?: boolean;
+  /** Explains why a same-column drag cannot reorder while an explicit sort is active. */
+  onReorderUnavailable?: () => void;
   /**
    * Handler for adding a new activity.
    */
@@ -101,7 +132,9 @@ type ColumnConfig = {
   activities: Activity[];
 };
 
-function measureInWindowAsync(node: any): Promise<{ x: number; y: number; width: number; height: number } | null> {
+function measureInWindowAsync(
+  node: any,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
   return new Promise((resolve) => {
     const n = node?.getNode?.() ?? node;
     if (!n?.measureInWindow) {
@@ -271,7 +304,7 @@ function groupByPhase(activities: Activity[]): ColumnConfig[] {
       iconName: phase ? 'layers' : 'inbox',
       accentColor: phaseColors[index % phaseColors.length],
       activities: activities.filter((a) =>
-        phase === null ? !a.phase : a.phase === phase
+        phase === null ? !a.phase : a.phase === phase,
       ),
     });
   });
@@ -288,6 +321,8 @@ export function KanbanBoard({
   onTogglePriority,
   onPressActivity,
   onMoveActivity,
+  canReorder = true,
+  onReorderUnavailable,
   onAddActivity,
   addCardAnchorRef,
   cardVisibleFields,
@@ -297,8 +332,9 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
   const containerRef = React.useRef<View>(null);
-  
+
   // Expanded = single column fills most of screen, Compact = multiple columns visible
   const [uncontrolledExpanded, setUncontrolledExpanded] = React.useState(false);
   const isExpanded = controlledExpanded ?? uncontrolledExpanded;
@@ -323,23 +359,83 @@ export function KanbanBoard({
   const dragStartX = useSharedValue(0);
   const dragStartY = useSharedValue(0);
   const dragWidth = useSharedValue(0);
+  const dragLiftProgress = useSharedValue(0);
+  const dragSettleOpacity = useSharedValue(1);
   const hoveredColumnId = useSharedValue<string | null>(null);
   const containerX = useSharedValue(0);
   const containerY = useSharedValue(0);
   const scrollX = useSharedValue(0);
   const columnIds = useSharedValue<string[]>([]);
+  const destinationStripX = useSharedValue(0);
+  const destinationStripY = useSharedValue(0);
+  const destinationStripWidth = useSharedValue(0);
+  const destinationStripHeight = useSharedValue(0);
 
   const [isDragging, setIsDragging] = React.useState(false);
-  const [draggedActivityId, setDraggedActivityId] = React.useState<string | null>(null);
-  const [hoveredColumnIdState, setHoveredColumnIdState] = React.useState<string | null>(null);
-  const [movePickerActivityId, setMovePickerActivityId] = React.useState<string | null>(null);
+  const [draggedActivityId, setDraggedActivityId] = React.useState<
+    string | null
+  >(null);
+  const [draggedSourceColumnId, setDraggedSourceColumnId] = React.useState<
+    string | null
+  >(null);
+  const [draggedCardHeight, setDraggedCardHeight] = React.useState(72);
+  const [hoveredColumnIdState, setHoveredColumnIdState] = React.useState<
+    string | null
+  >(null);
+  const [movePickerActivityId, setMovePickerActivityId] = React.useState<
+    string | null
+  >(null);
+  const destinationStripRef = React.useRef<View>(null);
+  const dragSessionRef = React.useRef(0);
+  const dropMeasurementsRef = React.useRef(
+    new Map<string, KanbanDropZoneMeasurement>(),
+  );
+  const dragScrollerByColumnRef = React.useRef(
+    new Map<string, KanbanColumnDragScroller>(),
+  );
+  const dragPointerRef = React.useRef<{
+    activityId: string;
+    absoluteX: number;
+    absoluteY: number;
+  } | null>(null);
+  const dragActiveRef = React.useRef(false);
+  const settlingRef = React.useRef(false);
+  const containerLayoutRef = React.useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const boardContentWidthRef = React.useRef(0);
+  const boardScrollOffsetRef = React.useRef(0);
+  const boardAutoScrollFrameRef = React.useRef<number | null>(null);
+  const dropPlacementRef = React.useRef<KanbanDropPlacement | null>(null);
+  const [dropPlacement, setDropPlacement] =
+    React.useState<KanbanDropPlacement | null>(null);
+
+  const updateDropPlacement = React.useCallback(
+    (next: KanbanDropPlacement | null) => {
+      const previous = dropPlacementRef.current;
+      if (
+        previous?.columnId === next?.columnId &&
+        previous?.beforeActivityId === next?.beforeActivityId
+      )
+        return;
+      dropPlacementRef.current = next;
+      setDropPlacement(next);
+    },
+    [],
+  );
 
   React.useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    if (
+      Platform.OS === 'android' &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
-  
+
   // Calculate column width based on view mode
   // Expanded: ~90% screen width for single-column focus
   // Compact: ~280px for multi-column overview (like Tasku)
@@ -348,7 +444,11 @@ export function KanbanBoard({
   const columnWidth = isExpanded ? expandedColumnWidth : compactColumnWidth;
 
   const columnWidthAnimatedStyle = useAnimatedStyle(() => {
-    const w = interpolate(expandedProgress.value, [0, 1], [compactColumnWidth, expandedColumnWidth]);
+    const w = interpolate(
+      expandedProgress.value,
+      [0, 1],
+      [compactColumnWidth, expandedColumnWidth],
+    );
     return { width: w };
   }, [compactColumnWidth, expandedColumnWidth]);
 
@@ -383,37 +483,213 @@ export function KanbanBoard({
     }
   }, [activities, goals, groupBy]);
 
+  const dropColumns = React.useMemo(
+    () =>
+      columns.map((column) => ({
+        id: column.id,
+        activityIds: column.activities.map((activity) => activity.id),
+      })),
+    [columns],
+  );
+
   // Pagination dots for expanded view
   const [activeColumnIndex, setActiveColumnIndex] = React.useState(0);
   const scrollViewRef = React.useRef<any>(null);
+
+  const stopColumnAutoScroll = React.useCallback(() => {
+    dragScrollerByColumnRef.current.forEach((scroller) =>
+      scroller.setPointerY(null),
+    );
+  }, []);
+
+  const handleDragScrollerChange = React.useCallback(
+    (columnId: string, scroller: KanbanColumnDragScroller | null) => {
+      if (scroller) dragScrollerByColumnRef.current.set(columnId, scroller);
+      else dragScrollerByColumnRef.current.delete(columnId);
+    },
+    [],
+  );
+
+  const resolveDropAtPointer = React.useCallback(
+    (pointer: { activityId: string; absoluteX: number; absoluteY: number }) => {
+      const strip =
+        destinationStripWidth.value > 0 && destinationStripHeight.value > 0
+          ? {
+              x: destinationStripX.value,
+              y: destinationStripY.value,
+              width: destinationStripWidth.value,
+              height: destinationStripHeight.value,
+            }
+          : null;
+      const stripIndex = strip
+        ? getKanbanDestinationStripIndex({
+            absoluteX: pointer.absoluteX,
+            absoluteY: pointer.absoluteY,
+            stripX: strip.x,
+            stripY: strip.y,
+            stripWidth: strip.width,
+            stripHeight: strip.height,
+            destinationCount: dropColumns.length,
+          })
+        : null;
+      const next = resolveKanbanDropPlacement({
+        absoluteX: pointer.absoluteX,
+        absoluteY: pointer.absoluteY,
+        activityId: pointer.activityId,
+        canReorder,
+        columns: dropColumns,
+        measurements: Array.from(dropMeasurementsRef.current.values()),
+        destinationStrip: strip,
+      });
+      hoveredColumnId.value = next?.columnId ?? null;
+      updateDropPlacement(next);
+      dragScrollerByColumnRef.current.forEach((scroller, columnId) => {
+        scroller.setPointerY(
+          stripIndex === null && next?.columnId === columnId
+            ? pointer.absoluteY
+            : null,
+        );
+      });
+    },
+    [
+      canReorder,
+      destinationStripHeight,
+      destinationStripWidth,
+      destinationStripX,
+      destinationStripY,
+      dropColumns,
+      hoveredColumnId,
+      updateDropPlacement,
+    ],
+  );
+
+  const shiftDropMeasurementsHorizontally = React.useCallback(
+    (scrollDelta: number) => {
+      if (scrollDelta === 0) return;
+      dropMeasurementsRef.current.forEach((measurement, columnId) => {
+        dropMeasurementsRef.current.set(columnId, {
+          ...measurement,
+          x: measurement.x - scrollDelta,
+          contentX:
+            measurement.contentX === undefined
+              ? undefined
+              : measurement.contentX - scrollDelta,
+          items: measurement.items.map((item) => ({
+            ...item,
+            x: item.x === undefined ? undefined : item.x - scrollDelta,
+          })),
+        });
+      });
+    },
+    [],
+  );
+
+  const runBoardAutoScrollFrame = React.useCallback(
+    function runBoardAutoScrollFrame() {
+      boardAutoScrollFrameRef.current = null;
+      const pointer = dragPointerRef.current;
+      const containerLayout = containerLayoutRef.current;
+      if (
+        !dragActiveRef.current ||
+        settlingRef.current ||
+        !pointer ||
+        !containerLayout
+      )
+        return;
+
+      const delta = getKanbanAutoScrollDelta({
+        pointer: pointer.absoluteX,
+        viewportStart: containerLayout.x,
+        viewportEnd: containerLayout.x + containerLayout.width,
+        edgeSize: 52,
+        maxStep: 16,
+      });
+      const maxOffset = Math.max(
+        0,
+        boardContentWidthRef.current - containerLayout.width,
+      );
+      const nextOffset = Math.max(
+        0,
+        Math.min(maxOffset, boardScrollOffsetRef.current + delta),
+      );
+      const scrollDelta = nextOffset - boardScrollOffsetRef.current;
+      if (Math.abs(scrollDelta) >= 0.5) {
+        boardScrollOffsetRef.current = nextOffset;
+        scrollX.value = nextOffset;
+        shiftDropMeasurementsHorizontally(scrollDelta);
+        scrollViewRef.current?.scrollTo({ x: nextOffset, animated: false });
+        resolveDropAtPointer(pointer);
+      }
+      boardAutoScrollFrameRef.current = requestAnimationFrame(
+        runBoardAutoScrollFrame,
+      );
+    },
+    [resolveDropAtPointer, scrollX, shiftDropMeasurementsHorizontally],
+  );
+
+  const ensureBoardAutoScroll = React.useCallback(() => {
+    if (boardAutoScrollFrameRef.current === null) {
+      boardAutoScrollFrameRef.current = requestAnimationFrame(
+        runBoardAutoScrollFrame,
+      );
+    }
+  }, [runBoardAutoScrollFrame]);
 
   React.useEffect(() => {
     columnIds.value = columns.map((c) => c.id);
   }, [columns, columnIds]);
 
   const startDrag = React.useCallback(
-    async (activityId: string, cardLayout: { x: number; y: number; width: number; height: number }) => {
-      // Mark dragging immediately for scroll disabling.
-      setIsDragging(true);
-      setDraggedActivityId(activityId);
-      draggingId.value = activityId;
+    async (
+      activityId: string,
+      cardLayout: { x: number; y: number; width: number; height: number },
+    ) => {
+      const session = dragSessionRef.current + 1;
+      dragSessionRef.current = session;
+      dragActiveRef.current = false;
+      settlingRef.current = false;
+      dragPointerRef.current = null;
+      stopColumnAutoScroll();
       dragTranslateX.value = 0;
       dragTranslateY.value = 0;
+      dragLiftProgress.value = 0;
+      dragSettleOpacity.value = 1;
       hoveredColumnId.value = null;
       setHoveredColumnIdState(null);
+      dropMeasurementsRef.current.clear();
+      updateDropPlacement(null);
+      void HapticsService.trigger('canvas.drag.pickup');
 
-      // Measure container once; drop target hit-testing uses scroll offset + column width math (no per-column measuring).
-      requestAnimationFrame(async () => {
-        const containerLayout = await measureInWindowAsync(containerRef.current);
-        if (!containerLayout) return;
-        containerX.value = containerLayout.x;
-        containerY.value = containerLayout.y;
-        dragStartX.value = cardLayout.x - containerLayout.x;
-        dragStartY.value = cardLayout.y - containerLayout.y;
-        dragWidth.value = cardLayout.width;
+      // Resolve every overlay coordinate before swapping the source card for its
+      // lifted copy. Otherwise the source disappears while the overlay is still
+      // waiting at its default origin for a later measurement frame.
+      const containerLayout = await measureInWindowAsync(containerRef.current);
+      if (!containerLayout || dragSessionRef.current !== session) return;
+
+      containerLayoutRef.current = containerLayout;
+      containerX.value = containerLayout.x;
+      containerY.value = containerLayout.y;
+      dragStartX.value = cardLayout.x - containerLayout.x;
+      dragStartY.value = cardLayout.y - containerLayout.y;
+      dragWidth.value = cardLayout.width;
+      draggingId.value = activityId;
+      dragActiveRef.current = true;
+      dragLiftProgress.value = withTiming(1, {
+        duration: getAccessibleAnimationDuration(140, reduceMotionEnabled),
+        easing: Easing.out(Easing.cubic),
       });
+      setDraggedCardHeight(cardLayout.height);
+      setDraggedSourceColumnId(
+        columns.find((column) =>
+          column.activities.some((activity) => activity.id === activityId),
+        )?.id ?? null,
+      );
+      setDraggedActivityId(activityId);
+      setIsDragging(true);
+      if (dragPointerRef.current) ensureBoardAutoScroll();
     },
     [
+      columns,
       containerX,
       containerY,
       draggingId,
@@ -422,39 +698,259 @@ export function KanbanBoard({
       dragTranslateX,
       dragTranslateY,
       dragWidth,
+      ensureBoardAutoScroll,
+      dragLiftProgress,
+      dragSettleOpacity,
       hoveredColumnId,
       hoveredColumnIdState,
+      reduceMotionEnabled,
+      stopColumnAutoScroll,
+      updateDropPlacement,
     ],
   );
 
   const endDrag = React.useCallback(() => {
+    dragSessionRef.current += 1;
+    dragActiveRef.current = false;
+    settlingRef.current = false;
+    dragPointerRef.current = null;
+    stopColumnAutoScroll();
+    if (boardAutoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(boardAutoScrollFrameRef.current);
+      boardAutoScrollFrameRef.current = null;
+    }
+    cancelAnimation(dragLiftProgress);
+    cancelAnimation(dragTranslateX);
+    cancelAnimation(dragTranslateY);
+    cancelAnimation(dragWidth);
+    cancelAnimation(dragSettleOpacity);
     setIsDragging(false);
     setDraggedActivityId(null);
+    setDraggedSourceColumnId(null);
     setHoveredColumnIdState(null);
     draggingId.value = null;
+    dragLiftProgress.value = 0;
+    dragSettleOpacity.value = 1;
     hoveredColumnId.value = null;
-  }, [draggingId, hoveredColumnId]);
+    dropMeasurementsRef.current.clear();
+    updateDropPlacement(null);
+  }, [
+    dragLiftProgress,
+    dragSettleOpacity,
+    draggingId,
+    dragTranslateX,
+    dragTranslateY,
+    dragWidth,
+    hoveredColumnId,
+    stopColumnAutoScroll,
+    updateDropPlacement,
+  ]);
+
+  const handleDropZoneMeasurement = React.useCallback(
+    (measurement: KanbanDropZoneMeasurement) => {
+      dropMeasurementsRef.current.set(measurement.columnId, measurement);
+      const pointer = dragPointerRef.current;
+      if (pointer) resolveDropAtPointer(pointer);
+    },
+    [resolveDropAtPointer],
+  );
+
+  const handleDragMove = React.useCallback(
+    (activityId: string, absoluteX: number, absoluteY: number) => {
+      const pointer = { activityId, absoluteX, absoluteY };
+      dragPointerRef.current = pointer;
+      resolveDropAtPointer(pointer);
+      ensureBoardAutoScroll();
+    },
+    [ensureBoardAutoScroll, resolveDropAtPointer],
+  );
+
+  React.useEffect(() => {
+    if (!isDragging) {
+      destinationStripWidth.value = 0;
+      destinationStripHeight.value = 0;
+      return;
+    }
+
+    let secondFrame: number | null = null;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(async () => {
+        const layout = await measureInWindowAsync(destinationStripRef.current);
+        if (!layout) return;
+        destinationStripX.value = layout.x;
+        destinationStripY.value = layout.y;
+        destinationStripWidth.value = layout.width;
+        destinationStripHeight.value = layout.height;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) cancelAnimationFrame(secondFrame);
+    };
+  }, [
+    destinationStripHeight,
+    destinationStripWidth,
+    destinationStripX,
+    destinationStripY,
+    isDragging,
+  ]);
+
+  const commitDrop = React.useCallback(
+    (
+      activityId: string,
+      resolvedColumnId: string,
+      toColumnTitle: string | null,
+      hasExactPlacement: boolean,
+      beforeActivityId: string | null,
+      endAfterCommit = true,
+    ) => {
+      onMoveActivity?.(activityId, {
+        groupBy,
+        toColumnId: resolvedColumnId,
+        toColumnTitle: toColumnTitle ?? undefined,
+        beforeActivityId: hasExactPlacement ? beforeActivityId : undefined,
+      });
+      void HapticsService.trigger('canvas.selection');
+      if (endAfterCommit) requestAnimationFrame(endDrag);
+    },
+    [endDrag, groupBy, onMoveActivity],
+  );
 
   const handleDrop = React.useCallback(
     (activityId: string, toColumnId: string | null) => {
-      if (toColumnId) {
-        const destination = columns.find((column) => column.id === toColumnId);
-        onMoveActivity?.(activityId, {
-          groupBy,
-          toColumnId,
-          toColumnTitle: destination?.title,
+      if (settlingRef.current) return;
+      settlingRef.current = true;
+      stopColumnAutoScroll();
+      const measuredPlacement = dropPlacementRef.current;
+      const resolvedColumnId = resolveKanbanDropCommitColumnId({
+        measuredPlacement,
+        gestureColumnId: toColumnId,
+      });
+      const duration = getAccessibleAnimationDuration(170, reduceMotionEnabled);
+
+      if (!resolvedColumnId) {
+        dragLiftProgress.value = withTiming(0, { duration });
+        dragTranslateX.value = withTiming(0, { duration });
+        dragTranslateY.value = withTiming(0, { duration }, (finished) => {
+          if (finished) runOnJS(endDrag)();
         });
+        return;
       }
-      endDrag();
+
+      const destination = columns.find(
+        (column) => column.id === resolvedColumnId,
+      );
+      const sourceColumnId =
+        draggedSourceColumnId ??
+        columns.find((column) =>
+          column.activities.some((activity) => activity.id === activityId),
+        )?.id ??
+        null;
+      const dropMode = getKanbanDropMode({
+        canReorder,
+        sourceColumnId,
+        destinationColumnId: resolvedColumnId,
+      });
+
+      if (dropMode === 'reorder-unavailable') {
+        onReorderUnavailable?.();
+        dragLiftProgress.value = withTiming(0, { duration });
+        dragTranslateX.value = withTiming(0, { duration });
+        dragTranslateY.value = withTiming(0, { duration }, (finished) => {
+          if (finished) runOnJS(endDrag)();
+        });
+        return;
+      }
+
+      if (dropMode === 'sorted-column-move') {
+        commitDrop(
+          activityId,
+          resolvedColumnId,
+          destination?.title ?? null,
+          false,
+          null,
+          false,
+        );
+        dragLiftProgress.value = withTiming(0, { duration });
+        dragSettleOpacity.value = withTiming(0, { duration }, (finished) => {
+          if (finished) runOnJS(endDrag)();
+        });
+        return;
+      }
+
+      const settleTarget = resolveKanbanDropSettleTarget({
+        placement: measuredPlacement ?? { columnId: resolvedColumnId },
+        measurements: Array.from(dropMeasurementsRef.current.values()),
+        itemGap: spacing.sm,
+      });
+      const hasExactPlacement = Boolean(
+        canReorder && measuredPlacement?.columnId === resolvedColumnId,
+      );
+      const beforeActivityId = hasExactPlacement
+        ? (measuredPlacement?.beforeActivityId ?? null)
+        : null;
+
+      dragLiftProgress.value = withTiming(0, { duration });
+      if (settleTarget && containerLayoutRef.current) {
+        dragWidth.value = withTiming(settleTarget.width, { duration });
+        dragTranslateX.value = withTiming(
+          settleTarget.x - containerLayoutRef.current.x - dragStartX.value,
+          { duration, easing: Easing.out(Easing.cubic) },
+        );
+        dragTranslateY.value = withTiming(
+          settleTarget.y - containerLayoutRef.current.y - dragStartY.value,
+          { duration, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (finished) {
+              runOnJS(commitDrop)(
+                activityId,
+                resolvedColumnId,
+                destination?.title ?? null,
+                hasExactPlacement,
+                beforeActivityId,
+              );
+            }
+          },
+        );
+      } else {
+        commitDrop(
+          activityId,
+          resolvedColumnId,
+          destination?.title ?? null,
+          hasExactPlacement,
+          beforeActivityId,
+        );
+      }
     },
-    [columns, endDrag, groupBy, onMoveActivity],
+    [
+      canReorder,
+      columns,
+      commitDrop,
+      dragLiftProgress,
+      dragSettleOpacity,
+      dragStartX,
+      dragStartY,
+      dragTranslateX,
+      dragTranslateY,
+      dragWidth,
+      endDrag,
+      draggedSourceColumnId,
+      onReorderUnavailable,
+      reduceMotionEnabled,
+      stopColumnAutoScroll,
+    ],
   );
 
   const movePickerActivity = movePickerActivityId
-    ? activityById.get(movePickerActivityId) ?? null
+    ? (activityById.get(movePickerActivityId) ?? null)
     : null;
   const movePickerCurrentColumnId = movePickerActivity
-    ? columns.find((column) => column.activities.some((activity) => activity.id === movePickerActivity.id))?.id
+    ? columns.find((column) =>
+        column.activities.some(
+          (activity) => activity.id === movePickerActivity.id,
+        ),
+      )?.id
     : undefined;
 
   const handleChooseMoveDestination = React.useCallback(
@@ -464,7 +960,11 @@ export function KanbanBoard({
         return;
       }
       void HapticsService.trigger('canvas.selection');
-      onMoveActivity?.(movePickerActivityId, { groupBy, toColumnId, toColumnTitle });
+      onMoveActivity?.(movePickerActivityId, {
+        groupBy,
+        toColumnId,
+        toColumnTitle,
+      });
       setMovePickerActivityId(null);
     },
     [groupBy, movePickerActivityId, movePickerCurrentColumnId, onMoveActivity],
@@ -506,43 +1006,85 @@ export function KanbanBoard({
         });
       }, ANIM_MS + 30);
     }
-  }, [activeColumnIndex, expandedColumnWidth, isExpanded, expandedProgress, setExpanded]);
+  }, [
+    activeColumnIndex,
+    expandedColumnWidth,
+    isExpanded,
+    expandedProgress,
+    setExpanded,
+  ]);
 
-  const handleScroll = React.useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    scrollX.value = offsetX;
-    const index = Math.round(offsetX / (columnWidth + spacing.md));
-    setActiveColumnIndex(Math.max(0, Math.min(index, columns.length - 1)));
-  }, [columnWidth, columns.length, scrollX]);
+  const handleScroll = React.useCallback(
+    (event: any) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const scrollDelta = offsetX - boardScrollOffsetRef.current;
+      boardScrollOffsetRef.current = offsetX;
+      scrollX.value = offsetX;
+      if (dragActiveRef.current && Math.abs(scrollDelta) >= 0.5) {
+        shiftDropMeasurementsHorizontally(scrollDelta);
+        const pointer = dragPointerRef.current;
+        if (pointer) resolveDropAtPointer(pointer);
+      }
+      const index = Math.round(offsetX / (columnWidth + spacing.md));
+      setActiveColumnIndex(Math.max(0, Math.min(index, columns.length - 1)));
+    },
+    [
+      columnWidth,
+      columns.length,
+      resolveDropAtPointer,
+      scrollX,
+      shiftDropMeasurementsHorizontally,
+    ],
+  );
 
-  const handleSelectColumn = React.useCallback((index: number) => {
-    setActiveColumnIndex(index);
-    void HapticsService.trigger('canvas.selection');
-    scrollViewRef.current?.scrollTo({
-      x: index * (columnWidth + spacing.md),
-      animated: true,
-    });
-  }, [columnWidth]);
+  const handleSelectColumn = React.useCallback(
+    (index: number) => {
+      setActiveColumnIndex(index);
+      void HapticsService.trigger('canvas.selection');
+      scrollViewRef.current?.scrollTo({
+        x: index * (columnWidth + spacing.md),
+        animated: true,
+      });
+    },
+    [columnWidth],
+  );
 
   const dragOverlayAnimatedStyle = useAnimatedStyle(() => {
     if (!draggingId.value) return { opacity: 0 };
     return {
-      opacity: 1,
+      opacity: dragSettleOpacity.value,
+      shadowOpacity: interpolate(dragLiftProgress.value, [0, 1], [0.05, 0.22]),
+      shadowRadius: interpolate(dragLiftProgress.value, [0, 1], [4, 14]),
+      elevation: interpolate(dragLiftProgress.value, [0, 1], [2, 16]),
       transform: [
         { translateX: dragStartX.value + dragTranslateX.value },
         { translateY: dragStartY.value + dragTranslateY.value },
-        { scale: 1.02 },
+        { scale: interpolate(dragLiftProgress.value, [0, 1], [1, 1.025]) },
       ],
     };
-  }, [draggingId, dragStartX, dragStartY, dragTranslateX, dragTranslateY]);
+  }, [
+    dragLiftProgress,
+    dragSettleOpacity,
+    draggingId,
+    dragStartX,
+    dragStartY,
+    dragTranslateX,
+    dragTranslateY,
+  ]);
 
   const dragOverlaySizeStyle = useAnimatedStyle(() => {
     return { width: dragWidth.value };
   }, [dragWidth]);
 
-  const draggedActivity = draggedActivityId ? activityById.get(draggedActivityId) ?? null : null;
-  const draggedGoalTitle = draggedActivity?.goalId ? goalTitleById[draggedActivity.goalId] : undefined;
-  const draggedIsLoading = draggedActivity?.id ? Boolean(enrichingActivityIds?.has(draggedActivity.id)) : false;
+  const draggedActivity = draggedActivityId
+    ? (activityById.get(draggedActivityId) ?? null)
+    : null;
+  const draggedGoalTitle = draggedActivity?.goalId
+    ? goalTitleById[draggedActivity.goalId]
+    : undefined;
+  const draggedIsLoading = draggedActivity?.id
+    ? Boolean(enrichingActivityIds?.has(draggedActivity.id))
+    : false;
 
   return (
     <View ref={containerRef} collapsable={false} style={styles.container}>
@@ -556,59 +1098,85 @@ export function KanbanBoard({
           { paddingBottom: extraBottomPadding + insets.bottom + spacing.lg }, // space for safe area + overlays
         ]}
         showsHorizontalScrollIndicator={false}
-        scrollEnabled
+        scrollEnabled={!isDragging}
         pagingEnabled={pagingEnabled}
         snapToInterval={pagingEnabled ? columnWidth + spacing.md : undefined}
         decelerationRate={pagingEnabled ? 'fast' : 'normal'}
         onScroll={handleScroll}
+        onContentSizeChange={(width) => {
+          boardContentWidthRef.current = width;
+        }}
         scrollEventThrottle={16}
       >
         {columns.map((column, idx) => (
           <Animated.View
-              // eslint-disable-next-line react/no-array-index-key
-              key={`kanban-col-wrap-${column.id}`}
-              style={[styles.columnWrapper, columnWidthAnimatedStyle] as any}
-            >
-              <KanbanColumn
-                key={column.id}
-                title={column.title}
-                iconName={column.iconName}
-                accentColor={column.accentColor}
-                activities={column.activities}
-                goalTitleById={goalTitleById}
-                enrichingActivityIds={enrichingActivityIds}
-                onToggleComplete={onToggleComplete}
-                onTogglePriority={onTogglePriority}
-                onPressActivity={onPressActivity}
-                onRequestMove={onMoveActivity ? setMovePickerActivityId : undefined}
-                onAddCard={onAddActivity ? () => onAddActivity({
-                  groupBy,
-                  toColumnId: column.id,
-                  toColumnTitle: column.title,
-                }) : undefined}
-                addCardAnchorRef={idx === 0 ? addCardAnchorRef : undefined}
-                cardVisibleFields={cardVisibleFields}
-                width={undefined}
-                isExpanded={isExpanded}
-                isDragging={isDragging}
-                hiddenActivityId={draggedActivityId}
-                isDropTarget={isDragging && hoveredColumnIdState === column.id}
-                draggingId={draggingId}
-                dragTranslateX={dragTranslateX}
-                dragTranslateY={dragTranslateY}
-                hoveredColumnId={hoveredColumnId}
-                containerX={containerX}
-                scrollX={scrollX}
-                columnIds={columnIds}
-                expandedProgress={expandedProgress}
-                compactColumnWidth={compactColumnWidth}
-                expandedColumnWidth={expandedColumnWidth}
-                columnGap={spacing.md}
-                contentPadding={spacing.md}
-                onBeginDrag={startDrag}
-                onEndDrag={handleDrop}
-                scrollableGesture={null}
-              />
+            // eslint-disable-next-line react/no-array-index-key
+            key={`kanban-col-wrap-${column.id}`}
+            style={[styles.columnWrapper, columnWidthAnimatedStyle] as any}
+          >
+            <KanbanColumn
+              key={column.id}
+              columnId={column.id}
+              title={column.title}
+              iconName={column.iconName}
+              accentColor={column.accentColor}
+              activities={column.activities}
+              goalTitleById={goalTitleById}
+              enrichingActivityIds={enrichingActivityIds}
+              onToggleComplete={onToggleComplete}
+              onTogglePriority={onTogglePriority}
+              onPressActivity={onPressActivity}
+              onRequestMove={
+                onMoveActivity ? setMovePickerActivityId : undefined
+              }
+              onAddCard={
+                onAddActivity
+                  ? () =>
+                      onAddActivity({
+                        groupBy,
+                        toColumnId: column.id,
+                        toColumnTitle: column.title,
+                      })
+                  : undefined
+              }
+              addCardAnchorRef={idx === 0 ? addCardAnchorRef : undefined}
+              cardVisibleFields={cardVisibleFields}
+              width={undefined}
+              isExpanded={isExpanded}
+              isDragging={isDragging}
+              hiddenActivityId={
+                column.id === draggedSourceColumnId ? draggedActivityId : null
+              }
+              isDropTarget={isDragging && hoveredColumnIdState === column.id}
+              dropIndicatorBeforeActivityId={
+                isDragging &&
+                canReorder &&
+                dropPlacement?.columnId === column.id
+                  ? dropPlacement.beforeActivityId
+                  : undefined
+              }
+              dropIndicatorHeight={draggedCardHeight}
+              dragTranslateX={dragTranslateX}
+              dragTranslateY={dragTranslateY}
+              hoveredColumnId={hoveredColumnId}
+              containerX={containerX}
+              scrollX={scrollX}
+              columnIds={columnIds}
+              expandedProgress={expandedProgress}
+              compactColumnWidth={compactColumnWidth}
+              expandedColumnWidth={expandedColumnWidth}
+              columnGap={spacing.md}
+              contentPadding={spacing.md}
+              destinationStripX={destinationStripX}
+              destinationStripY={destinationStripY}
+              destinationStripWidth={destinationStripWidth}
+              destinationStripHeight={destinationStripHeight}
+              onDropZoneMeasurement={handleDropZoneMeasurement}
+              onDragScrollerChange={handleDragScrollerChange}
+              onDragMove={handleDragMove}
+              onBeginDrag={startDrag}
+              onEndDrag={handleDrop}
+            />
           </Animated.View>
         ))}
       </Animated.ScrollView>
@@ -617,7 +1185,15 @@ export function KanbanBoard({
       {draggedActivity && (
         <Animated.View
           pointerEvents="none"
-          style={[styles.dragOverlay, dragOverlaySizeStyle, dragOverlayAnimatedStyle] as any}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={
+            [
+              styles.dragOverlay,
+              dragOverlaySizeStyle,
+              dragOverlayAnimatedStyle,
+            ] as any
+          }
         >
           <View style={styles.dragOverlayInner}>
             <KanbanCard
@@ -627,15 +1203,67 @@ export function KanbanBoard({
               onToggleComplete={undefined}
               onPress={undefined}
               isLoading={draggedIsLoading}
+              showCompletionControl
             />
           </View>
         </Animated.View>
       )}
 
+      {isDragging ? (
+        <View
+          ref={destinationStripRef}
+          collapsable={false}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.dragDestinationStrip,
+            { bottom: insets.bottom + spacing.sm },
+          ]}
+        >
+          <Text style={styles.dragDestinationLabel}>Move to</Text>
+          <View style={styles.dragDestinationOptions}>
+            {columns.map((column) => {
+              const isHovered = hoveredColumnIdState === column.id;
+              return (
+                <View
+                  key={column.id}
+                  style={[
+                    styles.dragDestinationOption,
+                    isHovered ? styles.dragDestinationOptionHovered : null,
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.dragDestinationOptionText,
+                      isHovered
+                        ? styles.dragDestinationOptionTextHovered
+                        : null,
+                    ]}
+                  >
+                    {column.title}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {/* Pagination dots (minimal overlay) */}
-      {columns.length > 1 && (
-        <View style={[styles.paginationOverlay, { bottom: insets.bottom + spacing.xs }]}>
-          <HStack alignItems="center" justifyContent="center" style={styles.pagination}>
+      {!isDragging && columns.length > 1 && (
+        <View
+          style={[
+            styles.paginationOverlay,
+            { bottom: insets.bottom + spacing.xs },
+          ]}
+        >
+          <HStack
+            alignItems="center"
+            justifyContent="center"
+            style={styles.pagination}
+          >
             {columns.map((col, index) => (
               <Pressable
                 key={col.id}
@@ -650,7 +1278,12 @@ export function KanbanBoard({
                   style={[
                     styles.paginationDot,
                     index === activeColumnIndex && styles.paginationDotActive,
-                    { backgroundColor: index === activeColumnIndex ? colors.gray600 : colors.gray300 },
+                    {
+                      backgroundColor:
+                        index === activeColumnIndex
+                          ? colors.gray600
+                          : colors.gray300,
+                    },
                   ]}
                 />
               </Pressable>
@@ -660,27 +1293,37 @@ export function KanbanBoard({
       )}
 
       {/* Expand/collapse FAB */}
-      <Pressable
-        style={[
-          styles.expandFab,
-          {
-            bottom: insets.bottom + spacing.lg,
-            right: spacing.lg,
-          },
-        ]}
-        onPress={toggleExpanded}
-        accessibilityRole="button"
-        accessibilityLabel={isExpanded ? 'Switch to compact view' : 'Switch to expanded view'}
-      >
-        <Icon name={isExpanded ? 'collapse' : 'expand'} size={22} color={colors.textPrimary} />
-      </Pressable>
+      {!isDragging ? (
+        <Pressable
+          style={[
+            styles.expandFab,
+            {
+              bottom: insets.bottom + spacing.lg,
+              right: spacing.lg,
+            },
+          ]}
+          onPress={toggleExpanded}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isExpanded ? 'Switch to compact view' : 'Switch to expanded view'
+          }
+        >
+          <Icon
+            name={isExpanded ? 'collapse' : 'expand'}
+            size={22}
+            color={colors.textPrimary}
+          />
+        </Pressable>
+      ) : null}
 
       <BottomDrawer
         visible={Boolean(movePickerActivity)}
         onClose={() => setMovePickerActivityId(null)}
         snapPoints={['58%']}
       >
-        <BottomDrawerScrollView contentContainerStyle={styles.movePickerContent}>
+        <BottomDrawerScrollView
+          contentContainerStyle={styles.movePickerContent}
+        >
           <BottomDrawerHeader
             variant="withClose"
             title="Move to"
@@ -695,20 +1338,35 @@ export function KanbanBoard({
                 <Pressable
                   key={column.id}
                   accessibilityRole="button"
-                  accessibilityLabel={isCurrent ? `${column.title}, current column` : `Move to ${column.title}`}
-                  accessibilityState={{ selected: isCurrent, disabled: isCurrent }}
+                  accessibilityLabel={
+                    isCurrent
+                      ? `${column.title}, current column`
+                      : `Move to ${column.title}`
+                  }
+                  accessibilityState={{
+                    selected: isCurrent,
+                    disabled: isCurrent,
+                  }}
                   disabled={isCurrent}
-                  onPress={() => handleChooseMoveDestination(column.id, column.title)}
+                  onPress={() =>
+                    handleChooseMoveDestination(column.id, column.title)
+                  }
                   style={({ pressed }) => [
                     styles.moveDestinationRow,
                     isCurrent ? styles.moveDestinationRowCurrent : null,
                     pressed ? styles.moveDestinationRowPressed : null,
                   ]}
                 >
-                  <Text style={styles.moveDestinationTitle}>{column.title}</Text>
+                  <Text style={styles.moveDestinationTitle}>
+                    {column.title}
+                  </Text>
                   <HStack alignItems="center" space="sm">
-                    <Text style={styles.moveDestinationCount}>{String(column.activities.length)}</Text>
-                    {isCurrent ? <Icon name="check" size={18} color={colors.accent} /> : null} {/* @kwilt-brand-moment: green confirms the one current move destination. */}
+                    <Text style={styles.moveDestinationCount}>
+                      {String(column.activities.length)}
+                    </Text>
+                    {isCurrent ? (
+                      <Icon name="check" size={18} color={colors.accent} /> /* @kwilt-brand-moment: green confirms the one current move destination. */
+                    ) : null}
                   </HStack>
                 </Pressable>
               );
@@ -745,9 +1403,66 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 999,
     elevation: 20,
+    shadowColor: colors.textPrimary,
+    shadowOffset: { width: 0, height: 8 },
   },
   dragOverlayInner: {
     flex: 1,
+  },
+  dragDestinationStrip: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    zIndex: 1000,
+    padding: spacing.xs,
+    borderRadius: 14,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.textPrimary,
+        shadowOpacity: 0.16,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  dragDestinationLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.xs,
+    paddingBottom: 4,
+  },
+  dragDestinationOptions: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 4,
+  },
+  dragDestinationOption: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 34,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fieldFill,
+  },
+  dragDestinationOptionHovered: {
+    backgroundColor: colors.gray800,
+  },
+  dragDestinationOptionText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  dragDestinationOptionTextHovered: {
+    color: colors.canvas,
+    fontFamily: fonts.semibold,
   },
   paginationOverlay: {
     position: 'absolute',

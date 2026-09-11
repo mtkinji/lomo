@@ -97,3 +97,14 @@ it("preserves words, photos and audience when choosing a suggestion", () => {
       .text,
   ).toBe("Family night\n\nMade Tacos.");
 });
+it("keeps thumbnail metadata out of the shareable attachment", () => {
+  const row = buildMomentSuggestions({
+    ...base,
+    goals: [{ ...goal, thumbnailUrl: "https://example.com/goal.jpg" }],
+  }).find((r) => r.kind === "goal")!;
+  expect(row.artwork).toEqual({
+    kind: "image",
+    uri: "https://example.com/goal.jpg",
+  });
+  expect(row.attachment).toEqual({ kind: "goal_completed", title: goal.title });
+});

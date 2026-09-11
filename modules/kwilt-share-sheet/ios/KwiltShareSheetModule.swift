@@ -10,6 +10,32 @@ public final class KwiltShareSheetModule: Module {
     Name("KwiltShareSheet")
     Events("onDismissStart")
 
+    AsyncFunction("presentMoment") { (message: String, photoURLs: [String], promise: Promise) in
+      guard let presenter = self.appContext?.utilities?.currentViewController() else {
+        promise.reject(MissingSharePresenterException())
+        return
+      }
+      var items: [Any] = [message]
+      for rawURL in photoURLs {
+        guard let url = URL(string: rawURL), url.isFileURL,
+              let image = UIImage(contentsOfFile: url.path) else {
+          promise.reject(ShareSheetException("A photo could not be prepared. Try sharing again."))
+          return
+        }
+        items.append(image)
+      }
+      let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+      controller.completionWithItemsHandler = { activity, completed, _, error in
+        if let error { promise.reject(ShareSheetException(error.localizedDescription)); return }
+        promise.resolve(["action": completed ? "shared" : "dismissed", "activityType": activity?.rawValue as Any])
+      }
+      if let popover = controller.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.maxY, width: 0, height: 0)
+      }
+      presenter.present(controller, animated: true)
+    }.runOnQueue(.main)
+
     AsyncFunction("present") { (rawURL: String, subject: String?, askHouseholdTitle: String?, promise: Promise) in
       guard let url = URL(string: rawURL) else {
         promise.reject(InvalidShareURLException(rawURL))

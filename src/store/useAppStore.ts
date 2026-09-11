@@ -1252,6 +1252,10 @@ interface AppState {
    * orderIndex is set to its position in the array.
    */
   reorderActivities: (orderedIds: string[]) => void;
+  /** Update only the supplied manual ranks in one state transition. */
+  setActivityOrderIndices: (
+    updates: Array<{ activityId: string; orderIndex: number }>,
+  ) => void;
   removeActivity: (activityId: string) => void;
   restoreRemovedActivity: (params: {
     activity: Activity;
@@ -2171,6 +2175,33 @@ export const useAppStore = create<AppState>()(
               return {
                 ...activity,
                 orderIndex: newIndex,
+                priorityRankSource: 'manual',
+                priorityReasonCodes,
+                updatedAt: atIso,
+              };
+            }),
+          };
+        }),
+      setActivityOrderIndices: (updates) =>
+        set((state) => {
+          const atIso = now();
+          const orderById = new Map(
+            updates
+              .filter((update) => Number.isFinite(update.orderIndex))
+              .map((update) => [update.activityId, update.orderIndex]),
+          );
+          if (orderById.size === 0) return state;
+          return {
+            activities: state.activities.map((activity) => {
+              const orderIndex = orderById.get(activity.id);
+              if (orderIndex === undefined || activity.orderIndex === orderIndex) return activity;
+              const priorityReasonCodes = [...(activity.priorityReasonCodes ?? [])];
+              if (!priorityReasonCodes.includes('moved_by_user')) {
+                priorityReasonCodes.push('moved_by_user');
+              }
+              return {
+                ...activity,
+                orderIndex,
                 priorityRankSource: 'manual',
                 priorityReasonCodes,
                 updatedAt: atIso,

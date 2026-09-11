@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-focus-seamless-soundscapes, brief-focus-widget]
 owner: andrew
-last_updated: 2026-08-12
+last_updated: 2026-09-11
 ---
 
 # Canyon Spring Focus environment
@@ -160,7 +160,8 @@ This is evidence that the landscape improves the felt Focus handoff for Andrew. 
 
 ## Spec refinement
 
-- The first approved implementation contains one video-backed environment only.
+- The first approved implementation contained one video-backed environment. Andrew approved adding `Mountain Overlook` from his shared mountain recording on 2026-09-11 through the same existing Focus environment picker and backdrop.
+- Mountain Overlook bundles the processed original visuals as a 55.56-second, 720p H.264 loop with a two-second circular dissolve whose delivery boundary is rotated into the middle of the dissolve. The video contains no embedded audio or source location metadata. The paired Focus soundscape is also bundled and uses only the original MOV's default stereo soundtrack, mastered as a 205.264-second 48 kHz MP3 with a four-second equal-power seam. There is no generated or substitute ambience.
 - Environment identity, visual delivery, and audio delivery are separate typed concerns.
 - Video never owns background audio and never gates the Focus timer.
 - Pure catalog/orientation/fallback logic and media acceptance tooling require tests first. Visual layout may be implemented directly with focused component coverage.

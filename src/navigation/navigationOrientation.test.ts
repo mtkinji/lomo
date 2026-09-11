@@ -46,13 +46,11 @@ describe('navigation orientation', () => {
     expect(mockUnlockAsync).not.toHaveBeenCalled();
   });
 
-  it('lets an active video Focus session follow the device', async () => {
+  it('locks every active video Focus session into landscape', async () => {
     await applyNavigationOrientation('Today', { focusVideoActive: true });
 
-    expect(mockLockPlatformAsync).toHaveBeenCalledWith({
-      screenOrientationArrayIOS: ['PORTRAIT_UP', 'LANDSCAPE_LEFT', 'LANDSCAPE_RIGHT'],
-    });
-    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+    expect(mockLockPlatformAsync).not.toHaveBeenCalled();
   });
 
   it('serializes Focus policy changes through one root owner and restores portrait', async () => {
@@ -78,10 +76,11 @@ describe('navigation orientation', () => {
     await act(async () => {
       resolveInitialPortrait?.();
     });
-    await waitFor(() => expect(mockLockPlatformAsync).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
+    expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
 
     rerender({ focusVideoActive: false });
-    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(3));
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
   });
 

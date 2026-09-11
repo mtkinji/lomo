@@ -315,7 +315,7 @@ Expanded Kanban remains special:
 - Reuse the same card-fields, filter, grouping, and sort controls as collapsed Kanban and list layouts.
 - Do not introduce a second Kanban-specific toolbar.
 - Pagination indicators are tappable, labeled column destinations so navigation does not depend on a horizontal gesture winning against a nested column scroll.
-- Card taps open details. A dedicated card handle owns movement: tap it for the explicit destination drawer, or touch and hold it for direct drag. The rest of the card never begins a move.
+- Cards show no resting move handle. A tap opens details, and movement before the stationary hold threshold remains vertical or horizontal scrolling. After the hold is recognized, the whole card becomes the drag source, the completion circle animates into bare grip feedback in the same footprint, and an all-column destination strip appears. Releasing without meaningful travel returns the card to rest; assistive technologies expose an explicit Move action and destination drawer. Long-press remains a single-card board gesture; multi-select uses a separately signaled selection interaction rather than changing its meaning.
 - Adding from a column inherits the property represented by that column. Every move has an explicit `Move to` alternative and an Undo result.
 
 ## Implementation Direction

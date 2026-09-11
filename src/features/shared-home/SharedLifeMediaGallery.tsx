@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Button, HStack, Text } from "../../ui/primitives";
 import { Pressable as HapticPressable } from "../../ui/HapticPressable";
-import { colors, spacing } from "../../theme";
+import { colors, radii, spacing, typography } from "../../theme";
 import { homePhotoSource } from "./sharedLifeMedia";
 import { SharedLifePage } from "./SharedLifePage";
 import type { HomePost } from "./sharedLifeTypes";
@@ -82,10 +82,12 @@ export function SharedLifeMediaGallery({
   post,
   index = 0,
   onIndexChange,
+  sourceLabel,
 }: {
   post: HomePost;
   index?: number;
   onIndexChange?: (i: number) => void;
+  sourceLabel?: string;
 }) {
   const [local, setLocal] = useState(index);
   const [open, setOpen] = useState(false);
@@ -103,7 +105,7 @@ export function SharedLifeMediaGallery({
     });
   };
   if (!post.media.length) return null;
-  const controls = (
+  const detailControls = (
     <HStack
       alignItems="center"
       justifyContent="space-between"
@@ -187,8 +189,19 @@ export function SharedLifeMediaGallery({
             </HapticPressable>
           ))}
         </ScrollView>
+        {sourceLabel ? (
+          <View pointerEvents="none" style={styles.sourceLabel}>
+            <Text style={styles.sourceLabelText} numberOfLines={1}>
+              {sourceLabel}
+            </Text>
+          </View>
+        ) : null}
+        {post.media.length > 1 ? (
+          <View pointerEvents="none" style={styles.pageCount}>
+            <Text style={styles.sourceLabelText}>{`${selected + 1} / ${post.media.length}`}</Text>
+          </View>
+        ) : null}
       </View>
-      {post.media.length > 1 ? controls : null}
       {open ? (
         <SharedLifePage title="Photos" onClose={() => setOpen(false)}>
           <View style={{ flex: 1, justifyContent: "center" }}>
@@ -198,7 +211,7 @@ export function SharedLifeMediaGallery({
               height={Math.max(160, screenHeight - 260)}
             />
           </View>
-          {controls}
+          {detailControls}
           <Text style={styles.description}>{post.media[selected].alt}</Text>
         </SharedLifePage>
       ) : null}
@@ -214,4 +227,30 @@ const styles = StyleSheet.create({
   placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
   controls: { paddingHorizontal: spacing.lg },
   description: { padding: spacing.lg },
+  sourceLabel: {
+    position: "absolute",
+    left: spacing.sm,
+    right: spacing.sm,
+    bottom: spacing.sm,
+    alignSelf: "flex-start",
+    maxWidth: "78%",
+    backgroundColor: "rgba(20, 20, 20, 0.72)",
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  sourceLabelText: {
+    ...typography.bodySm,
+    color: colors.primaryForeground,
+    fontWeight: "600",
+  },
+  pageCount: {
+    position: "absolute",
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: "rgba(20, 20, 20, 0.72)",
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
 });
