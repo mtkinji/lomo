@@ -264,8 +264,7 @@ describe('PlanEventPeekDrawerHost slot capture', () => {
     expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['14%', '25%', '85%']);
     expect(mockBottomDrawerProps.at(-1)?.initialSnapIndex).toBe(1);
     expect(mockBottomDrawerProps.at(-1)?.snapIndex).toBe(1);
-    expect(mockActivityPeekProps.at(-1)?.embedded).toBe(true);
-    expect(mockActivityPeekProps.at(-1)?.managementHidden).toBe(true);
+    expect(mockActivityPeekProps).toHaveLength(0);
   });
 
   it('reveals a backdrop when the unified session drawer expands to details', () => {

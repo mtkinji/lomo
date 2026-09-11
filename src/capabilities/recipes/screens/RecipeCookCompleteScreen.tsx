@@ -1,9 +1,11 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing } from "../../../theme";
+import { Input } from "../../../ui/Input";
 import { Button } from "../../../ui/Button";
 import { AppShell } from "../../../ui/layout/AppShell";
 import { Heading, Text } from "../../../ui/Typography";
@@ -78,7 +80,7 @@ export function RecipeCookCompleteView({
     ));
   };
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Heading variant="lg">Dinner, done.</Heading>
       <Text tone="secondary">
         Keep what worked—and what you changed—private for next time.
@@ -113,13 +115,11 @@ export function RecipeCookCompleteView({
                 </Button>
               </View>
               <Text variant="label">Used instead</Text>
-              <TextInput
+              <Input
                 accessibilityLabel="Used instead"
                 value={substitution.usedInstead}
                 onChangeText={(usedInstead) => updateSubstitution(substitution.ingredientLineId, { usedInstead })}
                 placeholder="What did you use instead?"
-                placeholderTextColor={colors.textSecondary}
-                style={styles.singleLineInput}
               />
               <Text tone="secondary">How did that substitution work?</Text>
               <RatingChoices
@@ -128,13 +128,11 @@ export function RecipeCookCompleteView({
                 onChange={(resultRating) => updateSubstitution(substitution.ingredientLineId, { resultRating })}
               />
               <Text variant="label">Anything to remember?</Text>
-              <TextInput
+              <Input
                 accessibilityLabel="Substitution note"
                 value={substitution.note}
                 onChangeText={(substitutionNote) => updateSubstitution(substitution.ingredientLineId, { note: substitutionNote })}
                 placeholder="Anything to remember?"
-                placeholderTextColor={colors.textSecondary}
-                style={styles.singleLineInput}
               />
             </View>
           );
@@ -170,14 +168,14 @@ export function RecipeCookCompleteView({
 
       <View style={styles.section}>
         <Text variant="label">Remember for next time</Text>
-        <TextInput
+        <Input
           accessibilityLabel="Cooking note"
           multiline
           value={note}
           onChangeText={setNote}
           placeholder="More sauce next time…"
-          placeholderTextColor={colors.textSecondary}
-          style={styles.input}
+          multilineMinHeight={110}
+          multilineMaxHeight={160}
         />
         {note.trim() ? (
           <View style={styles.destinations}>
@@ -201,7 +199,7 @@ export function RecipeCookCompleteView({
       >
         {saving ? "Saving…" : "Done"}
       </Button>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -286,24 +284,5 @@ const styles = StyleSheet.create({
   substitutionCard: { gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 16 },
   substitutionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   ingredientChoices: { gap: spacing.sm },
-  singleLineInput: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
-    ...typography.body,
-  },
-  input: {
-    minHeight: 110,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: spacing.md,
-    color: colors.textPrimary,
-    textAlignVertical: "top",
-    ...typography.body,
-  },
   destinations: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
 });

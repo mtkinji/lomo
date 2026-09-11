@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import { AppShell } from '../../../ui/layout/AppShell';
-import { Heading, Text } from '../../../ui/primitives';
+import { Heading, Input, Text } from '../../../ui/primitives';
 import {
   claimManagedChildSetup,
   previewManagedChildSetup,
@@ -102,14 +102,14 @@ export function ManagedChildDeviceHost() {
         <View style={styles.center}>
           <Heading>Enter the setup code</Heading>
           <Text style={styles.body}>Use the 6-digit code shown on the caregiver’s device.</Text>
-          <TextInput
+          <Input
+            onSurface="muted"
             accessibilityLabel="Device setup code"
             autoCorrect={false}
             keyboardType="number-pad"
             maxLength={7}
             onChangeText={(value) => setManualCode(formatHouseholdDeviceManualCode(value))}
             placeholder="482-731"
-            style={styles.input}
             value={manualCode}
           />
           <Button
@@ -164,7 +164,6 @@ const styles = StyleSheet.create({
   identity: { alignItems: 'center', gap: spacing.md },
   body: { ...typography.body, color: colors.textSecondary },
   error: { ...typography.body, color: colors.destructive },
-  input: { ...typography.body, color: colors.textPrimary, backgroundColor: colors.canvas, borderRadius: 14, padding: spacing.md },
   capabilities: { gap: spacing.md },
   card: { gap: spacing.sm, padding: spacing.lg, borderRadius: 20, backgroundColor: colors.canvas },
 });

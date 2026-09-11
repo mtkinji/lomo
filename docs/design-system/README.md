@@ -15,6 +15,7 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 - [Illustration guidance](illustration-guidance.md): Goals illustration roles, style rules, and promotion posture.
 - [Drawer guidance](drawer-guidance.md): drawer taxonomy and extraction rules for Goals task drawers versus Money choice pickers.
 - [Picker guidance](picker-guidance.md): closed trigger and open selection-surface rules for Goals and Money.
+- [Canonical input treatment](input-guidance.md): approved filled-field family, selection by input job, anatomy, states, authoring rules, migration and enforcement. The [implementation plan](../superpowers/plans/2026-09-10-input-unification.md) and [coverage ledger](../design-explorations/input-unification/migration-coverage.md) track the unfinished rollout.
 
 ## Current posture
 

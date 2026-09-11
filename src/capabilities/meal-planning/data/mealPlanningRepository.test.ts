@@ -1,6 +1,19 @@
 import { createMealPlanningRepository, mapMealPlanRow, projectPersonalMealPlanCart } from './mealPlanningRepository';
 
 describe('Meal Planning repository', () => {
+  it.each(['send', 'remove', 'return'] as const)('preserves the reason a %s meal action failed', async (action) => {
+    const error = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: { status: 409, json: async () => ({ error: { code: 'missing_recipe_version' } }) },
+    });
+    const repository = createMealPlanningRepository({ functions: { invoke: jest.fn().mockResolvedValue({ data: null, error }) } } as never);
+    const operation = action === 'send' ? repository.sendSharedCandidates('plan-1', 3, ['candidate-1'])
+      : action === 'remove' ? repository.removeSentSharedCandidate('plan-1', 3, 'candidate-1')
+      : repository.returnSharedCandidateToPlan('plan-1', 3, 'candidate-1');
+    await expect(operation).rejects.toMatchObject({
+      message: 'A recipe in this plan could not be loaded for groceries. Refresh Meals and try again.',
+      code: 'missing_recipe_version', status: 409,
+    });
+  });
   it('projects a person-owned draft into the same Plan surface without inventing household sharing', () => {
     const projection = projectPersonalMealPlanCart(mapMealPlanRow({
       id: 'plan-personal', household_id: null, organizer_person_id: 'person-1', version: 2,

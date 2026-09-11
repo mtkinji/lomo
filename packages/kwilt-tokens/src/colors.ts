@@ -121,6 +121,11 @@ export const colors = {
   fieldFill: '#FAFAFA', // gray50 (barely lifted from white canvas)
   fieldFillPressed: '#F5F5F4', // gray100
 
+  // Input-specific material; legacy fieldFill also belongs to non-input surfaces.
+  inputFill: '#F5F5F4',
+  inputFillPressed: '#E7E5E4',
+  inputFillOnMuted: '#FFFFFF',
+
   // Primary brand accent: kwilt green.
   accent: '#315545',
   // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).

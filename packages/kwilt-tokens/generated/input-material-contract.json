@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "package": "@kwilt/tokens",
+    "revision": "sha256:f9e043b1dd0551d22c98e89b3dfe0a65784cba83b2680470549b4240f4cedb5b"
+  },
+  "units": "Native points map to CSS pixels; host font scaling remains platform-owned.",
+  "css": {
+    "--kw-input-fill": "#F5F5F4",
+    "--kw-input-fill-pressed": "#E7E5E4",
+    "--kw-input-fill-on-muted": "#FFFFFF",
+    "--kw-input-focus": "#315545",
+    "--kw-input-error": "#DC2626",
+    "--kw-input-outline": "#78716C",
+    "--kw-input-radius": "12px",
+    "--kw-input-composer-radius": "16px",
+    "--kw-input-font-size": "17px",
+    "--kw-input-line-height": "24px",
+    "--kw-input-compact-font-size": "14px",
+    "--kw-input-padding-inline": "12px",
+    "--kw-input-padding-block": "8px",
+    "--kw-input-composer-inset": "16px"
+  }
+}

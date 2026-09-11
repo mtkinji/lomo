@@ -55,3 +55,28 @@ it("deduplicates page boundaries and preserves newest values", () => {
     { id: "b", text: "next" },
   ]);
 });
+it("accepts photos without descriptions and preserves supplied accessibility text", () => {
+  const payload = buildHomeDraftPayload(
+    {
+      id,
+      text: "",
+      audience: "household",
+      householdId: id,
+      recipientIds: [],
+      attachment: null,
+      photos: [
+        { id: "one", uri: "local", alt: "  ", width: 800, height: 600 },
+        {
+          id: "two",
+          uri: "local-two",
+          alt: "  Birthday cake with one candle  ",
+        },
+      ],
+    },
+    id,
+  );
+  expect(payload.media).toEqual([
+    { path: `${id}/${id}/one.jpg`, alt: "Photo 1", width: 800, height: 600 },
+    { path: `${id}/${id}/two.jpg`, alt: "Birthday cake with one candle" },
+  ]);
+});

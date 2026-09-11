@@ -10,6 +10,7 @@ import { BottomGuide } from '../../../ui/BottomGuide';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
+import { SearchField } from '../../../ui/SearchField';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -652,7 +653,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={categoryPickerOpen} onClose={() => { setCategoryPickerOpen(false); setCreatingCategory(false); }} snapPoints={['78%']} enableContentPanningGesture>
+      <BottomDrawer visible={categoryPickerOpen} onClose={() => { setCategoryPickerOpen(false); setCreatingCategory(false); }} snapPoints={['78%']} keyboardBehavior="resize" enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category picker"
@@ -660,15 +661,9 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             title="Choose a category"
             variant="withClose"
           />
-          <Input
+          <SearchField
             accessibilityLabel="Search categories"
-            autoCapitalize="none"
-            elevation="flat"
-            leadingIcon="search"
             placeholder="Search categories"
-            returnKeyType="search"
-            size="sm"
-            variant="filled"
             value={categoryQuery}
             onChangeText={setCategoryQuery}
           />

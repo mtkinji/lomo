@@ -379,7 +379,6 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           onChangeText={setChildName}
           placeholder="Child’s name"
           value={childName}
-          variant="outline"
         />
       ) : null}
       {entryMode === 'child-account' ? (
@@ -391,7 +390,6 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           onChangeText={setChildEmail}
           placeholder="Their Kwilt email"
           value={childEmail}
-          variant="outline"
         />
       ) : null}
       {entryMode === 'caregiver' ? (
@@ -403,7 +401,6 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           onChangeText={setInviteEmail}
           placeholder="Email (optional)"
           value={inviteEmail}
-          variant="outline"
         />
       ) : null}
       {entryMode === 'join' && !invitePreview ? (
@@ -414,7 +411,6 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           onChangeText={setJoinCode}
           placeholder="Invite code"
           value={joinCode}
-          variant="outline"
         />
       ) : null}
 

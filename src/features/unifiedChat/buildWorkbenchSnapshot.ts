@@ -38,6 +38,7 @@ function buildKwiltWorkbenchProduct(placeholder = 'Ask, search or chat…'): Age
       runDepthControl: false,
       runModeControl: false,
       voice: true,
+      dictationRecovery: true,
       webSearchControl: false,
     },
   };

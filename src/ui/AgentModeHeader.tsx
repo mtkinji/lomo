@@ -1,17 +1,19 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { BrandLockup } from './BrandLockup';
+import { StyleSheet } from 'react-native';
 import { HStack, Text } from './primitives';
 import { colors, spacing, typography } from '../theme';
 import { SegmentedControl } from './SegmentedControl';
 import { Icon } from './Icon';
+import { BottomDrawerHeader, BottomDrawerHeaderClose } from './layout/BottomDrawerHeader';
 
 export type AgentMode = 'ai' | 'manual';
 
 type AgentModeHeaderProps = {
   activeMode: AgentMode;
   onChangeMode: (next: AgentMode) => void;
+  onClose: () => void;
+  closeAccessibilityLabel?: string;
   /**
    * Object label used to build the AI tab copy, e.g. "Arc", "Goals", "Activities".
    * Rendered as "{objectLabel} AI" next to the lightning icon.
@@ -40,6 +42,8 @@ type AgentModeHeaderProps = {
 export function AgentModeHeader({
   activeMode,
   onChangeMode,
+  onClose,
+  closeAccessibilityLabel = 'Close',
   objectLabel,
   aiLabel,
   onPressInfo,
@@ -95,36 +99,37 @@ export function AgentModeHeader({
     );
 
   return (
-    <View style={styles.headerRow}>
-      <BrandLockup logoSize={32} wordmarkSize="sm" />
-      <View style={styles.headerSideRight}>
+    <BottomDrawerHeader
+      title={
         <SegmentedControl
           size="compact"
           value={activeMode}
           onChange={onChangeMode}
           options={[
-            { value: 'ai', label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{aiContent}</HStack> },
-            { value: 'manual', label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{manualContent}</HStack> },
+            {
+              value: 'ai',
+              accessibilityLabel: `${objectLabel} AI`,
+              label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{aiContent}</HStack>,
+            },
+            {
+              value: 'manual',
+              accessibilityLabel: 'Manual',
+              label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{manualContent}</HStack>,
+            },
           ]}
         />
-      </View>
-    </View>
+      }
+      rightAction={
+        <BottomDrawerHeaderClose
+          onPress={onClose}
+          accessibilityLabel={closeAccessibilityLabel}
+        />
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  headerSideRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    flex: 1,
-  },
   segmentedOptionLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -142,5 +147,3 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
 });
-
-

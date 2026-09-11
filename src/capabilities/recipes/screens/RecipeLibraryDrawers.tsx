@@ -1,6 +1,7 @@
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { colors } from "../../../theme";
@@ -843,13 +844,11 @@ function MealTimingEditor({ value, onChange }: { value: MealTimingIntent; onChan
           <View style={styles.planTimingChoices}>
             {days.map((day) => <TimingChoice key={day.date} label={day.label} selected={value.dates.includes(day.date)} onPress={() => onChange({ ...value, dates: value.dates.includes(day.date) ? value.dates.filter((date) => date !== day.date) : [...value.dates, day.date].sort() })} />)}
           </View>
-          <TextInput
+          <Input
             accessibilityLabel="Coverage name"
             value={value.label}
             onChangeText={(label) => onChange({ ...value, label })}
             placeholder="What covers these meals?"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.planTimingInput}
           />
         </>
       ) : null}

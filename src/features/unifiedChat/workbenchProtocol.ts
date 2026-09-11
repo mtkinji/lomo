@@ -209,6 +209,7 @@ export type AgentWorkbenchSnapshot = {
       runDepthControl: boolean;
       runModeControl: boolean;
       voice: boolean;
+      dictationRecovery?: boolean;
       webSearchControl: boolean;
     };
   };
@@ -232,6 +233,9 @@ export type AgentWorkbenchSnapshot = {
       state: 'idle' | 'recording' | 'transcribing' | 'connecting' | 'listening' | 'thinking' |
         'speaking' | 'interrupted' | 'recovering' | 'unsupported' | 'error';
       elapsedSeconds: number;
+      kind?: 'dictation' | 'conversation';
+      canRetry?: boolean;
+      outcome?: 'completed' | 'cancelled';
       levels?: number[];
       provisionalTranscript?: string;
       finalizedUtterance?: { id: string; text: string };
@@ -295,13 +299,17 @@ export type SupportedAgentWorkbenchCommand =
       action: 'continue' | 'decline';
       expectedVersion: number;
     }
+  | { type: 'voice.cancel' }
+  | { type: 'voice.retry' }
   | { type: 'thread.create' };
 
 export type AgentWorkbenchSurfaceMessage =
+  | { protocolVersion: typeof AGENT_WORKBENCH_PROTOCOL_VERSION; type: 'surface.rendered'; requestId: string; initializationRequestId: string }
   | {
       protocolVersion: typeof AGENT_WORKBENCH_PROTOCOL_VERSION;
       type: 'surface.ready';
       requestId: string;
+      supportsRenderedAck?: boolean;
     }
   | {
       protocolVersion: typeof AGENT_WORKBENCH_PROTOCOL_VERSION;
@@ -361,6 +369,8 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
             selectionStart: value.selectionStart, selectionEnd: value.selectionEnd,
           }
         : null;
+    case 'voice.cancel':
+    case 'voice.retry':
     case 'conversation.start':
     case 'conversation.stop':
       return { type: value.type };
@@ -505,7 +515,11 @@ export function parseAgentWorkbenchSurfaceMessage(
         protocolVersion: AGENT_WORKBENCH_PROTOCOL_VERSION,
         type: 'surface.ready',
         requestId: String(value.requestId),
+        ...(value.supportsRenderedAck === true ? { supportsRenderedAck: true } : {}),
       };
+    }
+    if (value.type === 'surface.rendered' && hasText(value, 'initializationRequestId')) {
+      return { protocolVersion: AGENT_WORKBENCH_PROTOCOL_VERSION, type: 'surface.rendered', requestId: String(value.requestId), initializationRequestId: String(value.initializationRequestId) };
     }
     if (value.type !== 'surface.command') return null;
     const command = parseCommand(value.command);

@@ -214,6 +214,13 @@ import { KanbanBoard } from './KanbanBoard';
 import { GroupingDrawer } from './GroupingDrawer';
 import { GroupedActivitySection } from './GroupedActivitySection';
 import type { KanbanCardField } from './KanbanCard';
+import {
+  applyKanbanDestination,
+  buildKanbanMoveUndoSnapshot,
+  getKanbanColumnIdForActivity,
+  restoreKanbanMoveUndoSnapshot,
+  type KanbanDestination,
+} from './kanbanInteraction';
 import { InlineViewCreator } from './InlineViewCreator';
 import { ViewCustomizationGuide, type ViewPreset } from './ViewCustomizationGuide';
 import { createViewFromPrompt } from '../../services/aiViewCreator';
@@ -627,8 +634,8 @@ export function ActivitiesScreen() {
     returnTarget: { name: 'MainTabs', params: { screen: 'ActivitiesTab' } },
   }), []);
 
-  // Local UI state for the Kanban expand/collapse control. Used to hide the fixed toolbar
-  // and let the board claim that vertical space when expanded.
+  // Local UI state for the Kanban expand/collapse control. Expansion changes column
+  // width only; inventory controls stay reachable in either presentation.
   const [isKanbanExpanded, setIsKanbanExpanded] = React.useState(false);
   React.useEffect(() => {
     // If we leave Kanban layout, reset the expanded state so returning to Kanban starts compact.
@@ -637,9 +644,7 @@ export function ActivitiesScreen() {
     }
   }, [isKanbanExpanded, isKanbanLayout]);
 
-  // Smoothly animate the fixed toolbar out/in (instead of mounting/unmounting) so the Kanban
-  // expand/collapse transition doesn't "jump" vertically.
-  const shouldShowFixedToolbar = activities.length > 0 && (!isKanbanLayout || !isKanbanExpanded);
+  const shouldShowFixedToolbar = activities.length > 0;
   const fixedToolbarProgress = useSharedValue(shouldShowFixedToolbar ? 1 : 0);
   const [fixedToolbarMeasuredHeight, setFixedToolbarMeasuredHeight] = React.useState(0);
   const [fixedToolbarVisualHeight, setFixedToolbarVisualHeight] = React.useState(0);
@@ -659,7 +664,7 @@ export function ActivitiesScreen() {
   }, [fixedToolbarProgress, shouldShowFixedToolbar]);
 
   const fixedToolbarAnimatedStyle = useAnimatedStyle(() => {
-    // Prefer a measured height so expanded Kanban reclaims *exactly* the prior toolbar space.
+    // Prefer a measured height so toolbar transitions use the exact rendered control height.
     // Fallback to maxHeight until we get the first measurement (so the toolbar can render).
     if (fixedToolbarMeasuredHeight > 0) {
       return {
@@ -678,6 +683,7 @@ export function ActivitiesScreen() {
   }, [fixedToolbarMeasuredHeight, fixedToolbarProgress]);
 
   const [kanbanCardFieldsDrawerVisible, setKanbanCardFieldsDrawerVisible] = React.useState(false);
+  const [kanbanCaptureTarget, setKanbanCaptureTarget] = React.useState<KanbanDestination | null>(null);
   const [kanbanCardFieldOrder, setKanbanCardFieldOrder] = React.useState<KanbanCardField[]>(
     KANBAN_CARD_FIELDS.map((f) => f.field),
   );
@@ -2392,73 +2398,52 @@ export function ActivitiesScreen() {
 
   const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
 
-  const getKanbanColumnIdForActivity = React.useCallback((activity: Activity, groupBy: KanbanGroupBy): string => {
-    switch (groupBy) {
-      case 'status':
-        return activity.status;
-      case 'priority':
-        return activity.priority === 1 ? 'starred' : 'normal';
-      case 'goal':
-        return activity.goalId ?? 'no-goal';
-      case 'phase':
-        return activity.phase ?? 'no-phase';
-      default:
-        return activity.status;
-    }
-  }, []);
-
   const handleMoveActivity = React.useCallback(
-    (activityId: string, params: { groupBy: KanbanGroupBy; toColumnId: string }) => {
-      const { groupBy, toColumnId } = params;
+    (activityId: string, params: {
+      groupBy: KanbanGroupBy;
+      toColumnId: string;
+      toColumnTitle?: string;
+    }) => {
+      const { groupBy, toColumnId, toColumnTitle } = params;
       const atIso = new Date().toISOString();
 
-      updateActivity(activityId, (activity) => {
-        const fromColumnId = getKanbanColumnIdForActivity(activity, groupBy);
-        if (fromColumnId === toColumnId) return activity;
+      const activity = activities.find((candidate) => candidate.id === activityId);
+      if (!activity) return;
+      const undoSnapshot = buildKanbanMoveUndoSnapshot(activity);
+      const maxOrderInTarget = activities
+        .filter((candidate) => candidate.id !== activityId)
+        .filter((candidate) => getKanbanColumnIdForActivity(candidate, groupBy) === toColumnId)
+        .reduce((max, candidate) => Math.max(max, candidate.orderIndex ?? -1), -1);
+      const result = applyKanbanDestination({
+        activity,
+        destination: { groupBy, toColumnId },
+        validGoalIds: goalIdSet,
+        atIso,
+        nextOrderIndex: maxOrderInTarget + 1,
+      });
+      if (!result.didMove) return;
 
-        const patch: Partial<Activity> = {};
-        if (groupBy === 'status') {
-          patch.status = toColumnId as Activity['status'];
-          // Keep completedAt consistent with done/not-done transitions.
-          if (toColumnId === 'done') {
-            patch.completedAt = activity.completedAt ?? atIso;
-          } else if (activity.status === 'done') {
-            patch.completedAt = null;
-          }
-        } else if (groupBy === 'priority') {
-          patch.priority = toColumnId === 'starred' ? 1 : undefined;
-        } else if (groupBy === 'goal') {
-          if (toColumnId === 'no-goal') {
-            patch.goalId = null;
-          } else if (goalIdSet.has(toColumnId)) {
-            patch.goalId = toColumnId;
-          } else {
-            // Unknown goal id (likely stale UI) - ignore.
-            return activity;
-          }
-        } else if (groupBy === 'phase') {
-          patch.phase = toColumnId === 'no-phase' ? null : toColumnId;
-        }
-
-        // Place the activity at the end of the destination column.
-        const maxOrderInTarget = activities
-          .filter((a) => a.id !== activityId)
-          .filter((a) => getKanbanColumnIdForActivity(a, groupBy) === toColumnId)
-          .reduce((max, a) => {
-            const v = typeof a.orderIndex === 'number' ? a.orderIndex : -1;
-            return Math.max(max, v);
-          }, -1);
-
-        return {
-          ...activity,
-          ...patch,
-          orderIndex: maxOrderInTarget + 1,
-          updatedAt: atIso,
-        };
+      updateActivity(activityId, () => result.activity);
+      void HapticsService.trigger('outcome.success');
+      showToast({
+        message: `Moved to ${toColumnTitle ?? 'another column'}`,
+        variant: 'success',
+        durationMs: 3200,
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          updateActivity(activityId, (current) =>
+            restoreKanbanMoveUndoSnapshot(current, undoSnapshot, new Date().toISOString()),
+          );
+        },
       });
     },
-    [activities, getKanbanColumnIdForActivity, goalIdSet, updateActivity],
+    [activities, goalIdSet, showToast, updateActivity],
   );
+
+  const handleOpenKanbanAdd = React.useCallback((destination: KanbanDestination) => {
+    setKanbanCaptureTarget(destination);
+    setActivityCoachVisible(true);
+  }, []);
 
   const handleUpdateShowCompleted = React.useCallback(
     (next: boolean) => {
@@ -2723,23 +2708,50 @@ export function ActivitiesScreen() {
 
   const handleCoachAddActivity = React.useCallback(
     (activity: Activity) => {
-      lastCreatedActivityRef.current = activity;
-      setSessionCreatedContextById((prev) => ({ ...prev, [activity.id]: ghostContextKey }));
+      const contextualActivity = (() => {
+        if (!kanbanCaptureTarget) return activity;
+        const maxOrderInTarget = activities
+          .filter((candidate) => candidate.id !== activity.id)
+          .filter(
+            (candidate) =>
+              getKanbanColumnIdForActivity(candidate, kanbanCaptureTarget.groupBy) ===
+              kanbanCaptureTarget.toColumnId,
+          )
+          .reduce((max, candidate) => Math.max(max, candidate.orderIndex ?? -1), -1);
+        return applyKanbanDestination({
+          activity,
+          destination: kanbanCaptureTarget,
+          validGoalIds: goalIdSet,
+          atIso: activity.updatedAt ?? new Date().toISOString(),
+          nextOrderIndex: maxOrderInTarget + 1,
+        }).activity;
+      })();
+
+      lastCreatedActivityRef.current = contextualActivity;
+      setSessionCreatedContextById((prev) => ({ ...prev, [contextualActivity.id]: ghostContextKey }));
 
       const matches =
         QueryService.applyActivityFilters(
-          [activity],
+          [contextualActivity],
           filterGroups,
           effectiveFilterGroupLogic,
         ).length > 0;
 
       if (!matches && filterGroups.length > 0) {
-        setPostCreateGhostId(activity.id);
+        setPostCreateGhostId(contextualActivity.id);
       }
 
-      addActivity(activity);
+      addActivity(contextualActivity);
     },
-    [addActivity, filterGroups, effectiveFilterGroupLogic, ghostContextKey],
+    [
+      activities,
+      addActivity,
+      filterGroups,
+      effectiveFilterGroupLogic,
+      ghostContextKey,
+      goalIdSet,
+      kanbanCaptureTarget,
+    ],
   );
 
   return (
@@ -3189,7 +3201,7 @@ export function ActivitiesScreen() {
           onTogglePriority={handleTogglePriorityOne}
           onPressActivity={navigateToActivityDetail}
           onMoveActivity={handleMoveActivity}
-          onAddActivity={() => setActivityCoachVisible(true)}
+          onAddActivity={handleOpenKanbanAdd}
           addCardAnchorRef={kanbanAddCardAnchorRef}
           cardVisibleFields={kanbanCardVisibleFields}
           extraBottomPadding={scrollExtraBottomPadding}
@@ -3751,7 +3763,10 @@ export function ActivitiesScreen() {
       </BottomDrawer>
       <ActivityCoachDrawer
         visible={activityCoachVisible}
-        onClose={() => setActivityCoachVisible(false)}
+        onClose={() => {
+          setActivityCoachVisible(false);
+          setKanbanCaptureTarget(null);
+        }}
         goals={goals}
         activities={activities}
         arcs={arcs}
@@ -3826,7 +3841,6 @@ export function ActivitiesScreen() {
             placeholder="e.g., Top priorities"
             value={viewEditorName}
             onChangeText={setViewEditorName}
-            variant="outline"
             elevation="flat"
           />
 

@@ -14,6 +14,10 @@ import { Text } from '../../ui/Typography';
 import { colors, spacing } from '../../theme';
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
 import { createFreshEntryThreadGate } from './freshEntryThread';
+import { useChatThreadLoader } from './useChatThreadLoader';
+import { useChatSurfaceReadiness } from './useChatSurfaceReadiness';
+import { useChatDictation, toChatDictationWireState } from './useChatDictation';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 import { shouldLoadRequestedChatThread } from './requestedChatThreadLoadPolicy';
 import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
@@ -67,8 +71,6 @@ import {
 import { recoverActivityMutations } from './recoverActivityMutations';
 import {
   cancelUnifiedChatVoiceRecording,
-  startUnifiedChatVoiceRecording,
-  stopAndTranscribeUnifiedChatVoice,
 } from './unifiedChatVoice';
 import { pickUnifiedChatAttachment } from './unifiedChatAttachmentPicker';
 import {
@@ -118,7 +120,6 @@ import {
   buildUnifiedChatFreshEntryTelemetry,
   buildUnifiedChatReconciliationTelemetry,
 } from './unifiedChatTelemetry';
-import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
 import { sweepLegacyCookVoiceCacheOnce } from '../../capabilities/recipes/voice/cookVoiceCacheCleanup';
 import { conversationProgressSpeech, liveConversationSpeechFallback } from '../liveConversation/conversationSpeechRuntime';
@@ -137,7 +138,6 @@ import {
 } from './UnifiedChatScreenPresentation';
 import {
   insertUnifiedChatTranscriptAtSelection,
-  type UnifiedChatVoiceInsertion,
 } from './unifiedChatTranscriptInsertion';
 import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
@@ -247,24 +247,46 @@ export function UnifiedChatScreen({
   const [processingNotice, setProcessingNotice] = useState<string | null>(null);
   const aggregateRef = useRef<UnifiedChatThreadAggregate | null>(null);
   const [prompt, setPrompt] = useState('');
-  const voiceInsertionRef = useRef<UnifiedChatVoiceInsertion | null>(null);
   const [attachments, setAttachments] = useState<UnifiedChatAttachment[]>([]);
   const [surfaceReady, setSurfaceReady] = useState(false);
+  const initializedSurface = useRef(false);
   const [contextPickerVisible, setContextPickerVisible] = useState(false);
   const [contextCandidates, setContextCandidates] = useState<UnifiedChatAttachableContext[]>([]);
   const [loading, setLoading] = useState(!freshEntry);
   const [error, setError] = useState<string | null>(null);
-  const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
+  const surface = useChatSurfaceReadiness(config.enabled);
+  const surfaceLoadFailed = surface.phase === 'error';
+  const currentSurfaceAttempt = useRef(surface.attempt);
+  currentSurfaceAttempt.current = surface.attempt;
   const [clientActionInFlight, setClientActionInFlight] = useState(false);
   const [voice, setVoice] = useState<{
     state: 'idle' | 'recording' | 'transcribing' | 'connecting' | 'listening' | 'thinking' |
       'speaking' | 'interrupted' | 'recovering' | 'error';
     elapsedSeconds: number;
     levels: number[];
+    kind?: 'dictation' | 'conversation';
+    canRetry?: boolean;
+      outcome?: 'completed' | 'cancelled';
     provisionalTranscript?: string;
     finalizedUtterance?: FinalizedConversationUtterance;
     message?: string;
   }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
+  const dictation = useChatDictation({
+    selectionKey: JSON.stringify([requestedThreadId, freshEntry, widgetLaunchId]),
+    onState: (next) => setVoice((previous) => toChatDictationWireState(next, previous.state)),
+    onRecordingStarted: () => { void HapticsService.trigger('canvas.recording.start'); },
+    onRecordingStopped: () => { void HapticsService.trigger('canvas.recording.stop'); },
+    onPhase: (phase, elapsedMs, operationId) => {
+      track(posthogClient, AnalyticsEvent.UnifiedChatDictationPhase, { phase, elapsed_ms: elapsedMs, operation_id: operationId });
+      if (__DEV__) console.info('[Chat dictation]', { phase, elapsedMs });
+    },
+    onTranscript: (transcript, insertion) => setPrompt((current) => insertUnifiedChatTranscriptAtSelection({ currentPrompt: current, transcript, insertion })),
+  });
+  useEffect(() => {
+    if (surface.elapsedMs === undefined) return;
+    track(posthogClient, AnalyticsEvent.UnifiedChatSurfaceReady, { outcome: surface.phase, evidence: surface.evidence, elapsed_ms: surface.elapsedMs, attempt: surface.attempt });
+    if (__DEV__) console.info('[Chat surface]', { attempt: surface.attempt, phase: surface.phase, evidence: surface.evidence, elapsedMs: surface.elapsedMs });
+  }, [surface.attempt, surface.phase, surface.evidence, surface.elapsedMs]);
   const conversationTurnFinalizerRef = useRef<ReturnType<typeof createConversationTurnFinalizer> | null>(null);
   if (!conversationTurnFinalizerRef.current) {
     conversationTurnFinalizerRef.current = createConversationTurnFinalizer({
@@ -330,10 +352,10 @@ export function UnifiedChatScreen({
 
   const retrySurface = useCallback(() => {
     setError(null);
-    setSurfaceLoadFailed(false);
     setSurfaceReady(false);
-    webViewRef.current?.reload();
-  }, []);
+    initializedSurface.current = false;
+    surface.retry();
+  }, [surface.retry]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -392,6 +414,8 @@ export function UnifiedChatScreen({
 
   const postSnapshot = useCallback(
     (next: UnifiedChatThreadAggregate, type: 'host.initialize' | 'host.snapshot') => {
+      if (surface.attempt !== currentSurfaceAttempt.current) return;
+      if (!initializedSurface.current) type = 'host.initialize';
       const message = makeAgentWorkbenchHostMessage(
         type,
         buildWorkbenchSnapshot(next, prompt, {
@@ -400,9 +424,13 @@ export function UnifiedChatScreen({
           ...(streamingResponse ? { streamingResponse } : {}),
         }),
       );
+      if (type === 'host.initialize') {
+        initializedSurface.current = true;
+        surface.initialized(message.requestId);
+      }
       webViewRef.current?.postMessage(JSON.stringify(message));
     },
-    [attachments, prompt, streamingResponse, voice],
+    [attachments, prompt, streamingResponse, voice, surface.initialized, surface.attempt],
   );
 
   const freshWorkbenchContext = useMemo(
@@ -412,6 +440,8 @@ export function UnifiedChatScreen({
 
   const postFreshSnapshot = useCallback(
     (type: 'host.initialize' | 'host.snapshot') => {
+      if (surface.attempt !== currentSurfaceAttempt.current) return;
+      if (!initializedSurface.current) type = 'host.initialize';
       const message = makeAgentWorkbenchHostMessage(
         type,
         buildFreshWorkbenchSnapshot(prompt, {
@@ -424,9 +454,13 @@ export function UnifiedChatScreen({
           } : {}),
         }),
       );
+      if (type === 'host.initialize') {
+        initializedSurface.current = true;
+        surface.initialized(message.requestId);
+      }
       webViewRef.current?.postMessage(JSON.stringify(message));
     },
-    [attachments, freshWorkbenchContext, isDrawer, launchContext, prompt, voice],
+    [attachments, freshWorkbenchContext, isDrawer, launchContext, prompt, voice, surface.initialized, surface.attempt],
   );
 
   const publishThreadId = useCallback((threadId: string) => {
@@ -460,22 +494,24 @@ export function UnifiedChatScreen({
     });
   }
 
-  const openThread = useCallback(
-    async (threadId: string) => {
-      setError(null);
-      try {
-        const next = await loadThreadWithRecovery(threadId);
-        setAggregate(next);
-        setPrompt('');
-        setAttachments([]);
-        publishThreadId(threadId);
-        if (surfaceReady) postSnapshot(next, 'host.initialize');
-      } catch {
-        setError('Kwilt could not open that chat.');
-      }
-    },
-    [loadThreadWithRecovery, postSnapshot, publishThreadId, surfaceReady],
-  );
+  const publishLoadedThread = useCallback((next: UnifiedChatThreadAggregate, threadId: string) => {
+    setAggregate(next);
+    setPrompt('');
+    setAttachments([]);
+    publishThreadId(threadId);
+    if (surfaceReady) postSnapshot(next, 'host.initialize');
+  }, [postSnapshot, publishThreadId, surfaceReady]);
+  const reportThreadLoadError = useCallback(() => setError('Kwilt could not open that chat.'), []);
+  const loadSelectedThread = useChatThreadLoader({
+    selectionKey: JSON.stringify([requestedThreadId, freshEntry, widgetLaunchId]),
+    load: loadThreadWithRecovery,
+    onLoaded: publishLoadedThread,
+    onError: reportThreadLoadError,
+  });
+  const openThread = useCallback(async (threadId: string) => {
+    setError(null);
+    await loadSelectedThread(threadId);
+  }, [loadSelectedThread]);
 
   const refreshThreads = useCallback(async () => {
     if (!freshEntry) setLoading(true);
@@ -594,6 +630,7 @@ export function UnifiedChatScreen({
       return;
     }
     conversationActivationFeedback.begin();
+    dictation.cancel();
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
     conversationProgressHistoryRef.current = [];
@@ -685,7 +722,7 @@ export function UnifiedChatScreen({
       setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
         message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
     }
-  }, [clearVoiceTimer, failConversation, liveConversationPreviewEnabled, publishConversationLatency, voice.state]);
+  }, [clearVoiceTimer, failConversation, liveConversationPreviewEnabled, publishConversationLatency, voice.state, dictation.cancel]);
 
   useEffect(() => {
     if (routeParams?.mode !== 'conversation' || !surfaceReady || conversationAutoStartRef.current) return;
@@ -730,7 +767,7 @@ export function UnifiedChatScreen({
         ? { ...current, state: 'listening', message: 'Listening' }
         : current);
     });
-  }, [aggregate, publishConversationLatency, voice.state]);
+  }, [aggregate, publishConversationLatency, voice.state, dictation.cancel]);
 
   useEffect(() => {
     if (!freshEntry || freshEntrySource !== 'widget') return undefined;
@@ -814,6 +851,7 @@ export function UnifiedChatScreen({
 
   const createThread = useCallback(async () => {
     setError(null);
+    if (surface.phase === 'error') retrySurface();
     try {
       const thread = await repository.createThread();
       const next = await loadThreadWithRecovery(thread.id);
@@ -822,11 +860,10 @@ export function UnifiedChatScreen({
       setPrompt('');
       setAttachments([]);
       publishThreadId(thread.id);
-      if (surfaceReady) postSnapshot(next, 'host.initialize');
     } catch {
       setError('Kwilt could not create a new chat.');
     }
-  }, [loadThreadWithRecovery, postSnapshot, publishThreadId, repository, surfaceReady]);
+  }, [loadThreadWithRecovery, publishThreadId, repository, surface.phase, retrySurface]);
 
   const archiveThread = useCallback(
     async (thread: UnifiedChatThread) => {
@@ -1029,7 +1066,10 @@ export function UnifiedChatScreen({
     async (event: WebViewMessageEvent) => {
       const message = parseAgentWorkbenchSurfaceMessage(event.nativeEvent.data);
       if (!message) return;
+      if (message.type === 'surface.rendered') { surface.rendered(message.initializationRequestId); return; }
       if (message.type === 'surface.ready') {
+        initializedSurface.current = false;
+        surface.bridgeReady(message.supportsRenderedAck === true);
         setSurfaceReady(true);
         if (aggregate && !freshEntry) postSnapshot(aggregate, 'host.initialize');
         else if (freshEntry) postFreshSnapshot('host.initialize');
@@ -1100,63 +1140,19 @@ export function UnifiedChatScreen({
         await stopConversation();
         return;
       }
+      if (command.type === 'voice.cancel') { dictation.cancel(); return; }
+      if (command.type === 'voice.retry') { await dictation.retry(); return; }
       if (command.type === 'voice.toggle') {
         if ((!freshEntry && aggregate?.runs.some((run) => run.status === 'active' || run.status === 'queued')) || voice.state === 'transcribing') return;
         if (voice.state === 'recording') {
-          clearVoiceTimer();
-          void HapticsService.trigger('canvas.recording.stop');
-          setVoice((current) => ({
-            state: 'transcribing', elapsedSeconds: current.elapsedSeconds,
-            levels: current.levels, message: 'Transcribing…',
-          }));
-          try {
-            const transcript = await stopAndTranscribeUnifiedChatVoice();
-            setPrompt((current) => insertUnifiedChatTranscriptAtSelection({
-              currentPrompt: current,
-              transcript,
-              insertion: voiceInsertionRef.current,
-            }));
-            voiceInsertionRef.current = null;
-            setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
-          } catch (voiceError) {
-            voiceInsertionRef.current = null;
-            setVoice({
-              state: 'error', elapsedSeconds: 0, levels: [],
-              message: voiceError instanceof Error ? voiceError.message : 'Voice input failed.',
-            });
-          }
+          await dictation.stop();
           return;
         }
-        voiceInsertionRef.current = command.prompt === undefined
-          ? null
-          : {
-              prompt: command.prompt,
-              selectionStart: command.selectionStart,
-              selectionEnd: command.selectionEnd,
-            };
         Keyboard.dismiss();
         webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;');
-        try {
-          await startUnifiedChatVoiceRecording((level) => {
-            setVoice((current) => current.state === 'recording'
-              ? { ...current, levels: appendUnifiedChatVoiceLevel(current.levels, level) }
-              : current);
-          });
-          void HapticsService.trigger('canvas.recording.start');
-          setVoice({ state: 'recording', elapsedSeconds: 0, levels: [], message: 'Tap again when you’re done.' });
-          clearVoiceTimer();
-          voiceTimer.current = setInterval(() => {
-            setVoice((current) => current.state === 'recording'
-              ? { ...current, elapsedSeconds: current.elapsedSeconds + 1 }
-              : current);
-          }, 1000);
-        } catch (voiceError) {
-          voiceInsertionRef.current = null;
-          setVoice({
-            state: 'error', elapsedSeconds: 0, levels: [],
-            message: voiceError instanceof Error ? voiceError.message : 'Voice input failed.',
-          });
-        }
+        await dictation.start(command.prompt === undefined ? null : {
+          prompt: command.prompt, selectionStart: command.selectionStart, selectionEnd: command.selectionEnd,
+        });
         return;
       }
       if (freshEntry && command.type === 'context.remove') {
@@ -1994,7 +1990,7 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state, surface.bridgeReady, surface.rendered, dictation.start, dictation.stop, dictation.retry, dictation.cancel],
   );
 
   durableRealtimeRunRef.current = async (request) => {
@@ -2100,28 +2096,20 @@ export function UnifiedChatScreen({
         </Pressable>
       ) : null}
 
-      {surfaceLoadFailed ? (
-        <EmptyState
-          variant="screen"
-          illustration={CHAT_RECOVERY_ILLUSTRATION}
-          title="Chat couldn’t open"
-          instructions="Check your connection, then try again. Your conversation is still here."
-          actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}
-          style={styles.recoveryState}
-        />
-      ) : loading ? (
-        <CenteredState title="Opening Chat…" />
-      ) : (aggregate && !freshEntry) || freshEntry ? (
+      <View style={{ flex: 1 }}>
         <WebView
+          key={surface.attempt}
           ref={webViewRef}
           source={{ uri: workbenchSurfaceUrl }}
           originWhitelist={allowedOrigin ? [allowedOrigin] : []}
           onShouldStartLoadWithRequest={canNavigate}
-          onMessage={(event) => void handleSurfaceMessage(event)}
-          onError={() => {
-            setSurfaceLoadFailed(true);
-            setError('The Chat surface could not load. Tap here to retry.');
+          onMessage={(event) => {
+            if (surface.attempt === currentSurfaceAttempt.current) void handleSurfaceMessage(event);
           }}
+          onLoadEnd={surface.documentLoaded}
+          onError={() => surface.fail()}
+          onHttpError={() => surface.fail()}
+          onContentProcessDidTerminate={() => surface.fail()}
           javaScriptEnabled
           sharedCookiesEnabled={false}
           thirdPartyCookiesEnabled={false}
@@ -2131,14 +2119,33 @@ export function UnifiedChatScreen({
           containerStyle={styles.webViewContainer}
           style={styles.webView}
         />
-      ) : (
-        <CenteredState
-          title="Start a conversation"
-          body="Your chats will appear here and stay available when you return."
-          actionLabel="New chat"
-          onAction={() => void createThread()}
-        />
-      )}
+        {!loading && !aggregate && !freshEntry ? (
+          <View style={styles.surfaceOverlay}>
+            <CenteredState
+              title="Start a conversation"
+              body="Your chats will appear here and stay available when you return."
+              actionLabel="New chat"
+              onAction={() => void createThread()}
+            />
+          </View>
+        ) : surfaceLoadFailed ? (
+          <View style={styles.surfaceOverlay}>
+            <EmptyState
+              variant="screen"
+              illustration={CHAT_RECOVERY_ILLUSTRATION}
+              title="Chat couldn’t open"
+              instructions={surface.error ?? 'Check your connection, then try again.'}
+              actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}
+              style={styles.recoveryState}
+            />
+          </View>
+        ) : loading || surface.phase === 'loading' ? (
+          <View style={styles.surfaceOverlay} accessibilityLiveRegion="polite">
+            <KwiltLoader size="large" accessible accessibilityLabel="Opening Chat" />
+            <Text>Opening Chat…</Text>
+          </View>
+        ) : null}
+      </View>
 
       <Modal visible={contextPickerVisible} animationType="slide" onRequestClose={() => setContextPickerVisible(false)}>
         <SafeAreaView style={styles.picker}>

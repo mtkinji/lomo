@@ -6,7 +6,7 @@ import { normalizeToHtml } from './richText';
 
 /**
  * For the read surface, we want blank lines (typically encoded as `<p><br/></p>`)
- * to be present but visually tighter than a full paragraph block.
+ * to retain the same full line height as the editor.
  *
  * We convert those into an explicit spacer block so spacing is deterministic and
  * doesn't depend on paragraph margins or text line-height.
@@ -81,8 +81,8 @@ export function RichTextBlock({
             const k = part.split(':')[0]?.trim()?.toLowerCase();
             if (!k) return false;
             if (hasBold && k === 'font-weight') return false;
-            if (hasItalic && k === 'font-style') return false;
-            if (hasUnderline && k === 'text-decoration') return false;
+            if (!hasBold && hasItalic && k === 'font-style') return false;
+            if (!hasBold && !hasItalic && hasUnderline && k === 'text-decoration') return false;
             return true;
           })
           .join('; ');
@@ -111,7 +111,7 @@ export function RichTextBlock({
         marginTop: 0,
         // Avoid negative margins here — they can cause overlapping lines, especially
         // around intentional blank lines (double-enter) represented as `<p><br/></p>`.
-        marginBottom: spacing.xs,
+        marginBottom: 0,
       },
       div: {
         marginTop: 0,
@@ -139,14 +139,14 @@ export function RichTextBlock({
         textDecorationLine: 'underline' as const,
       },
       ul: {
-        marginTop: 0,
-        marginBottom: 0,
-        paddingLeft: 18,
+        marginTop: typography.body.fontSize,
+        marginBottom: typography.body.fontSize,
+        paddingLeft: 40,
       },
       ol: {
-        marginTop: 0,
-        marginBottom: 0,
-        paddingLeft: 18,
+        marginTop: typography.body.fontSize,
+        marginBottom: typography.body.fontSize,
+        paddingLeft: 40,
       },
       li: {
         marginTop: 0,
@@ -159,9 +159,9 @@ export function RichTextBlock({
   const classesStyles = useMemo(
     () => ({
       // Render blank lines as a compact, deterministic spacer block.
-      // (Slightly smaller than a full line-height to avoid "too tall" gaps.)
+      // Match an empty paragraph in the editor.
       'kwilt-blank-line': {
-        height: Math.round(typography.body.lineHeight * 0.6),
+        height: typography.body.lineHeight,
       },
     }),
     []

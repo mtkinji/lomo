@@ -80,6 +80,7 @@ type PlanRecommendationsModel = {
   calendarStatus: 'unknown' | 'connected' | 'missing';
   calendarAccessStatus?: 'idle' | 'refreshing' | 'expired' | 'ok';
   onReconnectCalendarAccess?: () => void;
+  onRetryCalendarAccess?: () => void;
   calendarAccessProviderLabel?: string | null;
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
@@ -193,8 +194,8 @@ export function PlanEventPeekDrawerHost({
         handleStyle={styles.handle}
       >
         <View style={styles.sessionEditContent}>
-          <PlanSessionEditPage {...sessionEdit} />
-          {activityPeek
+          <PlanSessionEditPage {...sessionEdit} onDone={sessionSnapIndex < 2 ? onClose : undefined} />
+          {activityPeek && sessionSnapIndex === 2
             ? <ActivityEventPeek {...activityPeek} embedded managementHidden={sessionSnapIndex < 2} />
             : null}
         </View>
@@ -249,6 +250,7 @@ export function PlanEventPeekDrawerHost({
             calendarStatus={recommendations.calendarStatus}
             calendarAccessStatus={recommendations.calendarAccessStatus}
             onReconnectCalendarAccess={recommendations.onReconnectCalendarAccess}
+            onRetryCalendarAccess={recommendations.onRetryCalendarAccess}
             calendarAccessProviderLabel={recommendations.calendarAccessProviderLabel ?? null}
             onOpenCalendarSettings={recommendations.onOpenCalendarSettings}
             onOpenAvailabilitySettings={recommendations.onOpenAvailabilitySettings}

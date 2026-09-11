@@ -83,3 +83,12 @@ describe('activityCustomRepeat', () => {
     });
   });
 });
+
+
+it('round trips a third Sunday monthly pattern', () => {
+  const repeatCustom = { cadence: 'months', interval: 1, monthlyWeekday: { ordinal: 3, weekday: 0 } } as const;
+  const draft = resolveActivityCustomRepeatDraft({ repeatRule: 'custom', repeatCustom, fallbackWeekday: 2 });
+  expect(draft.monthlyWeekday).toEqual({ ordinal: 3, weekday: 0 });
+  expect(buildActivityCustomRepeatPayload({ ...draft, fallbackWeekday: 2 })).toEqual(repeatCustom);
+  expect(buildActivityCustomRepeatPayload({ ...draft, cadence: 'days', fallbackWeekday: 2 })).toEqual({ cadence: 'days', interval: 1 });
+});

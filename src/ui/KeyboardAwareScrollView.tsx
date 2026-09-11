@@ -50,6 +50,8 @@ export type KeyboardAwareScrollViewHandle = {
 };
 
 type Props = ScrollViewProps & {
+  /** Height covered by fixed chrome inside the scroll view's top edge. */
+  occludedTopHeight?: number;
   /**
    * Extra spacing between the focused input and the top edge of the keyboard.
    * Defaults to `spacing.lg`.
@@ -70,13 +72,15 @@ type Props = ScrollViewProps & {
 
 type KeyboardAwareScrollContextValue = {
   scrollToFocusedInput: (extraOffset?: number) => void;
-  scrollToNodeHandle: (nodeHandle: number, extraOffset?: number) => void;
-  setNextRevealTarget: (nodeHandle: number | null, extraOffset?: number) => void;
+  /** Register field anatomy without replacing a composite control's explicit reveal target. */
+  registerFocusedInputFrame?: (nodeHandle: number) => void;
   keyboardHeight: number;
   keyboardClearance: number;
+  /** Maximum editor height supplied by a container that already clears the keyboard. */
+  viewportHeight?: number;
 };
 
-const KeyboardAwareScrollContext = createContext<KeyboardAwareScrollContextValue | null>(null);
+export const KeyboardAwareScrollContext = createContext<KeyboardAwareScrollContextValue | null>(null);
 
 /**
  * Access the nearest `KeyboardAwareScrollView` behavior (if any).
@@ -104,6 +108,7 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
   (
     {
       keyboardClearance = spacing.lg,
+      occludedTopHeight = 0,
       basePaddingBottom,
       enableAutoScrollToFocusedInput = true,
       contentContainerStyle,
@@ -118,17 +123,22 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
   ) => {
     const insets = useSafeAreaInsets();
     const scrollRef = useRef<ScrollView | null>(null);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [{ height: keyboardHeight, top: keyboardTopY }, setKeyboardFrame] = useState<{ height: number; top: number | null }>({ height: 0, top: null });
     const keyboardTopYRef = useRef<number | null>(null);
     const pendingRevealRef = useRef(false);
     const nextRevealTargetRef = useRef<{ nodeHandle: number; extraOffset: number } | null>(null);
+    const activeRevealTargetRef = useRef<{ nodeHandle: number; focusedInput: ReturnType<typeof TextInput.State.currentlyFocusedInput> } | null>(null);
+    const scrollOffsetRef = useRef(0);
+    const revealRevisionRef = useRef(0);
+
+    useEffect(() => () => { revealRevisionRef.current += 1; }, []);
 
     const measureInWindow = useCallback(async (nodeHandle: number) => {
-      return await new Promise<{ x: number; y: number; width: number; height: number } | null>(
+      return await new Promise<{ x: number; y: number; width: number; height: number; scrollOffset: number } | null>(
         (resolve) => {
           try {
             UIManager.measureInWindow(nodeHandle, (x, y, width, height) => {
-              resolve({ x, y, width, height });
+              resolve({ x, y, width, height, scrollOffset: scrollOffsetRef.current });
             });
           } catch {
             resolve(null);
@@ -142,13 +152,14 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
         if (!nodeHandle || !scrollRef.current) return;
         const topY = keyboardTopYRef.current;
         if (!topY || topY <= 0) return;
+        const revision = ++revealRevisionRef.current;
+        const focusedAtStart = TextInput.State.currentlyFocusedInput();
+        const isCurrent = () => revision === revealRevisionRef.current &&
+          keyboardTopYRef.current === topY &&
+          TextInput.State.currentlyFocusedInput() === focusedAtStart && scrollRef.current != null;
 
-        // Important: if the focused TextInput lives in a portal / modal overlay (e.g. dropdown
-        // popovers), it may not be a descendant of this ScrollView. Calling RN's
-        // `scrollResponderScrollNativeHandleToKeyboard` in that case triggers the
-        // "Error measuring text field." warning.
-        //
-        // We preflight with `measureLayout` relative to this ScrollView and bail out if it fails.
+        // A field in another modal must not move the underlying page. Verify that
+        // the target is a descendant before using its window coordinates.
         const scrollHandle = findNodeHandle(scrollRef.current as any);
         if (typeof scrollHandle === 'number') {
           const canMeasureRelative = await new Promise<boolean>((resolve) => {
@@ -163,41 +174,57 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
               resolve(false);
             }
           });
-          if (!canMeasureRelative) return;
+          if (!canMeasureRelative || !isCurrent()) return;
         }
 
+        const hostLayout = typeof scrollHandle === 'number' ? await measureInWindow(scrollHandle) : null;
+        if (!isCurrent()) return;
+        // Measure the moving field last and retain its accompanying scroll offset.
         const layout = await measureInWindow(nodeHandle);
-        if (!layout) return;
+        if (!layout || !isCurrent()) return;
+        const visibleTop = hostLayout ? hostLayout.y + Math.max(0, occludedTopHeight) : 0;
+        if (hostLayout && layout.height + extraOffset * 2 <= Math.min(topY, hostLayout.y + hostLayout.height) - visibleTop && layout.y < visibleTop + extraOffset) {
+          scrollRef.current?.scrollTo({
+            y: Math.max(0, layout.scrollOffset + layout.y - visibleTop - extraOffset),
+            animated: true,
+          });
+          return;
+        }
+        const visibleBottom = hostLayout ? Math.min(topY, hostLayout.y + hostLayout.height) : topY;
         const inputBottom = layout.y + layout.height;
         // If the focused input won't be covered, keep it exactly where it is.
-        if (inputBottom + extraOffset <= topY) return;
+        if (inputBottom + extraOffset <= visibleBottom) return;
 
-        try {
-          (scrollRef.current as any).scrollResponderScrollNativeHandleToKeyboard(
-            nodeHandle,
-            extraOffset,
-            true,
-          );
-        } catch {
-          // Best-effort: if the responder API isn't available, do nothing.
-        }
+        // Use this reveal's measured frame. RN's responder has separate show/hide
+        // keyboard metrics and starts another unguarded asynchronous measurement.
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, layout.scrollOffset + inputBottom + extraOffset - visibleBottom),
+          animated: true,
+        });
       },
-      [measureInWindow],
+      [measureInWindow, occludedTopHeight],
     );
+
+    const registerFocusedInputFrame = useCallback((nodeHandle: number) => {
+      activeRevealTargetRef.current = { nodeHandle, focusedInput: TextInput.State.currentlyFocusedInput() };
+    }, []);
 
     const scrollToNodeHandle = useCallback(
       (nodeHandle: number, extraOffset: number = keyboardClearance) => {
         if (!nodeHandle || !scrollRef.current) return;
+        registerFocusedInputFrame(nodeHandle);
         void maybeScrollNodeAboveKeyboard(nodeHandle, extraOffset);
       },
-      [keyboardClearance, maybeScrollNodeAboveKeyboard],
+      [keyboardClearance, maybeScrollNodeAboveKeyboard, registerFocusedInputFrame],
     );
 
     const scrollToFocusedInput = useCallback(
       (extraOffset: number = keyboardClearance) => {
         const getter = (TextInput.State as any)?.currentlyFocusedInput;
         const focused = typeof getter === 'function' ? getter() : null;
+        const active = activeRevealTargetRef.current;
         const nodeHandle =
+          focused && active && active.focusedInput === focused ? active.nodeHandle :
           typeof focused === 'number' ? focused : focused ? findNodeHandle(focused) : null;
         if (!nodeHandle) return;
         scrollToNodeHandle(nodeHandle, extraOffset);
@@ -244,22 +271,36 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
               })();
         keyboardTopYRef.current = screenY;
         const next = e?.endCoordinates?.height ?? 0;
-        setKeyboardHeight(next);
+        setKeyboardFrame({ height: next, top: screenY });
         // Defer the reveal until *after* the paddingBottom update has been committed,
         // otherwise we can get a second "settling" scroll when layout changes.
         pendingRevealRef.current = true;
       };
       const onHide = () => {
+        revealRevisionRef.current += 1;
+        pendingRevealRef.current = false;
+        nextRevealTargetRef.current = null;
+        activeRevealTargetRef.current = null;
         keyboardTopYRef.current = null;
-        setKeyboardHeight(0);
+        setKeyboardFrame({ height: 0, top: null });
       };
 
       const showSub = Keyboard.addListener(showEvent, onShow);
       const hideSub = Keyboard.addListener(hideEvent, onHide);
+      const frameSub = Keyboard.addListener('keyboardDidChangeFrame', (event) => {
+        // Show/hide still own the lifecycle; frame updates track an open keyboard.
+        if (keyboardTopYRef.current != null && event.endCoordinates.height > 0) onShow(event);
+      });
+
+      // Navigation/autofocus can mount this host after the keyboard's show event.
+      // Seed from native metrics so focus changes have the same reveal contract.
+      const currentFrame = Keyboard.metrics();
+      if (currentFrame && currentFrame.height > 0) onShow({ endCoordinates: currentFrame });
 
       return () => {
         showSub.remove();
         hideSub.remove();
+        frameSub.remove();
       };
     }, [enableAutoScrollToFocusedInput, keyboardClearance, scrollToFocusedInput]);
 
@@ -288,6 +329,7 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
       enableAutoScrollToFocusedInput,
       keyboardClearance,
       keyboardHeight,
+      keyboardTopY,
       scrollToFocusedInput,
       scrollToNodeHandle,
     ]);
@@ -314,12 +356,11 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
     const contextValue = useMemo<KeyboardAwareScrollContextValue>(
       () => ({
         scrollToFocusedInput,
-        scrollToNodeHandle,
-        setNextRevealTarget,
+        registerFocusedInputFrame,
         keyboardHeight: keyboardInset,
         keyboardClearance,
       }),
-      [scrollToFocusedInput, scrollToNodeHandle, setNextRevealTarget, keyboardInset, keyboardClearance],
+      [scrollToFocusedInput, registerFocusedInputFrame, keyboardInset, keyboardClearance],
     );
 
     return (
@@ -327,6 +368,17 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
         <ScrollView
           ref={scrollRef}
           {...rest}
+          onScroll={(event) => {
+            scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+            rest.onScroll?.(event);
+          }}
+          onScrollBeginDrag={(event) => {
+            // Automatic scroll frames must not cancel a newer field's reveal.
+            // An actual drag takes ownership away from pending measurements.
+            revealRevisionRef.current += 1;
+            rest.onScrollBeginDrag?.(event);
+          }}
+          scrollEventThrottle={rest.scrollEventThrottle ?? 16}
           automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           contentContainerStyle={[contentContainerStyle, { paddingBottom: resolvedPaddingBottom }]}
@@ -337,5 +389,3 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
 );
 
 KeyboardAwareScrollView.displayName = 'KeyboardAwareScrollView';
-
-

@@ -51,4 +51,20 @@ describe('SegmentedControl accessibility contract', () => {
     expect(getByRole('tab', { name: 'Today', selected: true })).toBeTruthy();
     expect(springSpy).not.toHaveBeenCalled();
   });
+
+  it('uses an explicit option label when the visible label is composed', () => {
+    const { getByRole } = render(
+      <SegmentedControl
+        value="ai"
+        onChange={jest.fn()}
+        options={[
+          { value: 'ai', label: <>✨ To-dos AI</>, accessibilityLabel: 'To-dos AI' },
+          { value: 'manual', label: <>Manual</>, accessibilityLabel: 'Manual' },
+        ]}
+      />,
+    );
+
+    expect(getByRole('tab', { name: 'To-dos AI', selected: true })).toBeTruthy();
+    expect(getByRole('tab', { name: 'Manual', selected: false })).toBeTruthy();
+  });
 });

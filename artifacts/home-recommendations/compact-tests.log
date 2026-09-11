@@ -1,0 +1,9 @@
+PASS src/features/shared-home/SharedLifeFeed.header.test.tsx
+PASS src/features/shared-home/HomeRecommendationRegion.test.tsx
+PASS src/features/shared-home/homeRecommendations.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       14 passed, 14 total
+Snapshots:   0 total
+Time:        1.875 s
+Ran all test suites matching /src\/features\/shared-home\/HomeRecommendationRegion.test.tsx|src\/features\/shared-home\/homeRecommendations.test.ts|src\/features\/shared-home\/SharedLifeFeed.header.test.tsx/i.

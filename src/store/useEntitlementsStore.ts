@@ -2,12 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BillingCadence, EntitlementsSnapshot, ProPlan } from '../services/entitlements';
-import { getEntitlements, identifyRevenueCatUser, purchaseProSku, restorePurchases } from '../services/entitlements';
+import { getEntitlements, identifyRevenueCatUser, purchaseProSku, purchaseProLifetime, restorePurchases } from '../services/entitlements';
 import { useAppStore } from './useAppStore';
 import { deactivatePersonalCompositeScreenTimeRule } from '../services/screenTimeProtectionRuntime';
 import { deactivateAdvancedPersonalRulesForConfirmedDowngrade } from '../features/screen-time/runtime/screenTimeMonetizationLifecycle';
 
 export type EntitlementsState = {
+  proAccessType?: EntitlementsSnapshot['proAccessType'];
   isPro: boolean;
   isProToolsTrial: boolean;
   lastCheckedAt: string | null;
@@ -28,7 +29,7 @@ export type EntitlementsState = {
   identifyAndRefresh: (appUserID: string) => Promise<EntitlementsSnapshot>;
   clearSignedInEntitlements: () => void;
   restore: () => Promise<EntitlementsSnapshot>;
-  purchase: (params: { plan: ProPlan; cadence: BillingCadence }) => Promise<EntitlementsSnapshot>;
+  purchase: (params: { plan: ProPlan; cadence: BillingCadence } | { lifetime: true }) => Promise<EntitlementsSnapshot>;
 
   /**
    * Dev-only helper for testing gating surfaces without RevenueCat.
@@ -40,6 +41,7 @@ export type EntitlementsState = {
 
 const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
   isPro: snapshot.isPro,
+  proAccessType: snapshot.proAccessType,
   isProToolsTrial: snapshot.isProToolsTrial,
   lastCheckedAt: snapshot.checkedAt,
   lastSource: snapshot.source,
@@ -221,6 +223,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         identifyRequestSeq += 1;
         set({
           isPro: false,
+          proAccessType: undefined,
           isProToolsTrial: false,
           lastCheckedAt: null,
           lastSource: null,
@@ -250,7 +253,9 @@ export const useEntitlementsStore = create<EntitlementsState>()(
       purchase: async (params) => {
         set({ isRefreshing: true, lastError: null });
         try {
-          const snapshot = await purchaseProSku({
+          const snapshot = 'lifetime' in params
+            ? await purchaseProLifetime(get().identifiedAppUserID)
+            : await purchaseProSku({
             ...params,
             appUserID: get().identifiedAppUserID,
           });

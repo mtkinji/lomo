@@ -235,9 +235,11 @@ export function ArcCreationFlow() {
   const renderCustomInput = (
     value: string,
     onChangeText: (value: string) => void,
-    placeholder: string
+    placeholder: string,
+    accessibilityLabel: string
   ) => (
     <Input
+      accessibilityLabel={accessibilityLabel}
       value={value}
       onChangeText={onChangeText}
       multiline
@@ -248,7 +250,7 @@ export function ArcCreationFlow() {
       returnKeyType="done"
       blurOnSubmit
       onSubmitEditing={() => Keyboard.dismiss()}
-      style={styles.customInput}
+      containerStyle={styles.customInput}
     />
   );
 
@@ -410,7 +412,8 @@ export function ArcCreationFlow() {
               ? renderCustomInput(
                   identityDirectionCustomText,
                   setIdentityDirectionCustomText,
-                  ARC_CREATION_SURVEY_COPY.identityDirectionCustomPlaceholder
+                  ARC_CREATION_SURVEY_COPY.identityDirectionCustomPlaceholder,
+                  ARC_CREATION_SURVEY_COPY.identityDirectionTitle
                 )
               : null}
           </>
@@ -429,7 +432,8 @@ export function ArcCreationFlow() {
               ? renderCustomInput(
                   primaryArenaCustomText,
                   setPrimaryArenaCustomText,
-                  ARC_CREATION_SURVEY_COPY.primaryArenaCustomPlaceholder
+                  ARC_CREATION_SURVEY_COPY.primaryArenaCustomPlaceholder,
+                  ARC_CREATION_SURVEY_COPY.primaryArenaTitle
                 )
               : null}
           </>
@@ -456,7 +460,8 @@ export function ArcCreationFlow() {
               ? renderCustomInput(
                   howThisShowsUpCustomText,
                   setHowThisShowsUpCustomText,
-                  ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsCustomPlaceholder
+                  ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsCustomPlaceholder,
+                  ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsTitle
                 )
               : null}
           </>
@@ -477,7 +482,8 @@ export function ArcCreationFlow() {
               ? renderCustomInput(
                   driftPatternCustomText,
                   setDriftPatternCustomText,
-                  ARC_CREATION_SURVEY_COPY.driftPatternsCustomPlaceholder
+                  ARC_CREATION_SURVEY_COPY.driftPatternsCustomPlaceholder,
+                  ARC_CREATION_SURVEY_COPY.driftPatternsTitle
                 )
               : null}
           </>
@@ -499,7 +505,8 @@ export function ArcCreationFlow() {
             {renderCustomInput(
               personalTextureText,
               setPersonalTextureText,
-              ARC_CREATION_SURVEY_COPY.personalTexturePlaceholder
+              ARC_CREATION_SURVEY_COPY.personalTexturePlaceholder,
+              ARC_CREATION_SURVEY_COPY.personalTextureTitle
             )}
             <View style={styles.chipWrap}>
               {personalTextureToneOptions.map((option) => {

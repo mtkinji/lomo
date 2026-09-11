@@ -140,13 +140,15 @@ export function AiModelSettingsScreen() {
                 What do you want the app to know about you?
               </Text>
               <Textarea
+                accessibilityLabel="What do you want the app to know about you?"
+                multilineMinHeight={112}
+                multilineMaxHeight={180}
                 placeholder="Share anything that will help the coach understand your context, constraints, or what matters most."
                 multiline
                 numberOfLines={4}
                 value={identityDraft}
                 onChangeText={setIdentityDraft}
                 onBlur={commitIdentitySummary}
-                variant="outline"
               />
               <HStack justifyContent="space-between" alignItems="center">
                 <Text style={styles.promptHelper}>

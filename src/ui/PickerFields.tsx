@@ -1,11 +1,13 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, type StyleProp, StyleSheet, TextInput, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, type StyleProp, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
 import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
 import { Icon, type IconName } from './Icon';
 import { Input } from './Input';
+import { SearchField } from './SearchField';
+import type { InputParentSurface } from './inputAppearance';
 import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
@@ -44,8 +46,10 @@ export type PickerFieldTriggerProps = {
   size?: PickerFieldSize;
   leadingIcon?: IconName;
   fieldVariant?: PickerFieldVariant;
+  onSurface?: InputParentSurface;
   onPress: () => void;
   onClear?: () => void;
+  clearAccessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -61,6 +65,7 @@ type SinglePickerProps = {
   size?: PickerFieldSize;
   leadingIcon?: IconName;
   fieldVariant?: PickerFieldVariant;
+  onSurface?: InputParentSurface;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   renderTrigger?: (args: PickerFieldTriggerRenderArgs) => React.ReactNode;
@@ -107,9 +112,11 @@ export function PickerFieldTrigger({
   disabled,
   size = 'default',
   leadingIcon,
-  fieldVariant = 'outline',
+  fieldVariant,
+  onSurface,
   onPress,
   onClear,
+  clearAccessibilityLabel = 'Remove selection',
   style,
 }: PickerFieldTriggerProps) {
   const selectedLabel = React.useMemo(() => getSelectedLabel(options, value), [options, value]);
@@ -123,16 +130,19 @@ export function PickerFieldTrigger({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityValue={{text: selectedLabel || placeholder}}
       onPress={onPress}
       disabled={disabled}
       style={[styles.trigger, disabled && styles.triggerDisabled, style]}
     >
-      <View pointerEvents="none">
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <Input
+          onSurface={onSurface}
           value={selectedLabel}
           placeholder={placeholder}
           editable={false}
-          variant={fieldVariant}
+          readOnly
+          variant={fieldVariant ?? 'filled'}
           elevation="flat"
           leadingIcon={leadingIcon}
           size={inputSize}
@@ -149,7 +159,7 @@ export function PickerFieldTrigger({
               onClear?.();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Remove selection"
+            accessibilityLabel={clearAccessibilityLabel}
             style={styles.clearButton}
           >
             <Icon name="close" size={16} color={colors.textSecondary} />
@@ -333,7 +343,14 @@ function FixedSetPickerField(props: SinglePickerProps) {
         renderTrigger({ selectedLabel, open, disabled, onPress: handlePress })
       ) : (
         <PickerFieldTrigger
-          {...props}
+          value={value}
+          options={options}
+          placeholder={props.placeholder}
+          accessibilityLabel={props.accessibilityLabel}
+          size={props.size}
+          leadingIcon={props.leadingIcon}
+          fieldVariant={props.fieldVariant}
+          onSurface={props.onSurface}
           allowDeselect={allowDeselect}
           disabled={disabled}
           onPress={handlePress}
@@ -371,7 +388,8 @@ export function RelationPickerField({
   disabled,
   size = 'default',
   leadingIcon,
-  fieldVariant = 'outline',
+  fieldVariant,
+  onSurface,
   title,
   searchPlaceholder = 'Search...',
   emptyText = 'No results found.',
@@ -446,6 +464,7 @@ export function RelationPickerField({
           size={size}
           leadingIcon={leadingIcon}
           fieldVariant={fieldVariant}
+          onSurface={onSurface}
           onPress={handlePress}
           onClear={allowDeselect ? handleClear : undefined}
         />
@@ -471,19 +490,8 @@ export function RelationPickerField({
             <View style={styles.relationHeaderButton} />
           </View>
 
-          <View style={styles.relationSearchRow}>
-            <Icon name="search" size={20} color={colors.textSecondary} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder={searchPlaceholder}
-              placeholderTextColor={colors.muted}
-              autoFocus
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              style={styles.relationSearchInput}
-            />
+          <View style={styles.unifiedSearchPlacement}>
+            <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} accessibilityLabel={`Search ${title.toLocaleLowerCase()}`} autoFocus />
           </View>
 
           <ScrollView
@@ -649,21 +657,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  relationSearchRow: {
-    minHeight: 56,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  relationSearchInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flex: 1,
-    paddingVertical: spacing.sm,
-  },
+  unifiedSearchPlacement: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
   relationList: {
     flex: 1,
   },

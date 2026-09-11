@@ -16,8 +16,10 @@ export function SharedLifeFeedMenu({
   onHousehold,
   selectedChoice,
   householdId,
+  onNextSteps,
 }: {
   households: HomePerson[];
+  onNextSteps?: () => void;
   selectedChoice?: HomeMenuChoice;
   householdId?: string;
   onChoose: (choice: HomeMenuChoice) => void;
@@ -39,6 +41,7 @@ export function SharedLifeFeedMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" style={{ minWidth: 220 }}>
+        {onNextSteps ? <><DropdownMenuItem label="Your next steps" onPress={onNextSteps}/><DropdownMenuSeparator/></> : null}
         {choices.map((c) => (
           <DropdownMenuItem key={c.id} label={c.label} selected={selectedChoice === c.id} onPress={() => onChoose(c.id)} />
         ))}
@@ -125,11 +128,7 @@ export function SharedLifeNeedsYou({
 export function SharedLifeShareButton({ onChoose }: { onChoose: (intent: "photo" | "write") => void }) {
   return (
     <Button variant="ghost" size="icon" iconButtonSize={44} accessibilityLabel="Share a moment"
-      onPress={() => Alert.alert("Share a moment", "Choose how to begin.", [
-        { text: "Photo", onPress: () => onChoose("photo") },
-        { text: "Write", onPress: () => onChoose("write") },
-        { text: "Cancel", style: "cancel" },
-      ])}>
+      onPress={() => onChoose("write")}>
       <Icon name="plus" size={20} color={colors.textPrimary} />
     </Button>
   );

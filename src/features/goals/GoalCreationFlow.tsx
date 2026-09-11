@@ -344,6 +344,7 @@ export function GoalCreationFlow({ chatControllerRef, autoRecommendOnMount = fal
       render: () => (
         <Input
           multiline
+          accessibilityLabel="What do you want to achieve?"
           value={prompt}
           onChangeText={setPrompt}
           placeholder="e.g., Finish the first draft of my novel; Run a 5K; Launch my side project."
@@ -363,6 +364,7 @@ export function GoalCreationFlow({ chatControllerRef, autoRecommendOnMount = fal
         <VStack space="sm">
           <Input
             multiline
+            accessibilityLabel="When do you want to achieve this?"
             value={targetDate}
             onChangeText={setTargetDate}
             placeholder="e.g., by next month, in 3 weeks, by March 15"

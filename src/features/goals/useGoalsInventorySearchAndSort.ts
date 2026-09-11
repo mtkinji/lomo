@@ -88,8 +88,7 @@ export function useGoalsInventorySearchAndSort<T extends GoalInventorySearchItem
     [isSearchingGoals],
   );
 
-  const handleClearSearch = React.useCallback(() => {
-    setGoalSearchQuery('');
+  const handleSearchCleared = React.useCallback(() => {
     setSearchRevealed(false);
   }, []);
 
@@ -106,6 +105,6 @@ export function useGoalsInventorySearchAndSort<T extends GoalInventorySearchItem
     hasVisibleResults,
     hasArchivedResults,
     handleScroll,
-    handleClearSearch,
+    handleSearchCleared,
   };
 }

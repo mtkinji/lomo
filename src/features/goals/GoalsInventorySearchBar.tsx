@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, type IconName } from '../../ui/Icon';
-import { Input } from '../../ui/Input';
+import { SearchField } from '../../ui/SearchField';
 import { Text } from '../../ui/primitives';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import type { GoalInventorySortMode } from './goalsInventorySort';
@@ -22,7 +22,6 @@ const GOAL_SORT_OPTIONS: Array<{ value: GoalInventorySortMode; label: string; ic
 type Props = {
   value: string;
   onChangeText: (value: string) => void;
-  isSearching: boolean;
   onClear: () => void;
   sortMode: GoalInventorySortMode;
   onSortModeChange: (mode: GoalInventorySortMode) => void;
@@ -31,7 +30,6 @@ type Props = {
 export function GoalsInventorySearchBar({
   value,
   onChangeText,
-  isSearching,
   onClear,
   sortMode,
   onSortModeChange,
@@ -42,20 +40,13 @@ export function GoalsInventorySearchBar({
   return (
     <View style={styles.row}>
       <View style={styles.inputContainer}>
-        <Input
+        <SearchField
           value={value}
           onChangeText={onChangeText}
           placeholder="Search goals"
           accessibilityLabel="Search goals"
-          leadingIcon="search"
-          trailingIcon={isSearching ? 'close' : undefined}
-          onPressTrailingIcon={isSearching ? onClear : undefined}
-          trailingIconAccessibilityLabel={isSearching ? 'Clear goal search' : undefined}
-          variant="filled"
-          elevation="flat"
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
+          onClear={onClear}
+          clearAccessibilityLabel="Clear goal search"
         />
       </View>
       <DropdownMenu>

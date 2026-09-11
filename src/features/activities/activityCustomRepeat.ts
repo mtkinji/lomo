@@ -1,15 +1,17 @@
-import type { Activity, ActivityRepeatCustom } from '../../domain/types';
+import type { Activity, ActivityRepeatCustom, ActivityMonthlyWeekday } from '../../domain/types';
 
 export type ActivityCustomRepeatDraft = {
   cadence: ActivityRepeatCustom['cadence'];
   interval: number;
   weekdays: number[];
+  monthlyWeekday?: ActivityMonthlyWeekday;
 };
 
 type BuildActivityCustomRepeatPayloadInput = {
   cadence: ActivityRepeatCustom['cadence'];
   interval: number;
   weekdays: number[];
+  monthlyWeekday?: ActivityMonthlyWeekday;
   fallbackWeekday: number;
 };
 
@@ -41,6 +43,7 @@ export function buildActivityCustomRepeatPayload({
   interval,
   weekdays,
   fallbackWeekday,
+  monthlyWeekday,
 }: BuildActivityCustomRepeatPayloadInput): ActivityRepeatCustom {
   const normalizedInterval = normalizeRepeatInterval(interval);
 
@@ -52,10 +55,11 @@ export function buildActivityCustomRepeatPayload({
     };
   }
 
-  return {
-    cadence,
-    interval: normalizedInterval,
-  };
+  if (cadence === 'months' && monthlyWeekday) {
+    return { cadence, interval: normalizedInterval, monthlyWeekday };
+  }
+
+  return { cadence, interval: normalizedInterval };
 }
 
 export function resolveActivityCustomRepeatDraft({
@@ -66,6 +70,8 @@ export function resolveActivityCustomRepeatDraft({
   if (repeatRule === 'custom' && repeatCustom) {
     return {
       cadence: repeatCustom.cadence,
+      ...(repeatCustom.cadence === 'months' && repeatCustom.monthlyWeekday
+        ? { monthlyWeekday: repeatCustom.monthlyWeekday } : {}),
       interval: normalizeRepeatInterval(repeatCustom.interval),
       weekdays:
         repeatCustom.cadence === 'weeks'

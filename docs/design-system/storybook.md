@@ -22,7 +22,8 @@ Default viewport: `Large mobile` (`414 x 896`). Component stories should be revi
 
 - `Foundation/Tokens`: palette, radii, typography, spacing.
 - `Illustration/Goals Styles`: Goals illustration catalog, surface scale, and style rules.
-- `Primitives/Candidates`: Card, Button, KwiltSwitch, SegmentedControl, Input, Badge.
+- `Forms/Input Family`: canonical standalone Input/SearchField/picker states and borderless embedded editors.
+- `Primitives/Candidates`: mixed primitive references; use component-inventory.md for each component’s actual maturity.
 - `Forms/Editing`: Input, EditableField, AI field affordance, and toolbar references.
 - `Forms/Pickers`: Goals picker trigger, Money category-field reference, generated variant guardrails, and extraction guidance.
 - `Feedback/States`: EmptyState, Toast, and feedback maturity questions.

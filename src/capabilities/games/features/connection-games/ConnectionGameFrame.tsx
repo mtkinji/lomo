@@ -48,8 +48,6 @@ export const connectionStyles = StyleSheet.create({
   choiceText: { textAlign: 'center', fontFamily: gamesTheme.type.display, fontSize: 17, color: gamesTheme.colors.ink },
   label: { fontFamily: gamesTheme.type.utility, fontSize: 10, letterSpacing: 1.2, color: 'rgba(32,29,24,0.48)' },
   body: { fontFamily: gamesTheme.type.body, fontSize: 15, lineHeight: 21, color: 'rgba(32,29,24,0.64)' },
-  input: { minHeight: 52, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(32,29,24,0.2)', backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 15, fontFamily: gamesTheme.type.utility, fontSize: 15, color: gamesTheme.colors.ink },
-  multiline: { minHeight: 92, paddingTop: 14, textAlignVertical: 'top' },
   center: { alignItems: 'center', gap: 10 },
   big: { textAlign: 'center', fontFamily: gamesTheme.type.display, fontSize: 36, lineHeight: 40, color: gamesTheme.colors.ink },
 });

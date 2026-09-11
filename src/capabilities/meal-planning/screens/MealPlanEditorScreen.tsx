@@ -1,11 +1,13 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
-import { colors, spacing, typography } from '../../../theme';
+import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -146,27 +148,27 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
   return (
     <AppShell>
       <PageHeader title="Meal Plan" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" disabled={saving || !selected.length} onPress={() => { void save(); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {route.params?.editorialSeed ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>CURATED STARTING POINT</Text><Heading variant="md">Review {route.params.editorialSeed.sourceTitle}</Heading><Text tone="secondary">{existing ? 'These meals are added to your current draft for review.' : 'This is an editable proposal.'} Nothing changes until you Save.</Text></View> : route.params?.source === 'recipe_library' && !existing ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>PLAN WITH KWILT</Text><Heading variant="md">Start with a short, editable draft.</Heading><Text tone="secondary">Kwilt will use your recipes and current Food observations. Nothing is created until you Save.</Text></View> : null}
         <Heading variant="sm">How far are you planning?</Heading>
         <View style={styles.chips}>{(['next_shop','meal_count','date_range','open'] as const).map((kind) => <Button key={kind} size="sm" variant={horizonKind === kind ? 'primary' : 'outline'} onPress={() => setHorizonKind(kind)}>{kind === 'next_shop' ? 'Next shop' : kind === 'meal_count' ? 'Meal count' : kind === 'date_range' ? 'Date range' : 'Open'}</Button>)}</View>
-        {horizonKind === 'meal_count' ? <TextInput accessibilityLabel="Number of meals" keyboardType="number-pad" value={mealCount} onChangeText={setMealCount} style={styles.input} /> : null}
-        {horizonKind === 'date_range' ? <View style={styles.row}><TextInput accessibilityLabel="Starts on" placeholder="YYYY-MM-DD" value={startsOn} onChangeText={setStartsOn} style={styles.input} /><TextInput accessibilityLabel="Ends on" placeholder="YYYY-MM-DD" value={endsOn} onChangeText={setEndsOn} style={styles.input} /></View> : null}
+        {horizonKind === 'meal_count' ? <Input accessibilityLabel="Number of meals" keyboardType="number-pad" value={mealCount} onChangeText={setMealCount} wrapperStyle={styles.inputLayout} /> : null}
+        {horizonKind === 'date_range' ? <View style={styles.row}><Input accessibilityLabel="Starts on" placeholder="YYYY-MM-DD" value={startsOn} onChangeText={setStartsOn} wrapperStyle={styles.inputLayout} /><Input accessibilityLabel="Ends on" placeholder="YYYY-MM-DD" value={endsOn} onChangeText={setEndsOn} wrapperStyle={styles.inputLayout} /></View> : null}
         <Heading variant="sm">What should Kwilt prioritize?</Heading>
         <View style={styles.chips}>{([{ id: 'best_use', label: 'Starting point' }, { id: 'make_now', label: 'Make now' }, { id: 'almost_there', label: 'Almost there' }, { id: 'use_soon', label: 'Use soon' }] as Array<{ id: MealCandidateQuery; label: string }>).map((item) => <Button key={item.id} size="sm" variant={queryMode === item.id ? 'primary' : 'outline'} onPress={() => setQueryMode(item.id)}>{item.label}</Button>)}</View>
         <Button fullWidth disabled={!currentHorizon() || !prepared.length} onPress={prepareStartingPoint}>{preparedCount === null ? 'Prepare a starting point' : 'Prepare again'}</Button>
         {preparedCount !== null ? <Text tone="secondary">{preparedCount ? `Kwilt prepared ${preparedCount} ${preparedCount === 1 ? 'idea' : 'ideas'}. Review anything below; nothing is saved yet.` : 'No recipes match that emphasis yet. Try another option.'}</Text> : null}
         <Heading variant="sm">Review the draft</Heading>
         {displayedRecipes.map((recipe) => { const active = selected.some((item) => item.recipeSnapshot?.recipeId === recipe.recipe.id); return <MealCandidateCard key={recipe.recipe.id} title={recipe.currentVersion.title} explanation={explanationByVersion.get(recipe.currentVersion.id) ?? 'Saved recipe · stock not yet confirmed'} selected={active} onPress={() => toggleRecipe(recipe.recipe.id)} />; })}
-        <View style={styles.row}><TextInput accessibilityLabel="Meal idea" placeholder="Leftovers, eat out, undecided…" value={note} onChangeText={setNote} style={styles.input} /><Button variant="outline" onPress={addNote}>Add</Button></View>
+        <View style={styles.row}><Input accessibilityLabel="Meal idea" placeholder="Leftovers, eat out, undecided…" value={note} onChangeText={setNote} wrapperStyle={styles.inputLayout} /><Button variant="outline" onPress={addNote}>Add</Button></View>
         {selected.filter((item) => item.kind === 'meal_note').map((item) => <Pressable key={item.id} onPress={() => setSelected((current) => current.filter((candidate) => candidate.id !== item.id))}><Text>• {item.title}  <Text tone="secondary">Remove</Text></Text></Pressable>)}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
+  inputLayout: { width: 'auto', flex: 1, minWidth: 0 },
   content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.md }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, row: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   intro: { gap: spacing.sm, padding: spacing.md, borderRadius: 20, backgroundColor: colors.secondary }, eyebrow: { color: colors.pine700, letterSpacing: 1.1 },
-  input: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: spacing.md, color: colors.textPrimary, backgroundColor: colors.fieldFill, ...typography.body },
 });

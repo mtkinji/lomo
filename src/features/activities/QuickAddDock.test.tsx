@@ -85,6 +85,30 @@ function QuickAddHarness() {
 }
 
 describe('QuickAddDock', () => {
+  it.each(['keyboard', 'button'])('submits once through %s and does not submit again on blur', (action) => {
+    const onSubmit = jest.fn();
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock value="A test to-do" onChangeText={jest.fn()} inputRef={React.createRef<TextInput | null>()}
+        isFocused setIsFocused={jest.fn()} onSubmit={onSubmit} onCollapse={jest.fn()} />,
+    );
+    if (action === 'keyboard') fireEvent(getByTestId('e2e.activities.quickAdd.input'), 'submitEditing');
+    else fireEvent.press(getByTestId('e2e.activities.quickAdd.submit'));
+    fireEvent(getByTestId('e2e.activities.quickAdd.input'), 'blur');
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses an empty keyboard submission without creating a to-do', () => {
+    const onSubmit = jest.fn();
+    const onCollapse = jest.fn();
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock value="   " onChangeText={jest.fn()} inputRef={React.createRef<TextInput | null>()}
+        isFocused setIsFocused={jest.fn()} onSubmit={onSubmit} onCollapse={onCollapse} />,
+    );
+    fireEvent(getByTestId('e2e.activities.quickAdd.input'), 'submitEditing');
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

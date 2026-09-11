@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, cardSurfaceStyle } from '../../theme';
-import { Badge, Button, Card, HStack, Heading, Input, Text, VStack, KeyboardAwareScrollView } from '../../ui/primitives';
+import { Badge, Button, Card, HStack, Heading, SearchField, Text, VStack, KeyboardAwareScrollView } from '../../ui/primitives';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import {
@@ -367,11 +367,12 @@ export function ExecutionTargetsSettingsScreen() {
               <View style={styles.libraryHeader}>
                 <Heading variant="sm">Destination library</Heading>
                 <Text style={styles.subtle}>Install a destination to enable “Send to…” handoff.</Text>
-                <Input
+                <SearchField
                   value={libraryQuery}
                   onChangeText={setLibraryQuery}
                   placeholder="Search destinations"
-                  leadingIcon="search"
+                  accessibilityLabel="Search destinations"
+                  clearAccessibilityLabel="Clear destination search"
                   autoCorrect={false}
                   autoCapitalize="none"
                   containerStyle={styles.librarySearch}
@@ -404,11 +405,12 @@ export function ExecutionTargetsSettingsScreen() {
         <View style={styles.libraryHeader}>
           <Heading variant="sm">Destination library</Heading>
           <Text style={styles.subtle}>Install a destination to enable “Send to…” handoff.</Text>
-          <Input
+          <SearchField
             value={libraryQuery}
             onChangeText={setLibraryQuery}
             placeholder="Search destinations"
-            leadingIcon="search"
+            accessibilityLabel="Search destinations"
+            clearAccessibilityLabel="Clear destination search"
             autoCorrect={false}
             autoCapitalize="none"
             containerStyle={styles.librarySearch}

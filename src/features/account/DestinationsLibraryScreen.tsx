@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { Button, Card, HStack, Heading, Input, Text, VStack, KeyboardAwareScrollView } from '../../ui/primitives';
+import { Button, Card, HStack, Heading, SearchField, Text, VStack, KeyboardAwareScrollView } from '../../ui/primitives';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { listExecutionTargetDefinitions, type ExecutionTargetDefinitionRow } from '../../services/executionTargets/executionTargets';
@@ -83,11 +83,12 @@ export function DestinationsLibraryScreen() {
             </VStack>
           </Card>
 
-          <Input
+          <SearchField
             value={query}
             onChangeText={setQuery}
             placeholder="Search destinations"
-            leadingIcon="search"
+            accessibilityLabel="Search destinations"
+            clearAccessibilityLabel="Clear destination search"
             autoCorrect={false}
             autoCapitalize="none"
             containerStyle={styles.search}

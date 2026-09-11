@@ -1,3 +1,4 @@
+import { TagEntryField } from '../../ui/TagEntryField';
 import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import { Alert, Animated, Image, Linking, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
@@ -724,6 +725,7 @@ export function ActivityDetailRefresh(props: any) {
 
       <KeyboardAwareScrollView
         ref={scrollRef}
+        occludedTopHeight={headerTotalHeight}
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
@@ -1155,17 +1157,15 @@ export function ActivityDetailRefresh(props: any) {
                           )
                         ) : (
                           <Input
+                            accessibilityLabel="Step description"
                             value={step.title}
                             onChangeText={(text) => handleChangeStepTitle(step.id, text)}
                             onFocus={handleAnyInputFocus}
                             onBlur={handleAnyInputBlur}
                             placeholder="Describe the step"
                             size="md"
-                            variant="inline"
-                            inputStyle={[
-                              styles.stepInput,
-                              isChecked ? styles.stepTextCompleted : null,
-                            ]}
+                            variant="plain"
+                            inputStyle={isChecked ? styles.stepTextCompleted : undefined}
                             multiline
                             multilineMinHeight={typography.body.lineHeight}
                             // Steps should always expand to show the full content (no nested scrolling),
@@ -1198,6 +1198,7 @@ export function ActivityDetailRefresh(props: any) {
             >
               {isAddingStepInline ? (
                 <Input
+                  accessibilityLabel="New step description"
                   ref={newStepInputRef}
                   testID="e2e.activityDetail.steps.newInput"
                   value={newStepTitle}
@@ -1205,8 +1206,7 @@ export function ActivityDetailRefresh(props: any) {
                   onFocus={handleAnyInputFocus}
                   placeholder="Add step"
                   size="md"
-                  variant="inline"
-                  inputStyle={[styles.stepInput, styles.newStepInput]}
+                  variant="plain"
                   multiline
                   multilineMinHeight={typography.body.lineHeight}
                   multilineMaxHeight={Number.POSITIVE_INFINITY}
@@ -1574,96 +1574,53 @@ export function ActivityDetailRefresh(props: any) {
                     tagTouchStartedInsideRef.current = true;
                   }}
                 >
-                  <Pressable
-                    testID="e2e.activityDetail.tags.open"
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit tags"
-                    onPress={() => {
-                      prepareRevealTagsField();
-                      tagsInputRef.current?.focus();
+                  <TagEntryField
+                    fieldTestID="e2e.activityDetail.tags.open"
+                    accessibilityLabel="Add tags"
+                    tags={activity.tags ?? []}
+                    onRemoveTag={handleRemoveTag}
+                    onPressField={prepareRevealTagsField}
+                    reservedTrailingWidth={showTagsAutofill ? TAGS_AI_AUTOFILL_SIZE + spacing.sm : 0}
+                    ref={tagsInputRef}
+                    testID="e2e.activityDetail.tags.input"
+                    value={tagsInputDraft}
+                    onChangeText={(next) => {
+                      if (next.includes(',')) {
+                        const parts = next.split(',');
+                        const trailing = parts.pop() ?? '';
+                        const completed = parts.join(',');
+                        addTags(completed);
+                        setTagsInputDraft(trailing.trimStart());
+                        return;
+                      }
+                      setTagsInputDraft(next);
                     }}
-                    style={[
-                      styles.tagsFieldContainer,
-                      showTagsAutofill
-                        ? { paddingRight: spacing.md + TAGS_AI_AUTOFILL_SIZE + spacing.sm }
-                        : null,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.tagsFieldInner,
-                        (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0
-                          ? styles.tagsFieldInnerEmpty
-                          : null,
-                      ]}
-                    >
-                      {(activity.tags ?? []).map((tag: string) => (
-                        <Pressable
-                          key={tag}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove tag ${tag}`}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleRemoveTag(tag);
-                          }}
-                        >
-                          <Badge variant="outline" style={styles.tagChip}>
-                            <HStack space="xs" alignItems="center">
-                              <Text style={styles.tagChipText}>{tag}</Text>
-                              <Icon name="close" size={14} color={colors.textSecondary} />
-                            </HStack>
-                          </Badge>
-                        </Pressable>
-                      ))}
-                      <TextInput
-                        ref={tagsInputRef}
-                        testID="e2e.activityDetail.tags.input"
-                        value={tagsInputDraft}
-                        onChangeText={(next) => {
-                          if (next.includes(',')) {
-                            const parts = next.split(',');
-                            const trailing = parts.pop() ?? '';
-                            const completed = parts.join(',');
-                            addTags(completed);
-                            setTagsInputDraft(trailing.trimStart());
-                            return;
-                          }
-                          setTagsInputDraft(next);
-                        }}
-                        onFocus={() => {
-                          setIsTagsInputFocused(true);
-                          handleAnyInputFocus();
-                          revealTagsAboveKeyboard();
-                        }}
-                        onBlur={() => {
-                          setIsTagsInputFocused(false);
-                          handleAnyInputBlur();
-                          if (tagSuggestionPressRef.current) return;
-                          commitTagsInputDraft();
-                        }}
-                        onSubmitEditing={commitTagsInputDraft}
-                        placeholder={(activity.tags ?? []).length === 0 ? 'Add tags...' : ''}
-                        placeholderTextColor={colors.muted}
-                        style={[
-                          styles.tagsTextInput,
-                          (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0
-                            ? styles.tagsTextInputEmpty
-                            : null,
-                        ]}
-                        returnKeyType="done"
-                        blurOnSubmit
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        onKeyPress={(e: any) => {
-                          if (e.nativeEvent.key !== 'Backspace') return;
-                          if (tagsInputDraft.length > 0) return;
-                          const current = activity.tags ?? [];
-                          const last = current[current.length - 1];
-                          if (!last) return;
-                          handleRemoveTag(last);
-                        }}
+                    onFocus={() => {
+                      setIsTagsInputFocused(true);
+                      handleAnyInputFocus();
+                      revealTagsAboveKeyboard();
+                    }}
+                    onBlur={() => {
+                      setIsTagsInputFocused(false);
+                      handleAnyInputBlur();
+                      if (tagSuggestionPressRef.current) return;
+                      commitTagsInputDraft();
+                    }}
+                    onSubmitEditing={commitTagsInputDraft}
+                    placeholder={(activity.tags ?? []).length === 0 ? 'Add tags...' : ''}
+                    returnKeyType="done"
+                    blurOnSubmit
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onKeyPress={(e: any) => {
+                      if (e.nativeEvent.key !== 'Backspace') return;
+                      if (tagsInputDraft.length > 0) return;
+                      const current = activity.tags ?? [];
+                      const last = current[current.length - 1];
+                      if (!last) return;
+                      handleRemoveTag(last);
+                    }}
                       />
-                    </View>
                     {showTagsAutofill ? (
                       <View
                         pointerEvents="box-none"
@@ -1730,7 +1687,6 @@ export function ActivityDetailRefresh(props: any) {
                         />
                       </View>
                     ) : null}
-                  </Pressable>
                   <ActivityDetailTagPicker
                     visible={isTagsInputFocused}
                     query={tagsInputDraft}

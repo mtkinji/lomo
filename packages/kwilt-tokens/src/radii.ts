@@ -11,6 +11,7 @@ export const radii = {
   control: 8,
   menuItem: 8,
   input: 12,
+  composer: 16,
   card: 18,
   compactCard: 16,
   panel: 20,

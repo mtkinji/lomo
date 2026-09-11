@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { groceryCompileError } from '../../groceries/data/groceryCompileError';
 import { validateMealChoiceResponse } from '../domain/mealChoiceAggregate';
 import { validateMealPlanHorizon } from '../domain/mealPlanLifecycle';
 import type { MealPeriod, MealPlanHorizon, MealTimingIntent } from '../domain/mealPlanContracts';
@@ -277,17 +278,17 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
           ...(options?.acknowledgeHardPasses ? { acknowledgeHardPasses: true } : {}),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw await groceryCompileError(error);
       return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
     },
     async removeSentSharedCandidate(planId: string, expectedVersion: number, candidateId: string) {
       const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'remove', planId, expectedVersion, candidateIds: [candidateId] } });
-      if (error) throw new Error(error.message);
+      if (error) throw await groceryCompileError(error);
       return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
     },
     async returnSharedCandidateToPlan(planId: string, expectedVersion: number, candidateId: string) {
       const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'return', planId, expectedVersion, candidateIds: [candidateId] } });
-      if (error) throw new Error(error.message);
+      if (error) throw await groceryCompileError(error);
       return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
     },
     keepGroceriesAndRemoveSharedCandidate(candidateId: string, expectedVersion: number) {

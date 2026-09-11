@@ -52,7 +52,14 @@ export function formatActivityRepeatLabel({
             : config.cadence === 'years'
               ? 'year'
               : 'week';
-      return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+      const cadenceLabel = interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+      if (config.cadence === 'months' && config.monthlyWeekday) {
+        const { ordinal, weekday } = config.monthlyWeekday;
+        const order = ({ 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth', [-1]: 'last' } as const)[ordinal];
+        const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday];
+        return `${cadenceLabel} (${order} ${day})`;
+      }
+      return cadenceLabel;
     }
     return 'Custom';
   }

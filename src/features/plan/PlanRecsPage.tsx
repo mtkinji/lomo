@@ -85,6 +85,7 @@ type PlanRecsPageProps = {
   calendarStatus: 'unknown' | 'connected' | 'missing';
   calendarAccessStatus?: 'idle' | 'refreshing' | 'expired' | 'ok';
   onReconnectCalendarAccess?: () => void;
+  onRetryCalendarAccess?: () => void;
   calendarAccessProviderLabel?: string | null;
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
@@ -120,6 +121,7 @@ export function PlanRecsPage({
   calendarStatus,
   calendarAccessStatus,
   onReconnectCalendarAccess,
+  onRetryCalendarAccess,
   calendarAccessProviderLabel,
   onOpenCalendarSettings,
   onOpenAvailabilitySettings,
@@ -365,7 +367,7 @@ export function PlanRecsPage({
           paddingBottom: spacing.xl * 4,
         },
       ]}
-      showsVerticalScrollIndicator={false}
+      showsVerticalScrollIndicator={expandedMoveActivityId !== null}
     >
       <VStack space={spacing.md}>
         <Text style={styles.subtitle}>Choose what to make room for on {targetDayLabel}.</Text>
@@ -437,6 +439,21 @@ export function PlanRecsPage({
               <VStack space={spacing.xs}>
                 <Text style={styles.recTitle}>{emptyState.title}</Text>
                 <Text style={styles.createdBody}>{emptyState.description}</Text>
+                {emptyState.kind === 'calendar_access_expired' && calendarAccessStatus !== 'refreshing' && onRetryCalendarAccess ? (
+                  <Button variant="secondary" onPress={onRetryCalendarAccess}>Try again</Button>
+                ) : null}
+                {emptyState.kind === 'calendar_access_expired' ? (
+                  <Button
+                    variant="secondary"
+                    onPress={calendarAccessStatus === 'expired' && onReconnectCalendarAccess
+                      ? onReconnectCalendarAccess
+                      : onOpenCalendarSettings}
+                  >
+                    {calendarAccessStatus === 'expired' && onReconnectCalendarAccess
+                      ? `Reconnect ${calendarAccessProviderLabel ?? 'calendars'}`
+                      : 'Manage calendars'}
+                  </Button>
+                ) : null}
               </VStack>
             </View>
           ) : null}
@@ -605,7 +622,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     minHeight: 0,
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   emptyContainer: {
     flex: 1,

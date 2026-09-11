@@ -40,3 +40,9 @@ describe('formatActivityRepeatLabel', () => {
     expect(label('custom')).toBe('Custom');
   });
 });
+
+
+it('names a monthly weekday pattern explicitly', () => {
+  expect(label('custom', { cadence: 'months', interval: 1, monthlyWeekday: { ordinal: 3, weekday: 0 } })).toBe('Every month (third Sunday)');
+  expect(label('custom', { cadence: 'months', interval: 2, monthlyWeekday: { ordinal: -1, weekday: 5 } })).toBe('Every 2 months (last Friday)');
+});

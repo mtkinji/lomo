@@ -470,9 +470,15 @@ export type ActivityReminderSource = 'manual' | 'due_date_default' | 'ai';
 
 /**
  * Custom recurrence config for Activities.
- * Kept intentionally small: start with "custom weekly" (interval + weekday selection).
- * Future extensions (monthly patterns, RRULE-style options) can layer on.
+ * Monthly rules can follow a calendar date or an ordinal weekday.
  */
+export type ActivityMonthlyWeekday = {
+  /** 1–5 for first–fifth, -1 for last. Fifth skips months without a match. */
+  ordinal: 1 | 2 | 3 | 4 | 5 | -1;
+  /** JS weekday: 0=Sunday ... 6=Saturday. */
+  weekday: number;
+};
+
 export type ActivityRepeatCustom =
   | {
       cadence: 'days';
@@ -494,10 +500,11 @@ export type ActivityRepeatCustom =
     }
   | {
       cadence: 'months';
+      monthlyWeekday?: ActivityMonthlyWeekday;
       /**
        * Repeat every N months (1 = monthly).
        *
-       * Day-of-month is implied by the Activity's `reminderAt` timestamp.
+       * Without monthlyWeekday, the date follows the Activity's schedule anchor.
        */
       interval: number;
     }

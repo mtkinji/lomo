@@ -1,10 +1,11 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { type ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { KwiltSwitch, type KwiltSwitchProps } from './KwiltSwitch';
 import { Input } from './Input';
+import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { AppShell } from './layout/AppShell';
 
 export function SettingsPage({
@@ -36,9 +37,9 @@ export function SettingsPage({
         </Text>
         <View style={styles.headerAction}>{headerAction}</View>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll} contentContainerStyle={[styles.content, contentStyle]}>
+      <KeyboardAwareScrollView showsVerticalScrollIndicator={false} style={styles.scroll} contentContainerStyle={[styles.content, contentStyle]}>
         {children}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
@@ -349,7 +350,7 @@ export function SettingsTextInputRow({
           onBlur={onBlur}
           onChangeText={onChangeText}
           value={value}
-          variant="inline"
+          variant="plain"
         />
       </View>
     </View>

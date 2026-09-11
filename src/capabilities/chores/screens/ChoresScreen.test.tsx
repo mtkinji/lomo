@@ -448,8 +448,8 @@ describe('ChoresScreen', () => {
 
     const editor = screen.getByTestId('chores.editor.drawer');
     expect(within(editor).getByDisplayValue('Bring in the mail')).toBeTruthy();
-    expect(within(editor).getByDisplayValue('Weekdays')).toBeTruthy();
-    expect(within(editor).getByDisplayValue('Olive')).toBeTruthy();
+    expect(within(editor).getByLabelText('Edit repeat schedule, Weekdays').props.accessibilityValue.text).toBe('Weekdays');
+    expect(within(editor).getByLabelText('Who is this chore for?').props.accessibilityValue.text).toBe('Olive');
     expect(screen.getByLabelText('Save chore')).toBeTruthy();
     expect(screen.queryByTestId('chores.detail.drawer')).toBeNull();
     expect(within(editor).queryByText('Completed')).toBeNull();

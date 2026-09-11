@@ -16,6 +16,7 @@ For Kwilt, the project content lives at:
 - **Context primer** (read by `design-thinking-loop` Phase 2 Diverge): [`docs/jtbd/_kwilt-context-primer.md`](docs/jtbd/_kwilt-context-primer.md).
 - **Feature brief authoring conventions** (read by `design-thinking-loop` Phase 4 Build): [`docs/feature-briefs/_AUTHORING.md`](docs/feature-briefs/_AUTHORING.md).
 - **Money product documentation**: [`docs/capabilities/money/README.md`](docs/capabilities/money/README.md) — canonical Money persona/JTBD/job-flow links, 26 topical briefs, design explorations, concepts, source provenance, and current proof boundaries. Read this before framing or changing Money behavior.
+- **Input design and authoring**: [`docs/design-system/input-guidance.md`](docs/design-system/input-guidance.md) — Andrew-approved filled-field family, pattern selection, shared anatomy, states, and exceptions. Read before adding or changing text entry, search, picker triggers, inline editing, or composers. Use owned UI components; do not add feature-local raw inputs or appearance overrides. The linked migration plan distinguishes the approved target from implementation still pending and preserves each caller's keyboard/persistence contract.
 
 ### The loop
 
@@ -107,21 +108,32 @@ Match verification cost to the stage of work. Do not use the full repository sui
 - Run the smallest test or check that exercises the behavior being changed.
 - Logic covered by the TDD posture stays red/green: run its focused regression first, implement, then rerun it.
 - For presentational UI, iterate in the relevant runtime and add focused tests only for meaningful state, branching, accessibility, or regression risk.
-- Do not run `npm run verify:changed -- --run` after every edit.
+- Use a focused test file or watch filter while editing. A test should name the plausible user-visible failure it catches; avoid tests that simply mirror component structure, implementation details, or cosmetic copy.
+- Do not run task-completion or integration gates after every edit.
 
 #### Tier 2 — task completion
 
-When the intended slice is complete and ready to hand off or integrate, run once:
+When the intended slice is complete and ready for local handoff, run once:
+
+```bash
+npm run verify:local -- --run
+```
+
+For a task sharing a dirty checkout with unrelated work, explicitly select its files with `--files <paths...>` or changed directories with repeatable `--scope <directory>`. Read the omitted-file report: a scoped pass does not approve the rest of the checkout. Typechecks and some static checks still inspect shared contracts across the checkout; do not hide unrelated failures or automatically expand implementation scope to fix them.
+
+This derives necessary static checks, related Jest tests, verification-tooling tests, and manual native/backend follow-ups. It uses incremental TypeScript and reuses successful local checks only while their inputs match. Test-only edits run their tests; deleted sources and shared runtime/configuration changes broaden coverage. Ordinary file count alone does not select the full local Jest suite.
+
+Inspect `npm run verify:local -- --report` before repeating a check whose inputs have not changed. Reused results retain their original completion time; do not describe them as newly executed tests. Use `--force` for an intentional fresh local run. A source change during verification makes the result stale, rather than a pass for the newer code. Details: [`docs/development/local-verification.md`](docs/development/local-verification.md).
+
+#### Tier 3 — integration and release
+
+Before merging, integrating, or publishing a checkout, retain the existing uncached gate:
 
 ```bash
 npm run verify:changed -- --run
 ```
 
-This derives the local gates from the current diff, including app typecheck, test typecheck, related Jest, product lint, architecture lint, Supabase function lint, and manual Simulator/visual follow-ups when relevant.
-
-Run it again only when the first run failed, its result was lost or incomplete, the diff changed afterward, or the integration base changed. State the reason for a repeated completion run.
-
-#### Tier 3 — integration and release
+CI continues to use this protected command, the existing broader checks, and coverage. Do not substitute `verify:local`, scoped results, or local success receipts for any required merge/deploy check. Keep review, approval, native/backend evidence, and release requirements intact. Verify the actual integration/release candidate; changed candidate inputs invalidate the affected evidence. The local command refuses CI execution.
 
 Run broader checks such as `npm test -- --runInBand` only when:
 
@@ -139,7 +151,9 @@ A full-suite pass does not replace relevant Simulator, physical-device, backend,
 | Task | Command |
 |---|---|
 | Install deps | `npm install` |
-| Diff-aware local verification | `npm run verify:changed -- --run` |
+| Local task verification | `npm run verify:local -- --run` |
+| Integration / merge gate | `npm run verify:changed -- --run` |
+| Local timing / result report | `npm run verify:local -- --report` |
 | Typecheck / lint | `npm run lint` (runs `tsc --noEmit`) |
 | Typecheck tests | `npm run lint:tests` |
 | Product taxonomy lint | `npm run product:lint` |

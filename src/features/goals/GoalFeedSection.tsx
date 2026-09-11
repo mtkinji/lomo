@@ -6,8 +6,9 @@ import { Pressable } from '@/src/ui/HapticPressable';
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
+import { Input } from '../../ui/Input';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';
 import {
@@ -384,12 +385,12 @@ function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted, onRe
           />
           {replyVisible ? (
             <VStack space="xs" style={styles.replyComposer}>
-              <TextInput
+              <Input
+                accessibilityLabel="Reply to check-in"
+                size="sm"
                 value={replyText}
                 onChangeText={setReplyText}
                 placeholder="Write a quick reply"
-                placeholderTextColor={colors.textSecondary}
-                style={styles.replyInput}
                 maxLength={160}
                 editable={!replyBusy}
               />
@@ -724,14 +725,6 @@ const styles = StyleSheet.create({
   },
   replyComposer: {
     marginTop: spacing.xs,
-  },
-  replyInput: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    backgroundColor: colors.shell,
-    borderRadius: 10,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
   },
   replyAction: {
     paddingHorizontal: spacing.sm,

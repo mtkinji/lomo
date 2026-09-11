@@ -69,6 +69,7 @@ function createAnimationBuilder() {
     easing: () => builder,
     delay: () => builder,
     springify: () => builder,
+    reduceMotion: () => builder,
   };
 
   return builder;
@@ -76,8 +77,10 @@ function createAnimationBuilder() {
 
 export const FadeIn = createAnimationBuilder();
 export const FadeInDown = createAnimationBuilder();
+export const FadeInUp = createAnimationBuilder();
 export const FadeOut = createAnimationBuilder();
 export const FadeOutUp = createAnimationBuilder();
+export const FadeOutDown = createAnimationBuilder();
 export const Layout = createAnimationBuilder();
 
 export { Easing };

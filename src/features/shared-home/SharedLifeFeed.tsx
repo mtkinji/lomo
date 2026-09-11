@@ -51,7 +51,15 @@ import {
   restoreHomeOffset,
   type HomeReadingAnchor,
 } from "./sharedLifePresentation";
+import { useHomeRecommendations } from "./useHomeRecommendations";
+import { HomeRecommendations, HomeNextStepsPage } from "./HomeRecommendationRegion";
+import type { HomeRecommendation } from "./homeRecommendations";
+import { homeRecommendationTarget } from "./homeRecommendationNavigation";
 import { useHomeReaction } from "./useHomeReaction";
+type RecommendationPreview = {
+  model: ReturnType<typeof useHomeRecommendations>;
+  onOpen: (offer: HomeRecommendation) => void;
+};
 type FeedFrame = (
   content: ReactNode,
   shareAction: ReactNode,
@@ -61,11 +69,13 @@ export function SharedLifeFeed({
   userId,
   highlightedDeliveryId,
   previewRepository,
+  recommendationPreview,
   renderFrame = (content) => content,
 }: {
   userId: string | null;
   highlightedDeliveryId?: string;
   previewRepository?: SharedLifeRepository;
+  recommendationPreview?: RecommendationPreview;
   renderFrame?: FeedFrame;
 }) {
   const householdMode = useHouseholdModeStore((state) => state.session);
@@ -93,6 +103,7 @@ export function SharedLifeFeed({
       userId={userId}
       highlightedDeliveryId={highlightedDeliveryId}
       previewRepository={__DEV__ ? previewRepository : undefined}
+      recommendationPreview={__DEV__ && previewRepository ? recommendationPreview : undefined}
       renderFrame={renderFrame}
     />
   );
@@ -101,14 +112,32 @@ function SignedInSharedLife({
   userId,
   highlightedDeliveryId,
   previewRepository,
+  recommendationPreview,
   renderFrame,
 }: {
   userId: string;
   highlightedDeliveryId?: string;
   previewRepository?: SharedLifeRepository;
+  recommendationPreview?: RecommendationPreview;
   renderFrame: FeedFrame;
 }) {
   const life = useSharedLife(userId, previewRepository);
+  const liveRecommendations = useHomeRecommendations(userId, !previewRepository);
+  const recommendations = recommendationPreview?.model ?? liveRecommendations;
+  const [nextSteps, setNextSteps] = useState(false);
+  const openRecommendation = (offer: HomeRecommendation) => {
+    if (recommendationPreview) {
+      recommendationPreview.onOpen(offer);
+      setNextSteps(false);
+      return;
+    }
+    if (!recommendations.eligible) return;
+    const target = homeRecommendationTarget(offer.destination);
+    const result = navigateWhenReady(target.name, target.params);
+    if (!result.ok) return;
+    recommendations.dispatch({ type: "offer", id: offer.id, status: "accepted" });
+    setNextSteps(false);
+  };
   const [momentsOnly, setMomentsOnly] = useState(false);
   const [bubbles, setBubbles] = useState<HomeCatchUp[]>([]);
   const [browse, setBrowse] = useState<{
@@ -136,6 +165,7 @@ function SignedInSharedLife({
   >(null);
   const rowHeights = useRef<Record<string, number>>({});
   const headerHeight = useRef(0);
+  const readerAtTop = useRef(true);
   const reading = useRef<HomeReadingAnchor | null>(null);
   const restorePending = useRef(false);
   useEffect(() => {
@@ -304,7 +334,8 @@ function SignedInSharedLife({
     !browse &&
     !connections &&
     !organize &&
-    !reactors;
+    !reactors &&
+    !nextSteps;
   const seen = useRef(new Set<string>());
   const viewable = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -505,6 +536,7 @@ function SignedInSharedLife({
   );
   const moreMenu = (
     <SharedLifeFeedMenu
+      onNextSteps={!previewRepository || recommendationPreview ? () => setNextSteps(true) : undefined}
       households={life.bootstrap.households}
       householdId={life.filter.householdId}
       selectedChoice={
@@ -544,24 +576,27 @@ function SignedInSharedLife({
       >
         <CanvasFlatList
           ref={listRef}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
+          onScrollBeginDrag={() => { readerAtTop.current = false; }}
+          onScrollEndDrag={(e) => { readerAtTop.current = e.nativeEvent.contentOffset.y <= 1; }}
+          onMomentumScrollBegin={() => { readerAtTop.current = false; }}
+          onMomentumScrollEnd={(e) => { readerAtTop.current = e.nativeEvent.contentOffset.y <= 1; }}
           onContentSizeChange={() => {
             if (
               restorePending.current &&
               !life.loading &&
-              life.posts.length &&
-              reading.current
+              (readerAtTop.current || (life.posts.length && reading.current))
             ) {
               const ids = stream.map(
                 (i) => (i.post ? "post:" : "delivery:") + i.id,
               );
-              const y = restoreHomeOffset(
+              const y = readerAtTop.current ? 0 : reading.current ? restoreHomeOffset(
                 reading.current,
                 ids,
                 rowHeights.current,
                 headerHeight.current,
                 spacing["2xl"],
-              );
+              ) : null;
               if (y !== null) {
                 restorePending.current = false;
                 requestAnimationFrame(() =>
@@ -625,10 +660,26 @@ function SignedInSharedLife({
           ListHeaderComponent={
             <View
               style={styles.header}
+              testID="home.recommendationHeader"
               onLayout={(e) => {
+                const changed = headerHeight.current !== e.nativeEvent.layout.height;
                 headerHeight.current = e.nativeEvent.layout.height;
+                // Native anchoring can insert an asynchronously loaded header above offset zero.
+                // Keep the invitation visible there; preserve the post anchor once reading starts.
+                if (changed && readerAtTop.current && !restorePending.current) {
+                  requestAnimationFrame(() => {
+                    if (readerAtTop.current) listRef.current?.scrollToOffset({ offset: 0, animated: false });
+                  });
+                }
               }}
             >
+              <HomeRecommendations
+                featured={recommendations.featured}
+                complementary={recommendations.complementary}
+                dispatch={recommendations.dispatch}
+                onOpen={openRecommendation}
+                onOverview={() => setNextSteps(true)}
+              />
               <SharedLifeCatchUpRail
                 bubbles={bubbles}
                 onOpen={(b) => setBrowse({ title: b.name, catchup: b })}
@@ -685,13 +736,13 @@ function SignedInSharedLife({
               ) : (
                 <>
                   <Text style={styles.emptyTitle}>
-                    Let your people into your day
+                    {recommendations.featured ? "Your people, your moments" : "Let your people into your day"}
                   </Text>
                   <Text>
                     A photo, a discovery, a little story. Ordinary moments
                     belong here.
                   </Text>
-                  <Button variant="outline" onPress={() => setComposer({})}>
+                  <Button variant={recommendations.featured ? "ghost" : "outline"} onPress={() => setComposer({})}>
                     Share a moment
                   </Button>
                 </>
@@ -715,6 +766,7 @@ function SignedInSharedLife({
           }
         />
       </KwiltRefreshFrame>
+      {nextSteps ? <HomeNextStepsPage model={recommendations} onOpen={openRecommendation} onClose={() => setNextSteps(false)}/> : null}
       {!connections ? browserPage : null}
       {!browse ? overlays : null}
       {composer ? (

@@ -8,9 +8,8 @@ import { ActivityListItem } from '../../ui/ActivityListItem';
 import { BottomDrawerFlatList } from '../../ui/BottomDrawer';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { Icon } from '../../ui/Icon';
-import { Input } from '../../ui/Input';
+import { SearchField } from '../../ui/SearchField';
 import {
-  INVENTORY_CONTROL_HEIGHT_PX,
   InventoryControlGroup,
   InventoryControlSurface,
 } from '../../ui/InventoryControlGroup';
@@ -125,19 +124,14 @@ export function PlanSlotCapturePage({
 
       <HStack alignItems="center" space={spacing.sm} style={styles.inventoryToolbar}>
         <View style={styles.searchInputFlex}>
-          <Input
+          <SearchField
             accessibilityLabel="Search to-dos"
             placeholder="Search to-dos"
-            leadingIcon="search"
-            trailingIcon={searchQuery ? 'close' : undefined}
-            trailingIconAccessibilityLabel="Clear search"
-            onPressTrailingIcon={() => setSearchQuery('')}
+            clearAccessibilityLabel="Clear search"
             value={searchQuery}
             onChangeText={setSearchQuery}
             size="sm"
-            variant="outline"
             elevation="flat"
-            containerStyle={styles.searchInput}
           />
         </View>
 
@@ -396,12 +390,5 @@ const styles = StyleSheet.create({
   searchInputFlex: {
     flex: 1,
   },
-  searchInput: {
-    height: INVENTORY_CONTROL_HEIGHT_PX + 2,
-    minHeight: INVENTORY_CONTROL_HEIGHT_PX + 2,
-    paddingVertical: 0,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.canvas,
-  },
+
 });

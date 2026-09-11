@@ -174,6 +174,13 @@ for (const file of sourceFiles) {
   }
 }
 
+try {
+  execFileSync(process.execPath, ['scripts/input-patterns/cli.mjs', '--check'], {cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe']});
+  execFileSync(process.execPath, ['scripts/input-patterns/export-material-contract.mjs', '--check'], {cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe']});
+} catch (error) {
+  errors.push(`Input pattern policy: ${error.stderr?.toString().trim() || error.message}`);
+}
+
 if (warnings.length > 0) {
   console.log('Architecture warnings:');
   for (const warning of warnings) console.log(`- ${warning}`);

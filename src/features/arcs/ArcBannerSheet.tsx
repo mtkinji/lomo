@@ -6,7 +6,7 @@ import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
-import { Input } from '../../ui/primitives';
+import { SearchField } from '../../ui/SearchField';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { colors, floatingControl, fonts, spacing, typography, type ScrimToken } from '../../theme';
 import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
@@ -413,6 +413,7 @@ export function ArcBannerSheet({
 
           <View style={styles.heroModalCard}>
             <BottomDrawerScrollView
+              underlapsHandle={false}
               style={styles.heroModalScroll}
               contentContainerStyle={styles.heroModalScrollContent}
               automaticallyAdjustKeyboardInsets
@@ -693,16 +694,14 @@ export function ArcBannerSheet({
                   <Text style={styles.heroModalSupportText}>Search the image library</Text>
                   <View style={styles.heroUnsplashSearchRow}>
                     <View style={styles.heroUnsplashInputWrapper}>
-                      <Input
+                      <SearchField
+                        accessibilityLabel="Search banner images"
                         size="sm"
-                        elevation="elevated"
                         placeholder={`Try "${arcName}" or "sunrise"…`}
                         value={unsplashQuery}
                         onChangeText={setUnsplashQuery}
                         onSubmitEditing={handleSearchUnsplash}
                         returnKeyType="search"
-                        containerStyle={styles.heroUnsplashInputContainer}
-                        inputStyle={styles.heroUnsplashInputText}
                       />
                     </View>
                     <Button
@@ -917,13 +916,6 @@ const styles = StyleSheet.create({
   },
   heroUnsplashInputWrapper: {
     flex: 1,
-  },
-  heroUnsplashInputContainer: {
-    minHeight: 40,
-  },
-  heroUnsplashInputText: {
-    flex: 1,
-    color: colors.textPrimary,
   },
   heroUnsplashSearchLabel: {
     ...typography.bodySm,

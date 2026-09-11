@@ -406,6 +406,8 @@ export function ActivityCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={handleChangeMode}
+          onClose={onClose}
+          closeAccessibilityLabel="Close new to-do"
           objectLabel="To-dos"
           onPressInfo={() => setIsActivityAiInfoVisible(true)}
           infoAccessibilityLabel="Show context for To-do AI"

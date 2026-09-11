@@ -8,6 +8,7 @@ import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences
 type SegmentedOption<Value extends string> = {
   value: Value;
   label: ReactNode;
+  accessibilityLabel?: string;
 };
 
 type SegmentedControlSize = 'default' | 'compact';
@@ -101,9 +102,10 @@ export function SegmentedControl<Value extends string>({
             testID={testIDPrefix ? `${testIDPrefix}.${String(option.value)}` : undefined}
             accessibilityRole="tab"
             accessibilityLabel={
-              accessibilityLabel && typeof option.label === 'string'
+              option.accessibilityLabel ??
+              (accessibilityLabel && typeof option.label === 'string'
                 ? `${accessibilityLabel}, ${option.label}`
-                : undefined
+                : undefined)
             }
             accessibilityHint={accessibilityHint}
             accessibilityState={{ ...accessibilityState, selected: isSelected }}

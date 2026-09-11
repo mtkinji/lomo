@@ -3,7 +3,7 @@ import React from "react";
 import { FlatList, StyleSheet, Switch, View } from "react-native";
 import { BottomDrawer } from "../../ui/BottomDrawer";
 import { BottomDrawerHeader } from "../../ui/layout/BottomDrawerHeader";
-import { EmptyState, HStack, Input, Text, VStack } from "../../ui/primitives";
+import { EmptyState, HStack, SearchField, Text, VStack } from "../../ui/primitives";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -537,7 +537,8 @@ export function GlobalSearchDrawer() {
         <View style={styles.searchRow}>
           <HStack space="sm" alignItems="center" style={styles.searchRowInner}>
             <View style={styles.searchInputContainer}>
-              <Input
+              <SearchField
+                accessibilityLabel={soloScope ? `Search ${scopeLabel(soloScope).toLowerCase()}` : "Search Kwilt"}
                 value={query}
                 onChangeText={setQuery}
                 placeholder={
@@ -545,11 +546,9 @@ export function GlobalSearchDrawer() {
                     ? `Search ${scopeLabel(soloScope).toLowerCase()}`
                     : "Search Kwilt"
                 }
-                leadingIcon="search"
                 autoFocus
                 autoCorrect={false}
                 autoCapitalize="none"
-                clearButtonMode="while-editing"
                 returnKeyType="search"
               />
             </View>

@@ -16,6 +16,12 @@ Use this with [Storybook](storybook.md) as the component review surface.
 
 Only an explicit product/design-owner decision recorded here grants Canonical status. An agent can prepare the evidence but cannot self-promote an item. Components exported from `src/ui/primitives.ts` but not listed here are Candidate and local to their current use by default.
 
+## Input migration candidates
+
+| Component | Source | Status | Scope |
+| --- | --- | --- | --- |
+| `TagEntryField` | `src/ui/TagEntryField.tsx` | Candidate | Activity detail/draft tags; shared chip/input material and native callback forwarding. Storybook Forms/Editing/TagEntry rendered at320/393 with chip containment,44-point removal targets and add/remove interaction verified; behavior tests pass. Native wrapping, focus, keyboard and accessibility acceptance pending. |
+
 ## Tokens
 
 | Area | Source | Status | Notes |
@@ -35,12 +41,13 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | `Card` | `src/ui/Card.tsx` | Canonical | Use only for a meaningful surface or interaction boundary, not default grouping. |
 | `Button` | `src/ui/Button.tsx` | Canonical | Standard text actions default to a fully rounded Sumi primary and quiet `canvas.selection` feedback; brand-green accent, destructive, and other visual or haptic semantics must be explicit variants. Disabled retains its semantic variant at 50% opacity and exposes disabled semantics. Loading is non-interactive but remains full-strength, exposes busy semantics, and uses the canonical Kwilt loader plus a progress label. Missing prerequisites require nearby guidance; impossible empty states replace or omit the dead action. Feature styles may adjust layout, not color or shape. One screen decision gets one dominant primary action. |
 | `HapticPressable` | `src/ui/HapticPressable.tsx` | Canonical | App-owned boundary for custom press controls that cannot use `Button`. Every enabled press gets quiet, rate-limited acknowledgement by default; callers choose a stronger semantic event when appropriate, and synchronous semantic feedback suppresses the generic pulse. Raw React Native `Pressable` and `TouchableOpacity` imports are architecture-linted outside this boundary and the canonical `Button` implementation. Approved by Andrew on 2026-08-25. |
-| `Input` | `src/ui/Input.tsx` | Canonical | Handles labels, descriptions/errors, variants, icons, multiline behavior, focus, and disabled states. |
+| `Input` | `src/ui/Input.tsx` | Canonical | Owned text-entry boundary for labels, descriptions/errors, variants, icons, multiline behavior, focus and disabled states. Andrew approved the [filled-field family and authoring contract](input-guidance.md) on 2026-09-10. Filled/flat material, body text and neutral labels are now the default. The migration flag and legacy renderers are removed. Use the current input guidance; app-wide native acceptance remains separately tracked. |
 | `FormField` | `src/ui/FormField.tsx` | Promote | RNR-aligned label/control/description/message anatomy; requires native and Storybook review. |
 | `Dialog` | `src/ui/Dialog.tsx` | Promote | Existing compatibility API plus RNR-aligned anatomy; requires caller and runtime convergence. |
 | `AlertDialog` | `src/ui/AlertDialog.tsx` | Promote | Consequential confirmation only; requires runtime evidence before Canonical. |
 | `DropdownMenu` | `src/ui/DropdownMenu.tsx` | Promote | RN Primitives behavior with localized RNR anatomy; requires caller and runtime convergence. |
-| `PickerFieldTrigger` | `src/ui/PickerFields.tsx` | Canonical | Reusable closed-field grammar. |
+| `SearchField` | `src/ui/SearchField.tsx` | Canonical | Owned search composition: filled Input, leading search, one named clear action, focus retention and search keyboard. Query interpretation and results belong to the host. Native Global Search, relation, Banner and Places evidence exists; broader host/platform acceptance remains open. |
+| `PickerFieldTrigger` | `src/ui/PickerFields.tsx` | Canonical | Reusable closed-field grammar. Uses the default filled [input family](input-guidance.md); preserves button/disclosure semantics and enabled appearance. |
 | `EnumPickerField` / `SmallSetPickerField` | `src/ui/PickerFields.tsx` | Canonical | Default for small fixed-set choices with compact drawer rows and selected checks. |
 | `RelationPickerField` | Kwilt Goals `src/ui/PickerFields.tsx` | Candidate | Strong searchable picker for larger object lists; may need drawer-vs-fullscreen adaptation for Money and desktop. |
 | `KwiltSwitch` | `src/ui/KwiltSwitch.tsx` | Canonical | Compact animated toggle; prefer the owning row pattern when label and action form one control. |
@@ -118,3 +125,6 @@ Validate adoption in at least two real surfaces before expanding the package. Ca
 ### Home feed candidates
 
 `FeedItemParts` and the Moment, Contribution, Personal message, Invitation/request compositions remain **Candidate**, scoped to Home. They reuse owned Button, DropdownMenu, ProfileAvatar and typography/token contracts; they are not app-wide canonical cards. See [the composition contract](../design-explorations/kwilt-home-feed-items/four-pattern-contract.md) and `Home/Four Feed Patterns` stories. `DeliveryCard` is a compatibility router to message/request, not a separate design pattern.
+
+
+TitleInput: owned editorial adapter (Candidate), `src/ui/TitleInput.tsx`. Shared by controlled Activity draft titles and NarrativeEditableTitle. Native ref/event forwarding and separate persistence contracts covered by focused tests. Long persisted To-do title ending caret and first-tap Done observed on iOS Simulator; broad editorial acceptance remains pending. See input guidance and input-unification evidence.

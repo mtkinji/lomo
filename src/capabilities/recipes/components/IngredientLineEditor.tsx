@@ -1,6 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { StyleSheet, TextInput, View } from 'react-native';
-import { colors, spacing, typography } from '../../../theme';
+import { StyleSheet, View } from 'react-native';
+import { spacing } from '../../../theme';
+import { Input } from '../../../ui/Input';
 import { Text } from '../../../ui/Typography';
 
 export type EditableIngredientLine = { id: string; originalText: string };
@@ -12,13 +13,12 @@ export function IngredientLineEditor({ line, onChange, onRemove }: {
 }) {
   return (
     <View style={styles.row}>
-      <TextInput
+      <Input
         accessibilityLabel="Ingredient"
         value={line.originalText}
         onChangeText={(originalText) => onChange({ ...line, originalText })}
         placeholder="e.g. 2 cups flour"
-        placeholderTextColor={colors.textSecondary}
-        style={styles.input}
+        wrapperStyle={styles.inputLayout}
       />
       <Pressable accessibilityRole="button" accessibilityLabel="Remove ingredient" onPress={onRemove} hitSlop={10}>
         <Text tone="secondary">Remove</Text>
@@ -29,9 +29,5 @@ export function IngredientLineEditor({ line, onChange, onRemove }: {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  input: {
-    flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
-    paddingHorizontal: spacing.md, color: colors.textPrimary, backgroundColor: colors.fieldFill,
-    ...typography.body,
-  },
+  inputLayout: { width: 'auto', flex: 1, minWidth: 0 },
 });

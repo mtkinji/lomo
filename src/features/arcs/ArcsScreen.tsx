@@ -1077,6 +1077,8 @@ function NewArcModal({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={setActiveTab}
+          onClose={onClose}
+          closeAccessibilityLabel="Close new Arc"
           objectLabel="Arc"
           onPressInfo={() => setIsArcInfoVisible(true)}
           infoAccessibilityLabel="Show context for Arc AI"

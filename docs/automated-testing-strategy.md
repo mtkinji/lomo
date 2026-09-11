@@ -26,12 +26,18 @@ The layers below describe *what* each kind of test proves. Run them at the stage
 | Stage | Default verification | Full Jest suite? |
 |---|---|---|
 | Implementation loop | One focused test file, `--findRelatedTests` for the touched seam, or the relevant runtime interaction | No |
-| Task completion | `npm run verify:changed -- --run`, once after the intended diff is complete | Only when selected by the diff-aware verifier |
-| Integration / release | Required CI gates plus relevant native, backend, TestFlight, or production proof | Yes when required by risk or the integration gate |
+| Task completion | `npm run verify:local -- --run`, scoped explicitly when other work shares the checkout | Related tests; broad fallback for shared runtime/configuration or removed sources |
+| Integration / release | Uncached `npm run verify:changed -- --run`, required CI gates, and relevant native/backend/release proof | Existing protected selection and CI coverage remain intact |
 
 Logic, branching hooks, sync/queue behavior, shared packages, backend functions, notification rules, and bug fixes keep their regression-first posture. Presentational UI, layout, animation, copy, color, and padding may be implemented and visually iterated before focused automation unless they contain meaningful behavior.
 
-Do not repeat the task-completion gate without a reason. Valid reasons are a failed run, incomplete or lost output, a subsequent code change, or a changed integration base. External waiting and physical-device acceptance are separate proof stages, not reasons to rerun unrelated automated tests.
+Do not repeat the task-completion gate without a reason. Read `npm run verify:local -- --report` first. Matching local receipts preserve their original pass time and may save repeated execution; input changes, failed checks, or an intentional `--force` require a fresh run. External waiting and physical-device acceptance are separate proof stages, not reasons to rerun unrelated automated tests. Local receipts never satisfy merge or deployment gates. See [local verification](development/local-verification.md) for commands, invalidation, and timing evidence.
+
+### Test authoring and quality signals
+
+Keep regression-first logic and bug fixes. Before adding a test, name the plausible failure it prevents and the user-visible outcome that would be wrong. Prefer requirements, boundary cases, and invariants over repeating the production algorithm in the assertion. Cosmetic UI changes need relevant runtime observation; they do not automatically need a new component test. Add native interaction coverage for repeatable keyboard, gesture, and overlay failures rather than trying to establish native geometry through Jest.
+
+Judge this workflow by time waiting for useful feedback, time repairing tests, and severity/frequency of escaped defects. Test count and global coverage percentage are not substitutes for acceptance evidence. Preserve the existing release gates and a dependable set of critical real-user journeys while improving local feedback.
 
 ---
 
@@ -222,8 +228,8 @@ Only add E2E coverage for flows that:
 
 Current CI already runs:
 
-- PR smoke lane via `.github/workflows/e2e-maestro.yml` (small Maestro subset)
-- scheduled/manual full Maestro lane via the same workflow
+- manually dispatched smoke lane via `.github/workflows/e2e-maestro.yml` (small Maestro subset)
+- scheduled full Maestro lane via the same workflow
 
 Recommended baseline remains:
 

@@ -294,6 +294,11 @@ export function DestinationDetailScreen() {
                   />
                   <Textarea
                     label="Verification commands (one per line)"
+                    multiline
+                    multilineMinHeight={88}
+                    multilineMaxHeight={180}
+                    autoCapitalize="none"
+                    autoCorrect={false}
                     value={cursorDraft.verificationCommandsText}
                     onChangeText={(t) => setCursorDraft((c) => ({ ...c, verificationCommandsText: t }))}
                     placeholder={'npm test\nnpm run lint'}

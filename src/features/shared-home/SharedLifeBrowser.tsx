@@ -7,7 +7,7 @@ import {
   View,
   type ViewToken,
 } from "react-native";
-import { Button, HStack, Input, Text, VStack } from "../../ui/primitives";
+import { Button, HStack, SearchField, Text, VStack } from "../../ui/primitives";
 import { spacing } from "../../theme";
 import { SharedLifePage } from "./SharedLifePage";
 import { SharedLifeCollections } from "./SharedLifeLibrary";
@@ -207,7 +207,9 @@ export function SharedLifeBrowser({
           <View style={styles.header}>
             {mode.library ? (
               <>
-                <Input
+                <SearchField
+                  accessibilityLabel="Search saved moments"
+                  clearAccessibilityLabel="Clear saved moments search"
                   accentLabelOnFocus={false}
                   label="Search saved moments"
                   value={query}

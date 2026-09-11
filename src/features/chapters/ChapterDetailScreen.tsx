@@ -1,6 +1,7 @@
+import { KeyboardAwareScrollView } from '../../ui/KeyboardAwareScrollView';
 import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Image, Share, ScrollView, StyleSheet, View, TextInput } from 'react-native';
+import { Image, Share, StyleSheet, View, type TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { VStack, Text } from '../../ui/primitives';
+import { Input } from '../../ui/Input';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
@@ -1393,7 +1395,7 @@ export function ChapterDetailScreen() {
 
   return (
     <AppShell fullBleedCanvas>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.chapterHero}>
           <LinearGradient
             colors={chapterGradientColors}
@@ -1557,7 +1559,10 @@ export function ChapterDetailScreen() {
                   {userNoteEditing ? (
                     <>
                       <Text style={styles.userNotePrompt}>Anything we missed? Add a line.</Text>
-                      <TextInput
+                      <Input
+                        accessibilityLabel="Your chapter note"
+                        multilineMinHeight={72}
+                        multilineMaxHeight={180}
                         ref={userNoteInputRef}
                         value={userNoteDraft}
                         onChangeText={setUserNoteDraft}
@@ -1570,8 +1575,6 @@ export function ChapterDetailScreen() {
                                 ? 'year'
                                 : 'period'
                         }?`}
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.userNoteInput}
                         multiline
                         maxLength={CHAPTER_USER_NOTE_MAX_LENGTH}
                         autoCorrect
@@ -1670,12 +1673,15 @@ export function ChapterDetailScreen() {
                   </View>
                   {(feedbackNoteVisible || (feedback?.rating === 'down' && !feedback?.note)) ? (
                     <View style={styles.feedbackNoteWrap}>
-                      <TextInput
+                      <Input
+                        accessibilityLabel="Chapter feedback note"
+                        size="sm"
+                        multilineMinHeight={40}
+                        multilineMaxHeight={140}
+                        containerStyle={styles.feedbackNoteInputPlacement}
                         value={feedbackNote}
                         onChangeText={setFeedbackNote}
                         placeholder="What was off? (optional)"
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.feedbackNoteInput}
                         multiline
                         maxLength={500}
                       />
@@ -2071,7 +2077,7 @@ export function ChapterDetailScreen() {
             </>
           ) : null}
         </VStack>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
@@ -2623,12 +2629,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  feedbackNoteInput: {
+  feedbackNoteInputPlacement: {
     flex: 1,
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    minHeight: 40,
-    paddingVertical: 4,
   },
   feedbackNoteSave: {
     ...typography.bodySm,
@@ -2684,17 +2686,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '600',
     marginBottom: spacing.xs,
-  },
-  userNoteInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    minHeight: 72,
-    padding: spacing.sm,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    textAlignVertical: 'top',
   },
   userNoteActions: {
     flexDirection: 'row',

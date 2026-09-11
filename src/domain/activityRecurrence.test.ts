@@ -139,3 +139,50 @@ describe('activity recurrence lifecycle', () => {
     );
   });
 });
+
+
+describe('monthly weekday recurrence', () => {
+  const monthly = (ordinal: 1 | 2 | 3 | 4 | 5 | -1 = 3, weekday = 0, interval = 1) => activity({
+    repeatRule: 'custom',
+    repeatCustom: { cadence: 'months', interval, monthlyWeekday: { ordinal, weekday } },
+    scheduledDate: '2026-09-20',
+    reminderAt: new Date(2026, 8, 20, 9, 30).toISOString(),
+  });
+
+  it.each([
+    [new Date(2026, 8, 20, 18), '2026-10-18'],
+    [new Date(2026, 10, 22, 18), '2026-12-20'],
+    [new Date(2026, 11, 20, 18), '2027-01-17'],
+  ])('finds the next third Sunday after %s', (closedAt, expected) => {
+    const next = buildNextRecurringActivity({ activity: monthly(), closedAtIso: closedAt.toISOString() });
+    expect(next?.scheduledDate).toBe(expected);
+    expect(next?.repeatCustom).toEqual(monthly().repeatCustom);
+    expect(new Date(next!.reminderAt!).getHours()).toBe(9);
+    expect(new Date(next!.reminderAt!).getMinutes()).toBe(30);
+  });
+
+  it('uses a selected weekday even when the anchor date is different', () => {
+    const next = buildNextRecurringActivity({ activity: { ...monthly(), scheduledDate: '2026-09-09' }, closedAtIso: new Date(2026, 8, 9, 18).toISOString() });
+    expect(next?.scheduledDate).toBe('2026-09-20');
+  });
+
+  it('keeps multi-month intervals aligned to the anchor month', () => {
+    const next = buildNextRecurringActivity({ activity: monthly(3, 0, 2), closedAtIso: new Date(2026, 9, 20, 18).toISOString() });
+    expect(next?.scheduledDate).toBe('2026-11-15');
+  });
+
+  it('finds the last Sunday in February', () => {
+    const next = buildNextRecurringActivity({ activity: monthly(-1), closedAtIso: new Date(2027, 1, 1, 18).toISOString() });
+    expect(next?.scheduledDate).toBe('2027-02-28');
+  });
+
+  it('skips months without a fifth Sunday', () => {
+    const next = buildNextRecurringActivity({ activity: monthly(5), closedAtIso: new Date(2026, 8, 20, 18).toISOString() });
+    expect(next?.scheduledDate).toBe('2026-11-29');
+  });
+
+  it('preserves legacy date-based monthly rules', () => {
+    const next = buildNextRecurringActivity({ activity: { ...monthly(), repeatCustom: { cadence: 'months', interval: 1 } }, closedAtIso: new Date(2026, 8, 20, 18).toISOString() });
+    expect(next?.scheduledDate).toBe('2026-10-20');
+  });
+});

@@ -477,6 +477,7 @@ export function ShareGoalDrawer(props: {
               Send the invite to their inbox. They’ll get a link that opens Kwilt.
             </Text>
             <Input
+              accessibilityLabel="Recipient email"
               value={recipientEmail}
               onChangeText={setRecipientEmail}
               autoCapitalize="none"

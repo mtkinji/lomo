@@ -144,6 +144,12 @@ ambiguous physical objects, or a second primary action.
 
 Last reviewed: 2026-08-20.
 
+## Approved Input Direction in Migration
+
+Andrew approved the filled-field family on 2026-09-10 and requested comprehensive migration and canonical future authoring. [Canonical input treatment](input-guidance.md) is the binding design/selection contract; the [implementation plan](../superpowers/plans/2026-09-10-input-unification.md) and [coverage ledger](../design-explorations/input-unification/migration-coverage.md) own delivery.
+
+Default relationship: a label and one contrasting neutral input surface, without a resting border/shadow. Text fields, search and picker triggers share material; composers own one enclosing surface; inline content and accepted grouped forms use deliberate plain controls. Preserve the task's keyboard/completion/persistence behavior. Start from the existing Canonical Input and picker components; new adapters and changed compositions need their actual rendered evidence before implementation promotion. This record approves direction, not an unobserved native route or an app-wide completion claim.
+
 ## Initial Atlas
 
 | Job / surface | Start from | Status | Required hierarchy |
@@ -155,7 +161,7 @@ Last reviewed: 2026-08-20.
 | Dialog form | `Dialog` anatomy plus `Input` or `FormField` | Candidate | Title/description, coherent fields, one submit action, quiet cancel. |
 | Consequential confirmation | `AlertDialog` | Candidate | Consequence, destructive action, safe cancel. No dismissal ambiguity. |
 | Small-set choice | `EnumPickerField` or `SmallSetPickerField` with `BottomDrawer` | Candidate | Current value, concise choices, selected state; no duplicate Save when selection is immediate. |
-| Searchable relation choice | `RelationPickerField` / `ObjectPicker` | Candidate | Search, results, selected relationship, clear empty state. Presentation remains scope-sensitive. |
+| Searchable relation choice | `RelationPickerField` | Candidate | Search, results, selected relationship, clear empty state. Presentation remains scope-sensitive. |
 | Contextual menu | `DropdownMenu` and title-adjacent three-dot trigger | Candidate | Current surface remains primary; low-frequency actions are grouped and destructive actions are last. |
 | Empty / permission / failure | `EmptyState`, `Dialog`, or inline feedback according to interruption cost | Candidate | What happened, what can be done now, one recovery action. Illustration remains secondary. |
 | Focused emotional moment | `CapabilityOnboardingStepScreen` for sequential setup; capability-local composition for one-off moments | Candidate | One message and one action; illustration supports rather than competes. |

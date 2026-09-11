@@ -1,9 +1,17 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render as renderNative } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Alert, Linking } from 'react-native';
 import { LegalPrivacyScreen } from './LegalPrivacyScreen';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
 import { openManageSubscription } from '../../services/entitlements';
 import { useAnalyticsConsentStore } from '../../services/analytics/analyticsConsent';
+
+const render = (element: ReactElement) => renderNative(
+  <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } }}>
+    {element}
+  </SafeAreaProvider>,
+);
 
 jest.mock('../../ui/layout/AppShell', () => {
   const React = require('react');

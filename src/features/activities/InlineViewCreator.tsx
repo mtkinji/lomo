@@ -1,7 +1,8 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useState, useCallback, useRef } from 'react';
-import { View, TextInput, StyleSheet, Keyboard, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type TextInput, StyleSheet, Keyboard, type StyleProp, type ViewStyle } from 'react-native';
 import { HStack, VStack, Text } from '../../ui/primitives';
+import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { Card } from '../../ui/Card';
 import { colors } from '../../theme/colors';
@@ -158,39 +159,31 @@ export function InlineViewCreator({
                 </Text>
               </Pressable>
             ) : (
-              <View style={styles.aiInputContainer}>
-                <Icon
-                  name="sparkles"
-                  size={18}
-                  color={colors.accent}
-                  style={styles.aiIcon}
-                />
-                <TextInput
-                  ref={inputRef}
-                  style={styles.aiInput}
-                  placeholder="e.g., High priority to-dos due this week"
-                  placeholderTextColor={colors.muted}
-                  value={aiPrompt}
-                  onChangeText={setAiPrompt}
-                  onSubmitEditing={handleAiSubmit}
-                  returnKeyType="go"
-                  editable={!isAiLoading}
-                  multiline={false}
-                  autoFocus
-                />
-                {isAiLoading ? (
+              <Input
+                accessibilityLabel="Describe a new view"
+                ref={inputRef}
+                leadingIcon="sparkles"
+                placeholder="e.g., High priority to-dos due this week"
+                value={aiPrompt}
+                onChangeText={setAiPrompt}
+                onSubmitEditing={handleAiSubmit}
+                returnKeyType="go"
+                editable={!isAiLoading}
+                multiline={false}
+                autoFocus
+                trailingElement={isAiLoading ? (
                   <KwiltLoader size="small" color={colors.accent} />
-                ) : (
-                  aiPrompt.trim().length > 0 && (
-                    <Pressable
-                      onPress={handleAiSubmit}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Icon name="arrowUp" size={20} color={colors.accent} />
-                    </Pressable>
-                  )
-                )}
-              </View>
+                ) : aiPrompt.trim().length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Create AI view"
+                    onPress={handleAiSubmit}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Icon name="arrowUp" size={20} color={colors.accent} />
+                  </Pressable>
+                ) : undefined}
+              />
             )}
           </View>
         )}
@@ -258,25 +251,5 @@ const styles = StyleSheet.create({
   aiToggleText: {
     ...typography.bodySm,
     color: colors.accent,
-  },
-  aiInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.fieldFill,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  aiIcon: {
-    marginRight: spacing.xs,
-  },
-  aiInput: {
-    flex: 1,
-    ...typography.body,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-    minHeight: 24,
   },
 });

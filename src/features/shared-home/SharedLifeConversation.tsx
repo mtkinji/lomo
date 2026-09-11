@@ -135,6 +135,7 @@ export function SharedLifeConversation({
           <HStack space="sm" alignItems="flex-end">
             <View style={{ flex: 1 }}>
               <Input
+                surfaceRole="composer"
                 accentLabelOnFocus={false}
                 accessibilityLabel={editing ? "Your moment" : "Your reply"}
                 placeholder={editing ? "Edit your words…" : "Write a reply…"}

@@ -1,3 +1,5 @@
+import { Input } from '../../../ui/Input';
+import { SearchField } from '../../../ui/SearchField';
 import { SharedLifeExplorePlaces } from '../../../features/shared-home/SharedLifeExplorePlaces';
 import { shareMomentInHome } from '../../../features/shared-home/sharedLifeShareRequest';
 import { placePostAttachment } from '../../../features/shared-home/sharedLifeDomain';
@@ -5,7 +7,7 @@ import { offerHomeMoment } from '../../../features/shared-home/sharedLifeCelebra
 import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import { AccessibilityInfo, Animated, Platform, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRoute, type RouteProp, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -1105,18 +1107,14 @@ export function ExploreMapScreen() {
               <Text style={styles.searchEmpty}>Search this area to find a few interesting places nearby.</Text>
             )}
           </> : <>
-            <View style={styles.placeSearchField}>
-              <Icon name="search" size={19} color={colors.textSecondary} />
-              <TextInput
-                accessibilityLabel="Search Places"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search places you’ve visited"
-                placeholderTextColor={colors.textSecondary}
-                returnKeyType="search"
-                style={styles.placeSearchInput}
-              />
-            </View>
+            <SearchField
+              accessibilityLabel="Search Places"
+              clearAccessibilityLabel="Clear Places search"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search places you’ve visited"
+              returnKeyType="search"
+            />
             {filteredPlaces.length ? (
               <View style={styles.searchResults}>
                 {filteredPlaces.map((place) => (
@@ -1144,28 +1142,53 @@ export function ExploreMapScreen() {
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={collectingPlace} onClose={closePlaceNaming} snapPoints={['34%']}>
+      <BottomDrawer
+        visible={collectingPlace}
+        onClose={closePlaceNaming}
+        snapPoints={['70%']}
+        keyboardBehavior="resize"
+      >
         <BottomDrawerScrollView
-          contentContainerStyle={[styles.placeNamingContent, { paddingBottom: insets.bottom + spacing.xl }]}
+          contentContainerStyle={styles.placeNamingContent}
           keyboardShouldPersistTaps="handled"
         >
-          <BottomDrawerHeader title="Name this Place" variant="minimal" />
-          <TextInput
+          <BottomDrawerHeader
+            title="Name this Place"
+            variant="navbar"
+            leftAction={(
+              <Button
+                variant="ghost"
+                size="sm"
+                accessibilityLabel="Cancel naming Place"
+                onPress={closePlaceNaming}
+              >
+                Cancel
+              </Button>
+            )}
+            rightAction={(
+              <Button
+                variant="link"
+                size="sm"
+                accessibilityLabel="Save Place"
+                disabled={!placeName.trim() || !latestPoint}
+                onPress={collectCurrentPlace}
+              >
+                Save Place
+              </Button>
+            )}
+          />
+          <Input
             accessibilityLabel="Place name"
             autoFocus
             maxLength={160}
             value={placeName}
             onChangeText={setPlaceName}
             placeholder="Home, park, trail…"
-            placeholderTextColor={colors.textSecondary}
+            enterKeyHint="done"
+            enablesReturnKeyAutomatically
             returnKeyType="done"
             onSubmitEditing={collectCurrentPlace}
-            style={styles.placeInput}
           />
-          <View style={styles.collectActions}>
-            <Button variant="ghost" size="sm" onPress={closePlaceNaming}>Cancel</Button>
-            <Button size="sm" disabled={!placeName.trim() || !latestPoint} onPress={collectCurrentPlace}>Save Place</Button>
-          </View>
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -1487,18 +1510,7 @@ const styles = StyleSheet.create({
   searchDrawerContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
   nearbyToolbar: { gap: spacing.sm, alignItems: 'stretch' },
   nearbyRadiusControl: { alignSelf: 'stretch' },
-  placeSearchField: {
-    minHeight: 48,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.fieldFill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  placeSearchInput: { ...typography.body, flex: 1, color: colors.textPrimary, paddingVertical: spacing.sm },
+
   searchResults: { gap: spacing.xs },
   searchResultRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   nearbyResultSelected: { borderRadius: 16, backgroundColor: colors.pine50, paddingHorizontal: spacing.sm },
@@ -1532,9 +1544,7 @@ const styles = StyleSheet.create({
   firstPlaceGuideTitle: { ...typography.titleSm, color: colors.textPrimary },
   firstPlaceGuideBody: { ...typography.bodySm, color: colors.textSecondary, lineHeight: 21 },
   firstPlaceGuideActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
-  placeNamingContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
-  collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  placeNamingContent: { gap: spacing.md, paddingBottom: spacing.lg },
   recapContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
   recapGuideContent: { gap: spacing.md, paddingBottom: spacing.lg },
   recapHero: { alignItems: 'flex-start' },

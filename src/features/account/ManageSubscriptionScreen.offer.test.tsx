@@ -238,3 +238,42 @@ describe('ProPlanChooserScreen offer', () => {
     });
   });
 });
+
+describe('Founding Lifetime alongside subscriptions', () => {
+  beforeEach(() => {
+    resetAllStores();
+    mockStoreOfferState = { status: 'ready', snapshot: eligibleSnapshot(), retry: jest.fn() };
+    mockStoreOfferState.snapshot!.products.pro_lifetime = {
+      sku: 'pro_lifetime', price: 29.99, priceString: '$29.99', introEligibility: 'no_offer',
+    };
+  });
+  it('uses the live lifetime price and purchases independently of the subscription selection', async () => {
+    const purchase = jest.fn(async () => ({ isPro: true, proAccessType: 'lifetime' as const, isProToolsTrial: false, checkedAt: '', source: 'revenuecat' as const }));
+    useEntitlementsStore.setState({ purchase });
+    const { getByText } = renderWithProviders(<ProPlanChooserScreen />);
+    fireEvent.press(getByText('Get lifetime Pro — $29.99'));
+    await waitFor(() => expect(purchase).toHaveBeenCalledWith({ lifetime: true }));
+    expect(getByText('Individual')).toBeTruthy();
+    expect(getByText('Family')).toBeTruthy();
+  });
+  it('hides lifetime when the offering is removed without hiding subscriptions', () => {
+    delete mockStoreOfferState.snapshot!.products.pro_lifetime;
+    const { queryByText, getByText } = renderWithProviders(<ProPlanChooserScreen />);
+    expect(queryByText('Founding Lifetime')).toBeNull();
+    expect(getByText('Individual')).toBeTruthy();
+  });
+  it('does not report lifetime success from an existing subscription entitlement', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockCapture.mockClear();
+    useEntitlementsStore.setState({
+      purchase: jest.fn(async () => ({ isPro: true, proAccessType: 'subscription' as const,
+        isProToolsTrial: false, checkedAt: '', source: 'revenuecat' as const })),
+    });
+    const { getByText } = renderWithProviders(<ProPlanChooserScreen />);
+    fireEvent.press(getByText('Get lifetime Pro — $29.99'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Purchase pending', expect.any(String)));
+    expect(mockCapture).not.toHaveBeenCalledWith(AnalyticsEvent.PurchaseSucceeded, expect.anything());
+    alert.mockRestore();
+  });
+
+});

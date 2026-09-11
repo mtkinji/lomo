@@ -1,13 +1,14 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { forwardRef, memo, useState, ReactNode } from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, TextInput, NativeSyntheticEvent, TextInputContentSizeChangeEventData, TextInputProps, Platform } from 'react-native';
-import { cardElevation, colors, spacing, typography } from '../theme';
+import { forwardRef, memo, useRef, useState, ReactNode } from 'react';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, TextInput, NativeSyntheticEvent, TextInputContentSizeChangeEventData, TextInputProps, Platform, findNodeHandle } from 'react-native';
+import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
+import { InputFrame } from './InputFrame';
+import { getInputTextViewport, resolveInputAppearance, type InputVariant, type InputParentSurface, type InputSurfaceRole } from './inputAppearance';
 
-type InputVariant = 'surface' | 'outline' | 'filled' | 'ghost' | 'inline';
 type InputSize = 'md' | 'sm';
-type InputElevation = 'flat' | 'elevated';
+type InputElevation = 'flat';
 
 const MULTILINE_MIN_HEIGHT = 112;
 const MULTILINE_MAX_HEIGHT = 220;
@@ -47,10 +48,16 @@ type Props = TextInputProps & {
   onPressTrailingIcon?: () => void;
   trailingIconAccessibilityLabel?: string;
   trailingElement?: ReactNode;
+  /** Layout of the whole field (label, frame, help). Use for fields sharing a row. */
+  wrapperStyle?: StyleProp<ViewStyle>;
   containerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
   size?: InputSize;
   variant?: InputVariant;
+  /** Parent material determines the contrasting neutral fill. */
+  onSurface?: InputParentSurface;
+  surfaceRole?: InputSurfaceRole;
+  footerElement?: ReactNode;
   /**
    * Override the min/max height used when `multiline` is enabled.
    * Useful for compact note fields that shouldn't default to the larger textarea
@@ -58,15 +65,7 @@ type Props = TextInputProps & {
    */
   multilineMinHeight?: number;
   multilineMaxHeight?: number;
-  /**
-   * Shadow treatment for the input container.
-   *
-   * - `elevated`: subtle soft shadow + border, matches the refreshed
-   *   text-field spec.
-   * - `flat`: removes shadows entirely so the input sits flush on the canvas.
-   *
-  * Defaults to `elevated` so existing inputs adopt the new styling.
-  */
+  /** Inputs use flat material; elevated input chrome is unsupported. */
   elevation?: InputElevation;
   /** Keep the label neutral instead of applying the accent color on focus. */
   accentLabelOnFocus?: boolean;
@@ -83,13 +82,17 @@ const InputBase = forwardRef<TextInput, Props>(
       onPressTrailingIcon,
       trailingIconAccessibilityLabel,
       trailingElement,
+      wrapperStyle,
       containerStyle,
       inputStyle,
       size = 'md',
-      variant = 'surface',
+      variant: requestedVariant,
       editable = true,
-      elevation = 'elevated',
-      accentLabelOnFocus = true,
+      elevation: requestedElevation,
+      accentLabelOnFocus: requestedAccentLabel,
+      onSurface = 'canvas',
+      surfaceRole = 'field',
+      footerElement,
       multilineMinHeight,
       multilineMaxHeight,
       onFocus,
@@ -104,45 +107,39 @@ const InputBase = forwardRef<TextInput, Props>(
     ref,
   ) => {
     const [focused, setFocused] = useState(false);
+    const wrapperRef = useRef<View>(null);
     const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
+    const [footerHeight, setFooterHeight] = useState(0);
+    const appearance = resolveInputAppearance({ onSurface, surfaceRole, size, variant: requestedVariant, elevation: requestedElevation, accentLabelOnFocus: requestedAccentLabel});
+    const {variant, accentLabelOnFocus} = appearance;
     const hasError = Boolean(errorText);
     const keyboardAware = useKeyboardAwareScroll();
-    // Border color: keep consistent between default and focused for bordered variants.
-    // For borderless variants (e.g. `filled`), only show an outline on focus/error.
-    const statusColor = hasError ? colors.destructive : colors.border;
+    const textViewport = getInputTextViewport({viewportHeight: keyboardAware?.viewportHeight, frameInset: appearance.frameInset, footerHeight: footerElement == null ? 0 : footerHeight});
+    const maxHeight = Math.min(multilineMaxHeight ?? MULTILINE_MAX_HEIGHT, textViewport);
+    const minHeight = Math.min(multilineMinHeight ?? MULTILINE_MIN_HEIGHT, maxHeight);
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
-    const showFocusRing = focused && !hasError && variant === 'filled';
-    const showErrorRing = hasError && variant === 'filled';
     const flattenedInputStyle = StyleSheet.flatten(inputStyle) as TextStyle | undefined;
     const metricsFontSize =
-      typeof flattenedInputStyle?.fontSize === 'number' ? flattenedInputStyle.fontSize : typography.bodySm.fontSize;
+      typeof flattenedInputStyle?.fontSize === 'number' ? flattenedInputStyle.fontSize : appearance.textStyle.fontSize!;
     const metricsLineHeight = typeof flattenedInputStyle?.lineHeight === 'number' ? flattenedInputStyle.lineHeight : undefined;
 
     return (
-      <View style={styles.wrapper}>
+      <View ref={wrapperRef} collapsable={false} style={[styles.wrapper, wrapperStyle]}>
         {label ? (
           <Text style={[styles.label, focused && accentLabelOnFocus && styles.labelFocused]}>
             {label}
           </Text>
         ) : null}
-        <View
+        <InputFrame
+          focused={focused && variant !== 'plain' && variant !== 'inline'}
+          error={hasError}
+          footer={footerElement}
+          onFooterHeight={setFooterHeight}
           style={[
             styles.inputContainer,
-            variantStyles[variant],
-            // Inline variant should not inherit the default size paddings/minHeight;
-            // it is meant to sit flush inside list rows.
-            variant === 'inline' ? null : size === 'sm' ? styles.sizeSm : styles.sizeMd,
-            {
-              borderColor: showFocusRing ? colors.accent : showErrorRing ? colors.destructive : statusColor,
-              opacity: editable ? 1 : 0.6,
-            },
-            showFocusRing || showErrorRing ? styles.filledRing : null,
-            (variant === 'ghost' || variant === 'inline' || elevation === 'flat')
-              ? (cardElevation.none as ViewStyle)
-              : elevation === 'elevated'
-              ? (cardElevation.soft as ViewStyle)
-              : (cardElevation.none as ViewStyle),
             containerStyle,
+            appearance.frameStyle,
+            {opacity: !editable && !rest.readOnly ? 0.6 : 1},
           ]}
         >
           {leadingIcon ? (
@@ -162,19 +159,21 @@ const InputBase = forwardRef<TextInput, Props>(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
               if (multiline) {
-                const minH = multilineMinHeight ?? MULTILINE_MIN_HEIGHT;
-                const maxH = multilineMaxHeight ?? MULTILINE_MAX_HEIGHT;
-                const nextHeight = event.nativeEvent.contentSize.height;
-                const clampedHeight = Math.max(
-                  minH,
-                  Math.min(nextHeight, maxH),
-                );
-                setMultilineHeight(clampedHeight);
+                // Keep the content's height so it can expand again when the
+                // keyboard shrinks without needing another native content event.
+                setMultilineHeight(event.nativeEvent.contentSize.height);
+                if (focused && keyboardAware?.keyboardHeight) {
+                  requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+                }
               }
               onContentSizeChange?.(event);
             }}
             onFocus={(event) => {
               setFocused(true);
+              // The native text line is smaller than the visible field and its
+              // tools. Register the field anatomy with the one layout owner.
+              const fieldHandle = wrapperRef.current ? findNodeHandle(wrapperRef.current) : null;
+              if (fieldHandle) keyboardAware?.registerFocusedInputFrame?.(fieldHandle);
               onFocus?.(event);
               // If the keyboard is already open (focus moved between fields),
               // proactively reveal the focused input.
@@ -188,15 +187,19 @@ const InputBase = forwardRef<TextInput, Props>(
             }}
             style={[
               styles.input,
+              // InputFrame owns browser focus material; avoid a second native-web outline.
+              Platform.OS === 'web' && { outlineStyle: 'none' as never },
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
+              appearance.textStyle,
               // For inline variant, skip explicit height so TextInput auto-expands in real-time.
               // Other variants use managed height for controlled textarea behavior.
               multiline && multilineHeight != null && variant !== 'inline'
-                ? { height: multilineHeight }
+                ? { height: Math.max(minHeight, Math.min(multilineHeight, maxHeight)) }
                 : null,
               multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,
               inputStyle,
+              multiline && keyboardAware?.viewportHeight != null ? { minHeight, maxHeight } : null,
               // Apply single-line platform metrics AFTER `inputStyle` so callers can specify
               // fontSize/lineHeight, but we still clamp lineHeight for proper vertical centering.
               !multiline ? getSingleLinePlatformMetrics(metricsFontSize, metricsLineHeight) : null,
@@ -212,14 +215,14 @@ const InputBase = forwardRef<TextInput, Props>(
               accessible={Boolean(onPressTrailingIcon)}
               onPress={onPressTrailingIcon}
               disabled={!onPressTrailingIcon}
-              style={styles.iconWrapper}
+              style={[styles.iconWrapper, onPressTrailingIcon ? styles.interactiveIcon : null]}
             >
               <Icon name={trailingIcon} size={16} color={iconColor} />
             </Pressable>
           ) : trailingElement ? (
             <View style={styles.trailingElement}>{trailingElement}</View>
           ) : null}
-        </View>
+        </InputFrame>
         {errorText ? (
           <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>
             {errorText}
@@ -256,20 +259,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
-  filledRing: {
-    borderWidth: 1,
-  },
-  sizeMd: {
-    minHeight: 44,
-    paddingVertical: spacing.sm,
-  },
-  sizeSm: {
-    minHeight: 44,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-  },
   input: {
     flex: 1,
+    minWidth: 0,
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
     lineHeight: typography.bodySm.lineHeight,
@@ -293,6 +285,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  interactiveIcon: {
+    minWidth: 28,
+    minHeight: 28,
+  },
   trailingElement: {
     marginLeft: spacing.xs,
   },
@@ -307,29 +303,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
-
-const variantStyles: Record<InputVariant, ViewStyle> = {
-  surface: {
-    // Default input background: solid white, no border
-    backgroundColor: colors.canvas,
-  },
-  outline: {
-    // Outline variant reuses the same base background; callers can add borders if needed.
-    backgroundColor: colors.canvas,
-  },
-  filled: {
-    // Borderless by default; uses a subtle filled surface so the field reads as interactive.
-    backgroundColor: colors.fieldFill,
-    borderWidth: 0,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  inline: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    minHeight: undefined,
-  },
-};

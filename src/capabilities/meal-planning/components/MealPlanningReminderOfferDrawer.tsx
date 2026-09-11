@@ -1,9 +1,10 @@
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { Activity } from '../../../domain/types';
-import { colors, radii, spacing, typography } from '../../../theme';
+import { colors, radii, spacing } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
@@ -76,7 +77,7 @@ export function MealPlanningReminderOfferDrawer({ visible, onClose, onCreate }: 
         {([['once', 'One time'], ['weekly', 'Every week']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: mode === value }} onPress={() => setMode(value)} style={[styles.option, mode === value && styles.selected]}><Text>{label}</Text></Pressable>)}
       </View>
       {mode === 'weekly' ? <View style={styles.days}>{['S','M','T','W','T','F','S'].map((label, day) => <Pressable key={`${label}-${day}`} accessibilityRole="radio" accessibilityLabel={['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]} accessibilityState={{ selected: weekday === day }} onPress={() => setWeekday(day)} style={[styles.day, weekday === day && styles.daySelected]}><Text>{label}</Text></Pressable>)}</View> : null}
-      {mode ? <TextInput accessibilityLabel="Reminder time" placeholder="17:00" keyboardType="numbers-and-punctuation" value={time} onChangeText={setTime} style={styles.input} /> : null}
+      {mode ? <Input accessibilityLabel="Reminder time" placeholder="17:00" keyboardType="numbers-and-punctuation" value={time} onChangeText={setTime} /> : null}
       {mode ? <Button fullWidth variant="outline" disabled={!reminderAt} onPress={() => reminderAt && onCreate({ mode, reminderAt })}>Add to Activities</Button> : null}
       <Button fullWidth variant="ghost" onPress={onClose}>Not now</Button>
     </BottomDrawerScrollView>
@@ -91,5 +92,4 @@ const styles = StyleSheet.create({
   days: { flexDirection: 'row', gap: spacing.xs },
   day: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.fieldFill },
   daySelected: { backgroundColor: colors.pine100 },
-  input: { minHeight: 48, borderRadius: radii.input, paddingHorizontal: spacing.md, backgroundColor: colors.fieldFill, color: colors.textPrimary, ...typography.body },
 });

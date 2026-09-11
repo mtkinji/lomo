@@ -1,6 +1,7 @@
 import type {
   Activity,
   ActivityRepeatBasis,
+  ActivityMonthlyWeekday,
   ActivityRepeatCustom,
   ActivityRepeatRule,
 } from './types';
@@ -174,6 +175,27 @@ function nextEveryNMonths(anchor: Date, after: Date, intervalMonths: number): Da
   return next;
 }
 
+function nextMonthlyWeekday(anchor: Date, after: Date, interval: number, pattern: ActivityMonthlyWeekday): Date | null {
+  const { ordinal, weekday } = pattern;
+  if (![1, 2, 3, 4, 5, -1].includes(ordinal) || !Number.isInteger(weekday) || weekday < 0 || weekday > 6) return null;
+  const step = positiveInterval(interval);
+  const elapsedMonths = (after.getFullYear() - anchor.getFullYear()) * 12 + after.getMonth() - anchor.getMonth();
+  const firstOffset = Math.max(0, Math.floor(elapsedMonths / step)) * step;
+  // Gregorian calendars repeat every 400 years. Bound searches for sparse fifth-weekday rules.
+  for (let attempt = 0; attempt < 4800; attempt += 1) {
+    const month = new Date(anchor.getFullYear(), anchor.getMonth() + firstOffset + attempt * step, 1);
+    if (!isFiniteDate(month)) return null;
+    const lastDay = daysInMonth(month.getFullYear(), month.getMonth());
+    const day = ordinal === -1
+      ? lastDay - (new Date(month.getFullYear(), month.getMonth(), lastDay).getDay() - weekday + 7) % 7
+      : 1 + (weekday - month.getDay() + 7) % 7 + (ordinal - 1) * 7;
+    if (day > lastDay) continue;
+    month.setDate(day);
+    if (startOfLocalDay(month).getTime() > startOfLocalDay(after).getTime()) return copyTime(anchor, month);
+  }
+  return null;
+}
+
 function nextEveryNYears(anchor: Date, after: Date, intervalYears: number): Date {
   const step = positiveInterval(intervalYears);
   const desiredDay = anchor.getDate();
@@ -189,7 +211,11 @@ function nextForCustom(anchor: Date, after: Date, custom: ActivityRepeatCustom |
   if (!custom) return null;
   if (custom.cadence === 'days') return nextEveryNDays(anchor, after, custom.interval);
   if (custom.cadence === 'weeks') return nextWeekly(anchor, after, custom.interval, custom.weekdays);
-  if (custom.cadence === 'months') return nextEveryNMonths(anchor, after, custom.interval);
+  if (custom.cadence === 'months') {
+    return custom.monthlyWeekday
+      ? nextMonthlyWeekday(anchor, after, custom.interval, custom.monthlyWeekday)
+      : nextEveryNMonths(anchor, after, custom.interval);
+  }
   return nextEveryNYears(anchor, after, custom.interval);
 }
 

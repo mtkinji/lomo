@@ -233,8 +233,6 @@ export function ChoreEditorDrawer({
           label="Chore"
           value={draft.title}
           onChangeText={(value) => onChange('title', value)}
-          variant="outline"
-          elevation="flat"
           accentLabelOnFocus={false}
           autoFocus={!isEditing}
         />
@@ -294,8 +292,6 @@ export function ChoreEditorDrawer({
           multiline
           multilineMinHeight={92}
           multilineMaxHeight={150}
-          variant="outline"
-          elevation="flat"
           accentLabelOnFocus={false}
         />
 

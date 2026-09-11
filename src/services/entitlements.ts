@@ -16,7 +16,11 @@ const ADMIN_ENTITLEMENTS_OVERRIDE_KEY = 'kwilt-admin-entitlements-override-v1';
 // If offline / RC fails, we’ll use last-known state for this window.
 const LAST_KNOWN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
+export const PRO_LIFETIME_SKU = 'pro_lifetime';
+export const FOUNDERS_OFFERING_ID = 'founders';
+
 export type EntitlementsSnapshot = {
+  proAccessType?: 'lifetime' | 'subscription';
   isPro: boolean;
   /**
    * Trial entitlement for “Pro Tools” (non-structural unlocks).
@@ -283,6 +287,36 @@ export async function clearRevenueCatIdentity(): Promise<void> {
     await purchases.logOut();
   }
   configuredRevenueCatAppUserID = null;
+}
+
+function extractProAccessType(info: RevenueCatCustomerInfo | null | undefined): EntitlementsSnapshot['proAccessType'] {
+  const pro = info?.entitlements?.active?.pro as { productIdentifier?: string } | undefined;
+  if (!pro) return undefined;
+  return pro.productIdentifier === PRO_LIFETIME_SKU ? 'lifetime' : 'subscription';
+}
+
+function getFoundersPackage(offerings: any): any | undefined {
+  return offerings?.all?.[FOUNDERS_OFFERING_ID]?.availablePackages?.find(
+    (pkg: any) => (pkg?.product?.identifier ?? pkg?.product?.productIdentifier) === PRO_LIFETIME_SKU,
+  );
+}
+
+export async function purchaseProLifetime(appUserID?: string | null): Promise<EntitlementsSnapshot> {
+  const purchases = getPurchasesModule();
+  if (!purchases || !getEnvVar<string>('revenueCatApiKey')) throw new Error('Purchases are unavailable');
+  await ensureRevenueCatAppUserID(purchases, appUserID);
+  const pkg = getFoundersPackage(await purchases.getOfferings?.());
+  if (!pkg || !purchases.purchasePackage) throw new Error('Founding Lifetime is no longer available');
+  const result = await purchases.purchasePackage(pkg);
+  const snapshot: EntitlementsSnapshot = {
+    isPro: extractIsPro(result.customerInfo),
+    isProToolsTrial: false,
+    proAccessType: extractProAccessType(result.customerInfo),
+    checkedAt: nowIso(), source: 'revenuecat', isStale: false,
+    appUserID: normalizeAppUserID(appUserID) ?? getCustomerInfoAppUserID(result.customerInfo),
+  };
+  await writeCachedEntitlements(snapshot);
+  return snapshot;
 }
 
 function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
@@ -609,6 +643,7 @@ export async function getEntitlements(params?: {
     const snapshot: EntitlementsSnapshot = {
       isPro,
       isProToolsTrial,
+      proAccessType: extractProAccessType(info),
       checkedAt: nowIso(),
       source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
       appUserID: resolvedAppUserID ?? null,
@@ -744,6 +779,7 @@ export async function restorePurchases(appUserID?: string | null): Promise<Entit
   const snapshot: EntitlementsSnapshot = {
     isPro,
     isProToolsTrial,
+    proAccessType: extractProAccessType(info),
     checkedAt: nowIso(),
     source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
     appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(info) ?? configuredRevenueCatAppUserID ?? null,
@@ -796,6 +832,7 @@ export async function purchasePro(appUserID?: string | null): Promise<Entitlemen
     isPro: extractIsPro(result?.customerInfo),
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     proPeriodType: extractProPeriodType(result?.customerInfo),
+    proAccessType: extractProAccessType(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
@@ -849,6 +886,7 @@ export async function purchaseProSku(params: {
     isPro: extractIsPro(result?.customerInfo),
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     proPeriodType: extractProPeriodType(result?.customerInfo),
+    proAccessType: extractProAccessType(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
@@ -998,7 +1036,8 @@ export async function getProStoreOfferSnapshot(
       const sku = pkg?.product?.identifier ?? pkg?.product?.productIdentifier;
       return typeof sku === 'string' && getCanonicalProSku(sku) != null;
     });
-    if (proPackages.length === 0) return { status: 'unavailable', products: {} };
+    const foundersPackage = getFoundersPackage(offerings);
+    if (proPackages.length === 0 && !foundersPackage) return { status: 'unavailable', products: {} };
 
     const productIdentifiers = proPackages
       .map((pkg) => pkg?.product?.identifier ?? pkg?.product?.productIdentifier)
@@ -1014,15 +1053,15 @@ export async function getProStoreOfferSnapshot(
     }
 
     const products: Record<string, ProStoreProductOffer> = {};
-    for (const pkg of proPackages) {
+    for (const pkg of [...proPackages, ...(foundersPackage ? [foundersPackage] : [])]) {
       const product = pkg?.product;
       const sku = product?.identifier ?? product?.productIdentifier;
       if (typeof sku !== 'string') continue;
-      const canonicalSku = getCanonicalProSku(sku);
+      const canonicalSku = sku === PRO_LIFETIME_SKU ? PRO_LIFETIME_SKU : getCanonicalProSku(sku);
       if (!canonicalSku) continue;
       const entry: ProStoreProductOffer = {
         sku,
-        introEligibility: normalizeIntroEligibility(
+        introEligibility: sku === PRO_LIFETIME_SKU ? 'no_offer' : normalizeIntroEligibility(
           eligibility[sku]?.status,
           purchases.INTRO_ELIGIBILITY_STATUS,
         ),

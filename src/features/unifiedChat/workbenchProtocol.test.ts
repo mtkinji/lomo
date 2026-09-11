@@ -163,3 +163,18 @@ describe('Unified Chat workbench protocol', () => {
     expect(parseAgentWorkbenchSurfaceMessage(raw)).toBeNull();
   });
 });
+
+test('negotiates render acknowledgement without requiring it from older surfaces', () => {
+  const ready = { protocolVersion: 2, type: 'surface.ready', requestId: 'ready' };
+  expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify(ready))).toEqual(ready);
+  expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify({ ...ready, supportsRenderedAck: true })))
+    .toEqual({ ...ready, supportsRenderedAck: true });
+  expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify({ protocolVersion: 2, type: 'surface.rendered', requestId: 'ack', initializationRequestId: 'init' })))
+    .toMatchObject({ type: 'surface.rendered', initializationRequestId: 'init' });
+  expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify({ protocolVersion: 2, type: 'surface.rendered', requestId: 'ack' }))).toBeNull();
+});
+
+test.each(['voice.cancel', 'voice.retry'])('supports explicit dictation recovery command %s', type => {
+  expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify({ protocolVersion: 2, type: 'surface.command', requestId: 'command', command: { type } })))
+    .toMatchObject({ command: { type } });
+});

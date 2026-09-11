@@ -6,6 +6,8 @@
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
 export { Input } from './Input';
+export { TagEntryField } from './TagEntryField';
+export { SearchField, type SearchFieldProps } from './SearchField';
 export { BottomDrawer as Sheet } from './BottomDrawer';
 export { Badge } from './Badge';
 export {
@@ -52,7 +54,6 @@ export { CelebrationInterstitialHost } from './CelebrationInterstitial';
 export { EmptyState } from './EmptyState';
 export { ThreeColumnRow } from './layout/ThreeColumnRow';
 export { Combobox } from './Combobox';
-export { ObjectPicker } from './ObjectPicker';
 export {
   EnumPickerField,
   SmallSetPickerField,

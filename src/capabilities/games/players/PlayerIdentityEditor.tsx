@@ -1,6 +1,7 @@
+import { Input } from '@/src/ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';
@@ -53,7 +54,7 @@ export function PlayerIdentityEditor({ visible, initial, eyebrow, title, saveLab
     onClose={onClose}
     primaryAction={{ label: saveLabel, disabled: !name.trim(), onPress: save }}
   >
-        <TextInput
+        <Input
           accessibilityLabel="Player name"
           autoFocus
           maxLength={18}
@@ -62,7 +63,6 @@ export function PlayerIdentityEditor({ visible, initial, eyebrow, title, saveLab
           returnKeyType="done"
           submitBehavior="blurAndSubmit"
           onSubmitEditing={save}
-          style={styles.input}
         />
         <View style={styles.choiceGroup}>
           <Text style={styles.choiceLabel}>COLOR</Text>
@@ -96,7 +96,6 @@ function SoundChoices<T extends string>({ label, choices, selected, onSelect }: 
 }
 
 const styles = StyleSheet.create({
-  input: { height: 52, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(32,29,24,0.22)', borderRadius: gamesTheme.radius.md, backgroundColor: gamesTheme.colors.white, color: gamesTheme.colors.ink, fontFamily: gamesTheme.type.utility, fontSize: 16 },
   choiceGroup: { gap: 7 },
   choiceLabel: { fontFamily: gamesTheme.type.utility, color: 'rgba(32,29,24,0.5)', fontSize: 9, letterSpacing: 1.2 },
   colorChoices: { flexDirection: 'row', gap: 10 },

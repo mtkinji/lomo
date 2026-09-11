@@ -18,7 +18,7 @@ import type {
   ViewProps,
   ViewStyle,
 } from 'react-native';
-import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, View } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -40,6 +40,8 @@ import {
   useAccessibilityPreferences,
 } from './hooks/useAccessibilityPreferences';
 import { bottomDrawerChromeTokens } from './drawerTokens';
+import { useKeyboardHeight } from './hooks/useKeyboardHeight';
+import { KeyboardAwareScrollContext } from './KeyboardAwareScrollView';
 import {
   resolveDrawerActionBottomInset,
   resolveDrawerActionInlinePadding,
@@ -241,6 +243,8 @@ type BottomDrawerProps = {
 };
 
 type BottomDrawerContextValue = {
+  resizeForKeyboard: boolean;
+  keyboardHeight: number;
   scrollY: SharedValue<number>;
   expansionProgress: SharedValue<number>;
   setScrollableGesture: (
@@ -411,6 +415,13 @@ export function BottomDrawer({
     keyboardAvoidanceEnabled,
   });
   const shouldResizeContents = shouldBottomDrawerResizeContents(keyboardBehavior);
+  const { isKeyboardVisible, keyboardHeight } = useKeyboardHeight();
+  // A lifted/resized drawer ends at the keyboard, which already covers the
+  // home indicator. Retain the canonical minimum gap without adding it again.
+  const contentBottomInset = isKeyboardVisible && (shouldLiftAboveKeyboard || shouldResizeContents)
+    ? 0
+    : insets.bottom;
+  const [resizeKeyboardOffset, setResizeKeyboardOffset] = useState(0);
   const motionDuration = useCallback(
     (durationMs: number) => getAccessibleAnimationDuration(durationMs, reduceMotionEnabled),
     [reduceMotionEnabled],
@@ -851,8 +862,8 @@ export function BottomDrawer({
   }, [closedOffset, dismissDragThresholdRatio, dismissable, minSnapHeight, requestCloseAnimated]);
 
   const surfacePanGesture = useMemo(
-    () => makePanGesture({ ignoreScrollLock: false, excludeTopEdge: true }),
-    [makePanGesture],
+    () => makePanGesture({ ignoreScrollLock: false, excludeTopEdge: true }).enabled(enableContentPanningGesture),
+    [makePanGesture, enableContentPanningGesture],
   );
 
   const topEdgePanGesture = useMemo(() => {
@@ -900,8 +911,8 @@ export function BottomDrawer({
               ? bottomDockGeometry.drawerFloatingAction.contentGap
               : bottomDockGeometry.drawerAction.contentGap,
             paddingBottom: bottomAccessoryPlacement === 'phoneFloating'
-              ? resolveDrawerFloatingActionBottomInset(insets.bottom)
-              : resolveDrawerActionBottomInset(insets.bottom),
+              ? resolveDrawerFloatingActionBottomInset(contentBottomInset)
+              : resolveDrawerActionBottomInset(contentBottomInset),
           },
           inFlowBottomRegionKind === 'footer' ? styles.semanticFooterSurface : null,
           resolvedShowTopBorder ? styles.bottomAccessoryBorder : null,
@@ -923,7 +934,7 @@ export function BottomDrawer({
         style={[
           styles.actionDockHost,
           {
-            bottom: resolveDrawerFloatingActionBottomInset(insets.bottom),
+            bottom: resolveDrawerFloatingActionBottomInset(contentBottomInset),
             paddingHorizontal: resolveDrawerFloatingActionInlinePadding(
               contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
             ),
@@ -940,7 +951,7 @@ export function BottomDrawer({
       testID="bottom-drawer.dynamic-measurement"
       onLayout={(event) => {
         const { y, height } = event.nativeEvent.layout;
-        const safeAreaHeight = hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
+        const safeAreaHeight = hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : contentBottomInset;
         const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
         setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
       }}
@@ -954,7 +965,7 @@ export function BottomDrawer({
       testID="bottom-drawer.keyboard-resized-content"
       style={styles.keyboardResizedContent}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={resizeKeyboardOffset}
     >
       {sheetChildren}
     </KeyboardAvoidingView>
@@ -963,6 +974,11 @@ export function BottomDrawer({
   const drawerSurface = (
     <Animated.View
       testID="bottom-drawer.surface"
+      onLayout={shouldResizeContents ? (event) => {
+        // The inner KeyboardAvoidingView is sheet-relative, while keyboard
+        // screenY is window-relative. Include the bottom-anchored sheet origin.
+        setResizeKeyboardOffset(Math.max(0, windowHeight - event.nativeEvent.layout.height));
+      } : undefined}
       pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
       accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
       importantForAccessibility="yes"
@@ -970,7 +986,7 @@ export function BottomDrawer({
       style={[
         styles.sheet,
         {
-          paddingBottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+          paddingBottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : contentBottomInset,
           maxHeight: availableHeight,
         },
         sheetAnimatedStyle,
@@ -1031,24 +1047,27 @@ export function BottomDrawer({
     </Animated.View>
   );
 
-  const gestureManagedDrawerSurface = enableContentPanningGesture ? (
+  // Keep the native subtree mounted when a focused editor expands the drawer.
+  const gestureManagedDrawerSurface = (
     <GestureDetector gesture={surfacePanGesture}>
       {drawerSurface}
     </GestureDetector>
-  ) : drawerSurface;
+  );
 
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
     <BottomDrawerContext.Provider
       value={{
+        resizeForKeyboard: shouldResizeContents,
+        keyboardHeight,
         scrollY,
         expansionProgress,
         setScrollableGesture,
         scrollContentTopInset,
         parentActionInsets: {
           inline: contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
-          bottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+          bottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : contentBottomInset,
         },
       }}
     >
@@ -1137,14 +1156,41 @@ export function BottomDrawer({
   );
 }
 
-export function BottomDrawerScrollView(props: ScrollViewProps) {
-  const { scrollY, scrollContentTopInset, setScrollableGesture } = useBottomDrawerContext();
+export function getDrawerFocusedInputScrollOffset(top: number, height: number, viewport: number, current: number) {
+  const clearance = spacing.lg;
+  if (viewport <= 0 || height > viewport - clearance * 2) return current;
+  return Math.max(0, Math.min(Math.max(current, top + height + clearance - viewport), top - clearance));
+}
+
+export function BottomDrawerScrollView({underlapsHandle = true, ...props}: ScrollViewProps & {
+  /** False when a fixed header sits above this body; the drawer retains handle clearance. */
+  underlapsHandle?: boolean;
+}) {
+  const { scrollY, scrollContentTopInset, setScrollableGesture, resizeForKeyboard, keyboardHeight } = useBottomDrawerContext();
+  const scrollRef = useRef<ScrollView>(null);
+  const innerRef = useRef<View>(null!);
+  const contentRef = props.innerViewRef ?? innerRef;
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const revealFocusedInput = useCallback(() => {
+    const focused = TextInput.State.currentlyFocusedInput();
+    if (!resizeForKeyboard || keyboardHeight <= 0 || !focused || !contentRef.current) return;
+    focused.measureLayout(contentRef.current, (_x, top, _width, height) => {
+      if (TextInput.State.currentlyFocusedInput() !== focused) return;
+      const current = scrollY.value;
+      const y = getDrawerFocusedInputScrollOffset(top, height, viewportHeight, current);
+      if (Math.abs(y - current) > 1) scrollRef.current?.scrollTo({ y, animated: false });
+    }, () => {}); // A focused field in another modal is not this scroll view's child.
+  }, [contentRef, keyboardHeight, resizeForKeyboard, scrollY, viewportHeight]);
+  useLayoutEffect(() => {
+    const frame = requestAnimationFrame(revealFocusedInput);
+    return () => cancelAnimationFrame(frame);
+  }, [revealFocusedInput]);
 
   const nativeGesture = useMemo(() => Gesture.Native(), []);
   useLayoutEffect(() => {
-    setScrollableGesture(nativeGesture, true);
+    setScrollableGesture(nativeGesture, underlapsHandle);
     return () => setScrollableGesture(null);
-  }, [nativeGesture, setScrollableGesture]);
+  }, [nativeGesture, setScrollableGesture, underlapsHandle]);
 
   const contentContainerStyle = useMemo(() => {
     const flattened = StyleSheet.flatten(props.contentContainerStyle);
@@ -1153,9 +1199,9 @@ export function BottomDrawerScrollView(props: ScrollViewProps) {
       : 0;
     return [
       props.contentContainerStyle,
-      { paddingTop: existingPaddingTop + scrollContentTopInset },
+      { paddingTop: existingPaddingTop + (underlapsHandle ? scrollContentTopInset : 0) },
     ];
-  }, [props.contentContainerStyle, scrollContentTopInset]);
+  }, [props.contentContainerStyle, scrollContentTopInset, underlapsHandle]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -1164,14 +1210,37 @@ export function BottomDrawerScrollView(props: ScrollViewProps) {
   });
 
   return (
+    <KeyboardAwareScrollContext.Provider value={resizeForKeyboard ? {
+      scrollToFocusedInput: revealFocusedInput,
+      keyboardHeight,
+      keyboardClearance: spacing.lg,
+      viewportHeight: viewportHeight > 0 ? Math.max(44, viewportHeight - spacing.lg * 2 - spacing.sm * 2) : undefined,
+    } : null}>
     <GestureDetector gesture={nativeGesture}>
       <Animated.ScrollView
         {...props}
+        ref={scrollRef}
+        innerViewRef={contentRef}
+        automaticallyAdjustKeyboardInsets={resizeForKeyboard ? false : props.automaticallyAdjustKeyboardInsets}
+        onLayout={(event) => {
+          setViewportHeight(event.nativeEvent.layout.height);
+          props.onLayout?.(event);
+        }}
+        onContentSizeChange={(width, height) => {
+          revealFocusedInput();
+          props.onContentSizeChange?.(width, height);
+        }}
+        onFocus={(event) => {
+          requestAnimationFrame(revealFocusedInput);
+          props.onFocus?.(event);
+        }}
+        keyboardShouldPersistTaps={props.keyboardShouldPersistTaps ?? 'handled'}
         contentContainerStyle={contentContainerStyle}
         onScroll={onScroll}
         scrollEventThrottle={16}
       />
     </GestureDetector>
+    </KeyboardAwareScrollContext.Provider>
   );
 }
 

@@ -35,6 +35,24 @@ describe('ActivityInventoryRow', () => {
     handlers.onEditDuration.mockClear();
   });
 
+  it('keeps card navigation separate from the completion action', () => {
+    const onPressActivity = jest.fn();
+    const onToggleComplete = jest.fn();
+    renderWithProviders(<ActivityInventoryRow activity={activity} meta="Today" estimateMeta={undefined}
+      metaTone="future" priorityIndicator={undefined} metaLoading={false} isDueToday={false}
+      rowGap={2} rowOuterGap={0} isDragging={false} isGhost={false} {...handlers}
+      onPressActivity={onPressActivity} onToggleComplete={onToggleComplete} />);
+    const row = mockActivityListItemRender.mock.calls[0]?.[0] as {
+      onPress: () => void; onToggleComplete: () => void;
+    };
+    row.onPress();
+    expect(onPressActivity).toHaveBeenCalledWith(activity.id);
+    expect(onToggleComplete).not.toHaveBeenCalled();
+    row.onToggleComplete();
+    expect(onToggleComplete).toHaveBeenCalledWith(activity.id);
+    expect(onPressActivity).toHaveBeenCalledTimes(1);
+  });
+
   it('does not rebuild an unchanged row when its inventory parent rerenders', () => {
     const props = {
       activity,

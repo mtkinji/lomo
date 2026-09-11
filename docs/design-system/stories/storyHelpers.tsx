@@ -68,6 +68,8 @@ const styles = StyleSheet.create({
   },
   specimen: {
     minWidth: 180,
+    maxWidth: '100%',
+    flexShrink: 1,
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.cardBorder,

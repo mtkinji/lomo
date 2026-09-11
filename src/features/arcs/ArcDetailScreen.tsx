@@ -1,6 +1,6 @@
 import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { CommonActions, RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { Animated, StyleSheet, View, TextInput, Platform, ScrollView, Alert, Linking, Image, Share, StyleProp, ViewStyle, Text } from 'react-native';
+import { Animated, StyleSheet, View, Platform, ScrollView, Alert, Linking, Image, Share, StyleProp, ViewStyle, Text } from 'react-native';
 import {
   ObjectPageHeader,
   HeaderActionPill,
@@ -57,7 +57,6 @@ import {
 } from '../../ui/DropdownMenu';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { OpportunityCard } from '../../ui/OpportunityCard';
-import { BottomDrawer } from '../../ui/BottomDrawer';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { HapticsService } from '../../services/HapticsService';
 import {
@@ -215,7 +214,6 @@ export function ArcDetailScreen() {
     }
     return ['topographyDots'];
   }, [visuals]);
-  const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
   const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
   const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] =
     useState(false);
@@ -1373,103 +1371,6 @@ export function ArcDetailScreen() {
   );
 }
 
-type ArcNarrativeEditorSheetProps = {
-  visible: boolean;
-  onClose: () => void;
-  arcName: string;
-  narrative?: string;
-  onSave: (nextNarrative: string) => void;
-};
-
-function ArcNarrativeEditorSheet({
-  visible,
-  onClose,
-  arcName,
-  narrative,
-  onSave,
-}: ArcNarrativeEditorSheetProps) {
-  const [draft, setDraft] = useState(narrative ?? '');
-
-  useEffect(() => {
-    setDraft(narrative ?? '');
-  }, [narrative]);
-
-  if (!visible) {
-    return null;
-  }
-
-  const handleSave = () => {
-    onSave(draft);
-  };
-
-  return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['90%']}>
-      <View style={styles.narrativeSheetContent}>
-        <View style={styles.narrativeSheetHeaderRow}>
-          <View style={styles.narrativeSheetHeaderSide}>
-            <Button
-              variant="ghost"
-              onPress={onClose}
-              style={styles.narrativeSheetHeaderButton}
-            >
-              <Text style={styles.narrativeSheetHeaderLinkText}>Cancel</Text>
-            </Button>
-          </View>
-          <View style={styles.narrativeSheetHeaderCenter}>
-            <Text style={styles.narrativeSheetTitle}>Arc note</Text>
-            <Text style={styles.narrativeSheetSubtitle} numberOfLines={1}>
-              {arcName}
-            </Text>
-          </View>
-          <View style={styles.narrativeSheetHeaderSideRight}>
-            <Button
-              variant="ghost"
-              onPress={handleSave}
-              style={styles.narrativeSheetHeaderButton}
-            >
-              <Text style={styles.narrativeSheetHeaderPrimaryText}>Done</Text>
-            </Button>
-          </View>
-        </View>
-
-        <View style={styles.narrativeRichToolbar}>
-          <View style={styles.narrativeRichToolbarModePill}>
-            <Text style={styles.narrativeRichToolbarModeText}>Body</Text>
-          </View>
-          <View style={styles.narrativeRichToolbarSpacer} />
-          <View style={styles.narrativeRichToolbarGroup}>
-            <View style={styles.narrativeRichToolbarButton}>
-              <Text style={styles.narrativeRichToolbarButtonText}>B</Text>
-            </View>
-            <View style={styles.narrativeRichToolbarButton}>
-              <Text style={styles.narrativeRichToolbarButtonText}>I</Text>
-            </View>
-            <View style={styles.narrativeRichToolbarButton}>
-              <Text style={styles.narrativeRichToolbarButtonText}>U</Text>
-            </View>
-            <View style={styles.narrativeRichToolbarButton}>
-              <Text style={styles.narrativeRichToolbarButtonText}>•</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.narrativeSheetEditorContainer}>
-          <TextInput
-            style={styles.narrativeSheetTextInput}
-            multiline
-            textAlignVertical="top"
-            placeholder="Describe this Arc in your own words. What direction is this about, and how do you imagine it changing your goals and days?"
-            placeholderTextColor={colors.textSecondary}
-            value={draft}
-            onChangeText={setDraft}
-            autoFocus
-          />
-        </View>
-      </View>
-    </BottomDrawer>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -2416,104 +2317,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 32,
     height: 32,
-  },
-  narrativeSheetContent: {
-    flex: 1,
-    paddingBottom: spacing.lg,
-  },
-  narrativeSheetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  narrativeSheetHeaderSide: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  narrativeSheetHeaderSideRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  narrativeSheetHeaderCenter: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  narrativeSheetTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  narrativeSheetSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  narrativeSheetHeaderButton: {
-    minHeight: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  narrativeSheetHeaderLinkText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  narrativeSheetHeaderPrimaryText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.medium,
-  },
-  narrativeRichToolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-    marginBottom: spacing.md,
-  },
-  narrativeRichToolbarModePill: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.canvas,
-  },
-  narrativeRichToolbarModeText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  narrativeRichToolbarSpacer: {
-    flex: 1,
-  },
-  narrativeRichToolbarGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-  },
-  narrativeRichToolbarButton: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    backgroundColor: colors.canvas,
-  },
-  narrativeRichToolbarButtonText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-  },
-  narrativeSheetEditorContainer: {
-    flex: 1,
-    marginTop: spacing.sm,
-  },
-  narrativeSheetTextInput: {
-    flex: 1,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.canvas,
-    color: colors.textPrimary,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
   },
   insightsSectionContainer: {
     marginTop: 0,

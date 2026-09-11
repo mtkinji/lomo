@@ -110,8 +110,9 @@ function isCustomSupabaseDomain(): boolean {
   }
 }
 
-async function postJson<T>(fnName: string, body: Record<string, unknown>, requireAuth = true): Promise<T> {
+async function postJson<T>(fnName: string, body: Record<string, unknown>, requireAuth = true, signal?: AbortSignal): Promise<T> {
   const headers = await buildHeaders(requireAuth);
+  if (signal?.aborted) throw new Error('calendar_access_timeout');
   const candidatesRaw = getEdgeFunctionUrlCandidatesForHeaders(fnName, headers);
   const supabaseUrlCandidate = getEdgeFunctionUrlFromSupabaseUrl(fnName);
   // Branding + existing infra: if SUPABASE_URL is a custom domain (e.g. auth.kwilt.app) and it
@@ -128,6 +129,7 @@ async function postJson<T>(fnName: string, body: Record<string, unknown>, requir
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
     });
     const text = await res.text().catch(() => '');
     // Some edge/CDN layers can return non-JSON bodies (HTML, empty, etc.) even when the
@@ -182,15 +184,30 @@ export async function listCalendars(): Promise<CalendarListItem[]> {
 }
 
 export async function listCalendarsWithErrors(): Promise<{ calendars: CalendarListItem[]; errors: string[] }> {
-  const res = await postJson<{ calendars: CalendarListItem[]; errors?: string[] }>(
-    'calendar-api',
-    { action: 'list_calendars' },
-    true,
-  );
-  return {
-    calendars: res.calendars ?? [],
-    errors: Array.isArray(res?.errors) ? res.errors : [],
-  };
+  // Bound the entire read, including session-token lookup and response decoding.
+  // A stalled check must not leave Plan's recommendations refreshing indefinitely.
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error('calendar_access_timeout'));
+        controller.abort();
+      }, 15_000);
+    });
+    const res = await Promise.race([
+      postJson<{ calendars: CalendarListItem[]; errors?: string[] }>(
+        'calendar-api', { action: 'list_calendars' }, true, controller.signal,
+      ),
+      deadline,
+    ]);
+    return {
+      calendars: res.calendars ?? [],
+      errors: Array.isArray(res?.errors) ? res.errors : [],
+    };
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 export async function getCalendarPreferences(): Promise<{

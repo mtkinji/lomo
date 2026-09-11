@@ -407,7 +407,7 @@ export function GoalsScreen() {
     hasVisibleResults: hasVisibleGoalResults,
     hasArchivedResults: hasArchivedGoalResults,
     handleScroll: handleGoalsInventoryScroll,
-    handleClearSearch: handleClearGoalSearch,
+    handleSearchCleared: handleGoalSearchCleared,
   } = useGoalsInventorySearchAndSort({
     visibleItems: visibleGoalMasonryItems,
     archivedItems: archivedGoalMasonryItems,
@@ -517,8 +517,7 @@ export function GoalsScreen() {
             <GoalsInventorySearchBar
               value={goalSearchQuery}
               onChangeText={setGoalSearchQuery}
-              isSearching={isSearchingGoals}
-              onClear={handleClearGoalSearch}
+              onClear={handleGoalSearchCleared}
               sortMode={goalSortMode}
               onSortModeChange={setGoalSortMode}
             />
@@ -1390,6 +1389,8 @@ export function GoalCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={handleChangeMode}
+          onClose={onClose}
+          closeAccessibilityLabel="Close new Goal"
           objectLabel="Goal"
           onPressInfo={() => setIsGoalAiInfoVisible(true)}
           infoAccessibilityLabel="Show Goal AI context"

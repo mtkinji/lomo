@@ -3,6 +3,15 @@ import path from 'path';
 import './MoneyTransactionDetailScreen';
 
 describe('MoneyTransactionDetailScreen category field', () => {
+  it('keeps the tall searchable picker anchored when the keyboard opens', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+    const visible = source.indexOf('visible={categoryPickerOpen}');
+    const picker = source.slice(source.lastIndexOf('<BottomDrawer', visible), source.indexOf('<BottomDrawerScrollView', visible));
+
+    // Native regression: lifting the 78% sheet puts search behind the status bar.
+    expect(picker).toContain('keyboardBehavior="resize"');
+  });
+
   it('does not render a decorative color marker beside the selected relation', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 

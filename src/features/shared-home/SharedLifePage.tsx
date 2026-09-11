@@ -24,6 +24,7 @@ export function SharedLifePage({
   visible = true,
   rightElement,
   moreMenu,
+  keyboardAvoidance = true,
 }: {
   title: string;
   onClose: () => void;
@@ -32,6 +33,8 @@ export function SharedLifePage({
   visible?: boolean;
   rightElement?: ReactNode;
   moreMenu?: ReactNode;
+  /** Disable when the body owns keyboard insets and focused-input scrolling. */
+  keyboardAvoidance?: boolean;
 }) {
   const navigation = useContext(NavigationContext);
   const [focused, setFocused] = useState(() => navigation?.isFocused() ?? true);
@@ -56,7 +59,9 @@ export function SharedLifePage({
         <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
           <KeyboardAvoidingView
             style={styles.page}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={
+              keyboardAvoidance && Platform.OS === "ios" ? "padding" : undefined
+            }
           >
             <View style={styles.header}>
               <Button
@@ -68,9 +73,20 @@ export function SharedLifePage({
               >
                 ×
               </Button>
-              {moreMenu ? <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-                <Text style={typography.titleSm}>{title}</Text>{moreMenu}
-              </View> : <Text style={styles.title}>{title}</Text>}
+              {moreMenu ? (
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={typography.titleSm}>{title}</Text>
+                  {moreMenu}
+                </View>
+              ) : (
+                <Text style={styles.title}>{title}</Text>
+              )}
               {rightElement ?? <View style={styles.balance} />}
             </View>
             <View style={styles.page}>

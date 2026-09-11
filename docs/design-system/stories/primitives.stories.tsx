@@ -17,7 +17,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Candidate primitives for a future @kwilt/ui-native package. Goals is the likely source for most general components; Money is the likely source for the switch pattern.',
+          'Mixed primitive reference examples. Consult component-inventory.md for individual maturity; the canonical input treatment and authoring examples live under Forms/Input Family.',
       },
     },
   },
@@ -25,6 +25,7 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
 
 export const Cards: Story = {
   render: () => (

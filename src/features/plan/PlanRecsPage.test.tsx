@@ -45,6 +45,33 @@ const defaultProps = {
 };
 
 describe('PlanRecsPage', () => {
+  it.each(['refreshing', 'expired'] as const)('offers calendar recovery with inline quick add while %s', (status) => {
+    const onOpenCalendarSettings = jest.fn();
+    const onRetryCalendarAccess = jest.fn();
+    const { getByText, queryByText } = renderWithProviders(
+      <PlanRecsPage
+        {...defaultProps}
+        calendarAccessStatus={status}
+        onRetryCalendarAccess={onRetryCalendarAccess}
+        emptyState={{ kind: 'calendar_access_expired', title: 'Calendar access', description: 'Check access.' }}
+        onOpenCalendarSettings={onOpenCalendarSettings}
+        quickAdd={{
+          value: '', onChangeText: jest.fn(), inputRef: React.createRef(), isFocused: false,
+          setIsFocused: jest.fn(), onSubmit: jest.fn(), onCollapse: jest.fn(),
+          selectedAiActions: ['steps'], onSelectedAiActionsChange: jest.fn(),
+        }}
+      />,
+    );
+    if (status === 'expired') {
+      fireEvent.press(getByText('Try again'));
+      expect(onRetryCalendarAccess).toHaveBeenCalledTimes(1);
+    } else {
+      expect(queryByText('Try again')).toBeNull();
+    }
+    fireEvent.press(getByText('Manage calendars'));
+    expect(onOpenCalendarSettings).toHaveBeenCalledTimes(1);
+  });
+
   it('renders a compact completed state after all recommendations are placed', () => {
     const onReviewPlan = jest.fn();
     const onRerun = jest.fn();

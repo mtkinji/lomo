@@ -1,10 +1,14 @@
-import { fireEvent } from '@testing-library/react-native';
-import { StyleSheet, Text } from 'react-native';
+import React from 'react';
+import { act, fireEvent } from '@testing-library/react-native';
+import { KeyboardAvoidingView, StyleSheet, Text } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { bottomDockGeometry } from '../theme';
+import * as keyboardHeight from './hooks/useKeyboardHeight';
 import {
   BottomDrawer,
   BottomDrawerScrollView,
+  getDrawerFocusedInputScrollOffset,
   getBottomDrawerExpansionOpacity,
   isBottomDrawerAccessibilityModal,
   isBottomDrawerHandleTouchY,
@@ -14,6 +18,45 @@ import {
 } from './BottomDrawer';
 
 describe('BottomDrawer accessibility contract', () => {
+  it('reveals the field within the resized body, including the footer clearance', () => {
+    expect(getDrawerFocusedInputScrollOffset(280, 112, 300, 0)).toBe(108);
+    expect(getDrawerFocusedInputScrollOffset(280, 112, 240, 108)).toBe(168);
+    expect(getDrawerFocusedInputScrollOffset(40, 112, 300, 100)).toBe(24);
+    expect(getDrawerFocusedInputScrollOffset(100, 112, 300, 0)).toBe(0);
+    // An oversized custom field needs its own internal scrolling; don't jump it.
+    expect(getDrawerFocusedInputScrollOffset(40, 400, 200, 100)).toBe(100);
+  });
+
+  it.each(['resize', 'lift', 'extend'] as const)(
+    'applies the phone safe area only at the device edge in a %s drawer',
+    async (keyboardBehavior) => {
+      const keyboard = jest.spyOn(keyboardHeight, 'useKeyboardHeight');
+      keyboard.mockReturnValue({ keyboardHeight: 0, lastKnownKeyboardHeight: 320, isKeyboardVisible: false });
+      const editor = () => (
+        <BottomDrawer visible onClose={jest.fn()} keyboardBehavior={keyboardBehavior}
+          footer={{ primaryAction: { label: 'Save', onPress: jest.fn() } }}>
+          <Text>Editor</Text>
+        </BottomDrawer>
+      );
+      try {
+        const { getByTestId, rerender } = renderWithProviders(editor());
+        await act(async () => {});
+        const bottomPadding = () => StyleSheet.flatten(getByTestId('bottom-drawer.footer').props.style).paddingBottom;
+        const restingPadding = bottomPadding();
+        keyboard.mockReturnValue({ keyboardHeight: 346, lastKnownKeyboardHeight: 346, isKeyboardVisible: true });
+        rerender(editor());
+        expect(bottomPadding()).toBe(keyboardBehavior === 'extend'
+          ? restingPadding
+          : bottomDockGeometry.drawerAction.minimumBottomGap);
+        keyboard.mockReturnValue({ keyboardHeight: 0, lastKnownKeyboardHeight: 346, isKeyboardVisible: false });
+        rerender(editor());
+        expect(bottomPadding()).toBe(restingPadding);
+      } finally {
+        keyboard.mockRestore();
+      }
+    },
+  );
+
   it('isolates modal content, hides its backdrop, and supports escape', () => {
     const onClose = jest.fn();
     const { getByTestId } = renderWithProviders(
@@ -83,7 +126,9 @@ describe('BottomDrawer accessibility contract', () => {
       </BottomDrawer>,
     );
 
-    expect(UNSAFE_getAllByType(GestureDetector)).toHaveLength(1);
+    expect(UNSAFE_getAllByType(GestureDetector)).toHaveLength(2);
+    const surface = UNSAFE_getAllByType(GestureDetector).find((item) => item.props.children.props.testID === 'bottom-drawer.surface');
+    expect(surface?.props.gesture.toGestureArray()[0]?.config.enabled).toBe(false);
     const touchTarget = getByTestId('bottom-drawer.handle-touch-target');
     expect(StyleSheet.flatten(touchTarget.props.style)).toMatchObject({
       position: 'absolute',
@@ -122,6 +167,19 @@ describe('BottomDrawer accessibility contract', () => {
     );
     expect(surfaceDetector).toBeDefined();
     expect(getByTestId('bottom-drawer.handle-touch-target')).toBeTruthy();
+  });
+
+  it('keeps handle clearance above a fixed header when only the body scrolls', () => {
+    const {getByTestId} = renderWithProviders(
+      <BottomDrawer visible onClose={jest.fn()}>
+        <Text>Banner header</Text>
+        <BottomDrawerScrollView underlapsHandle={false} testID="banner-results" contentContainerStyle={{paddingTop: 6}}>
+          <Text>Image results</Text>
+        </BottomDrawerScrollView>
+      </BottomDrawer>,
+    );
+    expect(getByTestId('bottom-drawer.handle-layout-spacer', {includeHiddenElements: true})).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('banner-results').props.contentContainerStyle)).toMatchObject({paddingTop: 6});
   });
 
   it('moves the handle allowance into scroll content so rows can reach the sheet edge', () => {
@@ -317,4 +375,30 @@ describe('BottomDrawer accessibility contract', () => {
       importantForAccessibility: 'yes',
     });
   });
+});
+
+it('accounts for the bottom-anchored sheet origin when resizing above the keyboard', () => {
+  const { Dimensions } = require('react-native');
+  const { getByTestId, UNSAFE_getByType } = renderWithProviders(
+    <BottomDrawer visible onClose={jest.fn()} keyboardBehavior="resize"><Text>Form</Text></BottomDrawer>,
+  );
+  const height = Dimensions.get('window').height - 180;
+  fireEvent(getByTestId('bottom-drawer.surface'), 'layout', { nativeEvent: { layout: { x: 0, y: 180, width: 390, height } } });
+  // RN compares parent-relative layout with a screen-relative keyboard frame.
+  expect(UNSAFE_getByType(KeyboardAvoidingView).props.keyboardVerticalOffset).toBe(180);
+});
+
+test('changing content panning preserves the mounted editor and its draft', () => {
+  const mounted = jest.fn(); const unmounted = jest.fn();
+  function Editor() {
+    React.useEffect(() => { mounted(); return unmounted; }, []);
+    return <Text>Retained Chat draft</Text>;
+  }
+  const drawer = (enabled: boolean) => <BottomDrawer visible keyboardAvoidanceEnabled={false} enableContentPanningGesture={enabled} onClose={jest.fn()}><Editor /></BottomDrawer>;
+  const { rerender } = renderWithProviders(drawer(true));
+  rerender(drawer(false));
+  expect(mounted).toHaveBeenCalledTimes(1);
+  expect(unmounted).not.toHaveBeenCalled();
+  rerender(drawer(true));
+  expect(mounted).toHaveBeenCalledTimes(1);
 });

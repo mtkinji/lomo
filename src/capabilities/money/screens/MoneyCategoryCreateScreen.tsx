@@ -1,6 +1,7 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Input } from '../../../ui/Input';
@@ -33,7 +34,7 @@ export function MoneyCategoryCreateScreen({
   return (
     <AppShell>
       <PageHeader title="New category" onPressBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
           <Heading variant="md">Make room for what matters</Heading>
           <Text tone="secondary">Name the category and set the amount you intend to use each month.</Text>
@@ -58,7 +59,7 @@ export function MoneyCategoryCreateScreen({
         <Button disabled={savingCategory} fullWidth onPress={() => void submit()} variant="primary">
           {savingCategory ? 'Creating…' : 'Create category'}
         </Button>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }

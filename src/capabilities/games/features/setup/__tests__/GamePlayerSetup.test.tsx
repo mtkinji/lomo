@@ -44,6 +44,17 @@ describe('GamePlayerSetup', () => {
     ]);
   });
 
+  it('removes only the selected seat through the field action without starting a game', () => {
+    const onChange = jest.fn();
+    const onStart = jest.fn();
+    const seats = [{ key: 'one', displayName: 'Andrew' }, { key: 'two', displayName: 'Blair' }, { key: 'three', displayName: 'Alden' }];
+    const screen = render(<GamePlayerSetup {...common} mode="connection" seats={seats} onChange={onChange} onStart={onStart} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Remove player 2' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith([seats[0], seats[2]]);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
   it('keeps local connection games on the same player and start surface', () => {
     const onStart = jest.fn();
     const screen = render(<GamePlayerSetup

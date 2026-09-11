@@ -29,6 +29,7 @@ import { SubscriptionLegalLinks } from '../paywall/SubscriptionLegalLinks';
 export function ManageSubscriptionScreen() {
   const proUpgradeInvitation = getProUpgradeInvitation(isAdvancedScreenTimePaywallEnabled());
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
+  const proAccessType = useEntitlementsStore((state) => state.proAccessType);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const isRefreshing = useEntitlementsStore((state) => state.isRefreshing);
   const restore = useEntitlementsStore((state) => state.restore);
@@ -61,7 +62,7 @@ export function ManageSubscriptionScreen() {
 
   return (
     <AppShell>
-      <PageHeader title="Subscriptions" onPressBack={handleBack} />
+      <PageHeader title="Pro access" onPressBack={handleBack} />
       <View style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -74,9 +75,11 @@ export function ManageSubscriptionScreen() {
               {isPro ? (
                 <LinearGradient colors={paywallTheme.gradientColors} style={styles.planGradient}>
                   <VStack space="xs">
-                    <Heading style={styles.planTitle}>Kwilt Pro</Heading>
+                    <Heading style={styles.planTitle}>{proAccessType === 'lifetime' ? 'Kwilt Pro · Lifetime' : 'Kwilt Pro'}</Heading>
                     <Text style={styles.planSubtitle}>
-                      Connected Money, advanced Screen Time, and advanced AI. Manage billing in the App Store.
+                      {proAccessType === 'lifetime'
+                        ? 'All Pro features. Your lifetime purchase does not renew.'
+                        : 'Connected Money, advanced Screen Time, and advanced AI. Manage billing in the App Store.'}
                     </Text>
                   </VStack>
                 </LinearGradient>

@@ -9,7 +9,8 @@ import { colors, spacing, typography } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawerScrollView } from './BottomDrawer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './DropdownMenu';
-import { Input } from './Input';
+import { SearchField } from './SearchField';
+import { resolveInputAppearance } from './inputAppearance';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
 import { Icon } from './Icon';
@@ -18,7 +19,7 @@ import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 const MAX_MENU_HEIGHT = 1000; // Large enough to fill any screen up to the 90% cap.
 const MIN_MENU_HEIGHT = 480; // Generous minimum to ensure the drawer always feels "high enough".
 const MIN_POPOVER_LIST_HEIGHT = 120;
-const SEARCH_CHROME_HEIGHT = 56;
+const SEARCH_CHROME_HEIGHT = Number(resolveInputAppearance({size: 'sm'}).frameStyle.minHeight) + spacing.sm * 2 + 1;
 // When the keyboard is about to open due to the combobox search autofocus,
 // we used to scroll the trigger field up. However, with a 90% height drawer,
 // the trigger is always covered, so we skip the background scrolling to
@@ -417,14 +418,12 @@ export function Combobox({
             {showSearch ? (
               <>
                 <View style={styles.searchRow}>
-                  <Input
+                  <SearchField
+                    accessibilityLabel={searchPlaceholder}
                     value={query}
                     onChangeText={setQuery}
                     placeholder={searchPlaceholder}
-                    leadingIcon="search"
-                    variant="inline"
                     size="sm"
-                    elevation="flat"
                     autoFocus={shouldAutoFocusSearch}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -569,15 +568,12 @@ export function Combobox({
             {showSearch ? (
               <>
                 <View style={styles.searchRow}>
-                  <Input
+                  <SearchField
+                    accessibilityLabel={searchPlaceholder}
                     value={query}
                     onChangeText={setQuery}
                     placeholder={searchPlaceholder}
-                    leadingIcon="search"
-                    // ShadCN "CommandInput" feel: input sits flush; the row provides padding.
-                    variant="inline"
                     size="sm"
-                    elevation="flat"
                     autoFocus={shouldAutoFocusSearch}
                     autoCapitalize="none"
                     autoCorrect={false}

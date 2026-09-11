@@ -1,17 +1,18 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Keyboard, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { useAppStore } from '../../store/useAppStore';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { KeyboardAwareScrollView } from '../../ui/KeyboardAwareScrollView';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { Heading, HStack, Text, VStack } from '../../ui/primitives';
+import { Heading, HStack, Input, Text, VStack } from '../../ui/primitives';
 import { activityAreaActions } from './actions/activityAreaActionsBoundary';
 import { activityAreaReviewReference } from './actions/activityAreaActions';
 
@@ -46,8 +47,10 @@ export function ActivityAreasSettingsScreen() {
     if (!editingAreaId) return;
     const label = editingLabel.trim();
     const area = areas.find((item) => item.id === editingAreaId);
+    if (!label || !area) return;
     try {
-      if (label && area) activityAreaActions.update({ ...activityAreaReviewReference(area), label });
+      activityAreaActions.update({ ...activityAreaReviewReference(area), label });
+      Keyboard.dismiss();
       setEditingAreaId(null);
       setEditingLabel('');
     } catch (error) {
@@ -57,8 +60,14 @@ export function ActivityAreasSettingsScreen() {
 
   return (
     <AppShell>
-      <PageHeader title="Areas" onPressBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <PageHeader
+        title="Areas"
+        onPressBack={() => navigation.goBack()}
+        rightElement={editingAreaId ? (
+          <Button label="Done" variant="ghost" onPress={saveEditing} disabled={!editingLabel.trim()} />
+        ) : null}
+      />
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
         <VStack space="md">
           <View style={styles.panel}>
             <Heading variant="sm">Your areas</Heading>
@@ -71,15 +80,16 @@ export function ActivityAreasSettingsScreen() {
                 <HStack key={area.id} alignItems="center" justifyContent="space-between" style={styles.row}>
                   <View style={styles.rowText}>
                     {isEditing ? (
-                      <TextInput
+                      <Input
                         value={editingLabel}
                         onChangeText={setEditingLabel}
                         autoFocus
                         returnKeyType="done"
+                        enablesReturnKeyAutomatically
+                        submitBehavior="submit"
                         onSubmitEditing={saveEditing}
                         placeholder="Area name"
-                        placeholderTextColor={colors.muted}
-                        style={styles.input}
+                        accessibilityLabel="Area name"
                       />
                     ) : (
                       <>
@@ -91,9 +101,7 @@ export function ActivityAreasSettingsScreen() {
                     )}
                   </View>
                   <HStack space="xs">
-                    {isEditing ? (
-                      <Button label="Save" onPress={saveEditing} disabled={!editingLabel.trim()} />
-                    ) : (
+                    {!isEditing ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Rename ${area.label}`}
@@ -102,7 +110,7 @@ export function ActivityAreasSettingsScreen() {
                       >
                         <Icon name="edit" size={18} color={colors.textPrimary} />
                       </Pressable>
-                    )}
+                    ) : null}
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Archive ${area.label}`}
@@ -125,12 +133,12 @@ export function ActivityAreasSettingsScreen() {
           <View style={styles.panel}>
             <Heading variant="sm">Add area</Heading>
             <HStack space="sm" alignItems="center">
-              <TextInput
+              <Input
                 value={newAreaLabel}
                 onChangeText={setNewAreaLabel}
                 placeholder="Church, School, Side project"
-                placeholderTextColor={colors.muted}
-                style={styles.input}
+                accessibilityLabel="New area name"
+                wrapperStyle={styles.inputLayout}
                 returnKeyType="done"
                 onSubmitEditing={handleAddArea}
               />
@@ -138,7 +146,7 @@ export function ActivityAreasSettingsScreen() {
             </HStack>
           </View>
         </VStack>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
@@ -156,12 +164,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   row: {
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
   rowText: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   iconButton: {
@@ -171,14 +181,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  input: {
+  inputLayout: {
+    width: 'auto',
     flex: 1,
-    minHeight: 44,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    color: colors.textPrimary,
-    fontSize: typography.body.fontSize,
+    minWidth: 0,
   },
 });

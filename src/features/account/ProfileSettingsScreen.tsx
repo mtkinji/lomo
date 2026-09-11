@@ -230,7 +230,6 @@ export function ProfileSettingsScreen() {
               onChangeText={setFullName}
               onBlur={() => commitProfile()}
               autoCapitalize="words"
-              variant="outline"
             />
             <Input
               label="Birthday"
@@ -239,7 +238,6 @@ export function ProfileSettingsScreen() {
               onChangeText={() => {}}
               onFocus={() => setIsBirthdatePickerVisible(true)}
               showSoftInputOnFocus={false}
-              variant="outline"
             />
             <Input
               label="Email"
@@ -249,7 +247,6 @@ export function ProfileSettingsScreen() {
               value={email}
               onChangeText={setEmail}
               onBlur={() => commitProfile()}
-              variant="outline"
             />
           </View>
           {isBirthdatePickerVisible && (

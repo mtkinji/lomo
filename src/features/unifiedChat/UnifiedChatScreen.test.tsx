@@ -24,7 +24,7 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain("routeParams?.entry === 'fresh'");
     expect(screenSource).toContain('buildFreshWorkbenchSnapshot');
     expect(screenSource).toContain('freshThreadGateRef.current!.ensure()');
-    expect(screenSource).toContain('(aggregate && !freshEntry) || freshEntry');
+    expect(screenSource).toContain('!loading && !aggregate && !freshEntry');
     expect(screenSource).toContain('entry: undefined');
     expect(screenSource).not.toContain('startUnifiedChatVoiceRecording(); // widget');
   });
@@ -73,7 +73,10 @@ describe('Unified Chat coexistence contract', () => {
 
   test('replaces the technical WebView failure with one calm retry state', () => {
     expect(screenSource).toContain('const retrySurface = useCallback');
-    expect(screenSource).toContain('webViewRef.current?.reload()');
+    expect(screenSource).toContain('surface.retry()');
+    expect(screenSource).toContain('key={surface.attempt}');
+    expect(screenSource).toContain("if (surface.phase === 'error') retrySurface()");
+    expect(screenSource).toContain("if (!initializedSurface.current) type = 'host.initialize'");
     expect(screenSource).toContain('title="Chat couldn’t open"');
     expect(screenSource).toContain('illustration={CHAT_RECOVERY_ILLUSTRATION}');
     expect(screenSource).toContain('actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}');
@@ -199,9 +202,9 @@ describe('Unified Chat coexistence contract', () => {
 
   test('keeps microphone recording and authenticated transcription in the native host', () => {
     expect(screenSource).toContain("command.type === 'voice.toggle'");
-    expect(screenSource).toContain('startUnifiedChatVoiceRecording');
-    expect(screenSource).toContain('stopAndTranscribeUnifiedChatVoice');
-    expect(screenSource).toContain("state: 'transcribing'");
+    expect(screenSource).toContain('dictation.start');
+    expect(screenSource).toContain('dictation.stop');
+    expect(screenSource).toContain('useChatDictation');
   });
 
   test('dismisses text entry before starting voice recording', () => {
@@ -215,14 +218,14 @@ describe('Unified Chat coexistence contract', () => {
       "webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;')",
     );
     expect(voiceCommandBranch.indexOf('Keyboard.dismiss()')).toBeLessThan(
-      voiceCommandBranch.indexOf('await startUnifiedChatVoiceRecording'),
+      voiceCommandBranch.indexOf('await dictation.start'),
     );
   });
 
   test('inserts transcription at the draft selection captured when recording starts', () => {
-    expect(screenSource).toContain('voiceInsertionRef.current = command.prompt === undefined');
+    expect(screenSource).toContain('dictation.start(command.prompt === undefined');
     expect(screenSource).toContain('insertUnifiedChatTranscriptAtSelection({');
-    expect(screenSource).toContain('insertion: voiceInsertionRef.current');
+    expect(screenSource).toContain('currentPrompt: current, transcript, insertion');
   });
 
   test('confirms successful recording start and stop with distinct native haptics', () => {

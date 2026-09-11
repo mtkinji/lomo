@@ -2,6 +2,12 @@ import { readFileSync } from 'fs';
 import path from 'path';
 
 describe('GoalDetailScreen hook order', () => {
+  it('offers explicit Done while editing a title without introducing another save path', () => {
+    const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
+    expect(source).toContain('onEditingChange={setIsTitleEditing}');
+    expect(source).toMatch(/isTitleEditing \? \([\s\S]*?onPress=\{\(\) => Keyboard.dismiss\(\)\}[\s\S]*?accessibilityLabel="Done editing goal title"/);
+  });
+
   it('keeps the missing-goal render guard after all top-level hooks', () => {
     const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
     const lines = source.split('\n');

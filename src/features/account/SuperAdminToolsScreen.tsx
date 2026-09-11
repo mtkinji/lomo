@@ -8,7 +8,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
-import { KeyboardAwareScrollView, Text, VStack, HStack, Heading, Input, Badge } from '../../ui/primitives';
+import { KeyboardAwareScrollView, Text, VStack, HStack, Heading, Input, SearchField, Badge } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
@@ -520,6 +520,7 @@ export function SuperAdminToolsScreen() {
   }) => {
     return (
       <Input
+        readOnly
         label={args.label}
         value={args.value}
         variant="filled"
@@ -859,16 +860,16 @@ export function SuperAdminToolsScreen() {
             </VStack>
           ) : (
             <VStack space="sm">
-              <Input
+              <SearchField
+                accessibilityLabel="Search users and devices"
+                clearAccessibilityLabel="Clear directory search"
                 placeholder="email, name, or device id"
-                leadingIcon="search"
                 value={search}
                 onChangeText={setSearch}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="default"
                 returnKeyType="done"
-                variant="outline"
               />
 
               {directoryError ? <Text style={styles.error}>{directoryError}</Text> : null}

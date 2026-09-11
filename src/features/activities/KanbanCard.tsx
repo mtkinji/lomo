@@ -6,8 +6,9 @@ import { Icon, type IconName } from '../../ui/Icon';
 import { GoalPill } from '../../ui/GoalPill';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { typography, fonts } from '../../theme/typography';
+import { typography } from '../../theme/typography';
 import type { Activity } from '../../domain/types';
+import { buildActivityListMeta } from '../../utils/activityListMeta';
 
 export type KanbanCardField = 'goal' | 'steps' | 'attachments' | 'dueDate' | 'priority' | 'estimate';
 
@@ -34,6 +35,11 @@ export type KanbanCardProps = {
    * Whether card is in loading/enriching state.
    */
   isLoading?: boolean;
+  /**
+   * Dedicated movement control. Keeping this separate from the card surface lets
+   * taps open details and swipes navigate/scroll without also beginning a move.
+   */
+  moveHandle?: React.ReactNode;
 };
 
 /**
@@ -47,17 +53,25 @@ export function KanbanCard({
   onToggleComplete,
   onPress,
   isLoading = false,
+  moveHandle,
 }: KanbanCardProps) {
   const isCompleted = activity.status === 'done';
   const hasAttachments = (activity.attachments?.length ?? 0) > 0;
   const hasSteps = (activity.steps?.length ?? 0) > 0;
   const completedSteps = activity.steps?.filter((s) => s.completedAt).length ?? 0;
   const totalSteps = activity.steps?.length ?? 0;
+  const { meta, metaTone, estimateMeta } = buildActivityListMeta({ activity });
 
   const isFieldVisible = React.useCallback(
     (field: KanbanCardField) => (visibleFields ? visibleFields.has(field) : true),
     [visibleFields],
   );
+  const showSteps = isFieldVisible('steps') && hasSteps;
+  const showAttachments = isFieldVisible('attachments') && hasAttachments;
+  const showTiming = isFieldVisible('dueDate') && Boolean(meta);
+  const showPriority = isFieldVisible('priority') && activity.priority === 1;
+  const showEstimate = isFieldVisible('estimate') && Boolean(estimateMeta);
+  const showMetaRow = showSteps || showAttachments || showTiming || showPriority || showEstimate;
 
   return (
     <View style={styles.cardWrapper}>
@@ -73,120 +87,94 @@ export function KanbanCard({
             <GoalPill title={goalTitle} style={styles.goalPill} textStyle={styles.goalPillText} />
           )}
 
-        {/* Title row with checkbox */}
-        <HStack alignItems="flex-start" space="sm">
-          {onToggleComplete && (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                onToggleComplete();
-              }}
-              hitSlop={8}
-              style={styles.checkboxHitArea}
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  isCompleted && styles.checkboxCompleted,
-                ]}
+          {/* Title and metadata share the same text column as the standard list card. */}
+          <HStack alignItems="flex-start" space="sm">
+            {onToggleComplete && (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onToggleComplete();
+                }}
+                hitSlop={8}
+                style={styles.checkboxHitArea}
               >
-                {isCompleted && (
-                  <Icon name="check" size={12} color={colors.canvas} />
-                )}
-              </View>
-            </Pressable>
-          )}
-          <Text
-            style={[
-              styles.title,
-              isCompleted && styles.titleCompleted,
-            ]}
-            numberOfLines={3}
-          >
-            {activity.title}
-          </Text>
-        </HStack>
-
-        {/* Metadata row */}
-        <HStack
-          alignItems="center"
-          justifyContent="space-between"
-          style={styles.metaRow}
-        >
-          <HStack alignItems="center" space="sm">
-            {/* Steps progress */}
-            {isFieldVisible('steps') && hasSteps && (
-              <HStack alignItems="center" space={4}>
-                <Icon name="checklist" size={12} color={colors.textSecondary} />
-                <Text style={styles.metaText}>
-                  {completedSteps}/{totalSteps}
-                </Text>
-              </HStack>
+                <View
+                  style={[
+                    styles.checkbox,
+                    isCompleted && styles.checkboxCompleted,
+                  ]}
+                >
+                  {isCompleted && (
+                    <Icon name="check" size={12} color={colors.canvas} />
+                  )}
+                </View>
+              </Pressable>
             )}
+            <VStack style={styles.textBlock} space="xs">
+              <Text
+                style={[
+                  styles.title,
+                  isCompleted && styles.titleCompleted,
+                ]}
+                numberOfLines={3}
+              >
+                {activity.title}
+              </Text>
 
-            {/* Attachments */}
-            {isFieldVisible('attachments') && hasAttachments && (
-              <HStack alignItems="center" space={4}>
-                <Icon name="paperclip" size={12} color={colors.textSecondary} />
-                <Text style={styles.metaText}>
-                  {activity.attachments?.length}
-                </Text>
-              </HStack>
-            )}
+              {showMetaRow ? (
+                <HStack alignItems="center" space={8} style={styles.metaRow}>
+                  {showTiming ? (
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.metaText,
+                        styles.metaPill,
+                        metaTone === 'urgent' ? styles.metaPillUrgent : null,
+                        metaTone === 'today' ? styles.metaPillToday : null,
+                        metaTone === 'tomorrow' ? styles.metaPillTomorrow : null,
+                        metaTone === 'future' ? styles.metaPillFuture : null,
+                      ]}
+                    >
+                      {meta}
+                    </Text>
+                  ) : null}
 
-            {/* Due date indicator */}
-            {isFieldVisible('dueDate') && activity.scheduledDate && (
-              <HStack alignItems="center" space={4}>
-                <Icon
-                  name="calendar"
-                  size={12}
-                  color={isDueToday(activity.scheduledDate) || isOverdue(activity.scheduledDate) ? colors.destructive : colors.textSecondary}
-                />
-              </HStack>
-            )}
+                  {showEstimate ? (
+                    <Text numberOfLines={1} style={[styles.metaText, styles.estimatePill]}>
+                      {estimateMeta}
+                    </Text>
+                  ) : null}
 
-            {/* Priority star */}
-            {isFieldVisible('priority') && activity.priority === 1 && (
-              <Icon name="starFilled" size={12} color={colors.turmeric} />
-            )}
+                  {showPriority ? (
+                    <Icon name="starFilled" size={14} color={colors.turmeric} />
+                  ) : null}
+
+                  {showSteps ? (
+                    <HStack alignItems="center" space={4}>
+                      <Icon name="checklist" size={12} color={colors.textSecondary} />
+                      <Text style={styles.metaText}>
+                        {completedSteps}/{totalSteps}
+                      </Text>
+                    </HStack>
+                  ) : null}
+
+                  {showAttachments ? (
+                    <HStack alignItems="center" space={4}>
+                      <Icon name="paperclip" size={12} color={colors.textSecondary} />
+                      <Text style={styles.metaText}>
+                        {activity.attachments?.length}
+                      </Text>
+                    </HStack>
+                  ) : null}
+                </HStack>
+              ) : null}
+            </VStack>
+            {moveHandle}
           </HStack>
-
-          {/* Estimate badge if present */}
-          {isFieldVisible('estimate') && activity.estimateMinutes && activity.estimateMinutes > 0 && (
-            <Text style={styles.estimateBadge}>
-              {formatEstimate(activity.estimateMinutes)}
-            </Text>
-          )}
-        </HStack>
         </VStack>
       </Pressable>
     </View>
   );
-}
-
-function isDueToday(dateStr: string): boolean {
-  const date = new Date(dateStr);
-  const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
-}
-
-function isOverdue(dateStr: string): boolean {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date.getTime() < today.getTime() && !isDueToday(dateStr);
-}
-
-function formatEstimate(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
 const styles = StyleSheet.create({
@@ -250,28 +238,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.textPrimary,
-    flex: 1,
   },
   titleCompleted: {
     color: colors.textSecondary,
     textDecorationLine: 'line-through',
   },
   metaRow: {
-    marginTop: spacing.xs,
+    maxWidth: '100%',
+    minWidth: 0,
+    flexWrap: 'wrap',
   },
   metaText: {
     ...typography.bodySm,
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.textSecondary,
   },
-  estimateBadge: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
-    backgroundColor: colors.gray100,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  textBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metaPill: {
+    minHeight: 20,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingHorizontal: spacing.xs,
+    overflow: 'hidden',
+  },
+  metaPillUrgent: {
+    backgroundColor: colors.destructiveForeground,
+    borderColor: colors.destructiveForeground,
+    color: colors.destructive,
+  },
+  metaPillToday: {
+    backgroundColor: colors.gray100,
+    borderColor: colors.gray200,
+    color: colors.gray800,
+  },
+  metaPillTomorrow: {
+    backgroundColor: colors.gray50,
+    borderColor: colors.gray100,
+    color: colors.gray600,
+  },
+  metaPillFuture: {
+    backgroundColor: colors.canvas,
+    borderColor: colors.gray200,
+    color: colors.gray600,
+  },
+  estimatePill: {
+    minHeight: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.xs,
+    overflow: 'hidden',
   },
 });
-

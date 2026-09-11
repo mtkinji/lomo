@@ -2,6 +2,8 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle, Platform } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+import { TitleInput } from './TitleInput';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 export type NarrativeEditableTitleRef = {
   /** Programmatically dismiss keyboard and commit changes */
@@ -54,6 +56,7 @@ export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef
   const [draft, setDraft] = React.useState(value);
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<TextInput | null>(null);
+  const keyboardAware = useKeyboardAwareScroll();
 
   // Notify parent when editing state changes
   React.useEffect(() => {
@@ -109,7 +112,7 @@ export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef
   return (
     <View style={containerStyle}>
       {isEditing ? (
-        <TextInput
+        <TitleInput
           ref={inputRef}
           accessibilityLabel={accessibilityLabel}
           value={draft}
@@ -121,8 +124,11 @@ export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
           autoFocus
-          multiline
-          scrollEnabled={false}
+          onContentSizeChange={() => {
+            if (keyboardAware?.keyboardHeight) {
+              requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+            }
+          }}
           returnKeyType={Platform.OS === 'android' ? 'done' : 'default'}
           blurOnSubmit={Platform.OS === 'android'}
           onSubmitEditing={() => {
@@ -175,4 +181,3 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-

@@ -1,6 +1,17 @@
 import { createGroceryRepository, mapGroceryProjectionRows } from './groceryRepository';
 
 describe('Grocery repository', () => {
+  it.each(['plan', 'recipe'] as const)('keeps the server reason when compiling a %s fails', async (kind) => {
+    const error = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: { status: 409, json: async () => ({ error: { code: 'missing_recipe_version' } }) },
+    });
+    const repository = createGroceryRepository({ functions: { invoke: jest.fn().mockResolvedValue({ data: null, error }) } } as never);
+    const operation = kind === 'plan' ? repository.compile('plan-1', 1) : repository.compileRecipe({
+      recipeId: 'kwilt-recipe-lu002', recipeVersionId: 'kwilt-recipe-lu002-v1', recipeVersion: 1,
+      contentHash: 'sha256:example', sourceType: 'catalog', title: 'BLT', yieldQuantity: 4, yieldUnit: 'sandwiches', ingredients: [], recipeScaleMultiplier: 1,
+    });
+    await expect(operation).rejects.toMatchObject({ code: 'missing_recipe_version', status: 409 });
+  });
   it('projects retailer cart acknowledgement without changing grocery state', () => {
     const [list] = mapGroceryProjectionRows([{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',fulfillment_mode:'delivery',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}]);
     expect(list.items[0]).toMatchObject({

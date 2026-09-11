@@ -84,6 +84,7 @@ export const styles = StyleSheet.create({
     flexShrink: 1,
     flex: 1,
   },
+  // Retained for the read-only Activity peek tags. Editable tags use TagEntryField.
   tagsFieldContainer: {
     width: '100%',
     borderRadius: 12,
@@ -100,10 +101,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  tagsFieldInnerEmpty: {
-    flexWrap: 'nowrap',
-    minHeight: 28,
-  },
   tagChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -111,31 +108,6 @@ export const styles = StyleSheet.create({
   tagChipText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  tagsTextInput: {
-    flexShrink: 1,
-    // Important: keep this small so the presence of an (empty) TextInput does NOT
-    // force a second wrapped row when chips still fit on the current row.
-    flexBasis: 40,
-    minWidth: 40,
-    width: 150,
-    fontFamily: typography.bodySm.fontFamily,
-    fontSize: typography.bodySm.fontSize,
-    // Match `Input` single-line metrics for visual centering.
-    lineHeight: Platform.OS === 'ios' ? typography.bodySm.fontSize + 2 : typography.bodySm.lineHeight,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : {}),
-  },
-  tagsTextInputEmpty: {
-    flex: 1,
-    flexBasis: 'auto',
-    alignSelf: 'center',
-    height: 28,
-    lineHeight: 20,
-    minWidth: 0,
-    width: '100%',
   },
   tagsAutofillBadge: {
     position: 'absolute',
@@ -622,19 +594,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xs / 2,
-  },
   stepTextCompleted: {
     color: colors.textSecondary,
     textDecorationLine: 'line-through',
-  },
-  newStepInput: {
-    // Avoid extra inner padding on the single-line inline "Add step" input;
-    // it can make descenders clip in tight list rows on iOS.
-    paddingVertical: 0,
   },
   linkedStepTextBlock: {
     width: '100%',

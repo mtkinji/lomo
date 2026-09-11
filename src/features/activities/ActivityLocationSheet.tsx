@@ -7,6 +7,7 @@ import MapView, { Circle, type Region } from 'react-native-maps';
 import { colors, spacing, typography } from '../../theme';
 import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button, IconButton } from '../../ui/Button';
+import { PickerFieldTrigger } from '../../ui/PickerFields';
 import { Combobox, HStack, VStack } from '../../ui/primitives';
 import {
   DropdownMenu,
@@ -297,22 +298,17 @@ export function ActivityLocationSheet({
                   portalHost={portalHostName}
                   allowDeselect={false}
                   trigger={
-                    <Pressable
-                      accessibilityRole="button"
+                    <PickerFieldTrigger
+                      size="compact"
+                      leadingIcon="pin"
                       accessibilityLabel="Enter a place or address"
+                      clearAccessibilityLabel="Clear location"
+                      placeholder="Enter a place or address"
+                      value={controller.previewLocation ? 'preview' : ''}
+                      options={controller.previewLocation ? [{ value: 'preview', label: controller.previewLocation.label }] : []}
                       onPress={() => controller.setSearchOpen(true)}
-                      style={({ pressed }) => [{ backgroundColor: colors.fieldFill, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 }, pressed ? { opacity: 0.92 } : null]}
-                    >
-                      <Icon name="pin" size={16} color={colors.textSecondary} />
-                      <Text numberOfLines={1} style={[typography.bodySm, { color: controller.previewLocation ? colors.textPrimary : colors.muted, flex: 1 }]}>
-                        {controller.previewLocation?.label ?? 'Enter a place or address'}
-                      </Text>
-                      {controller.previewLocation ? (
-                        <Pressable accessibilityRole="button" accessibilityLabel="Clear location" hitSlop={10} onPress={controller.clearSelection}>
-                          <Icon name="close" size={16} color={colors.textSecondary} />
-                        </Pressable>
-                      ) : <Icon name="chevronDown" size={16} color={colors.textSecondary} />}
-                    </Pressable>
+                      onClear={controller.previewLocation ? controller.clearSelection : undefined}
+                    />
                   }
                 />
               </View>

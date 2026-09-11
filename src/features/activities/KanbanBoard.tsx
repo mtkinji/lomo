@@ -11,7 +11,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KanbanColumn } from './KanbanColumn';
 import { Icon, type IconName } from '../../ui/Icon';
@@ -21,6 +20,9 @@ import { spacing } from '../../theme/spacing';
 import { typography, fonts } from '../../theme/typography';
 import type { Activity, Goal, KanbanGroupBy } from '../../domain/types';
 import { KanbanCard, type KanbanCardField } from './KanbanCard';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
+import { HapticsService } from '../../services/HapticsService';
 
 export type KanbanBoardProps = {
   /**
@@ -55,11 +57,18 @@ export type KanbanBoardProps = {
    * Handler for moving an activity to a different Kanban column (based on groupBy).
    * The board computes the destination column id; the caller applies the mutation.
    */
-  onMoveActivity?: (activityId: string, params: { groupBy: KanbanGroupBy; toColumnId: string }) => void;
+  onMoveActivity?: (
+    activityId: string,
+    params: { groupBy: KanbanGroupBy; toColumnId: string; toColumnTitle?: string },
+  ) => void;
   /**
    * Handler for adding a new activity.
    */
-  onAddActivity?: () => void;
+  onAddActivity?: (params: {
+    groupBy: KanbanGroupBy;
+    toColumnId: string;
+    toColumnTitle: string;
+  }) => void;
   /**
    * Optional anchor ref for the first visible "Add card" row.
    * Used by ActivitiesScreen coachmarks when Kanban is active and the workspace is empty.
@@ -323,6 +332,7 @@ export function KanbanBoard({
   const [isDragging, setIsDragging] = React.useState(false);
   const [draggedActivityId, setDraggedActivityId] = React.useState<string | null>(null);
   const [hoveredColumnIdState, setHoveredColumnIdState] = React.useState<string | null>(null);
+  const [movePickerActivityId, setMovePickerActivityId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -377,10 +387,6 @@ export function KanbanBoard({
   const [activeColumnIndex, setActiveColumnIndex] = React.useState(0);
   const scrollViewRef = React.useRef<any>(null);
 
-  // Allow the board's horizontal ScrollView gesture to run simultaneously with
-  // the per-card drag gesture so users can swipe/page while dragging.
-  const nativeScrollGesture = React.useMemo(() => Gesture.Native(), []);
-
   React.useEffect(() => {
     columnIds.value = columns.map((c) => c.id);
   }, [columns, columnIds]);
@@ -432,11 +438,36 @@ export function KanbanBoard({
   const handleDrop = React.useCallback(
     (activityId: string, toColumnId: string | null) => {
       if (toColumnId) {
-        onMoveActivity?.(activityId, { groupBy, toColumnId });
+        const destination = columns.find((column) => column.id === toColumnId);
+        onMoveActivity?.(activityId, {
+          groupBy,
+          toColumnId,
+          toColumnTitle: destination?.title,
+        });
       }
       endDrag();
     },
-    [endDrag, groupBy, onMoveActivity],
+    [columns, endDrag, groupBy, onMoveActivity],
+  );
+
+  const movePickerActivity = movePickerActivityId
+    ? activityById.get(movePickerActivityId) ?? null
+    : null;
+  const movePickerCurrentColumnId = movePickerActivity
+    ? columns.find((column) => column.activities.some((activity) => activity.id === movePickerActivity.id))?.id
+    : undefined;
+
+  const handleChooseMoveDestination = React.useCallback(
+    (toColumnId: string, toColumnTitle: string) => {
+      if (!movePickerActivityId || toColumnId === movePickerCurrentColumnId) {
+        setMovePickerActivityId(null);
+        return;
+      }
+      void HapticsService.trigger('canvas.selection');
+      onMoveActivity?.(movePickerActivityId, { groupBy, toColumnId, toColumnTitle });
+      setMovePickerActivityId(null);
+    },
+    [groupBy, movePickerActivityId, movePickerCurrentColumnId, onMoveActivity],
   );
 
   useAnimatedReaction(
@@ -480,11 +511,18 @@ export function KanbanBoard({
   const handleScroll = React.useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     scrollX.value = offsetX;
-    if (pagingEnabled) {
-      const index = Math.round(offsetX / columnWidth);
-      setActiveColumnIndex(Math.max(0, Math.min(index, columns.length - 1)));
-    }
-  }, [pagingEnabled, columnWidth, columns.length, scrollX]);
+    const index = Math.round(offsetX / (columnWidth + spacing.md));
+    setActiveColumnIndex(Math.max(0, Math.min(index, columns.length - 1)));
+  }, [columnWidth, columns.length, scrollX]);
+
+  const handleSelectColumn = React.useCallback((index: number) => {
+    setActiveColumnIndex(index);
+    void HapticsService.trigger('canvas.selection');
+    scrollViewRef.current?.scrollTo({
+      x: index * (columnWidth + spacing.md),
+      animated: true,
+    });
+  }, [columnWidth]);
 
   const dragOverlayAnimatedStyle = useAnimatedStyle(() => {
     if (!draggingId.value) return { opacity: 0 };
@@ -509,27 +547,24 @@ export function KanbanBoard({
   return (
     <View ref={containerRef} collapsable={false} style={styles.container}>
       {/* Kanban columns */}
-      <GestureDetector gesture={nativeScrollGesture}>
-        <Animated.ScrollView
-          ref={scrollViewRef}
-          horizontal
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: extraBottomPadding + insets.bottom + spacing.lg }, // space for safe area + overlays
-          ]}
-          showsHorizontalScrollIndicator={false}
-          // Keep horizontal paging/swiping enabled while dragging; drag gesture is configured
-          // to run simultaneously with this native scroll gesture.
-          scrollEnabled
-          pagingEnabled={pagingEnabled}
-          snapToInterval={pagingEnabled ? columnWidth + spacing.md : undefined}
-          decelerationRate={pagingEnabled ? 'fast' : 'normal'}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-        >
-          {columns.map((column, idx) => (
-            <Animated.View
+      <Animated.ScrollView
+        ref={scrollViewRef}
+        horizontal
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: extraBottomPadding + insets.bottom + spacing.lg }, // space for safe area + overlays
+        ]}
+        showsHorizontalScrollIndicator={false}
+        scrollEnabled
+        pagingEnabled={pagingEnabled}
+        snapToInterval={pagingEnabled ? columnWidth + spacing.md : undefined}
+        decelerationRate={pagingEnabled ? 'fast' : 'normal'}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        {columns.map((column, idx) => (
+          <Animated.View
               // eslint-disable-next-line react/no-array-index-key
               key={`kanban-col-wrap-${column.id}`}
               style={[styles.columnWrapper, columnWidthAnimatedStyle] as any}
@@ -545,7 +580,12 @@ export function KanbanBoard({
                 onToggleComplete={onToggleComplete}
                 onTogglePriority={onTogglePriority}
                 onPressActivity={onPressActivity}
-                onAddCard={onAddActivity}
+                onRequestMove={onMoveActivity ? setMovePickerActivityId : undefined}
+                onAddCard={onAddActivity ? () => onAddActivity({
+                  groupBy,
+                  toColumnId: column.id,
+                  toColumnTitle: column.title,
+                }) : undefined}
                 addCardAnchorRef={idx === 0 ? addCardAnchorRef : undefined}
                 cardVisibleFields={cardVisibleFields}
                 width={undefined}
@@ -567,12 +607,11 @@ export function KanbanBoard({
                 contentPadding={spacing.md}
                 onBeginDrag={startDrag}
                 onEndDrag={handleDrop}
-                scrollableGesture={nativeScrollGesture}
+                scrollableGesture={null}
               />
-            </Animated.View>
-          ))}
-        </Animated.ScrollView>
-      </GestureDetector>
+          </Animated.View>
+        ))}
+      </Animated.ScrollView>
 
       {/* Drag overlay */}
       {draggedActivity && (
@@ -594,19 +633,27 @@ export function KanbanBoard({
       )}
 
       {/* Pagination dots (minimal overlay) */}
-      {pagingEnabled && columns.length > 1 && (
+      {columns.length > 1 && (
         <View style={[styles.paginationOverlay, { bottom: insets.bottom + spacing.xs }]}>
           <HStack alignItems="center" justifyContent="center" style={styles.pagination}>
             {columns.map((col, index) => (
-              <View
+              <Pressable
                 key={col.id}
-                style={[
-                  styles.paginationDot,
-                  index === activeColumnIndex && styles.paginationDotActive,
-                  // Keep dots neutral in expanded view (no per-column accent colors).
-                  { backgroundColor: index === activeColumnIndex ? colors.gray600 : colors.gray300 },
-                ]}
-              />
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${col.title} column`}
+                accessibilityState={{ selected: index === activeColumnIndex }}
+                hitSlop={4}
+                onPress={() => handleSelectColumn(index)}
+                style={styles.paginationDotButton}
+              >
+                <View
+                  style={[
+                    styles.paginationDot,
+                    index === activeColumnIndex && styles.paginationDotActive,
+                    { backgroundColor: index === activeColumnIndex ? colors.gray600 : colors.gray300 },
+                  ]}
+                />
+              </Pressable>
             ))}
           </HStack>
         </View>
@@ -627,6 +674,48 @@ export function KanbanBoard({
       >
         <Icon name={isExpanded ? 'collapse' : 'expand'} size={22} color={colors.textPrimary} />
       </Pressable>
+
+      <BottomDrawer
+        visible={Boolean(movePickerActivity)}
+        onClose={() => setMovePickerActivityId(null)}
+        snapPoints={['58%']}
+      >
+        <BottomDrawerScrollView contentContainerStyle={styles.movePickerContent}>
+          <BottomDrawerHeader
+            variant="withClose"
+            title="Move to"
+            subtitle={movePickerActivity?.title}
+            onClose={() => setMovePickerActivityId(null)}
+            closeAccessibilityLabel="Close move picker"
+          />
+          <View style={styles.moveDestinationList}>
+            {columns.map((column) => {
+              const isCurrent = column.id === movePickerCurrentColumnId;
+              return (
+                <Pressable
+                  key={column.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={isCurrent ? `${column.title}, current column` : `Move to ${column.title}`}
+                  accessibilityState={{ selected: isCurrent, disabled: isCurrent }}
+                  disabled={isCurrent}
+                  onPress={() => handleChooseMoveDestination(column.id, column.title)}
+                  style={({ pressed }) => [
+                    styles.moveDestinationRow,
+                    isCurrent ? styles.moveDestinationRowCurrent : null,
+                    pressed ? styles.moveDestinationRowPressed : null,
+                  ]}
+                >
+                  <Text style={styles.moveDestinationTitle}>{column.title}</Text>
+                  <HStack alignItems="center" space="sm">
+                    <Text style={styles.moveDestinationCount}>{String(column.activities.length)}</Text>
+                    {isCurrent ? <Icon name="check" size={18} color={colors.accent} /> : null} {/* @kwilt-brand-moment: green confirms the one current move destination. */}
+                  </HStack>
+                </Pressable>
+              );
+            })}
+          </View>
+        </BottomDrawerScrollView>
+      </BottomDrawer>
     </View>
   );
 }
@@ -691,6 +780,12 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  paginationDotButton: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   paginationDotActive: {
     width: 8,
     height: 8,
@@ -718,5 +813,36 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  movePickerContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['2xl'],
+    gap: spacing.lg,
+  },
+  moveDestinationList: {
+    gap: spacing.xs,
+  },
+  moveDestinationRow: {
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.fieldFill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  moveDestinationRowCurrent: {
+    backgroundColor: colors.gray100,
+  },
+  moveDestinationRowPressed: {
+    opacity: 0.72,
+  },
+  moveDestinationTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  moveDestinationCount: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
 });
-

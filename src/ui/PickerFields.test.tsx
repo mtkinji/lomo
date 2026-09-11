@@ -17,6 +17,19 @@ jest.mock('./BottomDrawer', () => {
 });
 
 describe('PickerFields', () => {
+  it('keeps a unified read-only value inside an enabled trigger and clears without opening', () => {
+    const open = jest.fn(), clear = jest.fn();
+    renderWithProviders(<PickerFieldTrigger value="a" options={[{value: 'a', label: 'A'}]} placeholder="Choose" accessibilityLabel="Choose item" onPress={open} onClear={clear} />);
+    expect(screen.getByLabelText('Choose item').props.accessibilityValue).toEqual({text: 'A'});
+    fireEvent.press(screen.getByLabelText('Choose item'));
+    expect(open).toHaveBeenCalledTimes(1);
+    open.mockClear();
+    const stopPropagation = jest.fn();
+    fireEvent.press(screen.getByLabelText('Remove selection'), {stopPropagation});
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(open).not.toHaveBeenCalled();
+  });
   it('aligns the disclosure icon to the canonical field inset', () => {
     renderWithProviders(
       <PickerFieldTrigger
@@ -166,4 +179,34 @@ describe('PickerFields', () => {
     expect(screen.getByText('Choose goal')).toBeTruthy();
     expect(screen.getByPlaceholderText('Search goals...')).toBeTruthy();
   });
+});
+
+it('names the location clear action and does not open the picker when clearing', () => {
+  const clear = jest.fn(), open = jest.fn();
+  renderWithProviders(<PickerFieldTrigger value="park" options={[{value: 'park', label: 'Park'}]} placeholder="Choose place" accessibilityLabel="Location" clearAccessibilityLabel="Clear location" onPress={open} onClear={clear} />);
+  const stopPropagation = jest.fn();
+  fireEvent.press(screen.getByLabelText('Clear location'), {stopPropagation});
+  expect(clear).toHaveBeenCalledTimes(1);
+  expect(stopPropagation).toHaveBeenCalledTimes(1);
+  expect(open).not.toHaveBeenCalled();
+});
+
+it('keeps relation query clearing local and resets it on reopen for compatibility callers', () => {
+  const select = jest.fn();
+  renderWithProviders(<RelationPickerField value="" onValueChange={select}
+    options={[{value: 'one', label: 'First goal'}, {value: 'two', label: 'Second goal'}]}
+    title="Choose goal" placeholder="Select goal" accessibilityLabel="Choose linked goal" />);
+  fireEvent.press(screen.getByLabelText('Choose linked goal'));
+  fireEvent.changeText(screen.getByLabelText('Search choose goal'), 'Second');
+  expect(screen.queryByText('First goal')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Clear search'));
+  expect(screen.getByText('First goal')).toBeTruthy();
+  expect(select).not.toHaveBeenCalled();
+  fireEvent.changeText(screen.getByLabelText('Search choose goal'), 'Second');
+  fireEvent.press(screen.getByLabelText('Close picker'));
+  fireEvent.press(screen.getByLabelText('Choose linked goal'));
+  expect(screen.getByLabelText('Search choose goal').props.value).toBe('');
+  fireEvent.press(screen.getByText('First goal'));
+  expect(select).toHaveBeenCalledTimes(1);
+  expect(select).toHaveBeenCalledWith('one');
 });

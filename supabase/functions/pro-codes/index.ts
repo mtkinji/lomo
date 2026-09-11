@@ -21,9 +21,9 @@ import {
 } from '../_shared/founderAlerts.ts';
 import {
   EMPTY_SUBSCRIPTION_PROJECTION,
-  reduceSubscriptionLifecycle,
   type SubscriptionProjection,
 } from '../_shared/subscriptionLifecycle.ts';
+import { reduceProPurchaseLifecycle } from '../_shared/proPurchaseLifecycle.ts';
 import { handleCreatorCampaignRoute, recordCreatorSubscriptionEvent } from '../_shared/creatorAcquisition.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -549,51 +549,60 @@ serve(async (req) => {
       }
     }
 
-    const { data: currentRow } = await admin
-      .from('kwilt_revenuecat_subscriptions')
-      .select('is_pro,will_renew,access_state,expires_at,latest_provider_event_at,latest_provider_event_id,last_event_type')
-      .eq('revenuecat_app_user_id', appUserIdRaw)
-      .maybeSingle();
-    const current: SubscriptionProjection = currentRow ? {
-      isPro: currentRow.is_pro === true,
-      willRenew: typeof currentRow.will_renew === 'boolean' ? currentRow.will_renew : null,
-      accessState: currentRow.access_state ?? 'expired',
-      expiresAt: currentRow.expires_at ?? null,
-      latestEventAt: currentRow.latest_provider_event_at ?? null,
-      latestEventId: currentRow.latest_provider_event_id ?? null,
-      lastEventType: currentRow.last_event_type ?? null,
-    } : EMPTY_SUBSCRIPTION_PROJECTION;
-    const projection = reduceSubscriptionLifecycle(current, {
-      id: eventId,
-      type,
-      occurredAt,
-      expiresAt,
-    });
-
-    const { error } = await admin.from('kwilt_revenuecat_subscriptions').upsert(
-      {
+    // Compare-and-swap protects simultaneous subscription/lifetime deliveries.
+    // Store only minimal per-product access state, never the provider payload.
+    let projection = EMPTY_SUBSCRIPTION_PROJECTION;
+    let persisted = false;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const { data: currentRow, error: readError } = await admin
+        .from('kwilt_revenuecat_subscriptions')
+        .select('is_pro,will_renew,access_state,expires_at,latest_provider_event_at,latest_provider_event_id,last_event_type,product_id,raw,updated_at')
+        .eq('revenuecat_app_user_id', appUserIdRaw)
+        .maybeSingle();
+      if (readError) return json(503, { error: { message: 'Unable to read purchase state', code: 'provider_unavailable' } });
+      const current: SubscriptionProjection = currentRow ? {
+        isPro: currentRow.is_pro === true,
+        willRenew: typeof currentRow.will_renew === 'boolean' ? currentRow.will_renew : null,
+        accessState: currentRow.access_state ?? 'expired',
+        expiresAt: currentRow.expires_at ?? null,
+        latestEventAt: currentRow.latest_provider_event_at ?? null,
+        latestEventId: currentRow.latest_provider_event_id ?? null,
+        lastEventType: currentRow.last_event_type ?? null,
+      } : EMPTY_SUBSCRIPTION_PROJECTION;
+      const products = currentRow?.raw?.pro_product_states_v1 ??
+        (currentRow ? { [currentRow.product_id || '_legacy_subscription']: current } : {});
+      const reduced = reduceProPurchaseLifecycle({ projection: current, products }, {
+        id: eventId, type, occurredAt, expiresAt, productId,
+        cancelReason: typeof event?.cancel_reason === 'string' ? event.cancel_reason : undefined,
+      });
+      projection = reduced.projection;
+      const row = {
         revenuecat_app_user_id: appUserIdRaw,
         is_pro: projection.isPro,
-        product_id: productId || null,
+        product_id: reduced.products.pro_lifetime?.isPro ? 'pro_lifetime' : productId || currentRow?.product_id || null,
         expires_at: projection.expiresAt,
         will_renew: projection.willRenew,
         access_state: projection.accessState,
         latest_provider_event_at: projection.latestEventAt,
         latest_provider_event_id: projection.latestEventId,
         environment,
-        cleanup_status: projection.accessState === 'expired' || projection.accessState === 'refunded'
-          ? 'disabled'
-          : 'not_scheduled',
+        cleanup_status: projection.isPro ? 'not_scheduled' : 'disabled',
         last_event_type: projection.lastEventType,
         last_event_at: nowIso,
-        updated_at: nowIso,
-        raw: null,
-      },
-      { onConflict: 'revenuecat_app_user_id' },
-    );
-    if (error) {
-      return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
+        updated_at: new Date(Math.max(Date.now(), Date.parse(currentRow?.updated_at ?? '') + 1 || 0)).toISOString(),
+        raw: { pro_product_states_v1: reduced.products },
+      };
+      const write = currentRow
+        ? await admin.from('kwilt_revenuecat_subscriptions').update(row)
+          .eq('revenuecat_app_user_id', appUserIdRaw).eq('updated_at', currentRow.updated_at)
+          .select('revenuecat_app_user_id')
+        : await admin.from('kwilt_revenuecat_subscriptions').insert(row).select('revenuecat_app_user_id');
+      if (write.error && write.error.code !== '23505') {
+        return json(503, { error: { message: 'Unable to persist purchase state', code: 'provider_unavailable' } });
+      }
+      if (!write.error && write.data?.length) { persisted = true; break; }
     }
+    if (!persisted) return json(503, { error: { message: 'Purchase state changed; retry delivery', code: 'provider_unavailable' } });
 
     if ((projection.accessState === 'expired' || projection.accessState === 'refunded')
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(appUserIdRaw)) {
@@ -627,7 +636,7 @@ serve(async (req) => {
     }
 
     // Best-effort: send trial expiry email when a trial subscription expires.
-    if (type === 'EXPIRATION') {
+    if (type === 'EXPIRATION' && !projection.isPro) {
       try {
         const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
         const fromEmail = (

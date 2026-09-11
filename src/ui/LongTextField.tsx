@@ -1,22 +1,24 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View, type LayoutRectangle } from 'react-native';
+import { Alert, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { RichEditor, actions } from 'react-native-pell-rich-editor';
 import { Toolbar, ToolbarButton, ToolbarGroup } from './Toolbar';
 import { EditorSurface, EditorHeader } from './EditorSurface';
-import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
+import { BottomDrawer } from './BottomDrawer';
 import { Dialog } from './Dialog';
 import { Button } from './Button';
 import { Coachmark } from './Coachmark';
 import { useCoachmarkHost } from './hooks/useCoachmarkHost';
 import { Text as KwiltText } from './Typography';
 import { refineWritingWithAI, type WritingRefinePreset } from '../services/ai';
-import { RichTextBlock } from './RichTextBlock';
+import { LongTextFieldPreview } from './LongTextFieldPreview';
 import { htmlToPlainText, normalizeToHtml, sanitizeRichTextHtml } from './richText';
 import { useAppStore } from '../store/useAppStore';
 import { KwiltLoader } from './KwiltLoader';
+import { Input } from './Input';
+import { type InputParentSurface } from './inputAppearance';
 
 type AiHelpContext = {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -48,6 +50,8 @@ export type LongTextFieldProps = {
    * - 'filled': borderless, subtle filled surface for a cleaner "no explicit borders" form look.
    */
   surfaceVariant?: 'card' | 'flat' | 'filled';
+  /** Explicit preview opt-in until all rich-note callers have been reviewed. */
+  onSurface?: InputParentSurface;
   /**
    * Drawer snap points for the editor. Defaults to a large editor surface.
    */
@@ -79,25 +83,13 @@ export function LongTextField({
   disabled,
   hideLabel = false,
   surfaceVariant = 'card',
+  onSurface = 'canvas',
   snapPoints = ['92%'],
   autosaveDebounceMs = 500,
   enableAi,
   onRequestAiHelp,
   aiContext,
 }: LongTextFieldProps) {
-  /**
-   * Canonical keyboard + toolbar behavior (iOS):
-   *
-   * `UnderKeyboardDrawer` already reserves space equal to the keyboard height, but in practice
-   * (depending on iOS keyboard mode, predictive bar, etc) the reported height can under-shoot
-   * by a small amount. That causes our bottom toolbar (rendered inside the drawer) to land in
-   * the "covered" region.
-   *
-   * We treat this small buffer as canonical: it nudges the visible area up just enough so the
-   * toolbar consistently clears the keyboard without making the editor feel overly compressed.
-   */
-  const KEYBOARD_CLEARANCE_BUFFER_PX = 30;
-
   // The toolbar itself is measured at runtime; use a conservative fallback for the first render.
   const FALLBACK_TOOLBAR_HEIGHT_PX = 56;
 
@@ -111,8 +103,6 @@ export function LongTextField({
   const hasUserEditedSinceRefineRef = useRef(false);
   const refineHistoryRef = useRef<null | { beforeHtml: string; afterHtml: string; state: 'before' | 'after' }>(null);
   const [isRefining, setIsRefining] = useState(false);
-  const [customDialogVisible, setCustomDialogVisible] = useState(false);
-  const [customInstruction, setCustomInstruction] = useState('');
   const [linkDialogVisible, setLinkDialogVisible] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
@@ -142,8 +132,6 @@ export function LongTextField({
     lastCommittedRef.current = nextHtml;
   }, [editorVisible, value]);
 
-  const normalizedReadHtml = normalizeToHtml(value);
-  const readSurfaceHasLinks = /<a\b[^>]*\bhref\s*=\s*['"][^'"]+['"][^>]*>/i.test(normalizedReadHtml);
 
   const flush = (next: string) => {
     if (debounceTimerRef.current) {
@@ -458,98 +446,25 @@ export function LongTextField({
 
   return (
     <View style={styles.container}>
-      {!hideLabel ? (
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>
-        </View>
-      ) : null}
+      <LongTextFieldPreview
+        label={label}
+        value={value}
+        testID={testID}
+        placeholder={placeholder}
+        disabled={disabled}
+        hideLabel={hideLabel}
+        surfaceVariant={surfaceVariant}
+        onSurface={onSurface}
+        onPress={openEditor}
+      />
 
-      {readSurfaceHasLinks ? (
-        <View
-          style={[
-            surfaceVariant === 'flat'
-              ? styles.readSurfaceFlat
-              : surfaceVariant === 'filled'
-              ? styles.readSurfaceFilled
-              : styles.readSurface,
-            disabled && styles.readSurfaceDisabled,
-            surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
-          ]}
-        >
-          {htmlToPlainText(normalizedReadHtml).length ? (
-            <>
-              <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
-              {!disabled ? (
-                <View style={styles.readSurfaceFooterRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${label}`}
-                    onPress={openEditor}
-                    hitSlop={8}
-                    style={({ pressed }) => [styles.readSurfaceEditButton, pressed ? { opacity: 0.85 } : null]}
-                  >
-                    <Icon name="edit" size={14} color={colors.accent} />
-                    <Text style={styles.readSurfaceEditText}>Edit</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            // Even if we *would* have links, empty state should stay tappable.
-            <Pressable
-              testID={testID}
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${label}`}
-              disabled={disabled}
-              onPress={openEditor}
-              style={({ pressed }) => [pressed && !disabled ? styles.readSurfacePressed : null]}
-            >
-              <Text style={styles.placeholderText}>{placeholder}</Text>
-            </Pressable>
-          )}
-        </View>
-      ) : (
-        <Pressable
-          testID={testID}
-          accessibilityRole="button"
-          accessibilityLabel={`Edit ${label}`}
-          disabled={disabled}
-          onPress={openEditor}
-          style={({ pressed }) => [
-            surfaceVariant === 'flat'
-              ? styles.readSurfaceFlat
-              : surfaceVariant === 'filled'
-              ? styles.readSurfaceFilled
-              : styles.readSurface,
-            disabled && styles.readSurfaceDisabled,
-            pressed && !disabled ? styles.readSurfacePressed : null,
-            surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
-          ]}
-        >
-          {htmlToPlainText(normalizeToHtml(value)).length ? (
-            <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
-          ) : (
-            <Text style={styles.placeholderText}>{placeholder}</Text>
-          )}
-        </Pressable>
-      )}
-
-      <UnderKeyboardDrawer
+      <BottomDrawer
         visible={editorVisible}
         onClose={closeEditor}
         snapPoints={snapPoints}
-        // Make this read as a dedicated editor surface, not a typical rounded "guide" drawer.
-        topRadius="sm"
-        elevationToken="lift"
-        shadowDirection="up"
-        includeKeyboardSpacer
-        // Canonical: add a small buffer so the toolbar never ends up in the under-keyboard region.
-        keyboardSpacerExtraHeightPx={KEYBOARD_CLEARANCE_BUFFER_PX}
-        sheetStyle={{
-          backgroundColor: colors.canvas,
-        }}
-        handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
-        handleStyle={{ width: 0, height: 0, opacity: 0 }}
+        keyboardBehavior="resize"
+        contentLayout="edgeToEdge"
+        enableContentPanningGesture={false}
       >
         <EditorSurface
           visible={editorVisible}
@@ -660,6 +575,10 @@ export function LongTextField({
                   overflow-wrap: anywhere !important;
                 }
                 p { margin: 0 !important; }
+                ul, ol { margin: ${typography.body.fontSize}px 0; padding-left: 40px; }
+                li { margin: 0; }
+                li > ul, li > ol { margin-top: 0; margin-bottom: 0; }
+                a { color: ${colors.accent}; text-decoration: underline; }
               `,
               contentCSSText: `
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
@@ -717,7 +636,7 @@ export function LongTextField({
             </KwiltText>
           }
         />
-      </UnderKeyboardDrawer>
+      </BottomDrawer>
 
       <Dialog
         visible={linkDialogVisible}
@@ -748,68 +667,20 @@ export function LongTextField({
         }
       >
         <View style={styles.customDialogBody}>
-          <Text style={[styles.label, { paddingLeft: 2, marginBottom: spacing.xs }]}>URL</Text>
-          <TextInput
+          <Input
+            label="URL"
             value={linkUrl}
             onChangeText={setLinkUrl}
             placeholder="https://…"
-            placeholderTextColor={colors.muted}
             autoCapitalize="none"
             autoCorrect={false}
-            style={styles.customDialogInput}
           />
           <View style={{ height: spacing.sm }} />
-          <Text style={[styles.label, { paddingLeft: 2, marginBottom: spacing.xs }]}>Label (optional)</Text>
-          <TextInput
+          <Input
+            label="Label (optional)"
             value={linkText}
             onChangeText={setLinkText}
             placeholder="e.g. My site"
-            placeholderTextColor={colors.muted}
-            style={styles.customDialogInput}
-          />
-        </View>
-      </Dialog>
-
-      <Dialog
-        visible={customDialogVisible}
-        onClose={() => setCustomDialogVisible(false)}
-        title="Custom refine"
-        description="Tell Kwilt how you want this text rewritten."
-        footer={
-          <View style={styles.customDialogFooter}>
-            <Button
-              variant="secondary"
-              onPress={() => setCustomDialogVisible(false)}
-              disabled={isRefining}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onPress={async () => {
-                const instruction = customInstruction.trim();
-                if (!instruction) {
-                  Alert.alert('Add an instruction', 'For example: “Make this warmer and more concise.”');
-                  return;
-                }
-                setCustomDialogVisible(false);
-                await runRefine('custom', instruction);
-              }}
-              disabled={isRefining}
-            >
-              Apply
-            </Button>
-          </View>
-        }
-      >
-        <View style={styles.customDialogBody}>
-          <TextInput
-            value={customInstruction}
-            onChangeText={setCustomInstruction}
-            placeholder="e.g. Make this more concise and friendly"
-            placeholderTextColor={colors.muted}
-            multiline
-            style={styles.customDialogInput}
           />
         </View>
       </Dialog>
@@ -820,80 +691,6 @@ export function LongTextField({
 const styles = StyleSheet.create({
   container: {
     paddingVertical: 0,
-  },
-  labelRow: {
-    marginBottom: spacing.xs,
-    paddingLeft: spacing.md,
-  },
-  label: {
-    ...typography.label,
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  labelDisabled: {
-    color: colors.muted,
-  },
-  readSurface: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: spacing['2xl'] * 2,
-  },
-  readSurfaceFilled: {
-    borderRadius: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    backgroundColor: colors.fieldFill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: spacing['2xl'] * 2,
-  },
-  readSurfaceFlat: {
-    borderRadius: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: spacing.xs,
-    minHeight: 0,
-  },
-  readSurfaceDisabled: {
-    opacity: 0.6,
-  },
-  readSurfacePressed: {
-    opacity: 0.92,
-  },
-  valueText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  placeholderText: {
-    ...typography.bodySm,
-    color: colors.muted,
-  },
-  readSurfaceFooterRow: {
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  readSurfaceEditButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-  },
-  readSurfaceEditText: {
-    ...typography.bodySm,
-    color: colors.accent,
   },
   headerTitle: {
     ...typography.label,
@@ -994,17 +791,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   customDialogBody: {
-    // Let the TextInput own its spacing.
-  },
-  customDialogInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: 96,
+    // Shared Input owns its label and control spacing.
   },
   customDialogFooter: {
     flexDirection: 'row',
@@ -1012,4 +799,3 @@ const styles = StyleSheet.create({
     columnGap: spacing.sm,
   },
 });
-

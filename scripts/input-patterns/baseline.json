@@ -1,0 +1,500 @@
+{
+  "version": 1,
+  "sourceRevision": "9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678 plus working-tree input snapshot",
+  "sites": [],
+  "exceptions": [
+    {
+      "file": "src/ui/Input.tsx",
+      "line": 150,
+      "owner": "InputBase",
+      "component": "TextInput",
+      "kind": "raw-native-input",
+      "fingerprint": "243f235ce5740047b89741c9",
+      "violations": [
+        "appearance-override",
+        "raw-native-input",
+        "unresolved-props-spread",
+        "unresolved-style"
+      ],
+      "reason": "Owned canonical adapter implementation; exact native/prop forwarding and material ownership, not a feature exemption. Review on implementation change.",
+      "task": "02-03",
+      "siteIds": [
+        "INP-169"
+      ]
+    },
+    {
+      "file": "src/ui/PickerFields.tsx",
+      "line": 139,
+      "owner": "PickerFieldTrigger",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "9a4d805b6dca070197ef7bdf",
+      "violations": [
+        "appearance-override",
+        "unresolved-style",
+        "unresolved-variant"
+      ],
+      "reason": "Owned canonical adapter implementation; exact native/prop forwarding and material ownership, not a feature exemption. Review on implementation change.",
+      "task": "02-03",
+      "siteIds": [
+        "INP-177"
+      ]
+    },
+    {
+      "file": "src/ui/SearchField.tsx",
+      "line": 21,
+      "owner": "SearchField",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "a1b18f08fca91319b0c48e0c",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "reason": "Owned canonical adapter implementation; exact native/prop forwarding and material ownership, not a feature exemption. Review on implementation change.",
+      "task": "02-03",
+      "siteIds": [
+        "INP-203"
+      ]
+    },
+    {
+      "file": "src/features/goals/GoalsScreen.tsx",
+      "line": 517,
+      "owner": "GoalsScreen",
+      "component": "GoalsInventorySearchBar",
+      "kind": "input-wrapper",
+      "fingerprint": "059a4e237ffba870bfff4388",
+      "violations": [
+        "legacy-input-wrapper"
+      ],
+      "reason": "Reviewed Goals host composes canonical SearchField and separate sort; onClear only collapses host. Exact exception avoids granting arbitrary feature-wrapper reuse.",
+      "task": "04",
+      "siteIds": [
+        "INP-197"
+      ]
+    },
+    {
+      "file": "src/ui/EditableField.tsx",
+      "line": 79,
+      "owner": "EditableField",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "dad23b0159386eca59f08f69",
+      "violations": [
+        "unresolved-style"
+      ],
+      "reason": "Owned title variant selects typography.titleSm; all native editing and material now comes from Input.",
+      "task": "03",
+      "siteIds": [
+        "INP-156"
+      ]
+    },
+    {
+      "file": "src/ui/SettingsSurface.tsx",
+      "line": 341,
+      "owner": "SettingsTextInputRow",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "00389f83a84e406bad86f955",
+      "violations": [
+        "appearance-override"
+      ],
+      "reason": "Owned grouped settings adapter keeps right-aligned secondary value text; plain control inherits one row enclosure.",
+      "task": "03",
+      "siteIds": [
+        "INP-181"
+      ]
+    },
+    {
+      "file": "src/ui/LongTextField.tsx",
+      "line": 536,
+      "owner": "LongTextField",
+      "component": "RichEditor",
+      "kind": "rich-input",
+      "fingerprint": "70a9ef663e47f59901d94b9f",
+      "violations": [
+        "appearance-override"
+      ],
+      "reason": "Owned Pell rich editor: HTML formatting, sanitization, imperative selection/formatting and WebView typography cannot be represented by plain Input. Owner src/ui/LongTextField; preserve tested autosave/Done behavior. Reviewed 2026-09-10: canonical BottomDrawer resize owns keyboard clearance; explicit HTML paragraph/list/link rules align the read preview. Notes open/Done/reopen and keyboard ribbon placement observed in iPhone 17 Pro Simulator. Review on rich-editor replacement or material/keyboard contract changes; broader native acceptance tracked by INP-170.",
+      "task": "03/08/12",
+      "siteIds": [
+        "INP-170"
+      ]
+    },
+    {
+      "file": "src/features/screen-time/rule-builder/RuleSentencePickerField.tsx",
+      "line": 11,
+      "owner": "RuleSentencePickerField",
+      "component": "PickerFieldTrigger",
+      "kind": "shared-input",
+      "fingerprint": "3a57a5fa12fd4a16d1efc2dd",
+      "violations": [
+        "unresolved-style"
+      ],
+      "reason": "Owned sentence picker forwards placement only: current callers use width, flex, minWidth and a 44-point minimum height. Shared PickerFieldTrigger owns all material, typography and accessibility. Owner RuleSentencePickerField; review this exception when its style callers or picker material contract change.",
+      "task": "05",
+      "siteIds": [
+        "INP-147"
+      ]
+    },
+    {
+      "file": "src/features/account/SuperAdminToolsScreen.tsx",
+      "line": 522,
+      "owner": "renderDetailField",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "bd8161d7755a7d1c0cacdf31",
+      "violations": [
+        "unresolved-style"
+      ],
+      "reason": "Owned admin read-only detail adapter. The sole inputStyle caller hides an empty status value with zero width/padding so the existing adjacent tier badge is shown; other fields have no override. Input owns material and capped multiline. Owner SuperAdminToolsScreen; review if style callers or detail anatomy change.",
+      "task": "05",
+      "siteIds": [
+        "INP-069"
+      ]
+    },
+    {
+      "file": "src/capabilities/recipes/screens/RecipeEditScreen.tsx",
+      "line": 204,
+      "owner": "Field",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "b1a3f3aabbf63df29d51b543",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "reason": "Owned recipe Field forwards Input props for seven audited form uses, with label/multiline defaults owned after the spread and filled material inherited from canonical Input. Callers provide draft callbacks, keyboard/autofocus, placeholders and yield container placement, not material overrides. Owner RecipeEditScreen; review on new props or caller changes.",
+      "task": "06",
+      "siteIds": [
+        "INP-047"
+      ]
+    },
+    {
+      "file": "src/capabilities/groceries/screens/GroceryItemEditScreen.tsx",
+      "line": 95,
+      "owner": "Field",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "76e4e210db590591ea00961a",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "reason": "Owned grocery Field forwards native draft/keyboard props for three audited callers; label is owned after the spread and filled material is inherited from canonical Input. No caller supplies appearance overrides. Owner GroceryItemEditScreen; review on new props or caller changes.",
+      "task": "06",
+      "siteIds": [
+        "INP-018"
+      ]
+    },
+    {
+      "file": "src/features/activities/ActivityDetailRefresh.tsx",
+      "line": 1159,
+      "owner": "ActivityDetailRefresh",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "e5920e17a1c2ba794f60b2af",
+      "violations": [
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-076"
+      ],
+      "task": "08/12",
+      "reason": "Owned completed-step semantic text override only: inputStyle is conditional stepTextCompleted from activityDetailStyles, containing textSecondary and line-through. Plain Input owns body typography and geometry. Review if completion styling or this exact expression changes; no general styling exemption."
+    },
+    {
+      "file": "src/ui/TagEntryField.tsx",
+      "line": 49,
+      "component": "Input",
+      "kind": "shared-input",
+      "owner": "TagEntryField",
+      "fingerprint": "f097a4193a737774e63c3e42",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "siteIds": [
+        "INP-206"
+      ],
+      "task": "02-03/08/12",
+      "reason": "Owned TagEntryField native-prop forwarding to the only plain Input; public props omit material/style and multiline overrides. TagEntryField uses the shared appearance resolver/InputFrame for chip-field material and focus. Review on API or chip/keyboard contract changes; native acceptance remains open."
+    },
+    {
+      "file": "src/ui/PickerFields.tsx",
+      "line": 378,
+      "component": "FixedSetPickerField",
+      "kind": "shared-input",
+      "owner": "SmallSetPickerField",
+      "fingerprint": "5215918f413dc1e421cdd837",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "siteIds": [
+        "INP-201"
+      ],
+      "task": "02-03/10/12",
+      "reason": "Owned enum/small-set adapter forwards typed SinglePickerProps to shared FixedSetPickerField. The default is filled; the migration flag and compatibility bridge are removed. Inner controls remain individually inventoried. Owner src/ui/PickerFields; review on picker API/material or selection contract changes."
+    },
+    {
+      "file": "src/ui/PickerFields.tsx",
+      "line": 374,
+      "component": "FixedSetPickerField",
+      "kind": "shared-input",
+      "owner": "EnumPickerField",
+      "fingerprint": "5215918f413dc1e421cdd837",
+      "violations": [
+        "unresolved-props-spread"
+      ],
+      "siteIds": [
+        "INP-202"
+      ],
+      "task": "02-03/10/12",
+      "reason": "Owned enum/small-set adapter forwards typed SinglePickerProps to shared FixedSetPickerField. The default is filled; the migration flag and compatibility bridge are removed. Inner controls remain individually inventoried. Owner src/ui/PickerFields; review on picker API/material or selection contract changes."
+    },
+    {
+      "file": "src/features/ai/AiChatScreen.tsx",
+      "line": 1386,
+      "owner": "renderGoalProposalCard",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "7db24ff22eb1531a8fcafce9",
+      "violations": [
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-097"
+      ],
+      "task": "08/12",
+      "reason": "Accepted editorial title role: exact typography.titleMd inputStyle matches proposal heading and hidden line-measurement text. Unified inline Input owns material and native editing. Review if typography or measurement changes; no general feature-style allowance."
+    },
+    {
+      "file": "src/features/ai/AiChatScreen.tsx",
+      "line": 3041,
+      "owner": "AiChatPane",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "0249f9a07db52b786053d9b5",
+      "violations": [
+        "appearance-override",
+        "unmanaged-keyboard-scroll"
+      ],
+      "siteIds": [
+        "INP-101"
+      ],
+      "task": "08/12",
+      "reason": "Accepted inline item title typography: exact activitySuggestionTitleInput contains only fonts.semibold and existing15pt fontSize matching its display title. Shared plain Input owns platform metrics and material. Review if any other style is added. AiChatPane owns transformed-sheet keyboard height, frame-change tracking and focus alignment; retain exact sites until native chat-host replacement is verified. See keyboard-input-safety-implementation.md."
+    },
+    {
+      "file": "src/features/activities/QuickAddDock.tsx",
+      "line": 452,
+      "owner": "QuickAddDock",
+      "component": "Input",
+      "kind": "shared-input",
+      "fingerprint": "17661f8d329b6e96ff24f455",
+      "violations": [
+        "appearance-override"
+      ],
+      "siteIds": [
+        "INP-095"
+      ],
+      "task": "08/12",
+      "reason": "Owned QuickAdd inline title typography only: inputTypography contains fonts.semibold,fontSize15,lineHeight22 matching existing title and measured-growth contract. Shared plain Input owns material/native renderer; single white drawer and external action row remain the established composition. Review if styles or measured-growth contract change; no general appearance escape."
+    },
+    {
+      "file": "src/features/activities/ActivityDetailRefresh.tsx",
+      "line": 835,
+      "owner": "ActivityDetailRefresh",
+      "component": "NarrativeEditableTitle",
+      "kind": "shared-input",
+      "fingerprint": "02509719a877e64fc48e62e1",
+      "violations": [
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-074"
+      ],
+      "task": "08/12",
+      "reason": "Retained shared editorial To-do title caller: titleLg/bold/textPrimary display/input styles and width-only container. Changed/nonempty trim updates activity timestamp; editing state/ref preserved. Exact semantic typography/host-spacing exception; review/remove if style expressions or values change. No arbitrary material override allowed; internal native control INP-174 and native acceptance remain open."
+    },
+    {
+      "file": "src/features/arcs/ArcDetailScreen.tsx",
+      "line": 1070,
+      "owner": "ArcDetailScreen",
+      "component": "NarrativeEditableTitle",
+      "kind": "shared-input",
+      "fingerprint": "3fd6390aba13818679e63442",
+      "violations": [
+        "appearance-override",
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-109"
+      ],
+      "task": "08/12",
+      "reason": "Retained shared editorial Arc title caller: centered titleLg, display width420/lineHeight46, small vertical host padding. Changed/nonempty trim updates Arc timestamp and rename toast; validation preserved. Exact semantic typography/host-spacing exception; review/remove if style expressions or values change. No arbitrary material override allowed; internal native control INP-174 and native acceptance remain open."
+    },
+    {
+      "file": "src/features/arcs/GoalDetailScreen.tsx",
+      "line": 2757,
+      "owner": "GoalDetailScreen",
+      "component": "NarrativeEditableTitle",
+      "kind": "shared-input",
+      "fingerprint": "1886df4f4f1917774c933e7a",
+      "violations": [
+        "appearance-override",
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-113"
+      ],
+      "task": "08/12",
+      "reason": "Retained shared editorial Goal title caller: centered titleLg/textPrimary, width420, small vertical host padding. Changed/nonempty trim updates Goal timestamp and editing state. Exact semantic typography/host-spacing exception; review/remove if style expressions or values change. No arbitrary material override allowed; internal native control INP-174 and native acceptance remain open."
+    },
+    {
+      "kind": "shared-input",
+      "file": "src/capabilities/games/features/setup/GamePlayerSetup.tsx",
+      "component": "Input",
+      "line": 154,
+      "owner": "GamePlayerSetup",
+      "fingerprint": "410c3cf47f1793a878f8aaff",
+      "violations": [
+        "unmanaged-keyboard-scroll"
+      ],
+      "reason": "GamePlayerSetup is embedded by game frames with different native avoidance owners. Retain this exact seat editor until each host has native keyboard proof; adding independent keyboard padding here would double-adjust ConnectionGameFrame.",
+      "task": "docs/design-system/evidence/input-keyboard-safety/README.md",
+      "siteIds": [
+        "keyboard-host-882c150a57e89a30609c980d"
+      ]
+    },
+    {
+      "kind": "shared-input",
+      "file": "src/features/ai/AiChatScreen.tsx",
+      "component": "Input",
+      "line": 3319,
+      "owner": "AiChatPane",
+      "fingerprint": "b406abced4085750734abf4d",
+      "violations": [
+        "unmanaged-keyboard-scroll"
+      ],
+      "reason": "AiChatPane owns transformed-sheet keyboard height, frame-change tracking and focus alignment; retain exact sites until native chat-host replacement is verified. See keyboard-input-safety-implementation.md.",
+      "task": "docs/design-system/evidence/input-keyboard-safety/README.md",
+      "siteIds": [
+        "keyboard-host-0c1b01dabf354afbdd75861c"
+      ]
+    },
+    {
+      "kind": "shared-input",
+      "file": "src/features/ai/AiChatScreen.tsx",
+      "component": "Input",
+      "line": 3325,
+      "owner": "AiChatPane",
+      "fingerprint": "e3d1a0ad9d9cf2dbbe110c0f",
+      "violations": [
+        "unmanaged-keyboard-scroll"
+      ],
+      "reason": "AiChatPane owns transformed-sheet keyboard height, frame-change tracking and focus alignment; retain exact sites until native chat-host replacement is verified. See keyboard-input-safety-implementation.md.",
+      "task": "docs/design-system/evidence/input-keyboard-safety/README.md",
+      "siteIds": [
+        "keyboard-host-b3938f72a9bbca77f402356c"
+      ]
+    },
+    {
+      "kind": "shared-input",
+      "file": "src/features/ai/AiChatScreen.tsx",
+      "component": "Input",
+      "line": 3424,
+      "owner": "AiChatPane",
+      "fingerprint": "a1077371eb535f7d9fb611da",
+      "violations": [
+        "unmanaged-keyboard-scroll"
+      ],
+      "reason": "AiChatPane owns transformed-sheet keyboard height, frame-change tracking and focus alignment; retain exact sites until native chat-host replacement is verified. See keyboard-input-safety-implementation.md.",
+      "task": "docs/design-system/evidence/input-keyboard-safety/README.md",
+      "siteIds": [
+        "keyboard-host-88d8d82f721345d05cadab09"
+      ]
+    },
+    {
+      "file": "src/features/activities/ActivityDraftDetailFields.tsx",
+      "line": 271,
+      "owner": "ActivityDraftDetailFields",
+      "component": "TitleInput",
+      "kind": "shared-input",
+      "fingerprint": "322498cce26149635fe735fd",
+      "violations": [
+        "appearance-override",
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-084"
+      ],
+      "task": "08/12",
+      "reason": "Exact editorial heading typography/geometry adapter: TitleInput owns the native renderer and plain material, caller retains established heading styles and persistence policy. Owner design system. Review on heading style or commit policy changes; no ordinary-field styling exemption."
+    },
+    {
+      "file": "src/ui/NarrativeEditableTitle.tsx",
+      "line": 115,
+      "owner": "NarrativeEditableTitle",
+      "component": "TitleInput",
+      "kind": "shared-input",
+      "fingerprint": "e05e7f8a678bd8110af62d8b",
+      "violations": [
+        "appearance-override",
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-174"
+      ],
+      "task": "08/12",
+      "reason": "Exact editorial heading typography/geometry adapter: TitleInput owns the native renderer and plain material, caller retains established heading styles and persistence policy. Owner design system. Review on heading style or commit policy changes; no ordinary-field styling exemption."
+    },
+    {
+      "file": "src/ui/TitleInput.tsx",
+      "line": 18,
+      "owner": "TitleInput",
+      "component": "TextInput",
+      "kind": "raw-native-input",
+      "fingerprint": "c5616095b9bca5db5d467950",
+      "violations": [
+        "appearance-override",
+        "raw-native-input",
+        "unresolved-props-spread",
+        "unresolved-style"
+      ],
+      "siteIds": [
+        "INP-207"
+      ],
+      "task": "08/12",
+      "reason": "Owned editorial native adapter; forwards ref/native events without committing, forces uncapped multiline non-scrolling heading entry. Web-only fieldSizing content mirrors native growth in the browser specimen. Owner design system. Two audited callers retain draft versus commit policies. Review on native event or typography changes; consolidate into Input only when uncapped title geometry and caret behavior are equivalent."
+    },
+    {
+      "file": "src/ui/PickerFields.tsx",
+      "line": 345,
+      "owner": "FixedSetPickerField",
+      "kind": "shared-input",
+      "component": "PickerFieldTrigger",
+      "fingerprint": "7ac68c83929ec03b26cfaeb5",
+      "violations": [
+        "unresolved-variant"
+      ],
+      "siteIds": [
+        "INP-178"
+      ],
+      "task": "03/10",
+      "reason": "Owned picker adapter forwards the reviewed optional fieldVariant to the canonical trigger; all callers use filled or omit it. Owner design system; re-review on variant contract changes. Treatment compatibility removed; this is not a feature styling exemption."
+    },
+    {
+      "file": "src/ui/PickerFields.tsx",
+      "line": 457,
+      "owner": "RelationPickerField",
+      "kind": "shared-input",
+      "component": "PickerFieldTrigger",
+      "fingerprint": "1f79feffbdafd360ce09013c",
+      "violations": [
+        "unresolved-variant"
+      ],
+      "siteIds": [
+        "INP-179"
+      ],
+      "task": "03/10",
+      "reason": "Owned picker adapter forwards the reviewed optional fieldVariant to the canonical trigger; all callers use filled or omit it. Owner design system; re-review on variant contract changes. Treatment compatibility removed; this is not a feature styling exemption."
+    }
+  ]
+}

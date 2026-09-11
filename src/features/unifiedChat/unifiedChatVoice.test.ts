@@ -138,3 +138,43 @@ describe('Unified Chat native voice recording', () => {
     expect(order).toEqual(['recording_stopped', 'receipt_cue', 'audio_encoded']);
   });
 });
+
+// Stalled promises deliberately ignore abort: the application deadline must still settle.
+describe('dictation request deadlines', () => {
+  beforeEach(() => { jest.resetModules(); jest.useFakeTimers(); jest.clearAllMocks(); });
+  afterEach(() => jest.useRealTimers());
+  test('a stalled response stops waiting after the total budget', async () => {
+    global.fetch = jest.fn(() => new Promise(() => undefined));
+    const { startUnifiedChatVoiceRecording, stopAndTranscribeUnifiedChatVoice } = require('./unifiedChatVoice');
+    await startUnifiedChatVoiceRecording();
+    const pending = stopAndTranscribeUnifiedChatVoice();
+    const outcome = expect(pending).rejects.toThrow('taking too long');
+    await jest.advanceTimersByTimeAsync(20000);
+    await outcome;
+    expect((global.fetch as jest.Mock).mock.calls[0][1].signal.aborted).toBe(true);
+  });
+  test('cancelling during encoding never uploads the clip', async () => {
+    mockFileBase64.mockImplementationOnce(() => new Promise(() => undefined));
+    global.fetch = jest.fn();
+    const { startUnifiedChatVoiceRecording, stopAndTranscribeUnifiedChatVoice } = require('./unifiedChatVoice');
+    await startUnifiedChatVoiceRecording();
+    const controller = new AbortController();
+    const pending = stopAndTranscribeUnifiedChatVoice({ signal: controller.signal });
+    const outcome = expect(pending).rejects.toThrow('cancelled');
+    controller.abort();
+    await outcome;
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+ test('captures the finalized URI before releasing native recorder ownership', async () => {
+   jest.resetModules();
+   const voice = require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+   mockFileBase64.mockReset().mockResolvedValue('base64-audio');
+   mockRecorder.uri = 'file:///finalized.m4a';
+   mockRecorder.release.mockImplementationOnce(() => { mockRecorder.uri = ''; });
+   global.fetch = jest.fn(async () => ({ ok: true, status: 200, json: async () => ({ transcript: 'finished' }) })) as jest.Mock;
+   await voice.startUnifiedChatVoiceRecording();
+   await expect(voice.stopAndTranscribeUnifiedChatVoice()).resolves.toBe('finished');
+   mockRecorder.uri = 'file:///voice.m4a';
+ });

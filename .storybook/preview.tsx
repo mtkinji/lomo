@@ -1,3 +1,4 @@
+import './fonts.css';
 import type { Preview } from '@storybook/react-native-web-vite';
 import React from 'react';
 import { View } from 'react-native';

@@ -7,7 +7,7 @@ import { colors, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
-import { Input } from '../../../ui/Input';
+import { SearchField } from '../../../ui/SearchField';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPageHeader';
 import { Heading, Text } from '../../../ui/Typography';
@@ -165,17 +165,16 @@ export function KrogerStoreFinder({
         )}
         center={(
           <View style={styles.mapSearchField}>
-            <Input
+            <SearchField
+              clearAccessibilityLabel="Clear store search"
               accessibilityLabel="Search for nearby stores"
               value={query}
               onChangeText={onQueryChange}
               placeholder="City, address, or ZIP"
-              leadingIcon="search"
               autoCapitalize="words"
               autoCorrect={false}
               onSubmitEditing={onFindStores}
               returnKeyType="search"
-              containerStyle={styles.mapSearchInput}
             />
           </View>
         )}
@@ -294,7 +293,6 @@ const styles = StyleSheet.create({
   mapMarkerPreviewed: { backgroundColor: colors.textPrimary },
   mapMarkerLabel: { ...typography.bodySm, fontFamily: typography.bodyBold.fontFamily },
   mapSearchField: { width: '100%', paddingHorizontal: spacing.sm },
-  mapSearchInput: { minHeight: 48, borderRadius: 24 },
   storeDrawerSheet: { paddingTop: 0 },
   storeDrawerHandleContainer: {
     paddingTop: spacing.sm,

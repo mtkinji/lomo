@@ -2,12 +2,13 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Animated, Platform, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
+import { Animated, StyleSheet, Text, View, type TextInput } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { Icon } from '../../ui/Icon';
 import { HStack } from '../../ui/primitives';
 import { EditorSurface } from '../../ui/EditorSurface';
+import { Input } from '../../ui/Input';
 import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
@@ -448,7 +449,8 @@ export function QuickAddDock({
 
                   <View style={styles.inputContainer}>
                     <View style={styles.titleFieldClipper}>
-                      <RNTextInput
+                      <Input
+                        variant="plain"
                         ref={inputRef}
                         testID="e2e.activities.quickAdd.input"
                         value={value}
@@ -457,7 +459,6 @@ export function QuickAddDock({
                           setResolvedInputHeight(resolveInputHeightForText(next));
                         }}
                         placeholder={placeholder}
-                        placeholderTextColor={colors.textSecondary}
                         returnKeyType="done"
                         showSoftInputOnFocus
                         blurOnSubmit
@@ -488,10 +489,9 @@ export function QuickAddDock({
                         }}
                         autoCapitalize="sentences"
                         autoCorrect
-                        style={[
-                          styles.input,
-                          { height: inputHeight },
-                        ]}
+                        multilineMinHeight={inputHeight}
+                        multilineMaxHeight={inputHeight}
+                        inputStyle={styles.inputTypography}
                         accessibilityLabel={inputAccessibilityLabel}
                       />
                     </View>
@@ -964,27 +964,11 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
   },
-  input: {
-    width: '100%',
-    maxWidth: '100%',
-    flexShrink: 1,
-    ...typography.body,
+  inputTypography: {
+    // Preserve the established inline title role and measured line-height contract.
     fontFamily: fonts.semibold,
     fontSize: 15,
-    // Match ActivityListItem title metrics, but tune TextInput baseline so
-    // descenders never clip while remaining visually centered.
     lineHeight: 22,
-    ...(Platform.OS === 'ios'
-      ? {
-          marginTop: 0,
-          paddingTop: 0,
-          paddingBottom: 0,
-        }
-      : {
-          textAlignVertical: 'top',
-        }),
-    color: colors.textPrimary,
-    minWidth: 0,
   },
   composerActionsRow: {
     width: '100%',

@@ -1,5 +1,5 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { Alert, InteractionManager, ScrollView, Share, StyleSheet, View, TextInput, Switch } from 'react-native';
+import { Alert, InteractionManager, ScrollView, Share, StyleSheet, View, Switch } from 'react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { HStack, Text, ButtonLabel } from '../../ui/primitives';
+import { HStack, Input, Text, ButtonLabel } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { Toast, type ToastVariant } from '../../ui/Toast';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
@@ -210,6 +210,7 @@ export function DevToolsScreen() {
   const { openMenu } = useCapabilityMenuActions();
 
   const [homeConnectedPreview,setHomeConnectedPreview]=useState(route.params?.homePreview === "1");
+  useEffect(() => { if (route.params?.homePreview) setHomeConnectedPreview(route.params.homePreview === '1'); }, [route.params?.homePreview]);
   const [homeItemLab, setHomeItemLab] = useState(route.params?.homeItems === '1');
   useEffect(() => { if (route.params?.homeItems === '1') setHomeItemLab(true); }, [route.params?.homeItems, route.params?.homeItemId]);
   const [homeChorePreview, setHomeChorePreview] = useState(false);
@@ -1737,11 +1738,12 @@ export function DevToolsScreen() {
                               <Text style={styles.feedbackLabel}>
                                 Add workflow feedback for this chat
                               </Text>
-                              <TextInput
-                                style={styles.feedbackInput}
+                              <Input
+                                accessibilityLabel="Workflow feedback for this chat"
+                                multilineMinHeight={64}
+                                multilineMaxHeight={120}
                                 multiline
                                 placeholder="e.g., Offer a confirm option earlier when the user says they’re ready."
-                                placeholderTextColor={colors.textSecondary}
                                 value={feedbackDrafts[entry.id] ?? ''}
                                 onChangeText={(text) =>
                                   setFeedbackDrafts((current) => ({
@@ -2108,17 +2110,7 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  feedbackInput: {
-    minHeight: 64,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    backgroundColor: colors.canvas,
-  },
+
   feedbackActionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

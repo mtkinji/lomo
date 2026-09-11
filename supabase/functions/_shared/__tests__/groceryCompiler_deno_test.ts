@@ -1,5 +1,56 @@
 import { compileGroceryAuthority, compileHouseholdPlanGroceryAuthority, compileRecipeGroceryAuthority } from '../groceryCompiler.ts';
 
+// Hosted catalog projections retain the public recipe ID but use content hashes
+// and ingredient UUIDs from their immutable published version.
+const hostedCatalogSource = {
+  recipeId: 'kwilt-recipe-lu002', recipeVersionId: 'kwilt-recipe-lu002-v1', recipeVersion: 1,
+  contentHash: 'sha256:f641e8b737256497f0e7992b371b902f8822337b5f742b0ecb6076b5de84e2e8',
+  sourceType: 'catalog', title: 'Classic BLT', yieldQuantity: 4, yieldUnit: 'sandwiches',
+  ingredients: [{ id: 'b597248b-5a5d-44aa-909f-0bbfc3245aa9', originalText: '12 slices thick-cut bacon', optional: false }],
+};
+
+for (const householdId of ['household-1', null]) {
+  Deno.test(`moves a hosted catalog meal to Planned (${householdId ? 'household' : 'personal'})`, () => {
+    const result = compileHouseholdPlanGroceryAuthority({
+      plan: { id: 'plan-1', household_id: householdId, organizer_person_id: 'person-1', version: 7, state: 'draft' },
+      expectedVersion: 7, actorPersonId: 'person-1', actorRole: householdId ? 'owner' : null,
+      candidates: [{ id: 'candidate-1', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { ...hostedCatalogSource, recipeScaleMultiplier: 1 } }],
+      ingredientsByVersionId: {},
+    });
+    const source = result.items[0]?.sources[0];
+    if (source?.kind !== 'catalog_recipe_ingredient' || source.ingredientLineId !== hostedCatalogSource.ingredients[0].id || source.planCandidateId !== 'candidate-1') throw new Error('hosted catalog contribution lost');
+    if (result.items[0]?.quantityMin !== 12) throw new Error('hosted quantity changed');
+  });
+}
+
+Deno.test('compiles hosted catalog recipes through direct and finalized-plan grocery paths', () => {
+  const direct = compileRecipeGroceryAuthority({ source: hostedCatalogSource, recipeScaleMultiplier: 2, authoritativeIngredients: null });
+  const finalized = compileGroceryAuthority({
+    plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' },
+    expectedVersion: 3, actorPersonId: 'person-1', ingredientsByVersionId: {},
+    entries: [{ id: 'entry-1', plan_version: 3, servings: 8, recipe_snapshot: { ...hostedCatalogSource, recipeScaleMultiplier: 2 } }],
+  });
+  for (const result of [direct, finalized]) {
+    if (result.items[0]?.quantityMin !== 24 || result.items[0]?.sources[0]?.kind !== 'catalog_recipe_ingredient') throw new Error('hosted recipe did not compile at 2x');
+  }
+});
+
+Deno.test('rejects malformed hosted catalog identity and ingredients', () => {
+  for (const changed of [
+    { contentHash: 'sha256:incomplete' },
+    { sourceType: 'manual' },
+    { recipeVersionId: 'unrelated-version' },
+    { ingredients: [{ ...hostedCatalogSource.ingredients[0], id: 'unrelated-ingredient' }] },
+    { ingredients: [{ ...hostedCatalogSource.ingredients[0], originalText: '' }] },
+    { contentHash: 'kwilt:LU002:v1' }, // Legacy snapshots must retain their scoped ingredient IDs.
+  ]) {
+    let rejected = false;
+    try { compileRecipeGroceryAuthority({ source: { ...hostedCatalogSource, ...changed }, recipeScaleMultiplier: 1, authoritativeIngredients: null }); }
+    catch (error) { rejected = error instanceof Error && error.message === 'missing_recipe_version'; }
+    if (!rejected) throw new Error('invalid catalog snapshot accepted');
+  }
+});
+
 const input = {
   plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' }, expectedVersion: 3, actorPersonId: 'person-1',
   entries: [{ id: 'entry-1', plan_version: 3, servings: 8, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4, yieldUnit: 'servings', selectedServings: 8 } }],

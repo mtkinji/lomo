@@ -49,10 +49,11 @@ export type HouseholdPlanGroceryAuthorityInput = {
 };
 
 function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: string): IngredientAuthority[] | null {
+  const hosted = typeof snapshot.contentHash === 'string' && /^sha256:[0-9a-f]{64}$/.test(snapshot.contentHash);
   if (snapshot.sourceType !== 'catalog'
     || !/^kwilt-recipe-[a-z0-9-]+-v\d+$/.test(recipeVersionId)
     || typeof snapshot.contentHash !== 'string'
-    || !/^kwilt:[A-Z0-9-]+:v\d+$/.test(snapshot.contentHash)
+    || (!hosted && !/^kwilt:[A-Z0-9-]+:v\d+$/.test(snapshot.contentHash))
     || !Array.isArray(snapshot.ingredients)
     || snapshot.ingredients.length > 200) return null;
 
@@ -61,7 +62,9 @@ function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: 
     if (!value || typeof value !== 'object') return null;
     const ingredient = value as Record<string, unknown>;
     if (typeof ingredient.id !== 'string'
-      || !ingredient.id.startsWith(`${recipeVersionId}-ingredient-`)
+      || !(hosted
+        ? /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ingredient.id)
+        : ingredient.id.startsWith(`${recipeVersionId}-ingredient-`))
       || typeof ingredient.originalText !== 'string'
       || !ingredient.originalText.trim()
       || ingredient.originalText.length > 500

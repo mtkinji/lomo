@@ -1,0 +1,60 @@
+Local verification: 4 selected files, 160 other changed files outside this scope.
+- src/features/shared-home/HomeRecommendationRegion.test.tsx
+- src/features/shared-home/HomeRecommendationRegion.tsx
+- src/features/shared-home/SharedLifeFeed.tsx
+- src/features/shared-home/homeRecommendations.ts
+Check: whitespace — catch whitespace and conflict-marker issues before deeper gates
+Check: staged-whitespace — check staged content as well as working-tree edits
+Check: types:app — typecheck app, workspace packages, and shared TypeScript contracts
+Check: code:health — enforce code-health ratchets against newly introduced complexity
+Check: types:tests — typecheck Jest files and shared test harness code that app lint excludes
+Check: architecture:lint — check enforceable UI/feature architecture conventions
+Check: jest — run tests related to selected source, fixture, and test files; file count does not broaden scope
+Manual: npm run visual:compare — requires fresh Maestro screenshots; use when visual surfaces changed
+Local results do not approve integration, deployment, or omitted work.
+[verify:local] run whitespace: "git" "diff" "--check"
+[verify:local] run staged-whitespace: "git" "diff" "--cached" "--check"
+[verify:local] run types:app: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/typescript/bin/tsc" "--noEmit" "--project" "tsconfig.json" "--incremental" "--tsBuildInfoFile" "/Users/andrewwatanabe/Kwilt/.git/kwilt-verification/app.tsbuildinfo"
+[verify:local] run code:health: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "scripts/verification/local-code-health.mjs" "9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678"
+Code health summary
+Base: 9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678
+Files: 3328
+Lines: 554587
+Large files >=800 lines: 98
+Very large files >=1500 lines: 31
+Huge files >=3000 lines: 8
+unchecked casts: 857
+explicit any matches: 514
+@ts-ignore directives: 0
+console.log calls: 208
+coverage ignore patterns: 23
+raw react-native Text feature files: 10
+
+Largest files (top 10):
+- src/features/arcs/GoalDetailScreen.tsx: 5884 lines
+- src/features/ai/AiChatScreen.tsx: 5262 lines
+- src/features/onboarding/IdentityAspirationFlow.tsx: 4713 lines
+- src/services/ai.ts: 4216 lines
+- src/store/useAppStore.ts: 4205 lines
+- src/features/activities/ActivitiesScreen.tsx: 3922 lines
+- prototypes/pixel-pets/lib/pet-world.ts: 3243 lines
+- src/features/activities/ActivityDetailScreen.tsx: 3202 lines
+- supabase/functions/chapters-generate/index.ts: 2933 lines
+- plugins/withAppleEcosystemIntegrations.js: 2874 lines
+
+Ratchet findings:
+- [warning] src/features/shared-home/HomeRecommendationRegion.test.tsx: added 2 explicit any usages
+- [warning] src/features/shared-home/SharedLifeComposer.test.tsx: added 1 explicit any usage
+- [warning] src/features/shared-home/useHomeRecommendations.test.tsx: added 3 explicit any usages
+- [warning] src/features/shared-home/useMomentSuggestions.test.tsx: added 4 explicit any usages
+- [warning] src/ui/KeyboardAwareScrollView.test.tsx: added 2 unchecked casts
+[verify:local] run types:tests: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/typescript/bin/tsc" "--noEmit" "--project" "tsconfig.test.json" "--incremental" "--tsBuildInfoFile" "/Users/andrewwatanabe/Kwilt/.git/kwilt-verification/tests.tsbuildinfo"
+src/ui/SearchField.test.tsx(4,27): error TS2307: Cannot find module './SearchField' or its corresponding type declarations.
+Local automation stale: 25.54s
+- whitespace: passed (0.02s)
+- staged-whitespace: passed (0.01s)
+- types:app: passed (11.52s)
+- code:health: passed (0.93s)
+- types:tests: failed (10.57s)
+Inputs changed while checks were running. Results were not cached; verify the updated scope.
+Integration/deployment approval and listed manual checks remain separate.

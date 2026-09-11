@@ -1,7 +1,8 @@
+import { Input } from '@/src/ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
 import { Play, Plus, Smartphone, X } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { BankingRule } from '@/src/capabilities/games/domain/bank';
 import type { GamePlayerProfile } from '@/src/capabilities/games/players/gamePlayerProfile';
 import { normalizePlayerIdentity, type FailureSoundId, type PlayerIdentity, type SuccessSoundId } from '@/src/capabilities/games/players/playerIdentity';
@@ -150,18 +151,14 @@ export function GamePlayerSetup({
     <ScrollView style={styles.seatScroll} contentContainerStyle={styles.inputs} keyboardShouldPersistTaps="handled">
       {seats.map((seat, index) => <View key={seat.key} style={[styles.inputWrap, mode === 'remote-only' ? styles.inputWrapSingle : null]}>
         <Text style={styles.inputLabel}>{mode === 'remote-only' ? 'HOST' : `PLAYER ${index + 1}`}</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            value={seat.displayName}
-            placeholder={mode === 'remote-only' ? 'Your name' : `Player ${index + 1}`}
-            placeholderTextColor="rgba(32,29,24,0.34)"
-            maxLength={18}
-            onChangeText={(displayName) => onChange(seats.map((item) => item.key === seat.key ? { ...item, savedPlayerId: undefined, profileUserId: undefined, displayName } : item))}
-            style={styles.input}
-            accessibilityLabel={mode === 'remote-only' ? 'Host player' : `Player ${index + 1}`}
-          />
-          {seats.length > minPlayers ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove player ${index + 1}`} onPress={() => onChange(seats.filter((item) => item.key !== seat.key))} style={styles.remove}><X size={16} color={gamesTheme.colors.ink} /></Pressable> : null}
-        </View>
+        <Input
+          value={seat.displayName}
+          placeholder={mode === 'remote-only' ? 'Your name' : `Player ${index + 1}`}
+          maxLength={18}
+          onChangeText={(displayName) => onChange(seats.map((item) => item.key === seat.key ? { ...item, savedPlayerId: undefined, profileUserId: undefined, displayName } : item))}
+          accessibilityLabel={mode === 'remote-only' ? 'Host player' : `Player ${index + 1}`}
+          trailingElement={seats.length > minPlayers ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove player ${index + 1}`} onPress={() => onChange(seats.filter((item) => item.key !== seat.key))} style={styles.remove}><X size={16} color={gamesTheme.colors.ink} /></Pressable> : null}
+        />
       </View>)}
       {remoteGuidance && !remoteValid ? <Text accessibilityRole="alert" style={styles.remoteError}>{remoteGuidance}</Text> : null}
       {remoteError ? <Text accessibilityRole="alert" style={styles.remoteError}>{remoteError}</Text> : null}
@@ -203,8 +200,6 @@ const styles = StyleSheet.create({
   inputWrap: { width: '48%', gap: 5 },
   inputWrapSingle: { width: '100%' },
   inputLabel: { fontFamily: gamesTheme.type.utility, color: 'rgba(32,29,24,0.5)', fontSize: 9, letterSpacing: 1.2 },
-  inputRow: { height: 48, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(32,29,24,0.2)', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.5)' },
-  input: { flex: 1, height: '100%', paddingHorizontal: 13, fontFamily: gamesTheme.type.utility, fontSize: 14, color: gamesTheme.colors.ink },
   remove: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   playerActions: { width: '100%', minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 1 },
   playerActionsRemoteOnly: { justifyContent: 'flex-end' },

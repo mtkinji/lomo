@@ -396,7 +396,7 @@ export function CapabilityMenu({
             </View>
           </Pressable>
           {moreExpanded ? (
-            <View testID="capability.menu.more.items" style={styles.moreItems}>
+            <View testID="capability.menu.more.items">
               {visibleMoreCapabilityIds.map(renderCapability)}
             </View>
           ) : null}
@@ -755,9 +755,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     borderRadius: 10,
-  },
-  moreItems: {
-    paddingLeft: spacing.md,
   },
   capabilityRow: {
     minHeight: 44,

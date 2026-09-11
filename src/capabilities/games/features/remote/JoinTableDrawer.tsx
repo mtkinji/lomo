@@ -1,8 +1,9 @@
+import { Input } from '@/src/ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useRef, useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Radio, UsersRound } from 'lucide-react-native';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, type TextInput, View } from 'react-native';
 import {
   claimRemoteBankTableInvite,
   previewOpenGameTableInvite,
@@ -154,16 +155,26 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
       onClose={onClose}
       snapPoints={['72%', '92%']}
       initialSnapIndex={0}
+      keyboardBehavior="resize"
       scrimToken="pineSubtle"
       enableContentPanningGesture
       sheetStyle={styles.sheet}
       handleContainerStyle={styles.handleContainer}
       handleStyle={styles.handle}
+      bottomAccessory={
+        token && (preview?.alreadyJoined || preview?.canJoin) ? (
+          <View style={styles.joinActions}>
+            {preview.alreadyJoined ? <GameButton onPress={returnToTable}>Return to table</GameButton> : null}
+            {preview.canJoin ? <GameButton disabled={!canJoinToken} onPress={() => void join({ token })}>{joining ? 'Joining…' : 'Join table'}</GameButton> : null}
+          </View>
+        ) : !token ? (
+          <GameButton disabled={!canJoinCode} onPress={() => void join({ shortCode: cleanCode })}>{joining ? 'Joining…' : 'Join table'}</GameButton>
+        ) : undefined
+      }
     >
       <BottomDrawerScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
       >
@@ -205,7 +216,7 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
 
         {(!token || preview?.canJoin) ? <View style={styles.nameBlock}>
           <Text style={styles.label}>YOUR NAME</Text>
-          <TextInput
+          <Input
             ref={nameInputRef}
             autoCapitalize="words"
             autoCorrect={false}
@@ -216,34 +227,26 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
               if (next.trim()) setNameHelp(null);
             }}
             placeholder="Olive"
-            placeholderTextColor="rgba(32,29,24,0.28)"
             accessibilityLabel="Your player name"
             returnKeyType={token ? 'go' : 'next'}
             onSubmitEditing={() => { if (canJoinToken) void join({ token }); }}
-            style={styles.input}
           />
           {nameHelp ? <Text accessibilityRole="alert" style={styles.nameHelp}>{nameHelp}</Text> : null}
         </View> : null}
 
-        {token && preview?.alreadyJoined ? <GameButton onPress={returnToTable}>Return to table</GameButton> : null}
-        {token && preview?.canJoin ? <GameButton disabled={!canJoinToken} onPress={() => void join({ token })}>{joining ? 'Joining…' : 'Join table'}</GameButton> : null}
-
         {!token ? <View style={styles.section}>
           <Text style={styles.sectionTitle}>HAVE A CODE?</Text>
-          <TextInput
+          <Input
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={8}
             value={code}
             onChangeText={setCode}
             placeholder="W7K-4JP"
-            placeholderTextColor="rgba(32,29,24,0.25)"
             accessibilityLabel="Join code"
             returnKeyType="go"
             onSubmitEditing={() => { if (canJoinCode) void join({ shortCode: cleanCode }); }}
-            style={[styles.input, styles.codeInput]}
           />
-          <GameButton disabled={!canJoinCode} onPress={() => void join({ shortCode: cleanCode })}>{joining ? 'Joining…' : 'Join table'}</GameButton>
         </View> : null}
 
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -253,6 +256,7 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
 }
 
 const styles = StyleSheet.create({
+  joinActions: { gap: 10 },
   sheet: { backgroundColor: gamesTheme.colors.cream },
   handleContainer: { backgroundColor: gamesTheme.colors.cream },
   handle: { backgroundColor: 'rgba(32,29,24,0.18)' },
@@ -262,8 +266,6 @@ const styles = StyleSheet.create({
   copy: { fontFamily: gamesTheme.type.body, fontSize: 14, lineHeight: 20, color: 'rgba(32,29,24,0.6)' },
   nameBlock: { gap: 6 },
   label: { fontFamily: gamesTheme.type.utility, fontSize: 9, letterSpacing: 1.4, color: 'rgba(32,29,24,0.48)' },
-  input: { height: 58, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(32,29,24,0.18)', backgroundColor: gamesTheme.colors.paper, paddingHorizontal: 16, fontFamily: gamesTheme.type.utility, fontSize: 17, color: gamesTheme.colors.ink },
-  codeInput: { height: 68, textAlign: 'center', fontFamily: gamesTheme.type.display, fontSize: 26, letterSpacing: 4 },
   section: { gap: 10 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   sectionTitle: { fontFamily: gamesTheme.type.utility, fontSize: 9, letterSpacing: 1.5, color: 'rgba(32,29,24,0.48)' },

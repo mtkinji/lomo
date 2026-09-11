@@ -375,3 +375,48 @@ describe('RevenueCat purchase errors', () => {
     expect(isRevenueCatPurchaseCancelled(null)).toBe(false);
   });
 });
+
+describe('Founding Lifetime offer', () => {
+  const lifetimePackage = { identifier: '$rc_lifetime', product: {
+    identifier: 'pro_lifetime', price: 19.99, priceString: '$19.99', currencyCode: 'USD',
+  } };
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    const service = require('./entitlements');
+    service.__resetRevenueCatEntitlementsForTests();
+    service.setDevelopmentProStoreOfferState('live');
+    mockPurchases.getAppUserID.mockResolvedValue('user-a');
+    mockPurchases.getCustomerInfo.mockResolvedValue(customerInfo(false));
+    mockPurchases.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({});
+    mockPurchases.getOfferings.mockResolvedValue({ current: { availablePackages: [] }, all: {
+      founders: { availablePackages: [lifetimePackage] },
+    } });
+  });
+  it('loads a separate founders offer without replacing subscription products', async () => {
+    const { getProStoreOfferSnapshot } = require('./entitlements');
+    const offer = await getProStoreOfferSnapshot('user-a');
+    expect(offer.products.pro_lifetime).toMatchObject({ priceString: '$19.99', introEligibility: 'no_offer' });
+    expect(mockPurchases.checkTrialOrIntroductoryPriceEligibility).not.toHaveBeenCalledWith(['pro_lifetime']);
+  });
+  it('does not offer or purchase lifetime after the founders package is removed', async () => {
+    const { getProStoreOfferSnapshot, purchaseProLifetime } = require('./entitlements');
+    mockPurchases.getOfferings.mockResolvedValue({ current: { availablePackages: [lifetimePackage] }, all: {} });
+    expect((await getProStoreOfferSnapshot('user-a')).products.pro_lifetime).toBeUndefined();
+    await expect(purchaseProLifetime('user-a')).rejects.toThrow();
+    expect(mockPurchases.purchasePackage).not.toHaveBeenCalled();
+  });
+  it('purchases and restores permanent Pro using the signed-in identity', async () => {
+    const { purchaseProLifetime, restorePurchases, getEntitlements } = require('./entitlements');
+    const lifetimeInfo = { ...customerInfo(true), entitlements: { active: { pro: {
+      productIdentifier: 'pro_lifetime', expirationDate: null, isActive: true,
+    } } } };
+    mockPurchases.purchasePackage.mockResolvedValue({ customerInfo: lifetimeInfo });
+    mockPurchases.restorePurchases.mockResolvedValue(lifetimeInfo);
+    mockPurchases.getCustomerInfo.mockResolvedValue(lifetimeInfo);
+    expect(await purchaseProLifetime('user-a')).toMatchObject({ isPro: true, proAccessType: 'lifetime' });
+    expect(mockPurchases.purchasePackage).toHaveBeenCalledWith(lifetimePackage);
+    expect(await restorePurchases('user-a')).toMatchObject({ isPro: true, proAccessType: 'lifetime' });
+    expect(await getEntitlements({ forceRefresh: true, appUserID: 'user-a' })).toMatchObject({ isPro: true, proAccessType: 'lifetime' });
+  });
+});

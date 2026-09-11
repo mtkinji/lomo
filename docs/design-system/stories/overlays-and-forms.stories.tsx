@@ -13,6 +13,8 @@ import {
 } from '../../../src/ui/DropdownMenu';
 import { FormField } from '../../../src/ui/FormField';
 import { Input } from '../../../src/ui/Input';
+import { Combobox } from '../../../src/ui/Combobox';
+import { Text } from '../../../src/ui/Typography';
 import { PortalHost } from '../../../src/ui/Portal';
 import { SegmentedControl } from '../../../src/ui/SegmentedControl';
 import { spacing } from '../../../src/theme';
@@ -32,6 +34,22 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+function UnifiedFormSpecimen() {
+  const [visible, setVisible] = useState(false);
+  const [name, setName] = useState('');
+  return <StoryFrame title="Filled form in a dialog" description="One completion action remains with the host; labels and errors remain with their fields.">
+    <Button onPress={() => setVisible(true)}>Open form</Button>
+    <Dialog visible={visible} onClose={() => setVisible(false)} title="Edit details">
+      <StoryStack>
+        <Input label="Name" value={name} onChangeText={setName} placeholder="Enter a name" />
+        <Input label="Notes" multiline defaultValue="A longer paragraph to review inside the dialog." />
+        <Button onPress={() => setVisible(false)}>Done</Button>
+      </StoryStack>
+    </Dialog>
+  </StoryFrame>;
+}
+export const UnifiedForm: Story = {render: () => <UnifiedFormSpecimen />};
 
 function OverlayStory() {
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -131,3 +149,21 @@ export const FieldStates: Story = {
     </StoryFrame>
   ),
 };
+
+function PickerSearchSpecimen() {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('outside');
+  return <StoryFrame title="Picker search" description="Search narrows choices; clearing the query keeps the selected value.">
+    <StoryStack>
+      <View style={{width: 320, maxWidth: '100%'}}>
+      <Combobox open={open} onOpenChange={setOpen} value={value} onValueChange={setValue}
+        options={[{value: 'outside', label: 'Spend time outside'}, {value: 'cook', label: 'Cook together'}, {value: 'learn', label: 'Learn something new'}]}
+        presentation="popover" searchPlaceholder="Search goals" portalHost="input-picker-story"
+        trigger={<Button variant="secondary">Choose goal</Button>} />
+      </View>
+      <Text>Selected: {value}</Text>
+    </StoryStack>
+    <PortalHost name="input-picker-story" />
+  </StoryFrame>;
+}
+export const PickerSearch: Story = {render: () => <PickerSearchSpecimen />};

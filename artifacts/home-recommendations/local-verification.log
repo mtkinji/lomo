@@ -1,0 +1,436 @@
+Local verification: 22 selected files, 128 other changed files outside this scope.
+- docs/design-explorations/home-getting-started/07-recommendation-placement-and-discovery.md
+- docs/design-explorations/home-getting-started/README.md
+- docs/feature-briefs/home-getting-started.md
+- docs/superpowers/plans/2026-09-10-home-recommendations.md
+- src/features/dev/DevToolsScreen.tsx
+- src/features/dev/HomeConnectedPreview.tsx
+- src/features/shared-home/FEATURE.md
+- src/features/shared-home/HomeRecommendationRegion.test.tsx
+- src/features/shared-home/HomeRecommendationRegion.tsx
+- src/features/shared-home/SharedLifeFeed.header.test.tsx
+- src/features/shared-home/SharedLifeFeed.tsx
+- src/features/shared-home/SharedLifeFeedControls.tsx
+- src/features/shared-home/homeRecommendationEvidence.test.ts
+- src/features/shared-home/homeRecommendationEvidence.ts
+- src/features/shared-home/homeRecommendationNavigation.test.ts
+- src/features/shared-home/homeRecommendationNavigation.ts
+- src/features/shared-home/homeRecommendations.test.ts
+- src/features/shared-home/homeRecommendations.ts
+- src/features/shared-home/useHomeRecommendationPreferences.test.ts
+- src/features/shared-home/useHomeRecommendationPreferences.ts
+- src/features/shared-home/useHomeRecommendations.test.tsx
+- src/features/shared-home/useHomeRecommendations.ts
+Check: whitespace — catch whitespace and conflict-marker issues before deeper gates
+Check: staged-whitespace — check staged content as well as working-tree edits
+Check: types:app — typecheck app, workspace packages, and shared TypeScript contracts
+Check: code:health — enforce code-health ratchets against newly introduced complexity
+Check: types:tests — typecheck Jest files and shared test harness code that app lint excludes
+Check: product:lint — validate JTBD, persona, job-flow, feature, and feature-brief references
+Check: architecture:lint — check enforceable UI/feature architecture conventions
+Check: jest — run tests related to selected source, fixture, and test files; file count does not broaden scope
+Manual: npm run visual:compare — requires fresh Maestro screenshots; use when visual surfaces changed
+Manual: npm run agent:map — refresh generated documentation explicitly if needed; local verification does not rewrite it
+Local results do not approve integration, deployment, or omitted work.
+[verify:local] run whitespace: "git" "diff" "--check"
+[verify:local] run staged-whitespace: "git" "diff" "--cached" "--check"
+[verify:local] run types:app: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/typescript/bin/tsc" "--noEmit" "--project" "tsconfig.json" "--incremental" "--tsBuildInfoFile" "/Users/andrewwatanabe/Kwilt/.git/kwilt-verification/app.tsbuildinfo"
+[verify:local] run code:health: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "scripts/verification/local-code-health.mjs" "9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678"
+Code health summary
+Base: 9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678
+Files: 3320
+Lines: 554081
+Large files >=800 lines: 98
+Very large files >=1500 lines: 31
+Huge files >=3000 lines: 8
+unchecked casts: 857
+explicit any matches: 514
+@ts-ignore directives: 0
+console.log calls: 206
+coverage ignore patterns: 23
+raw react-native Text feature files: 10
+
+Largest files (top 10):
+- src/features/arcs/GoalDetailScreen.tsx: 5884 lines
+- src/features/ai/AiChatScreen.tsx: 5262 lines
+- src/features/onboarding/IdentityAspirationFlow.tsx: 4713 lines
+- src/services/ai.ts: 4216 lines
+- src/store/useAppStore.ts: 4205 lines
+- src/features/activities/ActivitiesScreen.tsx: 3922 lines
+- prototypes/pixel-pets/lib/pet-world.ts: 3243 lines
+- src/features/activities/ActivityDetailScreen.tsx: 3202 lines
+- supabase/functions/chapters-generate/index.ts: 2933 lines
+- plugins/withAppleEcosystemIntegrations.js: 2874 lines
+
+Ratchet findings:
+- [warning] src/features/shared-home/HomeRecommendationRegion.test.tsx: added 2 explicit any usages
+- [warning] src/features/shared-home/SharedLifeComposer.test.tsx: added 1 explicit any usage
+- [warning] src/features/shared-home/useHomeRecommendations.test.tsx: added 3 explicit any usages
+- [warning] src/features/shared-home/useMomentSuggestions.test.tsx: added 4 explicit any usages
+- [warning] src/ui/KeyboardAwareScrollView.test.tsx: added 2 unchecked casts
+[verify:local] run types:tests: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/typescript/bin/tsc" "--noEmit" "--project" "tsconfig.test.json" "--incremental" "--tsBuildInfoFile" "/Users/andrewwatanabe/Kwilt/.git/kwilt-verification/tests.tsbuildinfo"
+[verify:local] run product:lint: "npm" "run" "product:lint"
+
+> kwilt@1.0.122 product:lint
+> node scripts/product-lint.mjs && npm run chat:delivery-lint
+
+Product lint summary:
+  JTBDs found:           17
+  Audiences found:       6
+  Job flows found:       10
+  Feature briefs found:  160
+  Feature manifests:     192 brief references
+  Errors:                0
+  Warnings:              8
+
+Warnings:
+  - docs/feature-briefs/activation-experiment-loop.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/audio-learning-release.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/build-continuity-control-plane.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/explore-missions-stories-system.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/household-activity-assignment.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/object-creation-ux-system.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/pixel-pet-labs.md: has front-matter but is not referenced by any FEATURE.md briefs list
+  - docs/feature-briefs/recipe-origin-story.md: has front-matter but is not referenced by any FEATURE.md briefs list
+
+OK - no errors.
+
+> kwilt@1.0.122 chat:delivery-lint
+> node scripts/chat-delivery-lint.mjs && npm run chat:control-parity -- --allow-incomplete --no-write
+
+Unified Chat delivery evidence:
+  1. Arrive with visible scope and exact return: 4/5
+  2. Express intent in ordinary language: 3/5
+  3. Establish bounded request scope: 4/5
+  4. Retrieve inspectable evidence: 4/5
+  5. Understand result and limits: 4/5
+  6. Review a typed capability-owned proposal: 4/5
+  7. Correct decline defer or approve: 4/5
+  8. Apply idempotently with authoritative receipt: 4/5
+  9. Return to the exact native destination: 4/5
+  10. Resume correct and undo: 4/5
+  Errors: 0
+OK - delivery claims resolve to their required evidence.
+
+> kwilt@1.0.122 chat:control-parity
+> node scripts/conversational-control-parity.mjs --allow-incomplete --no-write
+
+# Conversational Control Parity
+
+> Generated from the canonical UI inventory, capability manifest, provider registries, and external control ledger. Do not edit counts by hand.
+
+| Measure | Value |
+| --- | --- |
+| Operations | 232 |
+| Mobile | {"ready":225,"excluded":7} |
+| Phone | {"ready":225,"excluded":7} |
+| External | {"boundary":7,"ready":223,"excluded":2} |
+| Voice | {"shared_runtime":225,"excluded":7} |
+| Final parity errors | 0 |
+
+## Operations
+
+| Operation | Owner | Mode | Mobile | Phone | External | Voice |
+| --- | --- | --- | --- | --- | --- | --- |
+| `general.answer` | general | direct | ready | ready | boundary | shared_runtime |
+| `general.answer_with_context` | general | direct | ready | ready | boundary | shared_runtime |
+| `relationships.read` | relationships | direct | ready | ready | ready | shared_runtime |
+| `relationships.remember` | relationships | direct | ready | ready | ready | shared_runtime |
+| `relationships.correct` | relationships | direct | ready | ready | ready | shared_runtime |
+| `relationships.forget` | relationships | direct | ready | ready | ready | shared_runtime |
+| `relationships.forget_person` | relationships | supported_boundary | excluded | excluded | boundary | excluded |
+| `household.read` | household | direct | ready | ready | ready | shared_runtime |
+| `household.member.add_dependent` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.invitation.create` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.invitation.preview` | household | direct | ready | ready | ready | shared_runtime |
+| `household.invitation.accept` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.child_capability.update` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.caregiver_grant.update` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `profile.read` | profile | direct | ready | ready | ready | shared_runtime |
+| `profile.update` | profile | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `arcs.list` | arcs | direct | ready | ready | ready | shared_runtime |
+| `arcs.get` | arcs | direct | ready | ready | ready | shared_runtime |
+| `arcs.create` | arcs | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `arcs.update` | arcs | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `arcs.delete` | arcs | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `goals.list` | goals | direct | ready | ready | ready | shared_runtime |
+| `goals.get` | goals | direct | ready | ready | ready | shared_runtime |
+| `goals.create` | goals | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `goals.update` | goals | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `goals.delete` | goals | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `goals.check_in` | goals | native_handoff | ready | ready | ready | shared_runtime |
+| `goals.share` | goals | native_handoff | ready | ready | ready | shared_runtime |
+| `activities.list` | todos | direct | ready | ready | ready | shared_runtime |
+| `activities.get` | todos | direct | ready | ready | ready | shared_runtime |
+| `activities.search` | todos | direct | ready | ready | ready | shared_runtime |
+| `activities.capture` | todos | direct | ready | ready | ready | shared_runtime |
+| `activities.update` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.complete` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.delete` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.steps.create` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.steps.update` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.steps.complete` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.steps.delete` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.steps.reorder` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.focus.open` | todos | native_handoff | ready | ready | ready | shared_runtime |
+| `activities.focus_today` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.schedule` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.schedule_chunks` | plan | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.reminder.update` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.repeat.update` | todos | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `activities.location.update` | todos | native_handoff | ready | ready | ready | shared_runtime |
+| `activities.attachments.update` | todos | native_handoff | ready | ready | ready | shared_runtime |
+| `activities.share` | todos | native_handoff | ready | ready | ready | shared_runtime |
+| `plan.read_day_context` | plan | direct | ready | ready | ready | shared_runtime |
+| `plan.recommend_day` | plan | direct | ready | ready | ready | shared_runtime |
+| `plan.schedule_activity` | plan | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.reschedule_activity` | plan | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.remove_activity` | plan | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.preferences.open` | plan | native_handoff | ready | ready | ready | shared_runtime |
+| `chapters.list` | chapters | direct | ready | ready | ready | shared_runtime |
+| `chapters.get` | chapters | direct | ready | ready | ready | shared_runtime |
+| `chapters.reflect` | chapters | direct | ready | ready | ready | shared_runtime |
+| `chapters.note.update` | chapters | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `account.show_up_status` | account | direct | ready | ready | ready | shared_runtime |
+| `money.read` | money | direct | ready | ready | ready | shared_runtime |
+| `money.review_transaction` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `money.category.create` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.category.rename` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.app_control.review` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `money.category.update` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `money.privacy.configure` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `money.connection.connect` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `money.connection.sync` | money | native_handoff | ready | ready | ready | shared_runtime |
+| `explore.open` | explore | excluded | excluded | excluded | excluded | excluded |
+| `games.open` | games | excluded | excluded | excluded | excluded | excluded |
+| `chores.open` | chores | native_handoff | ready | ready | ready | shared_runtime |
+| `recipes.search` | recipes | direct | ready | ready | ready | shared_runtime |
+| `recipes.read` | recipes | direct | ready | ready | ready | shared_runtime |
+| `recipes.create` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.import.prepare` | recipes | direct | ready | ready | ready | shared_runtime |
+| `recipes.import.approve` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.update` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.scale.preview` | recipes | direct | ready | ready | ready | shared_runtime |
+| `recipes.fork` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.share_copy.prepare` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.collaborator.invite` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.publication.prepare` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.publication.publish` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.publication.attest_rights` | recipes | supported_boundary | excluded | excluded | boundary | excluded |
+| `recipes.delete` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.plan.create` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.plan.update` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.candidate.add` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.candidate.remove` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.round.open` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.round.close` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.response.submit` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.response.withdraw` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.plan.finalize` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.plan.revise` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.candidates.prepare` | meal_planning | direct | ready | ready | ready | shared_runtime |
+| `food_budget.read` | savings | direct | ready | ready | ready | shared_runtime |
+| `food_stock.read` | groceries | direct | ready | ready | ready | shared_runtime |
+| `food_stock.observe` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `food_stock.deplete` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.compile` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.item.add` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.item.update` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.item.set_state` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.list.review` | groceries | direct | ready | ready | ready | shared_runtime |
+| `groceries.product_match.prepare` | groceries | direct | ready | ready | ready | shared_runtime |
+| `groceries.product_match.confirm` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.handoff.prepare` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `groceries.handoff.open` | groceries | native_handoff | ready | ready | ready | shared_runtime |
+| `groceries.checkout` | groceries | supported_boundary | excluded | excluded | boundary | excluded |
+| `groceries.payment` | groceries | supported_boundary | excluded | excluded | boundary | excluded |
+| `store_opportunity.capture` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `food_scenario.prepare` | groceries | direct | ready | ready | ready | shared_runtime |
+| `food_scenario.accept` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `savings.review` | savings | direct | ready | ready | ready | shared_runtime |
+| `savings.accept` | savings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `savings.coupon.apply_unsupported` | savings | supported_boundary | excluded | excluded | boundary | excluded |
+| `savings.coupon.open` | savings | native_handoff | ready | ready | ready | shared_runtime |
+| `receipt.extract` | groceries | direct | ready | ready | ready | shared_runtime |
+| `receipt.reconcile` | groceries | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `cook_session.read` | recipes | direct | ready | ready | ready | shared_runtime |
+| `cook_session.start` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `cook_session.control` | recipes | direct | ready | ready | ready | shared_runtime |
+| `cook_session.complete` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.read` | screenTime | direct | ready | ready | ready | shared_runtime |
+| `screen_time.agreement.create` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.agreement.update` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.agreement.deactivate` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.override.block` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.override.allow` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.override.cancel` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.request.decide` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.personal.setup.open` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `screen_time.personal.limit.open` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `screen_time.selection.open` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `screen_time.device.setup.open` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `screen_time.device.release.open` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `screen_time.configure` | screenTime | native_handoff | ready | ready | ready | shared_runtime |
+| `notifications.configure` | notifications | native_handoff | ready | ready | ready | shared_runtime |
+| `search.open` | navigation | native_handoff | ready | ready | ready | shared_runtime |
+| `account.settings.open` | account | native_handoff | ready | ready | ready | shared_runtime |
+| `account.subscription.manage` | account | native_handoff | ready | ready | ready | shared_runtime |
+| `account.delete` | account | native_handoff | ready | ready | ready | shared_runtime |
+| `channel.phone.continue_run` | channels | direct | ready | ready | ready | shared_runtime |
+| `household.member.update` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.member.remove` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.device.list` | household | direct | ready | ready | ready | shared_runtime |
+| `household.device.update` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.device.revoke` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `household.device.reconcile` | household | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.availability.read` | plan | direct | ready | ready | ready | shared_runtime |
+| `plan.availability.update` | plan | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `plan.calendars.read` | plan | direct | ready | ready | ready | shared_runtime |
+| `plan.calendars.update` | plan | native_handoff | ready | ready | ready | shared_runtime |
+| `chapters.digest_settings.read` | chapters | direct | ready | ready | ready | shared_runtime |
+| `chapters.digest_settings.update` | chapters | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chapters.alignment.preview` | chapters | direct | ready | ready | ready | shared_runtime |
+| `chapters.alignment.apply` | chapters | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.appearance.read` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.appearance.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.ai_model.read` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.ai_model.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.phone_agent.read` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.phone_agent.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.connected_tools.list` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.connected_tools.get` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.connected_tools.connect.open` | settings | provider_handoff | ready | ready | ready | shared_runtime |
+| `settings.connected_tools.revoke` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.sharing.list` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.sharing.invitation.prepare` | settings | native_handoff | ready | ready | ready | shared_runtime |
+| `settings.sharing.connection.revoke` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.haptics.read` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.haptics.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.widgets.read` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.widgets.configure` | settings | native_handoff | ready | ready | ready | shared_runtime |
+| `settings.execution_targets.list` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.execution_targets.get` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.execution_targets.create` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.execution_targets.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.execution_targets.delete` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.destinations.list` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.destinations.get` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.destinations.create` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.destinations.delete` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.activity_areas.list` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.activity_areas.get` | settings | direct | ready | ready | ready | shared_runtime |
+| `settings.activity_areas.create` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.activity_areas.update` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `settings.activity_areas.delete` | settings | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.budget.read` | money | direct | ready | ready | ready | shared_runtime |
+| `money.budget.update` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.transaction.get` | money | direct | ready | ready | ready | shared_runtime |
+| `money.transaction.meaning.update` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.transaction.plan_treatment.update` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.connection.disconnect` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `money.connection.repair.open` | money | provider_handoff | ready | ready | ready | shared_runtime |
+| `money.transfer.list` | money | direct | ready | ready | ready | shared_runtime |
+| `money.transfer.get` | money | direct | ready | ready | ready | shared_runtime |
+| `money.transfer.review` | money | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.list` | chores | direct | ready | ready | ready | shared_runtime |
+| `chores.get` | chores | direct | ready | ready | ready | shared_runtime |
+| `chores.definition.create` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.definition.update` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.definition.pause` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.definition.delete` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.occurrence.claim` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.occurrence.release` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.occurrence.complete` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.occurrence.reopen` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.occurrence.report_earlier` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.evidence.add` | chores | native_handoff | ready | ready | ready | shared_runtime |
+| `chores.review.approve` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.review.return` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.review.leave_missed` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.reward.read` | chores | direct | ready | ready | ready | shared_runtime |
+| `chores.reward.configure` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.reward.reserve` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.reward.cancel` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `chores.reward.settle` | chores | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.favorite.update` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `recipes.visibility.update` | recipes | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `meal_planning.preferences.read` | meal_planning | direct | ready | ready | ready | shared_runtime |
+| `meal_planning.preferences.update` | meal_planning | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.personal_rule.list` | screenTime | direct | ready | ready | ready | shared_runtime |
+| `screen_time.personal_rule.get` | screenTime | direct | ready | ready | ready | shared_runtime |
+| `screen_time.personal_rule.update` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.personal_rule.deactivate` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `screen_time.personal_rule.delete` | screenTime | reviewed_proposal | ready | ready | ready | shared_runtime |
+| `notifications.preferences.read` | notifications | direct | ready | ready | ready | shared_runtime |
+| `notifications.preferences.update` | notifications | native_handoff | ready | ready | ready | shared_runtime |
+| `navigation.open_capability` | navigation | native_handoff | ready | ready | ready | shared_runtime |
+
+## Final parity errors
+
+None.
+[verify:local] run architecture:lint: "npm" "run" "architecture:lint"
+
+> kwilt@1.0.122 architecture:lint
+> node --test scripts/architecture-lint-lib.test.mjs && node scripts/architecture-lint.mjs
+
+✔ counts product green tokens but ignores neutral color roles (0.705084ms)
+✔ allows green only when the source line names an explicit brand moment (0.051ms)
+✔ rejects increases while allowing existing green debt to stay flat or decrease (0.090625ms)
+✔ rejects feature-level overrides of canonical ActionDock placement (0.734584ms)
+✔ allows dock internals and semantic placement without raw geometry overrides (0.065334ms)
+✔ rejects raw React Native press controls outside the app-owned haptic boundary (0.109792ms)
+✔ rejects drawer action geometry escape hatches in feature code (0.071792ms)
+✔ rejects a migrated screen selecting a raw repository mutation (0.068542ms)
+✔ rejects Chat mutation duplication while allowing the capability action module (0.063375ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 72.238833
+Architecture warnings:
+- src/features/account/ManageSubscriptionScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDetailRefresh.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDetailScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDraftDetailFields.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/QuickAddDock.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcBannerSheet.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcDetailScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcsScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/onboarding/ConfigErrorScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/onboarding/CreditsInterstitialDrawer.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+Raw Text warnings by feature:
+- activities: 4
+- arcs: 3
+- onboarding: 2
+- account: 1
+Architecture lint passed with 10 warnings.
+[verify:local] run jest: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/jest/bin/jest.js" "--runInBand" "--passWithNoTests" "--findRelatedTests" "src/features/dev/DevToolsScreen.tsx" "src/features/dev/HomeConnectedPreview.tsx" "src/features/shared-home/HomeRecommendationRegion.test.tsx" "src/features/shared-home/HomeRecommendationRegion.tsx" "src/features/shared-home/SharedLifeFeed.header.test.tsx" "src/features/shared-home/SharedLifeFeed.tsx" "src/features/shared-home/SharedLifeFeedControls.tsx" "src/features/shared-home/homeRecommendationEvidence.test.ts" "src/features/shared-home/homeRecommendationEvidence.ts" "src/features/shared-home/homeRecommendationNavigation.test.ts" "src/features/shared-home/homeRecommendationNavigation.ts" "src/features/shared-home/homeRecommendations.test.ts" "src/features/shared-home/homeRecommendations.ts" "src/features/shared-home/useHomeRecommendationPreferences.test.ts" "src/features/shared-home/useHomeRecommendationPreferences.ts" "src/features/shared-home/useHomeRecommendations.test.tsx" "src/features/shared-home/useHomeRecommendations.ts"
+PASS src/features/shared-home/SharedHomeScreen.test.tsx
+PASS src/features/shared-home/SharedLifeFeed.header.test.tsx
+PASS src/features/shared-home/HomeRecommendationRegion.test.tsx
+PASS src/features/shared-home/SharedLifeFeedControls.test.tsx
+PASS src/features/shared-home/useHomeRecommendations.test.tsx
+PASS src/features/shared-home/homeRecommendationEvidence.test.ts
+PASS src/features/shared-home/homeRecommendations.test.ts
+PASS src/features/shared-home/useHomeRecommendationPreferences.test.ts
+PASS src/features/shared-home/homeRecommendationNavigation.test.ts
+
+Test Suites: 9 passed, 9 total
+Tests:       35 passed, 35 total
+Snapshots:   0 total
+Time:        3 s
+Ran all test suites related to files matching /src\/features\/dev\/DevToolsScreen.tsx|src\/features\/dev\/HomeConnectedPreview.tsx|src\/features\/shared-home\/HomeRecommendationRegion.test.tsx|src\/features\/shared-home\/HomeRecommendationRegion.tsx|src\/features\/shared-home\/SharedLifeFeed.header.test.tsx|src\/features\/shared-home\/SharedLifeFeed.tsx|src\/features\/shared-home\/SharedLifeFeedControls.tsx|src\/features\/shared-home\/homeRecommendationEvidence.test.ts|src\/features\/shared-home\/homeRecommendationEvidence.ts|src\/features\/shared-home\/homeRecommendationNavigation.test.ts|src\/features\/shared-home\/homeRecommendationNavigation.ts|src\/features\/shared-home\/homeRecommendations.test.ts|src\/features\/shared-home\/homeRecommendations.ts|src\/features\/shared-home\/useHomeRecommendationPreferences.test.ts|src\/features\/shared-home\/useHomeRecommendationPreferences.ts|src\/features\/shared-home\/useHomeRecommendations.test.tsx|src\/features\/shared-home\/useHomeRecommendations.ts/i.
+Local automation stale: 27.06s
+- whitespace: passed (0.03s)
+- staged-whitespace: passed (0.01s)
+- types:app: passed (2.67s)
+- code:health: passed (0.69s)
+- types:tests: passed (2.51s)
+- product:lint: passed (1.01s)
+- architecture:lint: passed (12.72s)
+- jest: passed (4.48s)
+Inputs changed while checks were running. Results were not cached; verify the updated scope.
+Integration/deployment approval and listed manual checks remain separate.

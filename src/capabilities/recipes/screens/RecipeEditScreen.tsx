@@ -1,9 +1,11 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
 import { useMemo, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
-import { colors, spacing, typography } from '../../../theme';
+import { colors, spacing } from '../../../theme';
+import { Input } from '../../../ui/Input';
 import { Button } from '../../../ui/Button';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -117,94 +119,96 @@ export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, err
   return (
     <AppShell>
       <PageHeader title={title} onPressBack={() => onBack(dirty)} rightElement={<Button size="sm" variant="primary" disabled={saving || !canSave || !draft.title.trim() || !yieldValid} onPress={() => { void onSave(draft); }}>{saving ? 'Saving…' : saveLabel}</Button>} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
-          {error ? <Text tone="destructive">{error}</Text> : null}
-          {beforeFields}
-          {currentVersion && aiSuggest ? (
-            <View style={styles.aiUpdate}>
-              <View style={styles.aiHeading}>
-                <Heading variant="sm">Tell Kwilt what changed</Heading>
-                <Text tone="secondary">AI prepares changes to this draft. You review and save them.</Text>
-              </View>
-              <TextInput
-                accessibilityLabel="Tell Kwilt what changed"
-                multiline
-                value={instruction}
-                onChangeText={setInstruction}
-                placeholder="Double the sauce, use less cream, and make 12 muffins…"
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.input, styles.aiInput]}
-              />
-              <Button variant="outline" disabled={!instruction.trim() || suggesting} onPress={() => { void requestSuggestion(); }}>
-                {suggesting ? 'Preparing…' : 'Suggest changes'}
-              </Button>
-              {suggestionUnavailable ? <Text tone="secondary">AI help isn’t available. You can still update every field below.</Text> : null}
-              {suggestion ? (
-                <View style={styles.suggestion}>
-                  <Text variant="label">Suggested update</Text>
-                  <Text>{suggestion.summary}</Text>
-                  {suggestion.operations.map((operation, index) => <Text key={`${operation.kind}:${index}`} tone="secondary">{operationLabel(operation)}</Text>)}
-                  <View style={styles.suggestionActions}>
-                    <Button size="sm" variant="primary" onPress={() => {
-                      setDraft(applyRecipeUpdateSuggestion(draft, suggestion, (kind) => nextId(kind)));
-                      setSuggestion(null); setInstruction('');
-                    }}>Apply to draft</Button>
-                    <Button size="sm" variant="ghost" onPress={() => setSuggestion(null)}>Not now</Button>
-                  </View>
-                </View>
-              ) : null}
+      <KeyboardAwareScrollView style={styles.flex} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
+        {error ? <Text tone="destructive">{error}</Text> : null}
+        {beforeFields}
+        {currentVersion && aiSuggest ? (
+          <View style={styles.aiUpdate}>
+            <View style={styles.aiHeading}>
+              <Heading variant="sm">Tell Kwilt what changed</Heading>
+              <Text tone="secondary">AI prepares changes to this draft. You review and save them.</Text>
             </View>
-          ) : null}
-          <Field label="Title" value={draft.title} onChangeText={(title) => patch({ title })} placeholder="Grandma's chocolate cake" autoFocus={!initial.title} />
-          <Field label="About this recipe" value={draft.description} onChangeText={(description) => patch({ description })} placeholder="Why you love it (optional)" multiline />
-          <View style={styles.yieldFields}>
-            <Field label="Makes" value={draft.yieldQuantity} onChangeText={(yieldQuantity) => patch({ yieldQuantity })} placeholder="1" keyboardType="decimal-pad" style={styles.yieldQuantity} />
-            <Field label="Yield unit" value={draft.yieldUnit} onChangeText={(yieldUnit) => patch({ yieldUnit })} placeholder="loaf, halves, servings…" style={styles.yieldUnit} />
+            <Input
+              onSurface="muted"
+              multilineMinHeight={88}
+              multilineMaxHeight={120}
+              accessibilityLabel="Tell Kwilt what changed"
+              multiline
+              value={instruction}
+              onChangeText={setInstruction}
+              placeholder="Double the sauce, use less cream, and make 12 muffins…"
+            />
+            <Button variant="outline" disabled={!instruction.trim() || suggesting} onPress={() => { void requestSuggestion(); }}>
+              {suggesting ? 'Preparing…' : 'Suggest changes'}
+            </Button>
+            {suggestionUnavailable ? <Text tone="secondary">AI help isn’t available. You can still update every field below.</Text> : null}
+            {suggestion ? (
+              <View style={styles.suggestion}>
+                <Text variant="label">Suggested update</Text>
+                <Text>{suggestion.summary}</Text>
+                {suggestion.operations.map((operation, index) => <Text key={`${operation.kind}:${index}`} tone="secondary">{operationLabel(operation)}</Text>)}
+                <View style={styles.suggestionActions}>
+                  <Button size="sm" variant="primary" onPress={() => {
+                    setDraft(applyRecipeUpdateSuggestion(draft, suggestion, (kind) => nextId(kind)));
+                    setSuggestion(null); setInstruction('');
+                  }}>Apply to draft</Button>
+                  <Button size="sm" variant="ghost" onPress={() => setSuggestion(null)}>Not now</Button>
+                </View>
+              </View>
+            ) : null}
           </View>
+        ) : null}
+        <Field label="Title" value={draft.title} onChangeText={(title) => patch({ title })} placeholder="Grandma's chocolate cake" autoFocus={!initial.title} />
+        <Field label="About this recipe" value={draft.description} onChangeText={(description) => patch({ description })} placeholder="Why you love it (optional)" multiline />
+        <View style={styles.yieldFields}>
+          <Field label="Makes" value={draft.yieldQuantity} onChangeText={(yieldQuantity) => patch({ yieldQuantity })} placeholder="1" keyboardType="decimal-pad" wrapperStyle={styles.yieldQuantity} />
+          <Field label="Yield unit" value={draft.yieldUnit} onChangeText={(yieldUnit) => patch({ yieldUnit })} placeholder="loaf, halves, servings…" wrapperStyle={styles.yieldUnit} />
+        </View>
 
-          <Section title="Ingredients" action="Add ingredient" onAction={() => patch({ ingredients: [...draft.ingredients, { id: nextId('ingredient'), originalText: '' }] })}>
-            {draft.ingredients.map((line) => (
-              <IngredientLineEditor
-                key={line.id}
-                line={line}
-                onChange={(next) => patch({ ingredients: draft.ingredients.map((candidate) => candidate.id === line.id ? next : candidate) })}
-                onRemove={() => patch({ ingredients: draft.ingredients.filter((candidate) => candidate.id !== line.id) })}
-              />
-            ))}
-          </Section>
+        <Section title="Ingredients" action="Add ingredient" onAction={() => patch({ ingredients: [...draft.ingredients, { id: nextId('ingredient'), originalText: '' }] })}>
+          {draft.ingredients.map((line) => (
+            <IngredientLineEditor
+              key={line.id}
+              line={line}
+              onChange={(next) => patch({ ingredients: draft.ingredients.map((candidate) => candidate.id === line.id ? next : candidate) })}
+              onRemove={() => patch({ ingredients: draft.ingredients.filter((candidate) => candidate.id !== line.id) })}
+            />
+          ))}
+        </Section>
 
-          <Section title="Instructions" action="Add step" onAction={() => patch({ instructions: [...draft.instructions, { id: nextId('step'), text: '' }] })}>
-            {draft.instructions.map((step, position) => (
-              <InstructionSectionEditor
-                key={step.id}
-                step={step}
-                position={position}
-                onChange={(next) => patch({ instructions: draft.instructions.map((candidate) => candidate.id === step.id ? next : candidate) })}
-                onRemove={() => patch({ instructions: draft.instructions.filter((candidate) => candidate.id !== step.id) })}
-              />
-            ))}
-          </Section>
+        <Section title="Instructions" action="Add step" onAction={() => patch({ instructions: [...draft.instructions, { id: nextId('step'), text: '' }] })}>
+          {draft.instructions.map((step, position) => (
+            <InstructionSectionEditor
+              key={step.id}
+              step={step}
+              position={position}
+              onChange={(next) => patch({ instructions: draft.instructions.map((candidate) => candidate.id === step.id ? next : candidate) })}
+              onRemove={() => patch({ instructions: draft.instructions.filter((candidate) => candidate.id !== step.id) })}
+            />
+          ))}
+        </Section>
 
-          <Section title="Source and story">
-            <Field label="Recipe or book" value={draft.sourceTitle} onChangeText={(sourceTitle) => patch({ sourceTitle })} placeholder="Optional" />
-            <Field label="Who it came from" value={draft.sourceAuthor} onChangeText={(sourceAuthor) => patch({ sourceAuthor })} placeholder="Optional" />
-            <Field label="Notes" value={draft.notes} onChangeText={(notes) => patch({ notes })} placeholder="Variations, memories, or cooking notes" multiline />
-          </Section>
-          <View style={styles.bottomSpace} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <Section title="Source and story">
+          <Field label="Recipe or book" value={draft.sourceTitle} onChangeText={(sourceTitle) => patch({ sourceTitle })} placeholder="Optional" />
+          <Field label="Who it came from" value={draft.sourceAuthor} onChangeText={(sourceAuthor) => patch({ sourceAuthor })} placeholder="Optional" />
+          <Field label="Notes" value={draft.notes} onChangeText={(notes) => patch({ notes })} placeholder="Variations, memories, or cooking notes" multiline />
+        </Section>
+        <View style={styles.bottomSpace} />
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
 
-function Field(props: React.ComponentProps<typeof TextInput> & { label: string }) {
-  const { label, multiline, style, ...inputProps } = props;
+function Field({ label, multiline, ...inputProps }: React.ComponentProps<typeof Input> & { label: string }) {
   return (
-    <View style={styles.fieldWrap}>
-      <Text variant="label">{label}</Text>
-      <TextInput accessibilityLabel={label} multiline={multiline} placeholderTextColor={colors.textSecondary} style={[styles.input, multiline && styles.multiline, style]} {...inputProps} />
-    </View>
+    <Input
+      {...inputProps}
+      label={label}
+      accessibilityLabel={label}
+      multiline={multiline}
+      multilineMinHeight={multiline ? 96 : undefined}
+      multilineMaxHeight={multiline ? 120 : undefined}
+    />
   );
 }
 
@@ -288,17 +292,13 @@ export function RecipeEditScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, form: { paddingHorizontal: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
-  fieldWrap: { gap: spacing.xs },
-  input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...typography.body },
-  multiline: { minHeight: 96, textAlignVertical: 'top' },
   section: { gap: spacing.sm }, sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bottomSpace: { height: 80 },
   aiUpdate: { gap: spacing.sm, padding: spacing.md, borderRadius: 16, backgroundColor: colors.shellAlt },
   aiHeading: { gap: spacing.xs },
-  aiInput: { minHeight: 88 },
   suggestion: { gap: spacing.xs, paddingTop: spacing.xs },
   suggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.xs },
   yieldFields: { flexDirection: 'row', gap: spacing.sm },
   yieldQuantity: { width: 96 },
-  yieldUnit: { flex: 1 },
+  yieldUnit: { flex: 1, width: 'auto', minWidth: 0 },
 });

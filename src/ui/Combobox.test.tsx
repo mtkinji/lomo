@@ -1,4 +1,5 @@
 import * as React from 'react';
+import {fireEvent} from '@testing-library/react-native';
 import { Pressable, Text, View } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { Combobox } from './Combobox';
@@ -69,4 +70,18 @@ describe('Combobox', () => {
       }),
     );
   });
+});
+
+it('clears picker search without changing the selected option or closing the drawer', () => {
+  const select = jest.fn();
+  const open = jest.fn();
+  const screen = renderWithProviders(<Combobox open onOpenChange={open} value="one" onValueChange={select}
+    options={[{value: 'one', label: 'Current goal'}, {value: 'two', label: 'Another goal'}]}
+    presentation="drawer" trigger={<Pressable><Text>Choose goal</Text></Pressable>} />);
+  fireEvent.changeText(screen.getByPlaceholderText('Search…'), 'Current');
+  expect(screen.queryByText('Another goal')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Clear search'));
+  expect(screen.getByText('Another goal')).toBeTruthy();
+  expect(select).not.toHaveBeenCalled();
+  expect(open).not.toHaveBeenCalled();
 });

@@ -158,7 +158,7 @@ function SharedLifeHomeScreen() {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const route = useRoute<RouteProp<RootDrawerParamList, 'SharedHome'>>();
   return <SharedLifeFeed key={userId ?? 'signed-out'} userId={userId} highlightedDeliveryId={route.params?.deliveryId}
-    renderFrame={(content, shareAction, moreMenu) => <AppShell>
+    renderFrame={(content, shareAction, moreMenu) => <AppShell backgroundVariant="muted" fullBleedHorizontal>
       <PageHeader title="Home" onPressMenu={capabilityShell?.openMenu} rightElement={shareAction} moreMenu={moreMenu}/>
       {content}
     </AppShell>}/>;

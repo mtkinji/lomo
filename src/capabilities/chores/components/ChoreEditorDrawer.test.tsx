@@ -195,7 +195,7 @@ describe('ChoreEditorDrawer', () => {
       />,
     );
 
-    expect(screen.getByDisplayValue('One time')).toBeTruthy();
+    expect(screen.getByLabelText('Edit repeat schedule, one time').props.accessibilityValue.text).toBe('One time');
     fireEvent.press(screen.getByLabelText('Edit repeat schedule, one time'));
     expect(screen.getByText('Monthly')).toBeTruthy();
     expect(screen.getByText('Yearly')).toBeTruthy();
@@ -223,7 +223,7 @@ describe('ChoreEditorDrawer', () => {
     );
 
     expect(screen.getByLabelText('What happens if this chore is missed?')).toBeTruthy();
-    expect(screen.getByDisplayValue('Start fresh next time')).toBeTruthy();
+    expect(screen.getByLabelText('What happens if this chore is missed?').props.accessibilityValue.text).toBe('Start fresh next time');
     fireEvent.press(screen.getByLabelText('What happens if this chore is missed?'));
     fireEvent.press(screen.getByText('Keep open until done'));
     expect(onChange).toHaveBeenCalledWith('repeatBasis', 'after_completion');

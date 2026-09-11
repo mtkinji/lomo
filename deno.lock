@@ -99,6 +99,7 @@
         "npm:expo-file-system@~55.0.24",
         "npm:expo-font@~55.0.8",
         "npm:expo-haptics@~55.0.16",
+        "npm:expo-image-manipulator@~55.0.21",
         "npm:expo-image-picker@~55.0.22",
         "npm:expo-keep-awake@~55.0.8",
         "npm:expo-linear-gradient@~55.0.16",

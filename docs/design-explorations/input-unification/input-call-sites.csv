@@ -1,0 +1,227 @@
+file,line,component,from,variant,elevation,surfaceVariant,label,placeholder,multiline,keyboardType,containerStyle,inputStyle,style
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","232","Input","../../../ui/Input","outline","flat","","Chore","","","","","",""
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","243","SmallSetPickerField","../../../ui/PickerFields","","","","","Household","","","","",""
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","259","PickerFieldTrigger","../../../ui/PickerFields","","","","","One time","","","","",""
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","273","SmallSetPickerField","../../../ui/PickerFields","","","","","Start fresh next time","","","","",""
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","289","Input","../../../ui/Input","outline","flat","","What done looks like","A short, clear finish line","true","","","",""
+"src/capabilities/chores/components/ChoreEditorDrawer.tsx","322","SmallSetPickerField","../../../ui/PickerFields","","","","","1 token","","","","",""
+"src/capabilities/chores/components/ChoreReviewDrawer.tsx","168","Input","../../../ui/Input","outline","flat","","Note (optional)","What should they take another look at?","true","","","",""
+"src/capabilities/chores/components/ChoreSettingsDrawer.tsx","73","Input","../../../ui/primitives","","","","Dollars per token","","","decimal-pad","","",""
+"src/capabilities/explore/screens/ExploreMapScreen.tsx","1110","TextInput","react-native","","","","","Search places you’ve visited","","","","","styles.placeSearchInput"
+"src/capabilities/explore/screens/ExploreMapScreen.tsx","1153","TextInput","react-native","","","","","Home, park, trail…","","","","","styles.placeInput"
+"src/capabilities/games/features/connection-games/PromptConnectionGames.tsx","28","TextInput","react-native","","","","","The connection we chose…","true","","","","[shared.input, shared.multiline]"
+"src/capabilities/games/features/remote/JoinTableDrawer.tsx","208","TextInput","react-native","","","","","Olive","","","","","styles.input"
+"src/capabilities/games/features/remote/JoinTableDrawer.tsx","233","TextInput","react-native","","","","","W7K-4JP","","","","","[styles.input, styles.codeInput]"
+"src/capabilities/games/features/setup/GamePlayerSetup.tsx","154","TextInput","react-native","","","","","mode === 'remote-only' ? 'Your name' : `Player ${index + 1}`","","","","","styles.input"
+"src/capabilities/games/players/PlayerIdentityEditor.tsx","56","TextInput","react-native","","","","","","","","","","styles.input"
+"src/capabilities/groceries/components/KrogerStoreFinder.tsx","168","Input","../../../ui/Input","","","","","City, address, or ZIP","","","styles.mapSearchInput","",""
+"src/capabilities/groceries/components/StoreOpportunityCaptureSheet.tsx","11","TextInput","react-native","","","","","","","keyboardType","","","styles.input"
+"src/capabilities/groceries/screens/GroceryItemEditScreen.tsx","100","TextInput","react-native","","","","","","","","","","styles.input"
+"src/capabilities/meal-planning/components/MealOccasionDrawer.tsx","64","TextInput","react-native","","","","","YYYY-MM-DD","","","","","styles.input"
+"src/capabilities/meal-planning/components/MealPlanningReminderOfferDrawer.tsx","79","TextInput","react-native","","","","","17:00","","numbers-and-punctuation","","","styles.input"
+"src/capabilities/meal-planning/components/TripTargetSheet.tsx","1","TextInput","react-native","","","","","65","","decimal-pad","","","styles.input"
+"src/capabilities/meal-planning/screens/MealChoiceResponseScreen.tsx","161","TextInput","react-native","","","","","One other idea (optional)","","","","","styles.input"
+"src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx","153","TextInput","react-native","","","","","","","number-pad","","","styles.input"
+"src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx","154","TextInput","react-native","","","","","YYYY-MM-DD","","","","","styles.input"
+"src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx","154","TextInput","react-native","","","","","YYYY-MM-DD","","","","","styles.input"
+"src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx","161","TextInput","react-native","","","","","Leftovers, eat out, undecided…","","","","","styles.input"
+"src/capabilities/money/components/MoneyTransactionSplitDrawer.tsx","115","Input","../../../ui/Input","","","","Amount","0.00","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx","41","Input","../../../ui/Input","","","","Category name","Groceries","","","","",""
+"src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx","50","Input","../../../ui/Input","","","","Monthly amount","$0.00","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx","651","Input","../../../ui/Input","","","","Expected month-end total","","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx","655","Input","../../../ui/Input","","","","Scheduled amount","","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx","656","Input","../../../ui/Input","","","","Due day (1–31)","","","number-pad","","",""
+"src/capabilities/money/screens/MoneyLivingPlanScreen.tsx","170","Input","../../../ui/Input","","","","Monthly amount","","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","568","Input","../../../ui/Input","","","","Note","Family pictures","true","","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","612","Input","../../../ui/Input","","","","Saved money amount","","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","663","Input","../../../ui/Input","filled","flat","","","Search categories","","","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","733","Input","../../../ui/Input","","","","Name","","","","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","734","Input","../../../ui/Input","","","","Monthly amount","","","decimal-pad","","",""
+"src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx","775","Input","../../../ui/Input","","","","Merchant contains","","","","","",""
+"src/capabilities/recipes/components/IngredientLineEditor.tsx","15","TextInput","react-native","","","","","e.g. 2 cups flour","","","","","styles.input"
+"src/capabilities/recipes/components/InstructionSectionEditor.tsx","17","TextInput","react-native","","","","","What happens next?","true","","","","styles.input"
+"src/capabilities/recipes/screens/MealPlanDrawer.tsx","1044","Input","../../../ui/Input","","","","","Say why (optional)","true","","","",""
+"src/capabilities/recipes/screens/RecipeCookCompleteScreen.tsx","116","TextInput","react-native","","","","","What did you use instead?","","","","","styles.singleLineInput"
+"src/capabilities/recipes/screens/RecipeCookCompleteScreen.tsx","131","TextInput","react-native","","","","","Anything to remember?","","","","","styles.singleLineInput"
+"src/capabilities/recipes/screens/RecipeCookCompleteScreen.tsx","173","TextInput","react-native","","","","","More sauce next time…","true","","","","styles.input"
+"src/capabilities/recipes/screens/RecipeEditScreen.tsx","130","TextInput","react-native","","","","","Double the sauce, use less cream, and make 12 muffins…","true","","","","[styles.input, styles.aiInput]"
+"src/capabilities/recipes/screens/RecipeEditScreen.tsx","206","TextInput","react-native","","","","","","multiline","","","","[styles.input, multiline && styles.multiline, style]"
+"src/capabilities/recipes/screens/RecipeImportReviewScreen.tsx","116","TextInput","react-native","","","","","presentation.placeholder","presentation.inputKind === 'text'","presentation.inputKind === 'url' ? 'url' : 'default'","","","[styles.input, presentation.inputKind === 'text' && styles.textArea]"
+"src/capabilities/recipes/screens/RecipeLibraryDrawers.tsx","846","TextInput","react-native","","","","","What covers these meals?","","","","","styles.planTimingInput"
+"src/features/account/ActivityAreasSettingsScreen.tsx","74","TextInput","react-native","","","","","Area name","","","","","styles.input"
+"src/features/account/ActivityAreasSettingsScreen.tsx","128","TextInput","react-native","","","","","Church, School, Side project","","","","","styles.input"
+"src/features/account/DestinationDetailScreen.tsx","269","Input","../../ui/primitives","","","","Display name","Kwilt iOS app (Cursor)","","","","",""
+"src/features/account/DestinationDetailScreen.tsx","275","Input","../../ui/primitives","","","","Repo name","Kwilt","","","","",""
+"src/features/account/DestinationDetailScreen.tsx","281","Input","../../ui/primitives","","","","Repo URL (optional)","https://github.com/…","","","","",""
+"src/features/account/DestinationDetailScreen.tsx","288","Input","../../ui/primitives","","","","Branch policy","feature_branch","","","","",""
+"src/features/account/DestinationsLibraryScreen.tsx","86","Input","../../ui/primitives","","","","","Search destinations","","","styles.search","",""
+"src/features/account/EmailPasswordSignInForm.tsx","73","Input","../../ui/Input","","","","dark ? undefined : ""Email""","","","email-address","","",""
+"src/features/account/EmailPasswordSignInForm.tsx","87","Input","../../ui/Input","","","","dark ? undefined : ""Password""","","","","","",""
+"src/features/account/ExecutionTargetsSettingsScreen.tsx","370","Input","../../ui/primitives","","","","","Search destinations","","","styles.librarySearch","",""
+"src/features/account/ExecutionTargetsSettingsScreen.tsx","407","Input","../../ui/primitives","","","","","Search destinations","","","styles.librarySearch","",""
+"src/features/account/NotificationsSettingsScreen.tsx","761","SmallSetPickerField","../../ui/PickerFields","","","","","Choose a frequency","","","","",""
+"src/features/account/NotificationsSettingsScreen.tsx","782","SmallSetPickerField","../../ui/PickerFields","","","","","Choose a day","","","","",""
+"src/features/account/PhoneAgentSettingsScreen.tsx","223","Input","../../ui/Input","","","","Phone number","+1 415 555 1212","","phone-pad","","",""
+"src/features/account/PhoneAgentSettingsScreen.tsx","251","Input","../../ui/Input","","","","Verification code","123456","","number-pad","","",""
+"src/features/account/PhoneAgentSettingsScreen.tsx","296","Input","../../ui/Input","","","","Prompts per day","","","number-pad","","",""
+"src/features/account/ProfileSettingsScreen.tsx","226","Input","../../ui/primitives","outline","","","Full name","Add your name","","","","",""
+"src/features/account/ProfileSettingsScreen.tsx","235","Input","../../ui/primitives","outline","","","Birthday","MM-DD-YYYY","","","","",""
+"src/features/account/ProfileSettingsScreen.tsx","244","Input","../../ui/primitives","outline","","","Email","name@example.com","","email-address","","",""
+"src/features/account/SuperAdminToolsScreen.tsx","522","Input","../../ui/primitives","filled","","","args.label","","args.multiline","","","args.inputStyle",""
+"src/features/account/SuperAdminToolsScreen.tsx","862","Input","../../ui/primitives","outline","","","","email, name, or device id","","default","","",""
+"src/features/activities/ActivitiesScreen.tsx","3824","Input","../../ui/primitives","outline","flat","","View name","e.g., Top priorities","","","","",""
+"src/features/activities/ActivitiesScreen.tsx","3833","FormField","../../ui/primitives","","","","Layout","","","","","",""
+"src/features/activities/ActivitiesScreen.tsx","3846","FormField","../../ui/primitives","","","","Group by","","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","833","NarrativeEditableTitle","../../ui/NarrativeEditableTitle","","","","","Name this to-do","","","styles.narrativeTitleContainer","styles.narrativeTitleInput",""
+"src/features/activities/ActivityDetailRefresh.tsx","876","RelationPickerField","../../ui/primitives","","","","","Select goal…","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","1157","Input","../../ui/primitives","inline","","","","Describe the step","true","","","[
+                              styles.stepInput,
+                              isChecked ? styles.stepTextCompleted : null,
+                            ]",""
+"src/features/activities/ActivityDetailRefresh.tsx","1200","Input","../../ui/primitives","inline","","","","Add step","true","","","[styles.stepInput, styles.newStepInput]",""
+"src/features/activities/ActivityDetailRefresh.tsx","1474","LongTextField","../../ui/LongTextField","","","filled","Notes","Add context or reminders for this to-do.","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","1520","EnumPickerField","../../ui/primitives","","","","","Optional: how heavy does this feel?","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","1618","TextInput","react-native","","","","","(activity.tags ?? []).length === 0 ? 'Add tags...' : ''","","","","","[
+                          styles.tagsTextInput,
+                          (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0
+                            ? styles.tagsTextInputEmpty
+                            : null,
+                        ]"
+"src/features/activities/ActivityDetailRefresh.tsx","1914","EnumPickerField","../../ui/primitives","","","","","Select status…","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","1935","SmallSetPickerField","../../ui/primitives","","","","","No area","","","","",""
+"src/features/activities/ActivityDetailRefresh.tsx","1959","EnumPickerField","../../ui/primitives","","","","","Select type…","","","","",""
+"src/features/activities/ActivityDraftDetailFields.tsx","270","TextInput","react-native","","","","","Name this to-do","true","","","","styles.titleInput"
+"src/features/activities/ActivityDraftDetailFields.tsx","330","Input","../../ui/primitives","inline","","","","Describe the step","true","","","styles.stepInput",""
+"src/features/activities/ActivityDraftDetailFields.tsx","372","Input","../../ui/primitives","inline","","","","Add step","false","","","[styles.stepInput, styles.newStepInput]",""
+"src/features/activities/ActivityDraftDetailFields.tsx","505","EnumPickerField","../../ui/primitives","","","","","Optional: how heavy does this feel?","","","","",""
+"src/features/activities/ActivityDraftDetailFields.tsx","527","LongTextField","../../ui/LongTextField","","","filled","Notes","Add context or reminders for this to-do.","","","","",""
+"src/features/activities/ActivityDraftDetailFields.tsx","566","TextInput","react-native","","","","","(draft.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''","","","","","styles.tagsTextInput"
+"src/features/activities/ActivityDraftDetailFields.tsx","597","SmallSetPickerField","../../ui/primitives","","","","","No area","","","","",""
+"src/features/activities/ActivityDraftDetailFields.tsx","637","EnumPickerField","../../ui/primitives","","","","","Select type…","","","","",""
+"src/features/activities/ActivityLocationSheet.tsx","268","Combobox","../../ui/primitives","","","","","","","","","",""
+"src/features/activities/ActivityPeekFields.tsx","19","LongTextField","../../ui/LongTextField","","","filled","Notes","","","","","",""
+"src/features/activities/InlineViewCreator.tsx","168","TextInput","react-native","","","","","e.g., High priority to-dos due this week","false","","","","styles.aiInput"
+"src/features/activities/QuickAddDock.tsx","451","TextInput","react-native","","","","","placeholder","true","","","","[
+                          styles.input,
+                          { height: inputHeight },
+                        ]"
+"src/features/activities/TagGroupsDrawer.tsx","52","Input","../../ui/primitives","","","","","Search tags...","","","styles.searchInput","",""
+"src/features/ai/AiChatScreen.tsx","1386","Input","../../ui/Input","inline","flat","","","Goal title","shouldTitleBeMultiline","","styles.goalProposalTitleContainer","styles.goalProposalTitleText",""
+"src/features/ai/AiChatScreen.tsx","1405","Input","../../ui/Input","inline","flat","","","Add a short description…","true","","styles.goalProposalDescriptionContainer","styles.goalProposalDescriptionText",""
+"src/features/ai/AiChatScreen.tsx","1434","Input","../../ui/Input","filled","flat","","","","","","[styles.goalProposalDateValueField, { opacity: 1 }]","styles.goalProposalDateValueText",""
+"src/features/ai/AiChatScreen.tsx","1474","RelationPickerField","../../ui/primitives","","","","","Choose an Arc…","","","","",""
+"src/features/ai/AiChatScreen.tsx","3058","TextInput","react-native","","","","","Edit to-do","false","","","","styles.activitySuggestionTitleInput"
+"src/features/ai/AiChatScreen.tsx","3335","TextInput","react-native","","","","","Arc name","","","","","styles.arcDraftNameInput"
+"src/features/ai/AiChatScreen.tsx","3342","TextInput","react-native","","","","","Arc narrative","true","","","","styles.arcDraftNarrativeInput"
+"src/features/ai/AiChatScreen.tsx","3441","TextInput","react-native","","","","","e.g. This sounds like a short project, I wanted a longer storyline.","true","","","","styles.feedbackNoteInput"
+"src/features/ai/AiChatScreen.tsx","3619","TextInput","react-native","","","","","composerPlaceholder","true","","","","[styles.input, !hasInput && styles.inputPlaceholderSmaller]"
+"src/features/ai/AiChatScreen.tsx","3815","TextInput","react-native","","","","","composerPlaceholder","true","","","","styles.expandedInput"
+"src/features/arcs/ArcBannerSheet.tsx","696","Input","../../ui/primitives","","elevated","","","`Try ""${arcName}"" or ""sunrise""…`","","","styles.heroUnsplashInputContainer","styles.heroUnsplashInputText",""
+"src/features/arcs/ArcCreationFlow.tsx","240","Input","../../ui/Input","","","","","placeholder","true","","","","styles.customInput"
+"src/features/arcs/ArcDetailScreen.tsx","1072","NarrativeEditableTitle","../../ui/NarrativeEditableTitle","","","","","Name this Arc","","","styles.arcNarrativeTitleContainer","styles.arcNarrativeTitleInput",""
+"src/features/arcs/ArcDetailScreen.tsx","1457","TextInput","react-native","","","","","Describe this Arc in your own words. What direction is this about, and how do you imagine it changing your goals and days?","true","","","","styles.narrativeSheetTextInput"
+"src/features/arcs/ArcsScreen.tsx","1183","EditableField","../../ui/EditableField","title","","","Name","Name this Arc","","","","",""
+"src/features/arcs/ArcsScreen.tsx","1198","LongTextField","../../ui/LongTextField","","","","Description","Add a short note about this Arc…","","","","",""
+"src/features/arcs/GoalDetailScreen.tsx","2745","NarrativeEditableTitle","../../ui/NarrativeEditableTitle","","","","","Goal title","","","styles.goalNarrativeTitleContainer","styles.goalNarrativeTitleInput",""
+"src/features/arcs/GoalDetailScreen.tsx","2772","LongTextField","../../ui/LongTextField","","","flat","Description","Add a short description…","","","","",""
+"src/features/arcs/GoalDetailScreen.tsx","3073","RelationPickerField","../../ui/primitives","","","","","Select Arc…","","","","",""
+"src/features/arcs/GoalDetailScreen.tsx","3090","EnumPickerField","../../ui/primitives","","","","","No priority","","","","",""
+"src/features/arcs/GoalDetailScreen.tsx","4042","TextInput","react-native","","","","","Search arcs…","","","","","[styles.input, styles.arcSearchInput]"
+"src/features/arcs/GoalDetailScreen.tsx","4179","TextInput","react-native","","","","","e.g., Measure the desk area","","","","","styles.input"
+"src/features/arcs/GoalDetailScreen.tsx","4202","TextInput","react-native","","","","","Add a short note or checklist for this to-do.","true","","","","[styles.input, styles.descriptionInput]"
+"src/features/chapters/ChapterDetailScreen.tsx","1560","TextInput","react-native","","","","","`What stood out to you this ${
+                          cadenceForCopy === 'weekly'
+                            ? 'week'
+                            : cadenceForCopy === 'monthly'
+                              ? 'month'
+                              : cadenceForCopy === 'yearly'
+                                ? 'year'
+                                : 'period'
+                        }?`","true","","","","styles.userNoteInput"
+"src/features/chapters/ChapterDetailScreen.tsx","1673","TextInput","react-native","","","","","What was off? (optional)","true","","","","styles.feedbackNoteInput"
+"src/features/dev/DevToolsScreen.tsx","1740","TextInput","react-native","","","","","e.g., Offer a confirm option earlier when the user says they’re ready.","true","","","","styles.feedbackInput"
+"src/features/goals/CheckinComposer.tsx","96","TextInput","react-native","","","","","Say what moved today.","true","","","","[styles.textInput, compact && styles.textInputCompact]"
+"src/features/goals/GoalCreationFlow.tsx","345","Input","../../ui/primitives","","","","","e.g., Finish the first draft of my novel; Run a 5K; Launch my side project.","true","","","",""
+"src/features/goals/GoalCreationFlow.tsx","364","Input","../../ui/primitives","","","","","e.g., by next month, in 3 weeks, by March 15","true","","","",""
+"src/features/goals/GoalFeedSection.tsx","387","TextInput","react-native","","","","","Write a quick reply","","","","","styles.replyInput"
+"src/features/goals/GoalsInventorySearchBar.tsx","45","Input","../../ui/Input","filled","flat","","","Search goals","","","","",""
+"src/features/goals/GoalsScreen.tsx","1551","EditableField","../../ui/EditableField","title","","","Title","Name this Goal","","","","","styles.manualInlineTitleField"
+"src/features/goals/GoalsScreen.tsx","1569","LongTextField","../../ui/LongTextField","","","","Description","Add a short note about this Goal…","","","","",""
+"src/features/goals/GoalsScreen.tsx","1585","RelationPickerField","../../ui/primitives","","","","","arcs.length === 0 ? 'No Arcs yet' : 'Select Arc…'","","","","",""
+"src/features/goals/PendingCheckinDraftCard.tsx","104","TextInput","react-native","","","","","Say what you finished.","true","","","","styles.editor"
+"src/features/goals/ShareGoalDrawer.tsx","479","Input","../../ui/primitives","","","","","Email address","","email-address","","",""
+"src/features/household-food/components/FoodNeedsDrawer.tsx","106","TextInput","react-native","","","","","Food or ingredient","","","","","styles.input"
+"src/features/household/HouseholdSettingsScreen.tsx","376","Input","../../ui/Input","outline","flat","","","Child’s name","","","","",""
+"src/features/household/HouseholdSettingsScreen.tsx","386","Input","../../ui/Input","outline","flat","","","Their Kwilt email","","email-address","","",""
+"src/features/household/HouseholdSettingsScreen.tsx","398","Input","../../ui/Input","outline","flat","","","Email (optional)","","email-address","","",""
+"src/features/household/HouseholdSettingsScreen.tsx","410","Input","../../ui/Input","outline","flat","","","Invite code","","","","",""
+"src/features/household/personalDevice/ManagedChildDeviceHost.tsx","105","TextInput","react-native","","","","","482-731","","number-pad","","","styles.input"
+"src/features/onboarding/IdentityAspirationFlow.tsx","2793","Input","../../ui/Input","","","","","e.g., The Builder","","","","",""
+"src/features/onboarding/IdentityAspirationFlow.tsx","3645","Input","../../ui/Input","","","","","e.g., Start a creative side project I’m proud of.","true","","","",""
+"src/features/onboarding/IdentityAspirationFlow.tsx","4065","Input","../../ui/Input","","","","","placeholder","true","","","","styles.surveyCustomInput"
+"src/features/onboarding/IdentityAspirationFlow.tsx","4178","Input","../../ui/Input","","","","","FTUX_GOAL_ARC_SURVEY_COPY.concreteFocusPlaceholder","true","","","","styles.surveyCustomInput"
+"src/features/plan/PlanCalendarSettingsScreen.tsx","594","RelationPickerField","../../ui/primitives","","","","","Choose a calendar…","","","","",""
+"src/features/plan/PlanScheduleApplyPage.tsx","429","RelationPickerField","../../ui/primitives","","","","","Choose a calendar…","","","","",""
+"src/features/plan/PlanSlotCapturePage.tsx","128","Input","../../ui/Input","outline","flat","","","Search to-dos","","","styles.searchInput","",""
+"src/features/safety/UgcReportDrawer.tsx","143","Input","../../ui/primitives","","","","Anything else? (optional)","Add a short note for the safety reviewer","true","","","",""
+"src/features/screen-time/rule-builder/RuleSentencePickerField.tsx","21","Input","../../../ui/Input","outline","flat","","","","","","{ opacity: 1, borderColor: colors.border, paddingHorizontal: spacing.sm }","",""
+"src/features/search/GlobalSearchDrawer.tsx","540","Input","../../ui/primitives","","","","","soloScope
+                    ? `Search ${scopeLabel(soloScope).toLowerCase()}`
+                    : ""Search Kwilt""","","","","",""
+"src/features/shared-home/SharedLifeBrowser.tsx","210","Input","../../ui/primitives","","","","Search saved moments","","","","","",""
+"src/features/shared-home/SharedLifeComposer.tsx","591","Input","../../ui/primitives","ghost","","","draft.attachment
+                      ? ""Add a few words (optional)""
+                      : ""Your moment""","What would you like to share?","true","","","",""
+"src/features/shared-home/SharedLifeComposer.tsx","662","Input","../../ui/primitives","","","","Photo description (optional)","","","","","",""
+"src/features/shared-home/SharedLifeConversation.tsx","137","Input","../../ui/primitives","","","","","editing ? ""Edit your words…"" : ""Write a reply…""","true","","","",""
+"src/features/shared-home/SharedLifeLibrary.tsx","70","Input","../../ui/primitives","","","","New collection","","","","","",""
+"src/ui/Combobox.tsx","420","Input","./Input","inline","flat","","","searchPlaceholder","","","","",""
+"src/ui/Combobox.tsx","572","Input","./Input","inline","flat","","","searchPlaceholder","","","","",""
+"src/ui/EditableField.tsx","112","TextInput","react-native","","","","","placeholder || 'Tap to edit'","","","","","[
+            styles.input,
+            variant === 'title' && styles.inputTitle,
+            !value && !isEditing && styles.placeholderText,
+          ]"
+"src/ui/EditableTextArea.tsx","106","TextInput","react-native","","","","","placeholder || 'Tap to add details'","true","","","","styles.textarea"
+"src/ui/FilterDrawer.tsx","405","EnumPickerField","./PickerFields","","","","","Field","","","","",""
+"src/ui/FilterDrawer.tsx","425","EnumPickerField","./PickerFields","","","","","Operator","","","","",""
+"src/ui/FilterDrawer.tsx","554","EnumPickerField","./PickerFields","","","","","Select status...","","","","",""
+"src/ui/FilterDrawer.tsx","567","EnumPickerField","./PickerFields","","","","","Select difficulty...","","","","",""
+"src/ui/FilterDrawer.tsx","580","EnumPickerField","./PickerFields","","","","","Select type...","","","","",""
+"src/ui/FilterDrawer.tsx","594","RelationPickerField","./PickerFields","","","","","Select goal...","","","","",""
+"src/ui/FilterDrawer.tsx","609","Input","./Input","","","","","Enter number...","","numeric","","",""
+"src/ui/FilterDrawer.tsx","633","Input","./Input","","","","","Search tag text...","","","","",""
+"src/ui/FilterDrawer.tsx","645","Input","./Input","","","","","Value...","","","","",""
+"src/ui/FilterDrawer.tsx","720","Input","./Input","","","","","Search tags...","","","","",""
+"src/ui/FilterDrawer.tsx","921","Input","./Input","","","","","field === 'reminderAt' ? 'Select reminder date…' : 'Select due date…'","","","","",""
+"src/ui/Input.tsx","155","TextInput","react-native","","","","","","multiline","","","","[
+              styles.input,
+              multiline && styles.multilineInput,
+              size === 'sm' && styles.inputSm,
+              // For inline variant, skip explicit height so TextInput auto-expands in real-time.
+              // Other variants use managed height for controlled textarea behavior.
+              multiline && multilineHeight != null && variant !== 'inline'
+                ? { height: Math.max(minHeight, Math.min(multilineHeight, maxHeight)) }
+                : null,
+              multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,
+              inputStyle,
+              multiline && keyboardAware?.viewportHeight != null ? { minHeight, maxHeight } : null,
+              // Apply single-line platform metrics AFTER `inputStyle` so callers can specify
+              // fontSize/lineHeight, but we still clamp lineHeight for proper vertical centering.
+              !multiline ? getSingleLinePlatformMetrics(metricsFontSize, metricsLineHeight) : null,
+              // Keep the subtle list-row baseline nudge for inline variant.
+              variant === 'inline' ? styles.inlineInputNudge : null,
+            ]"
+"src/ui/LongTextField.tsx","621","RichEditor","react-native-pell-rich-editor","","","","","placeholder","","","","","styles.editorRich"
+"src/ui/LongTextField.tsx","752","TextInput","react-native","","","","","https://…","","","","","styles.customDialogInput"
+"src/ui/LongTextField.tsx","763","TextInput","react-native","","","","","e.g. My site","","","","","styles.customDialogInput"
+"src/ui/LongTextField.tsx","806","TextInput","react-native","","","","","e.g. Make this more concise and friendly","true","","","","styles.customDialogInput"
+"src/ui/NarrativeEditableTitle.tsx","112","TextInput","react-native","","","","","placeholder","true","","","","[styles.inputBase, textStyle, inputStyle]"
+"src/ui/ObjectPicker.tsx","116","Combobox","./Combobox","","","","","","","","","",""
+"src/ui/ObjectPicker.tsx","139","Input","./Input","fieldVariant","flat","","","placeholder","","","[styles.valueContainer, fieldContainerStyle]","inputStyle",""
+"src/ui/PickerFields.tsx","131","Input","./Input","fieldVariant","flat","","","placeholder","","","[styles.valueContainer, fieldContainerStyle]","[inputStyle, !showClear ? styles.valueInputWithoutClear : null]",""
+"src/ui/PickerFields.tsx","335","PickerFieldTrigger","unresolved","","","","","","","","","",""
+"src/ui/PickerFields.tsx","439","PickerFieldTrigger","unresolved","","","","","placeholder","","","","",""
+"src/ui/PickerFields.tsx","476","TextInput","react-native","","","","","searchPlaceholder","","","","","styles.relationSearchInput"
+"src/ui/SettingsSurface.tsx","340","Input","./Input","inline","flat","","","","","keyboardType","","styles.textInputValue",""
+"src/ui/SortDrawer.tsx","223","EnumPickerField","./PickerFields","","","","","Sort by...","","","","",""

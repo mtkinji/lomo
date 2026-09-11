@@ -1,9 +1,11 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Alert, Image, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Alert, Image, StyleSheet, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing } from "../../../theme";
 import { Button } from "../../../ui/Button";
 import { AppShell } from "../../../ui/layout/AppShell";
 import { PageHeader } from "../../../ui/layout/PageHeader";
@@ -95,7 +97,7 @@ export function MealChoiceResponseScreen({ navigation, route }: Props) {
         title="Choose meals"
         onPressBack={() => navigation.goBack()}
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
         <Heading variant="md">
           {projection?.inviterLabel ?? "Your household"} wants your input.
         </Heading>
@@ -158,14 +160,13 @@ export function MealChoiceResponseScreen({ navigation, route }: Props) {
         >
           Pass this time
         </Button>
-        <TextInput
+        <Input
           editable={!unavailable}
           accessibilityLabel="Suggest one meal"
           placeholder="One other idea (optional)"
           value={suggestion}
           onChangeText={setSuggestion}
           maxLength={projection?.suggestionLimit ?? 240}
-          style={styles.input}
         />
         <Button
           disabled={
@@ -180,7 +181,7 @@ export function MealChoiceResponseScreen({ navigation, route }: Props) {
         >
           {busy ? "Sending…" : "Done"}
         </Button>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
@@ -209,15 +210,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.fieldFill,
     gap: 2,
-  },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
-    backgroundColor: colors.fieldFill,
-    ...typography.body,
   },
 });

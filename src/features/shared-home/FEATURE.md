@@ -5,16 +5,18 @@ personas: [Maya, David]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves:
+  - jtbd-carry-intentions-into-action
   - jtbd-move-the-few-things-that-matter
   - jtbd-invite-the-right-people-in
   - jtbd-help-us-enjoy-being-together
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - home-getting-started
   - shared-home
   - kwilt-home-shared-life
   - kwilt-home-connected-moments
 status: shipping
-last_reviewed: 2026-09-09
+last_reviewed: 2026-09-10
 ---
 
 # shared-home
@@ -48,3 +50,11 @@ and draft restoration are verified. Native photo/conversation acceptance and
 signed-device verification remain open.
 
 Automatic Chores updates are source-owned household content. The database projects authorized Chores occurrence transitions; Home renders compact grouped cards, Thanks, and comments. Personal posts continue to require explicit publication. Existing adult personal-account Home eligibility is unchanged. See `docs/superpowers/plans/2026-09-09-home-chore-updates.md` for the permission contract and proof boundaries.
+
+## Home recommendations
+
+`home-getting-started` now has an initial native implementation: a private region above the measured feed header, one featured invitation plus a complementary continuation/discovery action, and a user-opened Your next steps view. Household membership, Money's local checkpoint plus current plan settings, and authorized meal-plan records supply evidence. A Money introduction alone is not unfinished setup; an existing plan suppresses setup prompts. A saved target is treated conservatively as established use, not proof of account readiness.
+
+Home stores account-scoped invitation acceptance separately from presentation preferences. Later, Not for me and Hide survive relaunch; explicit restoration remains available from Home options. These preferences are device-local, not a cross-device setup authority. Unknown membership suppresses personal recommendations; previews and child/shared-device modes do not load private owner evidence.
+
+The first slice covers Household, Money and Meals. Full Screen Time/device readiness, other capability adapters, contextual offers, analytics experiments and any change to default landing remain follow-on work. No rehearsal onboarding gate is promoted and no Home action sends an invitation, connects an account or shares a post by itself. See `docs/superpowers/plans/2026-09-10-home-recommendations.md` and `artifacts/home-recommendations/verification.md`.

@@ -2791,6 +2791,7 @@ export function IdentityAspirationFlow({
       <QuestionCard title="If this Arc had a short name…">
         <Text style={styles.bodyText}>One or two words. (You can skip.)</Text>
         <Input
+          accessibilityLabel="Arc nickname"
           value={nickname}
           onChangeText={setNickname}
           placeholder="e.g., The Builder"
@@ -3643,6 +3644,7 @@ export function IdentityAspirationFlow({
           title="Looking ahead, what’s one big thing you want to make room for?"
         >
           <Input
+            accessibilityLabel="Your aspirations"
             value={dreamInput}
             onChangeText={setDreamInput}
             multiline
@@ -4060,9 +4062,11 @@ export function IdentityAspirationFlow({
       value: string,
       onChangeText: (value: string) => void,
       placeholder: string,
+      accessibilityLabel: string,
       onSubmit?: () => void
     ) => (
       <Input
+        accessibilityLabel={accessibilityLabel}
         value={value}
         onChangeText={onChangeText}
         multiline
@@ -4079,7 +4083,7 @@ export function IdentityAspirationFlow({
           }
           Keyboard.dismiss();
         }}
-        style={styles.surveyCustomInput}
+        containerStyle={styles.surveyCustomInput}
       />
     );
 
@@ -4164,6 +4168,7 @@ export function IdentityAspirationFlow({
                       ftuxCategoryCustomText,
                       setFtuxCategoryCustomText,
                       FTUX_GOAL_ARC_SURVEY_COPY.categoryCustomPlaceholder,
+                      FTUX_GOAL_ARC_SURVEY_COPY.categoryTitle,
                       () => advanceIfText(ftuxCategoryCustomText)
                     )
                   : null}
@@ -4176,6 +4181,7 @@ export function IdentityAspirationFlow({
             canProceed: concreteFocusText.trim().length >= 2,
             render: () => (
               <Input
+                accessibilityLabel="Your focus"
                 ref={dreamInputRef}
                 value={concreteFocusText}
                 onChangeText={setConcreteFocusText}
@@ -4193,7 +4199,7 @@ export function IdentityAspirationFlow({
                   }
                   Keyboard.dismiss();
                 }}
-                style={styles.surveyCustomInput}
+                containerStyle={styles.surveyCustomInput}
               />
             ),
           },
@@ -4211,6 +4217,7 @@ export function IdentityAspirationFlow({
                       goalShapeCustomText,
                       setGoalShapeCustomText,
                       FTUX_GOAL_ARC_SURVEY_COPY.goalShapeCustomPlaceholder,
+                      FTUX_GOAL_ARC_SURVEY_COPY.goalShapeTitle,
                       () => advanceIfText(goalShapeCustomText)
                     )
                   : null}
@@ -4231,6 +4238,7 @@ export function IdentityAspirationFlow({
                       ftuxMotivationCustomText,
                       setFtuxMotivationCustomText,
                       FTUX_GOAL_ARC_SURVEY_COPY.motivationCustomPlaceholder,
+                      FTUX_GOAL_ARC_SURVEY_COPY.motivationTitle,
                       () => advanceIfText(ftuxMotivationCustomText)
                     )
                   : null}
@@ -4251,6 +4259,7 @@ export function IdentityAspirationFlow({
                       identityBridgeCustomText,
                       setIdentityBridgeCustomText,
                       FTUX_GOAL_ARC_SURVEY_COPY.identityBridgeCustomPlaceholder,
+                      FTUX_GOAL_ARC_SURVEY_COPY.identityBridgeTitle,
                       () => advanceIfText(identityBridgeCustomText)
                     )
                   : null}

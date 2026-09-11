@@ -1,10 +1,11 @@
+import { TitleInput } from '../../ui/TitleInput';
+import { TagEntryField } from '../../ui/TagEntryField';
 import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ActivityArea, ActivityDifficulty, ActivityRepeatRule, ActivityType } from '../../domain/types';
 import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { colors, spacing, typography } from '../../theme';
-import { Badge } from '../../ui/Badge';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { LongTextField } from '../../ui/LongTextField';
@@ -267,14 +268,13 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
             }
             right={null}
           >
-            <TextInput
+            <TitleInput
+              accessibilityLabel="To-do title"
               style={styles.titleInput}
               value={draft.title}
               onChangeText={(title) => onChange((prev) => ({ ...prev, title }))}
               placeholder="Name this to-do"
               placeholderTextColor={colors.muted}
-              multiline
-              scrollEnabled={false}
               blurOnSubmit
               returnKeyType="done"
             />
@@ -328,6 +328,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                     contentStyle={styles.stepRowContent}
                   >
                     <Input
+                      accessibilityLabel="Step description"
                       value={step.title}
                       onChangeText={(text) =>
                         onChange((prev) => ({
@@ -337,8 +338,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                       }
                       placeholder="Describe the step"
                       size="md"
-                      variant="inline"
-                      inputStyle={styles.stepInput}
+                      variant="plain"
                       multiline
                       multilineMinHeight={typography.body.lineHeight}
                       // Steps should always expand to show the full content (no nested scrolling),
@@ -370,13 +370,13 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           >
             {isAddingStepInline ? (
               <Input
+                accessibilityLabel="New step description"
                 ref={newStepInputRef}
                 value={newStepTitle}
                 onChangeText={setNewStepTitle}
                 placeholder="Add step"
                 size="md"
-                variant="inline"
-                inputStyle={[styles.stepInput, styles.newStepInput]}
+                variant="plain"
                 multiline={false}
                 blurOnSubmit={false}
                 returnKeyType="done"
@@ -538,56 +538,31 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
       {/* Tags */}
       <View style={styles.section}>
         <Text style={styles.inputLabel}>TAGS</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit tags"
-          onPress={() => {}}
-          style={styles.tagsFieldContainer}
-        >
-          <View style={styles.tagsFieldInner}>
-            {(draft.tags ?? []).map((tag) => (
-              <Pressable
-                key={tag}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove tag ${tag}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  removeTag(tag);
-                }}
-              >
-                <Badge variant="outline" style={styles.tagChip}>
-                  <HStack space="xs" alignItems="center">
-                    <Text style={styles.tagChipText}>{tag}</Text>
-                    <Icon name="close" size={14} color={colors.textSecondary} />
-                  </HStack>
-                </Badge>
-              </Pressable>
-            ))}
-            <TextInput
-              value={tagsInputDraft}
-              onChangeText={(next) => {
-                if (next.includes(',')) {
-                  const parts = next.split(',');
-                  const trailing = parts.pop() ?? '';
-                  const completed = parts.join(',');
-                  onChange((prev) => ({ ...prev, tags: [...(prev.tags ?? []), ...parseTags(completed)] }));
-                  setTagsInputDraft(trailing.trimStart());
-                  return;
-                }
-                setTagsInputDraft(next);
-              }}
-              onBlur={commitTagsInputDraft}
-              onSubmitEditing={commitTagsInputDraft}
-              placeholder={(draft.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''}
-              placeholderTextColor={colors.muted}
-              style={styles.tagsTextInput}
-              returnKeyType="done"
-              blurOnSubmit
-              autoCapitalize="none"
-              autoCorrect={false}
+        <TagEntryField
+          accessibilityLabel="Add tags"
+          tags={draft.tags ?? []}
+          onRemoveTag={removeTag}
+          stretchInput
+          value={tagsInputDraft}
+          onChangeText={(next) => {
+            if (next.includes(',')) {
+              const parts = next.split(',');
+              const trailing = parts.pop() ?? '';
+              const completed = parts.join(',');
+              onChange((prev) => ({ ...prev, tags: [...(prev.tags ?? []), ...parseTags(completed)] }));
+              setTagsInputDraft(trailing.trimStart());
+              return;
+            }
+            setTagsInputDraft(next);
+          }}
+          onBlur={commitTagsInputDraft}
+          onSubmitEditing={commitTagsInputDraft}
+          placeholder={(draft.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''}
+          returnKeyType="done"
+          blurOnSubmit
+          autoCapitalize="none"
+          autoCorrect={false}
             />
-          </View>
-        </Pressable>
       </View>
 
       {/* Area */}
@@ -985,14 +960,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xs / 2,
-  },
-  newStepInput: {
-    paddingVertical: 0,
-  },
   addStepRow: {
     marginTop: 0,
   },
@@ -1007,41 +974,6 @@ const styles = StyleSheet.create({
           textAlignVertical: 'center',
         } as const)
       : ({ marginTop: -1 } as const)),
-  },
-  tagsFieldContainer: {
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    backgroundColor: colors.fieldFill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 44,
-  },
-  tagsFieldInner: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tagChipText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tagsTextInput: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 40,
-    minWidth: 40,
-    fontFamily: typography.bodySm.fontFamily,
-    fontSize: typography.bodySm.fontSize,
-    lineHeight: typography.bodySm.lineHeight + 2,
-    color: colors.textPrimary,
-    paddingVertical: 0,
   },
   sheetContent: {
     flex: 1,

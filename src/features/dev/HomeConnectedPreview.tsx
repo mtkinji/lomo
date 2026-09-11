@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Image } from "react-native";
+import { Alert, Image } from "react-native";
 import { SharedLifeFeed } from "../shared-home/SharedLifeFeed";
 import { SharedLifePage } from "../shared-home/SharedLifePage";
 import { HomeMediaSourceContext } from "../shared-home/SharedLifeMediaGallery";
 import type { SharedLifeRepository } from "../shared-home/sharedLifeRepository";
 import type { HomePost, HomeReply } from "../shared-home/sharedLifeTypes";
+import { Button, HStack } from '../../ui/primitives';
+import { buildHomeRecommendations, normalizeHomeRecommendationPreferences, selectHomeRecommendations, updateHomeRecommendationPreferences, type HomeRecommendationPreferenceAction } from '../shared-home/homeRecommendations';
 const viewer = "00000000-0000-4000-8000-000000009001";
 const household = "00000000-0000-4000-8000-000000009002";
 const author = "00000000-0000-4000-8000-000000009003";
@@ -14,6 +16,17 @@ const source = async () =>
   );
 /** Local fictional fixtures only. No backend calls and no real household publication. */
 export function HomeConnectedPreview({ onClose }: { onClose: () => void }) {
+  const [recommendationScenario, setRecommendationScenario] = useState<'off' | 'new' | 'meals'>('off');
+  const [recommendationPreferences, setRecommendationPreferences] = useState(() => normalizeHomeRecommendationPreferences(undefined));
+  const offers = buildHomeRecommendations({ access: 'adult', household: recommendationScenario === 'new' ? 'solo' : 'together', money: 'unused', meals: recommendationScenario === 'meals' ? 'active' : 'unused' }, recommendationPreferences);
+  const dispatchRecommendation = (action: HomeRecommendationPreferenceAction) => setRecommendationPreferences(p => updateHomeRecommendationPreferences(p, action));
+  const recommendationPreview = recommendationScenario === 'off' ? undefined : {
+    model: { offers, ...selectHomeRecommendations(offers, recommendationPreferences), preferences: recommendationPreferences, dispatch: dispatchRecommendation, eligible: true, loading: false, partialError: false, retry: () => undefined },
+    onOpen: (offer: (typeof offers)[number]) => {
+      dispatchRecommendation({ type: 'offer', id: offer.id, status: 'accepted' });
+      Alert.alert('Fictional recommendation', `The live action opens ${offer.destination}. No setup or sharing is performed in this preview.`);
+    },
+  };
   const [repository] = useState(() => {
     const posts: HomePost[] = Array.from({ length: 100 }, (_, i) => ({
       id: `00000000-0000-4000-8000-${String(9100 + i).padStart(12, "0")}`,
@@ -210,8 +223,12 @@ export function HomeConnectedPreview({ onClose }: { onClose: () => void }) {
   if (!__DEV__) return null;
   return (
     <HomeMediaSourceContext.Provider value={source}>
-      <SharedLifeFeed userId={viewer} previewRepository={repository}
+      <SharedLifeFeed userId={viewer} previewRepository={repository} recommendationPreview={recommendationPreview}
         renderFrame={(content, shareAction, moreMenu) => <SharedLifePage title="Home · Preview" onClose={onClose} rightElement={shareAction} moreMenu={moreMenu}>
+          <HStack><Button variant="ghost" onPress={() => {
+            setRecommendationScenario(s => s === 'off' ? 'meals' : s === 'meals' ? 'new' : 'off');
+            setRecommendationPreferences(normalizeHomeRecommendationPreferences(undefined));
+          }}>{`Recommendations: ${recommendationScenario}`}</Button></HStack>
           {content}
         </SharedLifePage>}/>
 

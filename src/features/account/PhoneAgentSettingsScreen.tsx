@@ -1,5 +1,6 @@
+import { KeyboardAwareScrollView } from '../../ui/KeyboardAwareScrollView';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -209,7 +210,7 @@ export function PhoneAgentSettingsScreen() {
 
   return (
     <AppShell>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <PageHeader title="Phone Agent" onPressBack={() => navigation.goBack()}>
           <Text style={styles.body}>Text Kwilt to capture, follow up, and close loops from the moment life happens.</Text>
         </PageHeader>
@@ -333,7 +334,7 @@ export function PhoneAgentSettingsScreen() {
             Revoke
           </Button>
         </HStack>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }

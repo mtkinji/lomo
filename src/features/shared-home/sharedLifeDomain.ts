@@ -34,8 +34,6 @@ export function buildHomeDraftPayload(draft: HomeDraft, userId: string) {
     throw new Error("Choose your household.");
   if (draft.audience === "people" && !draft.recipientIds.length)
     throw new Error("Choose who will see this.");
-  if (draft.photos.some((p) => !p.alt.trim()))
-    throw new Error("Add a short description for each photo.");
   return {
     id: draft.id,
     text,
@@ -44,9 +42,10 @@ export function buildHomeDraftPayload(draft: HomeDraft, userId: string) {
     recipientIds:
       draft.audience === "people" ? [...new Set(draft.recipientIds)] : [],
     attachment: draft.attachment,
-    media: draft.photos.map((photo) => ({
+    media: draft.photos.map((photo, index) => ({
       path: `${userId}/${draft.id}/${photo.id}.jpg`,
-      alt: photo.alt.trim(),
+      // A description improves accessibility, but must not block sharing.
+      alt: photo.alt.trim() || `Photo ${index + 1}`,
       ...(photo.width && photo.height
         ? { width: photo.width, height: photo.height }
         : {}),

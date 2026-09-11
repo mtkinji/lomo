@@ -34,3 +34,22 @@ describe('useActivityRepeatEditor', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+
+it('edits, saves and rehydrates a monthly weekday pattern', () => {
+  const activity = { id: 'monthly', repeatRule: 'monthly' } as Activity;
+  const updateActivity = jest.fn();
+  const { result, rerender } = renderHook(({ current }: { current: Activity }) => useActivityRepeatEditor({
+    activity: current, updateActivity, onClose: jest.fn(), onOpenCustom: jest.fn(), onReturnToPresets: jest.fn(),
+  }), { initialProps: { current: activity } });
+  act(() => { result.current.setCadence('months'); result.current.setMonthlyWeekday({ ordinal: 3, weekday: 0 }); });
+  act(() => result.current.commitCustom());
+  const saved = updateActivity.mock.calls[0][1](activity);
+  expect(saved.repeatCustom).toEqual({ cadence: 'months', interval: 1, monthlyWeekday: { ordinal: 3, weekday: 0 } });
+  rerender({ current: saved });
+  act(() => result.current.hydrateCustom());
+  expect(result.current.monthlyWeekday).toEqual({ ordinal: 3, weekday: 0 });
+  act(() => result.current.setMonthlyWeekday(undefined));
+  act(() => result.current.commitCustom());
+  expect(updateActivity.mock.calls[1][1](saved).repeatCustom).toEqual({ cadence: 'months', interval: 1 });
+});

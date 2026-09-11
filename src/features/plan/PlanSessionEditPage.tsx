@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Button } from '../../ui/Button';
 import { colors, spacing } from '../../theme';
 import { Heading, Text, VStack } from '../../ui/primitives';
 import { formatTimeRange } from '../../services/plan/planDates';
@@ -16,7 +17,9 @@ export function PlanSessionEditPage({
   title,
   start,
   end,
-}: PlanSessionEditModel) {
+  isSaving,
+  onDone,
+}: PlanSessionEditModel & { onDone?: () => void }) {
   const timing = `${formatTimeRange(start, end)} · ${formatPlanSessionDuration(start, end)}`;
 
   return (
@@ -25,12 +28,18 @@ export function PlanSessionEditPage({
         <Heading variant="sm" numberOfLines={2}>{title}</Heading>
         <Text style={styles.timing}>{timing}</Text>
       </VStack>
+      {onDone ? (
+        <Button onPress={onDone} disabled={isSaving} style={styles.doneButton}>
+          {isSaving ? 'Saving…' : 'Done'}
+        </Button>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {},
+  doneButton: { marginTop: spacing.md },
   timing: {
     color: colors.textSecondary,
   },

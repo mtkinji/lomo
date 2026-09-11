@@ -55,3 +55,9 @@ Kwilt Goals and Kwilt Money card surfaces consume `cardSurfaceStyle.borderRadius
 Desktop consumes the Tailwind preset, so `rounded-compact-card` resolves from `radii.compactCard`.
 
 The marketing site is intentionally outside this first propagation path. It can opt into shared brand primitives later while keeping campaign and landing-page leeway.
+
+## Input family propagation — approved target, migration pending
+
+The [input contract](input-guidance.md) introduces input-specific material roles because legacy `fieldFill`/`fieldFillPressed` also style non-input surfaces. Preserve those consumers while input callers migrate; a global token replacement is not sufficient adoption evidence.
+
+Native `Input` and picker/inline/rich adapters converge through owned UI components. The embedded Unified Chat workbench lives in `/Users/andrewwatanabe/kwilt-site/components/unified-chat/` and currently uses site CSS variables without an `@kwilt/tokens` package dependency. Its mapping and verification are explicit work in Task 09 of the [implementation plan](../superpowers/plans/2026-09-10-input-unification.md). Native token builds do not update that browser surface automatically. Marketing, guest forms and desktop require their own scope/proof before any claim of convergence.

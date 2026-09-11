@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useState, useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { BottomDrawer } from './BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';
 import { Text, ButtonLabel } from './Typography';
@@ -10,7 +10,6 @@ import { Icon } from './Icon';
 import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
 import { EnumPickerField, RelationPickerField, type PickerFieldOption } from './PickerFields';
 import { Input } from './Input';
-import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { SegmentedControl } from './SegmentedControl';
 import { Dialog } from './Dialog';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -343,7 +342,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
   const hasAnyFilters = localGroups.length > 0;
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardAvoidanceEnabled={false}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardBehavior="resize">
       <VStack flex={1} style={styles.container}>
         <BottomDrawerHeader
           title="Filter To-dos"
@@ -353,11 +352,10 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
           onClose={onClose}
         />
 
-        <KeyboardAwareScrollView
+        <BottomDrawerScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardClearance={spacing.sm}
         >
           {localGroups.map((group, groupIndex) => (
             <React.Fragment key={groupIndex}>
@@ -509,7 +507,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
               <Text>{localGroups.length === 0 ? 'Add a filter' : 'Add filter group'}</Text>
             </HStack>
           </Button>
-        </KeyboardAwareScrollView>
+        </BottomDrawerScrollView>
 
         {/* Footer anchored to bottom */}
         <HStack style={styles.footer} justifyContent="space-between" alignItems="center">
@@ -983,7 +981,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    // Extra bottom padding handled by footer margin + keyboard-aware padding
+    // The drawer resizes the body and footer together above the keyboard.
   },
   conditionRow: {
     // Each condition row is a vertical stack

@@ -12,9 +12,10 @@ import { Pressable } from '@/src/ui/HapticPressable';
  * NOT clear it — the card is the recovery surface for collected progress.
  */
 
-import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { HStack, Text, VStack } from '../../ui/primitives';
@@ -50,6 +51,10 @@ export function PendingCheckinDraftCard({
   const [isEditing, setEditing] = useState(false);
   const [editText, setEditText] = useState<string>(draft.draftText);
 
+  useEffect(() => {
+    setEditText(draft.draftText);
+  }, [draft.id, draft.draftText]);
+
   const includedItems = useMemo(
     () => draft.items.filter((i) => i.includeInDraft),
     [draft.items]
@@ -57,7 +62,7 @@ export function PendingCheckinDraftCard({
 
   const label = getDraftAgeLabelText(describeDraftAgeLabel(draft));
   const audienceLine = formatAudienceLine(partnerNames);
-  const displayText = isEditing ? editText : draft.draftText;
+  const displayText = editText;
   const canSend = displayText.trim().length > 0 && !busy;
 
   const handleSend = () => {
@@ -101,18 +106,20 @@ export function PendingCheckinDraftCard({
       ) : null}
 
       {isEditing ? (
-        <TextInput
-          style={styles.editor}
+        <Input
+          accessibilityLabel="Edit check-in message"
+          onSurface="muted"
+          multilineMinHeight={80}
+          multilineMaxHeight={180}
           value={editText}
           onChangeText={setEditText}
           multiline
           autoFocus
           maxLength={500}
           placeholder="Say what you finished."
-          placeholderTextColor={colors.textSecondary}
         />
       ) : (
-        <Text style={styles.draftText}>{draft.draftText || 'Say what you finished.'}</Text>
+        <Text style={styles.draftText}>{displayText || 'Say what you finished.'}</Text>
       )}
 
       {includedItems.length > 0 ? (
@@ -148,15 +155,7 @@ export function PendingCheckinDraftCard({
           variant="ghost"
           size="compact"
           label={isEditing ? 'Done' : 'Edit'}
-          onPress={() => {
-            setEditing((current) => !current);
-            if (isEditing) {
-              // Leaving edit mode: persist text via onSend path is not desired; we keep local state in sync.
-              // The card lifts the edited text into the parent on Send.
-              return;
-            }
-            setEditText(draft.draftText);
-          }}
+          onPress={() => setEditing((current) => !current)}
           disabled={busy}
           accessibilityLabel={isEditing ? 'Finish editing' : 'Edit check-in'}
         />
@@ -239,16 +238,6 @@ const styles = StyleSheet.create({
   draftText: {
     ...typography.body,
     color: colors.textPrimary,
-  },
-  editor: {
-    ...typography.body,
-    color: colors.textPrimary,
-    backgroundColor: colors.shell,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 80,
-    textAlignVertical: 'top',
   },
   itemsList: {
     paddingTop: spacing.xs,

@@ -53,6 +53,8 @@ export type KanbanColumnProps = {
    * Handler for pressing an activity to navigate to details.
    */
   onPressActivity: (activityId: string) => void;
+  /** Opens the explicit destination picker for a card. */
+  onRequestMove?: (activityId: string) => void;
   /**
    * Handler for adding a new card to this column.
    */
@@ -130,6 +132,7 @@ function DraggableKanbanCard({
   scrollableGesture,
   onToggleComplete,
   onPress,
+  onRequestMove,
 }: {
   activity: Activity;
   goalTitle?: string;
@@ -154,6 +157,7 @@ function DraggableKanbanCard({
   scrollableGesture?: ReturnType<typeof Gesture.Native> | null;
   onToggleComplete: () => void;
   onPress: () => void;
+  onRequestMove?: () => void;
 }) {
   const containerRef = React.useRef<View>(null);
 
@@ -247,18 +251,36 @@ function DraggableKanbanCard({
 
   return (
     <View ref={containerRef} collapsable={false}>
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={animatedStyle}>
-          <KanbanCard
-            activity={activity}
-            goalTitle={goalTitle}
-            visibleFields={visibleFields}
-            onToggleComplete={isDragging ? undefined : onToggleComplete}
-            onPress={isDragging ? undefined : onPress}
-            isLoading={isLoading}
-          />
-        </Animated.View>
-      </GestureDetector>
+      <Animated.View style={animatedStyle}>
+        <KanbanCard
+          activity={activity}
+          goalTitle={goalTitle}
+          visibleFields={visibleFields}
+          onToggleComplete={isDragging ? undefined : onToggleComplete}
+          onPress={isDragging ? undefined : onPress}
+          isLoading={isLoading}
+          moveHandle={onRequestMove ? (
+            <GestureDetector gesture={gesture}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Move ${activity.title}`}
+                accessibilityHint="Tap to choose a destination, or touch and hold to drag"
+                hitSlop={6}
+                onPress={(event) => {
+                  event?.stopPropagation?.();
+                  onRequestMove();
+                }}
+                style={({ pressed }) => [
+                  styles.moveHandle,
+                  pressed ? styles.moveHandlePressed : null,
+                ]}
+              >
+                <Icon name="menu" size={16} color={colors.textSecondary} />
+              </Pressable>
+            </GestureDetector>
+          ) : undefined}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -273,6 +295,7 @@ export function KanbanColumn({
   onToggleComplete,
   onTogglePriority,
   onPressActivity,
+  onRequestMove,
   onAddCard,
   addCardAnchorRef,
   width,
@@ -351,6 +374,7 @@ export function KanbanColumn({
                 scrollableGesture={scrollableGesture}
                 onToggleComplete={() => onToggleComplete(activity.id)}
                 onPress={() => onPressActivity(activity.id)}
+                onRequestMove={onRequestMove ? () => onRequestMove(activity.id) : undefined}
               />
             );
           })}
@@ -457,5 +481,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  moveHandle: {
+    width: 36,
+    height: 36,
+    marginRight: -spacing.xs,
+    marginTop: -spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  moveHandlePressed: {
+    backgroundColor: colors.gray100,
+  },
 });
-

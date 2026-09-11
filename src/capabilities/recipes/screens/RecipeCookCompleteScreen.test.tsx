@@ -1,7 +1,15 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render as renderNative, waitFor } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { RecipeCookCompleteView } from './RecipeCookCompleteScreen';
 import { recipeVersionContractFixture } from '../domain/recipeContractFixtures';
+
+const render = (element: ReactElement) => renderNative(
+  <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } }}>
+    {element}
+  </SafeAreaProvider>,
+);
 
 describe('RecipeCookCompleteView', () => {
   it('captures a private outcome and a structured exact-version substitution', async () => {

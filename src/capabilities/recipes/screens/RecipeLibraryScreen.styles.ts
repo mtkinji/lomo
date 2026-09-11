@@ -582,12 +582,4 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   planTimingChoiceSelected: { borderColor: colors.sumi900, backgroundColor: colors.fieldFill },
-  planTimingInput: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.textPrimary,
-    paddingHorizontal: spacing.sm,
-  },
 });

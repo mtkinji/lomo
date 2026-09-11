@@ -79,6 +79,7 @@ One primary action does not mean one green button per card. Contextual actions s
 - Helper copy may clarify consequence or unfamiliar vocabulary; it must not compensate for weak labels, grouping, or control choice.
 - Prefer one density and spacing rhythm per region and a flat reading order over dashboard grids unless comparison is the job.
 - Forms use label, control, optional description, and validation message as one field. Placeholder text is not a label.
+- Text entry, search, picker triggers, inline editing and composers follow [Canonical input treatment](input-guidance.md): the approved default direction is a contrasting neutral filled surface with no resting border/shadow, with explicit plain/grouped/outlined contexts. Feature code uses owned controls and does not override their appearance. The linked migration plan distinguishes approved policy from implementation and runtime acceptance still pending.
 - Dialog forms use title, optional concise description, body, and footer with one primary submit action and a quiet cancel/close path.
 - Alert dialogs are reserved for consequential confirmation. Harmless reversible actions do not need them.
 - Contextual menus hold low-frequency actions; destructive items are semantically and visually distinct without becoming primary.

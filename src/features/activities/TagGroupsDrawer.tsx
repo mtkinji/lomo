@@ -3,7 +3,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
-import { HStack, Input, Text, VStack } from '../../ui/primitives';
+import { HStack, Text, VStack } from '../../ui/primitives';
+import { SearchField } from '../../ui/SearchField';
 import { Icon } from '../../ui/Icon';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import { colors } from '../../theme/colors';
@@ -49,11 +50,11 @@ export function TagGroupsDrawer({
         />
         <BottomDrawerScrollView contentContainerStyle={styles.content}>
           <VStack space="xs">
-            <Input
+            <SearchField
+              accessibilityLabel="Search tags"
               value={query}
               onChangeText={setQuery}
               placeholder="Search tags..."
-              leadingIcon="search"
               size="sm"
               returnKeyType="search"
               containerStyle={styles.searchInput}

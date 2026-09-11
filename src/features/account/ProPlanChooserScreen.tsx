@@ -10,6 +10,7 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import {
   SUBSCRIPTION_PACKAGES_UNAVAILABLE_CODE,
   getProSku,
+  PRO_LIFETIME_SKU,
   isRevenueCatPurchaseCancelled,
 } from '../../services/entitlements';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -78,6 +79,8 @@ export function ProPlanChooserScreen() {
   const navigation = useNavigation<NavigationProp<RootDrawerParamList, 'ProPlanChooser'>>();
   const actionClearance = useFullWidthActionDockClearance();
   const storeOffer = useProStoreOffer();
+  const proAccessType = useEntitlementsStore((state) => state.proAccessType);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const isRefreshing = useEntitlementsStore((state) => state.isRefreshing);
   const purchase = useEntitlementsStore((state) => state.purchase);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
@@ -221,6 +224,31 @@ export function ProPlanChooserScreen() {
       });
   }, [cadence, capture, isDevelopmentOfferPreview, plan, purchase, refreshEntitlements, returnToPaidIntent, selectedOffer.expectsTrial]);
 
+  const lifetime = storeOffer.snapshot?.products[PRO_LIFETIME_SKU];
+  const lifetimeReady = Boolean(lifetime?.priceString && lifetime.price && lifetime.price > 0 && proAccessType !== 'lifetime');
+  const startLifetimePurchase = async () => {
+    if (isRefreshing || !lifetimeReady) return;
+    capture(AnalyticsEvent.PurchaseStarted, { product_id: PRO_LIFETIME_SKU, variant: 'founders', offer_state: 'lifetime' });
+    try {
+      const snapshot = await purchase({ lifetime: true });
+      if (!snapshot.isPro || snapshot.proAccessType !== 'lifetime') {
+        Alert.alert('Purchase pending', 'Pro access has not been confirmed yet. You can restore purchases after Apple completes the purchase.');
+        return;
+      }
+      capture(AnalyticsEvent.PurchaseSucceeded, { product_id: PRO_LIFETIME_SKU, variant: 'founders', offer_state: 'lifetime' });
+      const resumeIntent = usePaywallStore.getState().completeUpgrade();
+      returnToPaidIntent(resumeIntent);
+      Alert.alert('Welcome to lifetime Pro', 'Your Pro access is ready. This purchase does not renew.');
+    } catch (error) {
+      if (isRevenueCatPurchaseCancelled(error)) return;
+      capture(AnalyticsEvent.PurchaseFailed, { product_id: PRO_LIFETIME_SKU, variant: 'founders', error_code: 'purchase_failed' });
+      Alert.alert('Purchase unavailable', 'We couldn’t complete the purchase. Refresh the offers and try again.');
+      storeOffer.retry();
+    } finally {
+      refreshEntitlements({ force: true }).catch(() => undefined);
+    }
+  };
+
   const showPurchaseAction = storeOffer.status === 'ready' && pricesReady;
 
   return (
@@ -288,6 +316,17 @@ export function ProPlanChooserScreen() {
                 ) : null}
                 </>
               )}
+              {lifetimeReady ? (
+                <VStack space="sm" style={styles.offerDisclosure}>
+                  <Heading variant="sm">Founding Lifetime</Heading>
+                  <Text style={styles.purchaseDisclosure}>All Pro features. One payment. No renewal.</Text>
+                  {isPro ? <Text style={styles.purchaseDisclosure}>Buying lifetime access does not cancel an existing subscription. Manage it in the App Store to stop renewals.</Text> : null}
+                  <Button loading={isRefreshing} onPress={startLifetimePurchase}>
+                    {`Get lifetime Pro — ${lifetime?.priceString}`}
+                  </Button>
+                  <SubscriptionLegalLinks variant="purchase" />
+                </VStack>
+              ) : null}
             </VStack>
 
             {showPurchaseAction ? (

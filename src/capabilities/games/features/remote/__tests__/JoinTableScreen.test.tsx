@@ -13,9 +13,9 @@ jest.mock('@/src/capabilities/games/navigation/gamesRouter', () => ({
 jest.mock('@/src/ui/BottomDrawer', () => {
   const { View } = jest.requireActual('react-native');
   return {
-    BottomDrawer: ({ visible, children, ...props }: { visible: boolean; children: React.ReactNode } & Record<string, unknown>) => {
+    BottomDrawer: ({ visible, children, bottomAccessory, ...props }: { visible: boolean; children: React.ReactNode; bottomAccessory?: React.ReactNode } & Record<string, unknown>) => {
       mockBottomDrawerProps = props;
-      return visible ? <View>{children}</View> : null;
+      return visible ? <View>{children}{bottomAccessory}</View> : null;
     },
     BottomDrawerScrollView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
   };

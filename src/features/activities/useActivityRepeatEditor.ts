@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Activity, ActivityRepeatCustom } from '../../domain/types';
+import type { Activity, ActivityRepeatCustom, ActivityMonthlyWeekday } from '../../domain/types';
 import type { useAppStore } from '../../store/useAppStore';
 import {
   buildActivityCustomRepeatPayload,
@@ -22,6 +22,8 @@ export type ActivityRepeatEditorController = {
   cadence: ActivityRepeatCustom['cadence'];
   interval: number;
   weekdays: number[];
+  monthlyWeekday?: ActivityMonthlyWeekday;
+  setMonthlyWeekday?: (pattern: ActivityMonthlyWeekday | undefined) => void;
   hydrateCustom: () => void;
   openCustom: () => void;
   returnToPresets: () => void;
@@ -42,7 +44,7 @@ export function useActivityRepeatEditor({
   onClose,
   onOpenCustom,
   onReturnToPresets,
-}: ActivityRepeatEditorProps): ActivityRepeatEditorController {
+}: ActivityRepeatEditorProps): ActivityRepeatEditorController & { setMonthlyWeekday: (pattern: ActivityMonthlyWeekday | undefined) => void } {
   const fallbackWeekday = new Date().getDay();
   const initial = resolveActivityCustomRepeatDraft({
     repeatRule: activity?.repeatRule,
@@ -51,6 +53,7 @@ export function useActivityRepeatEditor({
   });
   const [cadence, setCadence] = useState(initial.cadence);
   const [interval, setInterval] = useState(initial.interval);
+  const [monthlyWeekday, setMonthlyWeekday] = useState(initial.monthlyWeekday);
   const [weekdays, setWeekdays] = useState(initial.weekdays);
   const transitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -71,6 +74,7 @@ export function useActivityRepeatEditor({
     setCadence(draft.cadence);
     setInterval(draft.interval);
     setWeekdays(draft.weekdays);
+    setMonthlyWeekday(draft.monthlyWeekday);
   }, [activity?.repeatCustom, activity?.repeatRule]);
 
   const transition = useCallback((next: () => void) => {
@@ -102,6 +106,8 @@ export function useActivityRepeatEditor({
     cadence,
     interval,
     weekdays,
+    monthlyWeekday,
+    setMonthlyWeekday,
     hydrateCustom,
     openCustom: () => {
       hydrateCustom();
@@ -124,6 +130,7 @@ export function useActivityRepeatEditor({
         cadence,
         interval,
         weekdays,
+        monthlyWeekday,
         fallbackWeekday: new Date().getDay(),
       });
       updateRepeat('custom', payload);

@@ -593,3 +593,21 @@ Primary measures:
 - [RevenueCat: Common webhook flows](https://www.revenuecat.com/docs/integrations/webhooks/event-flows)
 - `docs/design-explorations/participation-spaces/sponsorship-and-entitlements.md`
 - `docs/capabilities/money/README.md`
+
+## Founding Lifetime extension (2026-09-10)
+
+Andrew approved keeping the existing subscriptions and offering a perpetual full-Pro purchase alongside them. This continues Nina/Maya's inspectable billing boundary in the existing plan chooser. The design discussion and convergence happened in the GTM conversation; this is implementation of that chosen approach, not a replacement monetization design.
+
+- One Apple non-consumable: `pro_lifetime`; the same RevenueCat `pro` entitlement and full Pro feature/usage allowances.
+- A separate RevenueCat Offering `founders`, containing a Lifetime package for that product. Never make it the subscription default offering. The app only shows the card when that named offering returns a valid priced product.
+- Initial US price $19.99. Approximately every 50 valid paid purchases, manually review conversion, activation and support/cost evidence; optionally increase by $10. Approximately 1,000 purchasers is an internal review target, not an enforced inventory count or public scarcity claim.
+- Price changes use the same Apple product. Removing the package hides future purchase entry without changing purchased entitlements. Future higher-priced lifetime access remains possible.
+- Andrew selected Apple Family Sharing for the lifetime product. Verify purchaser and recipient access before launch; no automatic Kwilt Household membership-to-Pro grant is added.
+- No trial or renewal language on lifetime purchase. Existing subscribers are told a lifetime purchase does not cancel their subscription.
+- Per-product backend state preserves lifetime when another product ends and preserves paid subscription access when lifetime is refunded. Restores and refreshes retain lifetime identity on the account screen.
+
+### Spec refinement and learning release
+
+The chosen constraint posture is Fit the system. Reuse the plan chooser, authenticated RevenueCat identity, Pro gates, purchase ledger and restore path. No alternate license service, feature tier or hard cap. The bet is that low one-time pricing improves adoption of the same Pro product; examine qualified conversion and retained use for each price cohort before extending the offer. Do not infer price resistance from quiet traffic alone.
+
+Release requires a configured Apple product and review, RevenueCat mapping, deployed backend, and Sandbox purchase/restore/refund/coexistence checks. Source tests do not establish those external states. Removing `founders`' package is the merchandising rollback, while access for purchasers continues.

@@ -212,6 +212,7 @@ export function ViewCustomizationGuide({
                 <Text style={styles.aiLabel}>AI quick setup (optional)</Text>
               </HStack>
               <Textarea
+                accessibilityLabel="AI view customization"
                 value={aiPrompt}
                 onChangeText={setAiPrompt}
                 placeholder="Describe what to show + how to sort…"

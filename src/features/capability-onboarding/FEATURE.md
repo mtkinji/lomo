@@ -5,7 +5,8 @@ audiences:
   - audience-burned-out-productivity-power-users
   - audience-faith-and-values-driven-builders
   - audience-life-transition-restarters
-personas: [Maya, Marcus, Sarah, Elena]
+  - audience-private-accountability-seekers
+personas: [Maya, Marcus, Sarah, Elena, David]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 job_flows:
@@ -21,10 +22,11 @@ serves:
   - jtbd-help-us-enjoy-being-together
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - home-getting-started
   - capability-routed-onboarding
   - food-capability-onboarding
 status: draft
-last_reviewed: 2026-08-19
+last_reviewed: 2026-09-10
 ---
 
 # Capability onboarding
@@ -35,3 +37,5 @@ Capability owners retain setup, mutation, first-value evidence, and native landi
 Sequential setup moments use the Canonical `CapabilityOnboardingStepScreen`. It owns stable page
 geometry; capability owners provide step copy, distinct meaningful illustrations, state, and one
 optional action without recreating the shell.
+
+The draft `home-getting-started` concept extends continuity into adult personal Home after orientation. It proposes owner-derived progress and scoped resumption, preserves Skip tour and exact-entry behavior, and does not promote rehearsal paths or implement a new production entry. David is included for selected-person participation without requiring a Household.

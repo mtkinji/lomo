@@ -231,6 +231,10 @@ describe('PlanSlotCapturePage', () => {
     expect(getByText('Send cabinet dimensions')).toBeTruthy();
     expect(queryByText('Buy lumber')).toBeNull();
 
+    fireEvent.press(getByLabelText('Clear search'));
+    expect(getByText('Buy lumber')).toBeTruthy();
+    fireEvent.changeText(getByLabelText('Search to-dos'), 'cabinet');
+
     fireEvent.press(getByLabelText('Filter to-dos'));
     fireEvent.press(getByLabelText('Apply test filter'));
     expect(getByLabelText('Filter to-dos (1)')).toBeTruthy();

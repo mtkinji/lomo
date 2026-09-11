@@ -21,6 +21,7 @@ import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { EditorHeader, EditorSurface } from '../../ui/EditorSurface';
+import { PickerFieldTrigger } from '../../ui/PickerFields';
 import { RelationPickerField, type PickerFieldOption } from '../../ui/primitives';
 import {
   CoachChatTurn,
@@ -729,6 +730,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [composerHeight, setComposerHeight] = useState(0);
   const [composerInputHeight, setComposerInputHeight] = useState(INPUT_MIN_HEIGHT);
+  const [expandedComposerHeight, setExpandedComposerHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
   // In React 18 dev (StrictMode), mount effects can run twice.
   // Guard bootstrap so we never start multiple concurrent “first reply” fetches.
@@ -790,8 +792,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
     // Hide the expand affordance until we have ~3 lines of text. We consider both
     // explicit newlines and soft-wrapping (measured height).
     composerExplicitLineCount >= 3 || composerInputHeight > composerLineHeight * 2.6;
-  const isComposerSingleLine =
-    composerExplicitLineCount <= 1 && composerInputHeight <= composerLineHeight * 1.6;
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
@@ -1384,6 +1384,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   </Text>
                 ) : null}
                 <Input
+                  accessibilityLabel="Goal title"
                   value={titleValue}
                   onChangeText={setGoalDraftTitle}
                   placeholder="Goal title"
@@ -1392,9 +1393,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   multilineMaxHeight={88}
                   size="sm"
                   variant="inline"
-                  elevation="flat"
-                  inputStyle={styles.goalProposalTitleText}
-                  containerStyle={styles.goalProposalTitleContainer}
+                  inputStyle={typography.titleMd}
                 />
               </View>
             ) : (
@@ -1403,6 +1402,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
             {isActive ? (
               <Input
+                accessibilityLabel="Goal description"
                 value={descriptionValue}
                 onChangeText={setGoalDraftDescription}
                 placeholder="Add a short description…"
@@ -1410,10 +1410,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 multilineMinHeight={typography.bodySm.lineHeight * 3}
                 multilineMaxHeight={220}
                 size="sm"
-                variant="inline"
-                elevation="flat"
-                inputStyle={styles.goalProposalDescriptionText}
-                containerStyle={styles.goalProposalDescriptionContainer}
+                variant="plain"
               />
             ) : descriptionValue ? (
               <Text style={styles.goalProposalDescriptionText}>{descriptionValue}</Text>
@@ -1421,31 +1418,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
             <View style={styles.goalProposalMetaRow}>
               <Text style={styles.goalProposalMetaLabel}>Target date</Text>
-              <Pressable
-                accessibilityRole={isActive ? 'button' : undefined}
+              <PickerFieldTrigger
+                value={targetDateLabel}
+                options={[{ value: targetDateLabel, label: targetDateLabel }]}
+                placeholder="Set target date"
                 accessibilityLabel="Edit target date"
                 disabled={!isActive}
+                size="compact"
+                leadingIcon="today"
+                allowDeselect={false}
                 onPress={() => setIsGoalDraftTargetDatePickerVisible((current) => !current)}
-                style={!isActive ? { opacity: 0.6 } : null}
-              >
-                {/* Use a standard filled field treatment for the date value. */}
-                {/* Ensure the parent Pressable receives taps (TextInput can swallow touches). */}
-                <View pointerEvents="none">
-                  <Input
-                    value={targetDateLabel}
-                    editable={false}
-                    size="sm"
-                    variant="filled"
-                    elevation="flat"
-                    trailingIcon="today"
-                    inputStyle={styles.goalProposalDateValueText}
-                    // `editable={false}` dims the whole Input container by design; for the
-                    // date value we still want full-contrast text so it doesn't read like
-                    // placeholder copy.
-                    containerStyle={[styles.goalProposalDateValueField, { opacity: 1 }]}
-                  />
-                </View>
-              </Pressable>
+              />
             </View>
 
             {isActive && isGoalDraftTargetDatePickerVisible ? (
@@ -3055,11 +3038,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                 >
                                   {editingActivitySuggestionId === suggestion.id ? (
                                     <View style={styles.activitySuggestionTitlePressable}>
-                                      <TextInput
+                                      <Input
+                                        variant="plain"
+                                        size="sm"
                                         ref={(node) => {
                                           activitySuggestionInputRefs.current[suggestion.id] = node;
                                         }}
-                                        style={styles.activitySuggestionTitleInput}
+                                        inputStyle={styles.activitySuggestionTitleInput}
                                         value={
                                           activitySuggestionEdits[suggestion.id] ?? suggestion.title
                                         }
@@ -3070,7 +3055,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                           }));
                                         }}
                                         placeholder="Edit to-do"
-                                        placeholderTextColor={CHAT_COLORS.textSecondary}
                                         multiline={false}
                                         numberOfLines={1}
                                         returnKeyType="done"
@@ -3332,19 +3316,19 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 {isArcCreationMode && arcProposal && (
                   <View style={styles.arcDraftCard}>
                     <Text style={styles.arcDraftLabel}>Proposed Arc</Text>
-                    <TextInput
-                      style={styles.arcDraftNameInput}
+                    <Input
+                      accessibilityLabel="Proposed Arc name"
                       value={arcDraftName}
                       onChangeText={setArcDraftName}
                       placeholder="Arc name"
-                      placeholderTextColor={CHAT_COLORS.textSecondary}
                     />
-                    <TextInput
-                      style={styles.arcDraftNarrativeInput}
+                    <Input
+                      accessibilityLabel="Proposed Arc narrative"
+                      multilineMinHeight={typography.bodySm.lineHeight * 3}
+                      multilineMaxHeight={180}
                       value={arcDraftNarrative}
                       onChangeText={setArcDraftNarrative}
                       placeholder="Arc narrative"
-                      placeholderTextColor={CHAT_COLORS.textSecondary}
                       multiline
                     />
                     <View style={styles.arcDraftButtonsRow}>
@@ -3437,13 +3421,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           })}
                         </View>
                         <View style={styles.feedbackNoteContainer}>
-                          <Text style={styles.feedbackNoteLabel}>In your own words</Text>
-                          <TextInput
-                            style={styles.feedbackNoteInput}
+                          <Input
+                            label="In your own words"
+                            multilineMinHeight={typography.bodySm.lineHeight * 3}
+                            multilineMaxHeight={180}
                             value={feedbackNote}
                             onChangeText={setFeedbackNote}
                             placeholder="e.g. This sounds like a short project, I wanted a longer storyline."
-                            placeholderTextColor={CHAT_COLORS.textSecondary}
                             multiline
                           />
                         </View>
@@ -3594,50 +3578,40 @@ export const AiChatPane = forwardRef(function AiChatPane(
               )}
               <View style={styles.composerSection}>
                 <View style={styles.composerRow}>
-                  <View style={styles.inputShellShadow}>
-                    <Pressable style={styles.inputShell} onPress={() => inputRef.current?.focus()}>
-                      {shouldShowComposerExpand && (
-                        <TouchableOpacity
-                          style={styles.expandAffordance}
-                          onPress={openExpandedComposer}
-                          accessibilityRole="button"
-                          accessibilityLabel="Expand composer"
-                          activeOpacity={0.85}
-                          hitSlop={10}
-                        >
-                          <Icon name="expand" color={CHAT_COLORS.textSecondary} size={16} />
-                        </TouchableOpacity>
-                      )}
-
-                      <View
-                        style={[
-                          styles.composerMainRow,
-                          isComposerSingleLine && styles.composerMainRowSingle,
-                        ]}
-                      >
-                        <View style={styles.inputField}>
-                          <TextInput
-                            ref={inputRef}
-                            testID="agent.composer.input"
-                            style={[styles.input, !hasInput && styles.inputPlaceholderSmaller]}
-                            placeholder={composerPlaceholder}
-                            placeholderTextColor={colors.muted}
-                            value={input}
-                            onChangeText={setInput}
-                            onContentSizeChange={(event) => {
-                              const next = Math.max(
-                                INPUT_MIN_HEIGHT,
-                                Math.round(event.nativeEvent.contentSize.height),
-                              );
-                              setComposerInputHeight((current) => (current === next ? current : next));
-                            }}
-                            multiline
-                            textAlignVertical={isComposerSingleLine ? 'center' : 'top'}
-                            returnKeyType="send"
-                            onSubmitEditing={handleSend}
-                          />
-                        </View>
-
+                  <Input
+                    ref={inputRef}
+                    testID="agent.composer.input"
+                    accessibilityLabel="Message"
+                    surfaceRole="composer"
+                    placeholder={composerPlaceholder}
+                    value={input}
+                    onChangeText={setInput}
+                    onContentSizeChange={(event) => {
+                      const next = Math.max(
+                        INPUT_MIN_HEIGHT,
+                        Math.round(event.nativeEvent.contentSize.height),
+                      );
+                      setComposerInputHeight((current) => (current === next ? current : next));
+                    }}
+                    multiline
+                    multilineMinHeight={INPUT_MIN_HEIGHT}
+                    multilineMaxHeight={INPUT_MAX_HEIGHT}
+                    textAlignVertical="top"
+                    returnKeyType="send"
+                    onSubmitEditing={handleSend}
+                    footerElement={
+                      <View style={styles.composerFooter}>
+                        {shouldShowComposerExpand && (
+                          <TouchableOpacity
+                            style={styles.expandAffordance}
+                            onPress={openExpandedComposer}
+                            accessibilityRole="button"
+                            accessibilityLabel="Expand composer"
+                            activeOpacity={0.85}
+                          >
+                            <Icon name="expand" color={CHAT_COLORS.textSecondary} size={16} />
+                          </TouchableOpacity>
+                        )}
                         <TouchableOpacity
                           testID="agent.composer.send"
                           style={[
@@ -3657,8 +3631,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           )}
                         </TouchableOpacity>
                       </View>
-                    </Pressable>
-                  </View>
+                    }
+                  />
                 </View>
               </View>
             </View>
@@ -3811,15 +3785,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
             bodyTopPadding={spacing.lg}
             bodyBottomPadding={spacing.lg}
           >
-            <View style={styles.expandedBody}>
-              <TextInput
+            <View
+              style={styles.expandedBody}
+              onLayout={event => setExpandedComposerHeight(event.nativeEvent.layout.height)}
+            >
+              <Input
+                variant="plain"
+                accessibilityLabel="Message"
                 ref={expandedInputRef}
-                style={styles.expandedInput}
                 placeholder={composerPlaceholder}
-                placeholderTextColor={colors.muted}
                 value={input}
                 onChangeText={setInput}
                 multiline
+                multilineMinHeight={expandedComposerHeight}
+                multilineMaxHeight={expandedComposerHeight}
                 textAlignVertical="top"
                 autoFocus
                 returnKeyType="send"
@@ -4535,18 +4514,9 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   activitySuggestionTitleInput: {
-    // Match the non-editing title style, but behave like an inline field.
-    ...typography.body,
+    // Match the existing 15pt semibold display title; Input owns platform metrics and material.
     fontFamily: fonts.semibold,
     fontSize: 15,
-    // iOS: keep single-line TextInput baselines visually centered in the fixed-height row.
-    // (Our display text uses a generous lineHeight for multi-line readability.)
-    lineHeight: Platform.OS === 'ios' ? 17 : 22,
-    color: CHAT_COLORS.textPrimary,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    includeFontPadding: false,
-    ...(Platform.OS === 'android' ? ({ textAlignVertical: 'center' } as const) : null),
   },
   activitySuggestionsFooterRow: {
     marginTop: spacing.sm,
@@ -4730,55 +4700,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.md,
   },
-  inputShellShadow: {
-    flex: 1,
-    borderRadius: 18,
-    backgroundColor: CHAT_COLORS.surface,
-    ...cardElevation.composer,
-  },
-  inputShell: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-    // ShadCN textarea–like: rectangular surface with gentle radius.
-    backgroundColor: CHAT_COLORS.surface,
-    borderRadius: 18,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: CHAT_COLORS.border,
-    overflow: 'hidden',
-  },
-  composerMainRow: {
+  composerFooter: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-  },
-  composerMainRowSingle: {
     alignItems: 'center',
-  },
-  inputField: {
-    justifyContent: 'flex-start',
-    flex: 1,
-  },
-  input: {
-    // Slightly larger text than the rest of the chat body so
-    // composing feels comfortable and legible.
-    ...typography.body,
-    color: CHAT_COLORS.textPrimary,
-    lineHeight: typography.body.lineHeight,
-    paddingTop: 0,
-    paddingBottom: 0,
-    textAlignVertical: 'top',
-    // Let the input grow naturally up to a comfortable height before it
-    // begins scrolling internally.
-    minHeight: INPUT_MIN_HEIGHT,
-    maxHeight: INPUT_MAX_HEIGHT,
-  },
-  inputPlaceholderSmaller: {
-    fontSize: 15,
-    lineHeight: 20,
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
   },
   trailingIcon: {
     paddingHorizontal: spacing.sm,
@@ -4787,17 +4713,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   expandAffordance: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    padding: 6,
-    zIndex: 2,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 'auto',
   },
   sendButton: {
     backgroundColor: '#18181B',
     borderColor: '#18181B',
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4815,13 +4741,6 @@ const styles = StyleSheet.create({
   expandedBody: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-  },
-  expandedInput: {
-    flex: 1,
-    ...typography.body,
-    color: colors.textPrimary,
-    lineHeight: typography.body.lineHeight,
-    textAlignVertical: 'top',
   },
   sendButtonInactive: {
     opacity: 0.4,
@@ -5020,18 +4939,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
   },
-  arcDraftNameInput: {
-    ...typography.titleSm,
-    color: CHAT_COLORS.textPrimary,
-    paddingVertical: spacing.xs,
-  },
-  arcDraftNarrativeInput: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textPrimary,
-    paddingVertical: spacing.xs,
-    textAlignVertical: 'top',
-    minHeight: typography.bodySm.lineHeight * 3,
-  },
   arcDraftButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -5136,15 +5043,9 @@ const styles = StyleSheet.create({
     height: 128,
     backgroundColor: colors.gray100,
   },
-  goalProposalTitleContainer: {
-    paddingVertical: 2,
-  },
   goalProposalTitleText: {
     ...typography.titleMd,
     color: CHAT_COLORS.textPrimary,
-  },
-  goalProposalDescriptionContainer: {
-    paddingTop: spacing.xs,
   },
   goalProposalDescriptionText: {
     ...typography.bodySm,
@@ -5164,10 +5065,6 @@ const styles = StyleSheet.create({
   },
   goalProposalDateValueField: {
     width: '100%',
-  },
-  goalProposalDateValueText: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textPrimary,
   },
   skeletonLineLg: {
     height: 18,
@@ -5235,22 +5132,6 @@ const styles = StyleSheet.create({
   },
   feedbackNoteContainer: {
     marginBottom: spacing.md,
-  },
-  feedbackNoteLabel: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  feedbackNoteInput: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textPrimary,
-    borderWidth: 1,
-    borderColor: CHAT_COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: typography.bodySm.lineHeight * 3,
-    textAlignVertical: 'top',
   },
   feedbackButtonsRow: {
     flexDirection: 'row',

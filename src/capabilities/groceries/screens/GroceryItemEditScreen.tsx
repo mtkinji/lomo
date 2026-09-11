@@ -1,8 +1,9 @@
+import { Input } from '../../../ui/Input';
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
-import { colors, spacing, typography } from "../../../theme";
+import { spacing } from "../../../theme";
 import { Button } from "../../../ui/Button";
 import { AppShell } from "../../../ui/layout/AppShell";
 import { PageHeader } from "../../../ui/layout/PageHeader";
@@ -90,28 +91,10 @@ export function GroceryItemEditScreen({ navigation, route }: Props) {
     </AppShell>
   );
 }
-function Field({
-  label,
-  ...props
-}: React.ComponentProps<typeof TextInput> & { label: string }) {
-  return (
-    <View style={styles.field}>
-      <Text variant="label">{label}</Text>
-      <TextInput accessibilityLabel={label} style={styles.input} {...props} />
-    </View>
-  );
+function Field({ label, ...props }: React.ComponentProps<typeof Input> & { label: string }) {
+  return <Input {...props} label={label} accessibilityLabel={label} />;
 }
+
 const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.md },
-  field: { gap: spacing.xs },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
-    backgroundColor: colors.fieldFill,
-    ...typography.body,
-  },
 });

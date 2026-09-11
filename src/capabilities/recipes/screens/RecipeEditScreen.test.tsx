@@ -55,6 +55,23 @@ describe('Recipe editor', () => {
     }));
   });
 
+  it('retains the edited step identity and newlines when an earlier step is removed', () => {
+    const onSave = jest.fn();
+    const initial: RecipeEditorDraft = { ...empty, title: 'Toast', instructions: [
+      { id: 'first', text: 'Slice bread.' },
+      { id: 'second', text: 'Toast bread.' },
+    ] };
+    const screen = renderEditor(<RecipeEditView initial={initial} saving={false} error={null} onSave={onSave} onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Instruction 2'), 'Toast bread.\nLet it cool.');
+    fireEvent.press(screen.getByLabelText('Remove instruction 1'));
+    expect(screen.getByLabelText('Instruction 1').props.value).toBe('Toast bread.\nLet it cool.');
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByText('Save'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ instructions: [
+      { id: 'second', text: 'Toast bread.\nLet it cool.' },
+    ] }));
+  });
+
   it('only reports unsaved changes after a real edit and keeps save errors visible', () => {
     const onBack = jest.fn();
     const screen = renderEditor(<RecipeEditView initial={empty} saving={false} error="Recipe could not be saved." onSave={jest.fn()} onBack={onBack} />);

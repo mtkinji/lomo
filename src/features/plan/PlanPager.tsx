@@ -1,3 +1,4 @@
+import { getPlanRecommendationSlots } from './planRecommendationSlots';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -25,13 +26,11 @@ import {
 import type { BusyInterval } from '../../services/scheduling/schedulingEngine';
 import { createDefaultSlotDraft, type PlanSlotDraft } from './planSlotDraft';
 import {
-  getOrInitCalendarPreferences,
-  listCalendars,
-  listCalendarsWithErrors,
   listCalendarEvents,
   listBusyIntervals,
   startCalendarConnect,
   updateCalendarEvent,
+  type CalendarListItem,
   type CalendarEventRef,
   type CalendarEvent,
   type CalendarRef,
@@ -76,6 +75,7 @@ import {
 } from '../../services/plan/activityScheduleSessions';
 import { usePlanSessionEditor } from './usePlanSessionEditor';
 import { usePlanClock } from './usePlanClock';
+import { createPlanCalendarReads } from '../../services/plan/planCalendarReads';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -226,14 +226,15 @@ export function PlanPager({
   );
 
   const lastPreferencesRefreshRef = useRef<number>(0);
+  const calendarReads = useMemo(() => createPlanCalendarReads(), []);
 
   const refreshPreferences = useCallback(async () => {
-    const prefs = await getOrInitCalendarPreferences();
+    const prefs = await calendarReads.preferences();
     setReadRefs(prefs.readCalendarRefs ?? []);
     setWriteRef(prefs.writeCalendarRef ?? null);
     setCalendarError(null);
     lastPreferencesRefreshRef.current = Date.now();
-  }, []);
+  }, [calendarReads]);
 
   const parseCalendarAccessIssue = useCallback(
     (errors: string[]): { provider: CalendarProvider | null; code: string } | null => {
@@ -255,9 +256,20 @@ export function PlanPager({
     [],
   );
 
+  const applyCalendarColors = useCallback((calendars: CalendarListItem[]) => {
+    const next: Record<string, string> = {};
+    for (const c of calendars) {
+      const key = `${c.provider}:${c.accountId}:${c.calendarId}`;
+      const color = typeof c.color === 'string' ? c.color.trim() : '';
+      if (color) next[key] = color;
+    }
+    setCalendarColorByRefKey(next);
+  }, []);
+
   const refreshCalendarAccess = useCallback(async () => {
     try {
-      const { errors } = await listCalendarsWithErrors();
+      const { calendars, errors } = await calendarReads.calendars();
+      applyCalendarColors(calendars);
       const issue = parseCalendarAccessIssue(errors ?? []);
       if (issue) {
         setCalendarAccessStatus('expired');
@@ -279,7 +291,7 @@ export function PlanPager({
       setCalendarAccessProvider(null);
       return false;
     }
-  }, [parseCalendarAccessIssue]);
+  }, [calendarReads, applyCalendarColors, parseCalendarAccessIssue]);
 
   // In the Plan tab (`insetMode="screen"`), the page is hosted inside `AppShell`,
   // which already applies the canonical horizontal gutters. In drawer contexts,
@@ -304,19 +316,13 @@ export function PlanPager({
 
   const refreshCalendarColors = useCallback(async () => {
     try {
-      const cals = await listCalendars();
-      const next: Record<string, string> = {};
-      for (const c of cals) {
-        const key = `${c.provider}:${c.accountId}:${c.calendarId}`;
-        const color = typeof c.color === 'string' && c.color.trim().length > 0 ? c.color.trim() : null;
-        if (color) next[key] = color;
-      }
-      setCalendarColorByRefKey(next);
+      const { calendars } = await calendarReads.calendars();
+      applyCalendarColors(calendars);
     } catch {
       // best-effort; day view will fall back to default event colors
       setCalendarColorByRefKey({});
     }
-  }, []);
+  }, [calendarReads, applyCalendarColors]);
 
   useEffect(() => {
     if (!recommendationsDrawerVisible) return;
@@ -335,7 +341,6 @@ export function PlanPager({
         if (!active) return;
         if (accessOk) {
           await refreshPreferences();
-          await refreshCalendarColors();
         }
       } catch (err: any) {
         if (!active) return;
@@ -347,7 +352,7 @@ export function PlanPager({
     return () => {
       active = false;
     };
-  }, [recommendationsDrawerVisible, refreshPreferences, refreshCalendarAccess, refreshCalendarColors]);
+  }, [recommendationsDrawerVisible, refreshPreferences, refreshCalendarAccess]);
 
   useFocusEffect(
     useCallback(() => {
@@ -356,8 +361,7 @@ export function PlanPager({
       let active = true;
       (async () => {
         try {
-          await refreshPreferences();
-          await refreshCalendarColors();
+          await Promise.all([refreshPreferences(), refreshCalendarColors()]);
         } catch (err: any) {
           if (!active) return;
           setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
@@ -376,8 +380,7 @@ export function PlanPager({
     let mounted = true;
     (async () => {
       try {
-        await refreshPreferences();
-        await refreshCalendarColors();
+        await Promise.all([refreshPreferences(), refreshCalendarColors()]);
       } catch (err: any) {
         if (!mounted) return;
         setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
@@ -977,50 +980,9 @@ export function PlanPager({
         .map((p) => ({ start: new Date(p.startDate), end: new Date(p.endDate) }));
 
       const windows = getWindowsForMode(dayAvailability, mode);
-      const stepMinutes = 15;
-      const candidates: Date[] = [];
-      const earliestStart = new Date();
-
-      function roundUpToStep(d: Date): Date {
-        const next = new Date(d);
-        next.setSeconds(0, 0);
-        const mins = next.getMinutes();
-        const remainder = mins % stepMinutes;
-        if (remainder !== 0) next.setMinutes(mins + (stepMinutes - remainder));
-        return next;
-      }
-
-      for (const w of windows) {
-        const ws = setTimeOnDate(targetDate, w.start);
-        const we = setTimeOnDate(targetDate, w.end);
-        if (!ws || !we) continue;
-
-        let cursor = roundUpToStep(ws);
-        const latestStart = new Date(we.getTime() - durationMinutes * 60000);
-        while (cursor <= latestStart) {
-          const newStart = cursor;
-          const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
-          const conflicts =
-            busyIntervals.some((b) => b.start < newEnd && newStart < b.end) ||
-            otherProposalIntervals.some((b) => b.start < newEnd && newStart < b.end);
-          if (!conflicts && newStart >= earliestStart) {
-            candidates.push(new Date(newStart));
-          }
-          cursor = new Date(cursor.getTime() + stepMinutes * 60000);
-        }
-      }
-
-      // Prefer times nearest the existing proposal start; cap for UI density.
-      const base = baseStart.getTime();
-      candidates.sort((a, b) => Math.abs(a.getTime() - base) - Math.abs(b.getTime() - base));
-      const uniqueByTime = new Map<number, Date>();
-      for (const d of candidates) uniqueByTime.set(d.getTime(), d);
-
-      const finalCandidates = Array.from(uniqueByTime.values())
-        .sort((a, b) => Math.abs(a.getTime() - base) - Math.abs(b.getTime() - base))
-        .slice(0, 8);
-
-      return finalCandidates.map((d) => d.toISOString());
+      return getPlanRecommendationSlots({
+        targetDate, windows, durationMinutes, busyIntervals, otherProposalIntervals,
+      });
     },
     [activities, busyIntervals, dayAvailability, getPlanModeForActivity, scheduleProposals, targetDate],
   );
@@ -1226,6 +1188,16 @@ export function PlanPager({
     clearSlotDraft: () => setSlotDraft(null),
   });
 
+  const handleRetryCalendarAccess = useCallback(async () => {
+    setCalendarAccessStatus('refreshing');
+    if (!(await refreshCalendarAccess())) return;
+    try {
+      await refreshPreferences();
+    } catch (err) {
+      setCalendarError(err instanceof Error ? err.message : 'calendar_unavailable');
+    }
+  }, [refreshCalendarAccess, refreshPreferences]);
+
   const handleReconnectCalendarAccess = useCallback(async () => {
     if (!calendarAccessProvider) return;
     try {
@@ -1248,7 +1220,6 @@ export function PlanPager({
         if (!active) return;
         if (accessOk) {
           await refreshPreferences();
-          await refreshCalendarColors();
         }
       })();
       return () => {
@@ -1258,7 +1229,7 @@ export function PlanPager({
     return () => {
       sub.remove();
     };
-  }, [refreshCalendarAccess, refreshCalendarColors, refreshPreferences]);
+  }, [refreshCalendarAccess, refreshPreferences]);
 
   const emptyState = useMemo<NonNullable<PlanRecommendationsEmptyState>>(() => {
     if (calendarAccessStatus === 'refreshing') {
@@ -1271,8 +1242,10 @@ export function PlanPager({
     if (calendarAccessStatus === 'expired') {
       return {
         kind: 'calendar_access_expired',
-        title: 'Calendar access expired',
-        description: 'We need to refresh access before we can read your busy time and suggest a plan.',
+        title: calendarAccessProvider ? 'Calendar access expired' : 'Couldn’t check calendar access',
+        description: calendarAccessProvider
+          ? 'Reconnect your calendar so Kwilt can read your busy time and suggest a plan.'
+          : 'Check your connection and try again, or manage your calendars in Settings.',
       };
     }
     if (!dayAvailability.enabled) {
@@ -1317,6 +1290,7 @@ export function PlanPager({
     };
   }, [
     calendarAccessStatus,
+    calendarAccessProvider,
     dayAvailability,
     hasAvailabilityWindows,
     hasEligibleActivities,
@@ -1633,6 +1607,7 @@ export function PlanPager({
                   entryPoint,
                   calendarStatus,
                   calendarAccessStatus,
+                  onRetryCalendarAccess: handleRetryCalendarAccess,
                   onReconnectCalendarAccess:
                     calendarAccessStatus === 'expired' && calendarAccessProvider ? handleReconnectCalendarAccess : undefined,
                   calendarAccessProviderLabel:

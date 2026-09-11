@@ -38,6 +38,7 @@ export const unifiedChatScreenStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radii.pill,
   },
+  surfaceOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   webViewContainer: { flex: 1, backgroundColor: colors.canvas },
   webView: { backgroundColor: colors.canvas },
   errorBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.scheduleYellow },

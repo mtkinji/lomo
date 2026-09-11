@@ -155,7 +155,7 @@ The toolbar should:
 
 - Stay visible while scrolling through list layout.
 - Stay visible while scrolling through Kanban layout unless Kanban expanded mode intentionally hides it.
-- Continue to hide when current Kanban expanded behavior says the board should reclaim the space.
+- Stay available when Kanban expands; expansion changes column width without removing inventory controls.
 - Preserve existing Pro/free behavior for Views, Filters, and Sort.
 - Preserve existing accessibility labels and test IDs where possible.
 - Keep dropdown positioning correct after the toolbar moves into sticky mode.
@@ -311,9 +311,12 @@ Kanban should follow the same top-header behavior in collapsed board mode:
 
 Expanded Kanban remains special:
 
-- Preserve the existing `isKanbanExpanded` behavior that hides the fixed toolbar and lets the board reclaim vertical space.
-- In expanded mode, do not introduce a second sticky toolbar.
-- If expanded Kanban still needs access to card fields/filter/sort later, define that as a separate Kanban-specific control treatment.
+- `isKanbanExpanded` changes column width and paging behavior without hiding the fixed toolbar.
+- Reuse the same card-fields, filter, grouping, and sort controls as collapsed Kanban and list layouts.
+- Do not introduce a second Kanban-specific toolbar.
+- Pagination indicators are tappable, labeled column destinations so navigation does not depend on a horizontal gesture winning against a nested column scroll.
+- Card taps open details. A dedicated card handle owns movement: tap it for the explicit destination drawer, or touch and hold it for direct drag. The rest of the card never begins a move.
+- Adding from a column inherits the property represented by that column. Every move has an explicit `Move to` alternative and an Undo result.
 
 ## Implementation Direction
 
@@ -453,7 +456,7 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - Quick Add dock lowers when global nav hides and returns above it when global nav reveals.
 - Short lists do not auto-hide chrome.
 - Empty state is not pushed off-center.
-- Kanban expanded mode preserves its current toolbar-hiding behavior.
+- Kanban expanded mode preserves the same inventory controls as collapsed mode.
 
 ### Technical
 

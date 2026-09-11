@@ -1,12 +1,14 @@
+import { KeyboardAwareScrollView } from '../../../ui/KeyboardAwareScrollView';
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
-import { colors, spacing, typography } from '../../../theme';
+import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -108,35 +110,32 @@ export function RecipeImportReviewScreen({ navigation, route }: Props) {
   return (
     <AppShell>
       <PageHeader title={presentation.pageTitle} titleMaxFontSizeMultiplier={1.6} onPressBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <Heading variant="md" maxFontSizeMultiplier={1.8}>{presentation.heading}</Heading>
-          <Text tone="secondary">{presentation.detail}</Text>
-          {presentation.showPhotos ? <><View style={styles.actions}><Button variant="outline" onPress={() => { void pickPhoto(true); }}>Take a photo</Button><Button variant="outline" onPress={() => { void pickPhoto(false); }}>Choose photos</Button></View><View style={styles.divider}><View style={styles.rule} /><Text tone="secondary">or paste or dictate</Text><View style={styles.rule} /></View></> : null}
-          <TextInput
-            accessibilityLabel={presentation.inputLabel}
-            value={source}
-            onChangeText={setSource}
-            autoCapitalize={presentation.inputKind === 'url' ? 'none' : 'sentences'}
-            autoCorrect={presentation.inputKind !== 'url'}
-            keyboardType={presentation.inputKind === 'url' ? 'url' : 'default'}
-            multiline={presentation.inputKind === 'text'}
-            placeholder={presentation.placeholder}
-            placeholderTextColor={colors.textSecondary}
-            style={[styles.input, presentation.inputKind === 'text' && styles.textArea]}
-          />
-          {error ? <Text tone="destructive" accessibilityLiveRegion="polite">{error}</Text> : null}
-          <Button variant="primary" disabled={busy || !source.trim()} onPress={() => { void extract(presentation.inputKind === 'url' ? { method: 'url', sourceUrl: source.trim() } : { method: 'text', sourceText: source.trim() }); }}>{busy ? 'Making draft…' : presentation.primaryLabel}</Button>
-          {presentation.showManual ? <Button variant="ghost" onPress={() => navigation.replace('RecipeEdit', {})}>Start with a blank recipe</Button> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <KeyboardAwareScrollView style={styles.flex} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+        <Heading variant="md" maxFontSizeMultiplier={1.8}>{presentation.heading}</Heading>
+        <Text tone="secondary">{presentation.detail}</Text>
+        {presentation.showPhotos ? <><View style={styles.actions}><Button variant="outline" onPress={() => { void pickPhoto(true); }}>Take a photo</Button><Button variant="outline" onPress={() => { void pickPhoto(false); }}>Choose photos</Button></View><View style={styles.divider}><View style={styles.rule} /><Text tone="secondary">or paste or dictate</Text><View style={styles.rule} /></View></> : null}
+        <Input
+          accessibilityLabel={presentation.inputLabel}
+          value={source}
+          onChangeText={setSource}
+          autoCapitalize={presentation.inputKind === 'url' ? 'none' : 'sentences'}
+          autoCorrect={presentation.inputKind !== 'url'}
+          keyboardType={presentation.inputKind === 'url' ? 'url' : 'default'}
+          multiline={presentation.inputKind === 'text'}
+          placeholder={presentation.placeholder}
+          multilineMinHeight={presentation.inputKind === 'text' ? 180 : undefined}
+          multilineMaxHeight={presentation.inputKind === 'text' ? 220 : undefined}
+        />
+        {error ? <Text tone="destructive" accessibilityLiveRegion="polite">{error}</Text> : null}
+        <Button variant="primary" disabled={busy || !source.trim()} onPress={() => { void extract(presentation.inputKind === 'url' ? { method: 'url', sourceUrl: source.trim() } : { method: 'text', sourceText: source.trim() }); }}>{busy ? 'Making draft…' : presentation.primaryLabel}</Button>
+        {presentation.showManual ? <Button variant="ghost" onPress={() => navigation.replace('RecipeEdit', {})}>Start with a blank recipe</Button> : null}
+      </KeyboardAwareScrollView>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, content: { flexGrow: 1, paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.md }, actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  input: { minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.fieldFill, color: colors.textPrimary, padding: spacing.md, ...typography.body },
-  textArea: { minHeight: 180, textAlignVertical: 'top' }, divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   rights:{padding:spacing.md,gap:spacing.xs,borderWidth:1,borderColor:colors.border,borderRadius:14},rightsActive:{borderColor:colors.pine700,backgroundColor:colors.pine50},privateNote:{padding:spacing.md,gap:spacing.xs,borderRadius:14,backgroundColor:colors.fieldFill},
 });

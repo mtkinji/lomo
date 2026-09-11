@@ -1,0 +1,105 @@
+Local verification: 2 selected files, 151 other changed files outside this scope.
+- src/features/shared-home/HomeRecommendationRegion.tsx
+- src/features/shared-home/SharedLifeFeed.tsx
+Check: whitespace — catch whitespace and conflict-marker issues before deeper gates
+Check: staged-whitespace — check staged content as well as working-tree edits
+Check: types:app — typecheck app, workspace packages, and shared TypeScript contracts
+Check: code:health — enforce code-health ratchets against newly introduced complexity
+Check: architecture:lint — check enforceable UI/feature architecture conventions
+Check: jest — run tests related to selected source, fixture, and test files; file count does not broaden scope
+Manual: npm run visual:compare — requires fresh Maestro screenshots; use when visual surfaces changed
+Local results do not approve integration, deployment, or omitted work.
+[verify:local] run whitespace: "git" "diff" "--check"
+[verify:local] run staged-whitespace: "git" "diff" "--cached" "--check"
+[verify:local] run types:app: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/typescript/bin/tsc" "--noEmit" "--project" "tsconfig.json" "--incremental" "--tsBuildInfoFile" "/Users/andrewwatanabe/Kwilt/.git/kwilt-verification/app.tsbuildinfo"
+[verify:local] run code:health: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "scripts/verification/local-code-health.mjs" "9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678"
+Code health summary
+Base: 9baf1a4a8e14b83e806c1df9e25ee4d3e66d0678
+Files: 3323
+Lines: 554385
+Large files >=800 lines: 98
+Very large files >=1500 lines: 31
+Huge files >=3000 lines: 8
+unchecked casts: 857
+explicit any matches: 514
+@ts-ignore directives: 0
+console.log calls: 208
+coverage ignore patterns: 23
+raw react-native Text feature files: 10
+
+Largest files (top 10):
+- src/features/arcs/GoalDetailScreen.tsx: 5884 lines
+- src/features/ai/AiChatScreen.tsx: 5262 lines
+- src/features/onboarding/IdentityAspirationFlow.tsx: 4713 lines
+- src/services/ai.ts: 4216 lines
+- src/store/useAppStore.ts: 4205 lines
+- src/features/activities/ActivitiesScreen.tsx: 3922 lines
+- prototypes/pixel-pets/lib/pet-world.ts: 3243 lines
+- src/features/activities/ActivityDetailScreen.tsx: 3202 lines
+- supabase/functions/chapters-generate/index.ts: 2933 lines
+- plugins/withAppleEcosystemIntegrations.js: 2874 lines
+
+Ratchet findings:
+- [warning] src/features/shared-home/HomeRecommendationRegion.test.tsx: added 2 explicit any usages
+- [warning] src/features/shared-home/SharedLifeComposer.test.tsx: added 1 explicit any usage
+- [warning] src/features/shared-home/useHomeRecommendations.test.tsx: added 3 explicit any usages
+- [warning] src/features/shared-home/useMomentSuggestions.test.tsx: added 4 explicit any usages
+- [warning] src/ui/KeyboardAwareScrollView.test.tsx: added 2 unchecked casts
+[verify:local] run architecture:lint: "npm" "run" "architecture:lint"
+
+> kwilt@1.0.122 architecture:lint
+> node --test scripts/architecture-lint-lib.test.mjs && node scripts/architecture-lint.mjs
+
+✔ counts product green tokens but ignores neutral color roles (0.716583ms)
+✔ allows green only when the source line names an explicit brand moment (0.055333ms)
+✔ rejects increases while allowing existing green debt to stay flat or decrease (0.086ms)
+✔ rejects feature-level overrides of canonical ActionDock placement (0.657417ms)
+✔ allows dock internals and semantic placement without raw geometry overrides (0.06725ms)
+✔ rejects raw React Native press controls outside the app-owned haptic boundary (0.112667ms)
+✔ rejects drawer action geometry escape hatches in feature code (0.070292ms)
+✔ rejects a migrated screen selecting a raw repository mutation (0.0705ms)
+✔ rejects Chat mutation duplication while allowing the capability action module (0.059666ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 68.749459
+Architecture warnings:
+- src/features/account/ManageSubscriptionScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDetailRefresh.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDetailScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/ActivityDraftDetailFields.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/activities/QuickAddDock.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcBannerSheet.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcDetailScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/arcs/ArcsScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/onboarding/ConfigErrorScreen.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+- src/features/onboarding/CreditsInterstitialDrawer.tsx: legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file
+Raw Text warnings by feature:
+- activities: 4
+- arcs: 3
+- onboarding: 2
+- account: 1
+Architecture lint passed with 10 warnings.
+[verify:local] run jest: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "node_modules/jest/bin/jest.js" "--runInBand" "--passWithNoTests" "--findRelatedTests" "src/features/shared-home/HomeRecommendationRegion.tsx" "src/features/shared-home/SharedLifeFeed.tsx"
+PASS src/features/shared-home/SharedHomeScreen.test.tsx
+PASS src/features/shared-home/SharedLifeFeed.header.test.tsx
+PASS src/features/shared-home/HomeRecommendationRegion.test.tsx
+
+Test Suites: 3 passed, 3 total
+Tests:       11 passed, 11 total
+Snapshots:   0 total
+Time:        2.226 s
+Ran all test suites related to files matching /src\/features\/shared-home\/HomeRecommendationRegion.tsx|src\/features\/shared-home\/SharedLifeFeed.tsx/i.
+Local automation stale: 27.68s
+- whitespace: passed (0.02s)
+- staged-whitespace: passed (0.01s)
+- types:app: passed (8.29s)
+- code:health: passed (0.85s)
+- architecture:lint: passed (12.32s)
+- jest: passed (3.53s)
+Inputs changed while checks were running. Results were not cached; verify the updated scope.
+Integration/deployment approval and listed manual checks remain separate.

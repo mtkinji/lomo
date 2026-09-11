@@ -112,7 +112,10 @@ jest.mock('../../../ui/BottomDrawer', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    BottomDrawer: ({ visible, children }: any) => visible ? React.createElement(View, null, children) : null,
+    BottomDrawer: ({ visible, children, footer, ...props }: any) => visible ? React.createElement(View, { ...props, footer, testID: 'mock.bottomDrawer' },
+      children,
+      footer ? React.createElement(require('../../../ui/layout/BottomDrawerSemanticFooter').BottomDrawerSemanticFooter, footer) : null,
+    ) : null,
     BottomDrawerScrollView: ({ children, ...props }: any) => React.createElement(View, props, children),
   };
 });
@@ -528,8 +531,19 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Center on current location')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Name current Place'));
     expect(screen.getByText('Name this Place')).toBeTruthy();
+    const namingDrawer = screen.getAllByTestId('mock.bottomDrawer').find((drawer) => drawer.props.keyboardBehavior === 'resize');
+    expect(namingDrawer?.props.keyboardBehavior).toBe('resize');
+    expect(namingDrawer?.props.snapPoints).toEqual(['70%']);
+    expect(namingDrawer?.props.footer).toBeUndefined();
+    expect(screen.queryByTestId('bottom-drawer.semantic-footer')).toBeNull();
+    expect(screen.getByTestId('bottom-drawer.header-left-action')).toBeTruthy();
+    expect(screen.getByTestId('bottom-drawer.header-right-action')).toBeTruthy();
+    expect(screen.getByLabelText('Save Place').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByLabelText('Place name').props.enterKeyHint).toBe('done');
+    expect(screen.getByLabelText('Place name').props.enablesReturnKeyAutomatically).toBe(true);
     fireEvent.changeText(screen.getByLabelText('Place name'), 'Home');
-    fireEvent.press(screen.getByText('Save Place'));
+    expect(screen.getByLabelText('Save Place').props.accessibilityState).toMatchObject({ disabled: false });
+    fireEvent.press(screen.getByLabelText('Save Place'));
 
     expect(Object.values(useExploreStore.getState().places)).toEqual([
       expect.objectContaining({ name: 'Home', source: 'user' }),
@@ -930,6 +944,11 @@ describe('ExploreMapScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Search Places'), 'Harmony');
 
     expect(screen.queryByText('Foothills Trail')).toBeNull();
+    const movesBeforeClear = mockAnimateToRegion.mock.calls.length;
+    fireEvent.press(screen.getByLabelText('Clear Places search'));
+    expect(screen.getByText('Foothills Trail')).toBeTruthy();
+    expect(mockAnimateToRegion).toHaveBeenCalledTimes(movesBeforeClear);
+    fireEvent.changeText(screen.getByLabelText('Search Places'), 'Harmony');
     fireEvent.press(screen.getByText('Harmony Overlook'));
     expect(mockAnimateToRegion).toHaveBeenLastCalledWith(
       expect.objectContaining({ latitudeDelta: 0.0045, longitudeDelta: 0.0045 }),

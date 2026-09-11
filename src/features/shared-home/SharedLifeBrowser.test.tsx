@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { AppState, FlatList, type AppStateStatus } from 'react-native';
+import { renderWithProviders } from '../../test/renderWithProviders';
 import { SharedLifeBrowser } from './SharedLifeBrowser';
 import type { HomePost } from './sharedLifeTypes';
 import type { SharedLifeRepository } from './sharedLifeRepository';
@@ -21,4 +22,21 @@ it('restores every authorized loaded history page after backgrounding', async ()
  expect(command).toHaveBeenLastCalledWith('refresh_posts',{ids:posts.map(p=>p.id)});
  expect(view.UNSAFE_getByType(FlatList).props.data).toHaveLength(59);
  view.unmount();listener.mockRestore();
+});
+
+it('clears saved-moment search through the existing read query without a write command', async () => {
+  const listener = jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
+  const command = jest.fn().mockResolvedValue({ posts: [] });
+  const repository = { command } as unknown as SharedLifeRepository;
+  const view = renderWithProviders(<SharedLifeBrowser repository={repository} mode={{ title: 'Saved', library: true }} onClose={jest.fn()} renderPost={() => null} />);
+  await act(async () => {});
+  await act(async () => fireEvent.changeText(view.getByLabelText('Search saved moments'), 'lake'));
+  expect(command).toHaveBeenLastCalledWith('library', expect.objectContaining({ query: 'lake' }));
+  const beforeClear = command.mock.calls.length;
+  await act(async () => fireEvent.press(view.getByLabelText('Clear saved moments search')));
+  expect(command).toHaveBeenCalledTimes(beforeClear + 1);
+  expect(command).toHaveBeenLastCalledWith('library', expect.objectContaining({ query: '' }));
+  expect(command.mock.calls.every(([operation]) => operation === 'library')).toBe(true);
+  view.unmount();
+  listener.mockRestore();
 });

@@ -174,7 +174,6 @@ export function ChoreReviewDrawer({
                 multilineMinHeight={82}
                 multilineMaxHeight={120}
                 elevation="flat"
-                variant="outline"
               />
             ) : null}
           </>

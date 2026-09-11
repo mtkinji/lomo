@@ -1,10 +1,11 @@
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { HouseholdMember } from '../../household/data/household';
 import type { PersonFoodNeed } from '../domain/householdMealFit';
-import { colors, radii, spacing, typography } from '../../../theme';
+import { colors, radii, spacing } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
@@ -103,14 +104,12 @@ export function FoodNeedsDrawer({ visible, members, foodNeeds, onClose, onSetFoo
           <View style={styles.section}>
             <Text variant="label" tone="secondary">Other</Text>
             <View style={styles.addRow}>
-              <TextInput
+              <Input
                 accessibilityLabel="Food or ingredient to avoid"
                 placeholder="Food or ingredient"
-                placeholderTextColor={colors.textSecondary}
                 value={label}
                 onChangeText={setLabel}
                 onSubmitEditing={add}
-                style={styles.input}
               />
               <Button variant="outline" disabled={!personId || !label.trim()} onPress={add}>Add</Button>
             </View>
@@ -142,7 +141,6 @@ const styles = StyleSheet.create({
   foodChipSelected: { backgroundColor: colors.sumi900 },
   foodChipTextSelected: { color: colors.primaryForeground },
   addRow: { gap: spacing.sm },
-  input: { minHeight: 48, paddingHorizontal: spacing.md, borderRadius: radii.input, backgroundColor: colors.fieldFill, color: colors.textPrimary, ...typography.body },
   needRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   needCopy: { flex: 1, gap: spacing.xs },
 });

@@ -1,6 +1,7 @@
+import { Input } from '@/src/ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { forecastReveal, nextPlayerIndex, nextPromptIndex } from '@/src/capabilities/games/domain/connectionGames';
@@ -25,7 +26,7 @@ function CommonThreadGame({ players }: { players: string[] }) {
   const prompt = commonThreadPrompts[promptIndex];
   const next = () => { setPromptIndex(nextPromptIndex(promptIndex, commonThreadPrompts.length)); setLeadIndex(nextPlayerIndex(leadIndex, players.length)); setAnswer(''); setSharedAnswer(''); };
   return <><PlayCard eyebrow={`${players[leadIndex].toUpperCase()} · CONNECTOR`} title={`${prompt[0]}  +  ${prompt[1]}`} copy="Everyone pitches a link. The connector chooses the one the group wants to remember." />
-    {sharedAnswer ? <PlayCard tone="paper" eyebrow="YOUR THREAD" title={sharedAnswer} copy={`${players[leadIndex]}, tell us why this one won the room.`} /> : <TextInput value={answer} onChangeText={setAnswer} maxLength={80} placeholder="The connection we chose…" placeholderTextColor="rgba(32,29,24,0.35)" style={[shared.input, shared.multiline]} multiline />}
+    {sharedAnswer ? <PlayCard tone="paper" eyebrow="YOUR THREAD" title={sharedAnswer} copy={`${players[leadIndex]}, tell us why this one won the room.`} /> : <Input value={answer} onChangeText={setAnswer} maxLength={80} placeholder="The connection we chose…" accessibilityLabel="The connection we chose" multilineMinHeight={92} multilineMaxHeight={120} multiline />}
     <GameButton disabled={!sharedAnswer && !answer.trim()} onPress={sharedAnswer ? next : () => setSharedAnswer(answer.trim())}>{sharedAnswer ? 'New pair' : 'We found one'}</GameButton>
   </>;
 }

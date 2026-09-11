@@ -290,6 +290,7 @@ export function GoalDetailScreen() {
     [thumbnailStyles]
   );
   const [editingForces, setEditingForces] = useState(false);
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [heroImageLoading, setHeroImageLoading] = useState(false);
   const [heroImageError, setHeroImageError] = useState('');
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
@@ -2538,6 +2539,16 @@ export function GoalDetailScreen() {
                 </HeaderActionPill>
               }
               right={
+                isTitleEditing ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onPress={() => Keyboard.dismiss()}
+                    accessibilityLabel="Done editing goal title"
+                  >
+                    Done
+                  </Button>
+                ) : (
                 <HStack alignItems="center" space="sm">
                   {isSharedGoal ? (
                     <Pressable
@@ -2635,6 +2646,7 @@ export function GoalDetailScreen() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </HStack>
+                )
               }
             />
 
@@ -2746,6 +2758,7 @@ export function GoalDetailScreen() {
                     value={goal.title}
                     placeholder="Goal title"
                     accessibilityLabel="Edit goal title"
+                    onEditingChange={setIsTitleEditing}
                     onCommit={(trimmed) => {
                       if (!trimmed || trimmed === goal.title) return;
                       const timestamp = new Date().toISOString();
@@ -3965,162 +3978,6 @@ export function GoalDetailScreen() {
   );
 }
 
-type ArcSelectorModalProps = {
-  visible: boolean;
-  arcs: Arc[];
-  currentArcId: string | null;
-  onClose: () => void;
-  onSubmit: (arcId: string | null) => void;
-};
-
-function ArcSelectorModal({
-  visible,
-  arcs,
-  currentArcId,
-  onClose,
-  onSubmit,
-}: ArcSelectorModalProps) {
-  const [selectedArcId, setSelectedArcId] = useState<string | null>(currentArcId);
-  const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    if (visible) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[goalDetail] ArcSelectorModal opened', {
-          currentArcId,
-          availableArcs: arcs.length,
-        });
-      }
-      setSelectedArcId(currentArcId);
-      setQuery('');
-    }
-  }, [visible, currentArcId]);
-
-  const filteredArcs = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return arcs;
-    return arcs.filter((arc) => {
-      const name = arc.name.toLowerCase();
-      const narrative = (arc.narrative ?? '').toLowerCase();
-      return name.includes(term) || narrative.includes(term);
-    });
-  }, [arcs, query]);
-
-  const handleConfirm = () => {
-    onSubmit(selectedArcId);
-  };
-
-  const handleRemoveConnection = () => {
-    setSelectedArcId(null);
-  };
-
-  const hasSelectionChanged = selectedArcId !== currentArcId;
-
-  return (
-    <BottomDrawer
-      visible={visible}
-      onClose={onClose}
-      snapPoints={['75%']}
-      hideBackdrop
-      handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
-      handleStyle={{ width: 0, height: 0, opacity: 0 }}
-      sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
-    >
-      <View style={styles.modalOverlay}>
-        <KeyboardAwareScrollView
-          style={{ flex: 1, width: '100%' }}
-          contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <Heading style={styles.modalTitle}>Connect to an Arc</Heading>
-          <Text style={styles.modalBody}>
-            Choose an Arc this goal contributes to. You can change or remove this connection at any
-            time.
-          </Text>
-
-          <TextInput
-            style={[styles.input, styles.arcSearchInput]}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search arcs…"
-            placeholderTextColor="#6B7280"
-          />
-
-          <VStack space="sm" style={{ marginTop: spacing.lg }}>
-            {filteredArcs.map((arc) => {
-              const selected = selectedArcId === arc.id;
-              return (
-                <TouchableOpacity
-                  key={arc.id}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.arcOptionRow,
-                    selected && styles.arcOptionRowSelected,
-                  ]}
-                  onPress={() => setSelectedArcId(arc.id)}
-                >
-                  <VStack space="xs" flex={1}>
-                    <Text style={styles.arcOptionName}>{arc.name}</Text>
-                    {arc.narrative ? (
-                      <Text
-                        style={styles.arcOptionNarrative}
-                        numberOfLines={2}
-                        ellipsizeMode="tail"
-                      >
-                        {richTextToPlainText(arc.narrative)}
-                      </Text>
-                    ) : null}
-                  </VStack>
-                  <View
-                    style={[
-                      styles.arcOptionRadio,
-                      selected && styles.arcOptionRadioSelected,
-                    ]}
-                  >
-                    {selected && <View style={styles.arcOptionRadioDot} />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            {filteredArcs.length === 0 && (
-              <Text style={styles.emptyBody}>
-                No arcs match that search. Try a different phrase or clear the search.
-              </Text>
-            )}
-          </VStack>
-
-          <VStack space="sm">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.removeArcButton}
-              onPress={handleRemoveConnection}
-              disabled={currentArcId === null && selectedArcId === null}
-            >
-              <Text style={styles.removeArcText}>
-                {currentArcId || selectedArcId ? 'Remove arc connection' : 'No arc connected'}
-              </Text>
-            </TouchableOpacity>
-
-            <HStack space="sm" marginTop={spacing.sm}>
-              <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
-                <Text style={styles.secondaryCtaText}>Cancel</Text>
-              </Button>
-              <Button
-                style={{ flex: 1 }}
-                disabled={!hasSelectionChanged}
-                onPress={handleConfirm}
-              >
-                <Text style={styles.primaryCtaText}>Save</Text>
-              </Button>
-            </HStack>
-          </VStack>
-        </KeyboardAwareScrollView>
-      </View>
-    </BottomDrawer>
-  );
-}
-
 type GoalActivityComposerModalProps = {
   visible: boolean;
   onClose: () => void;
@@ -4175,13 +4032,11 @@ function GoalActivityComposerModal({
             the To-dos canvas.
           </Text>
 
-          <Text style={styles.modalLabel}>Title</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Title"
             value={title}
             onChangeText={setTitle}
             placeholder="e.g., Measure the desk area"
-            placeholderTextColor="#6B7280"
           />
 
           <Text style={styles.modalLabel}>Type</Text>
@@ -4198,13 +4053,13 @@ function GoalActivityComposerModal({
             ]}
           />
 
-          <Text style={styles.modalLabel}>Notes (optional)</Text>
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
+          <Input
+            label="Notes (optional)"
+            multilineMinHeight={120}
+            multilineMaxHeight={180}
             value={notes}
             onChangeText={setNotes}
             placeholder="Add a short note or checklist for this to-do."
-            placeholderTextColor="#6B7280"
             multiline
           />
 
@@ -4583,6 +4438,8 @@ function GoalActivityCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={handleChangeMode}
+          onClose={onClose}
+          closeAccessibilityLabel="Close new to-do"
           objectLabel="To-dos"
           onPressInfo={() => setIsActivityAiInfoVisible(true)}
           infoAccessibilityLabel="Show context for To-do AI"
@@ -5498,20 +5355,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
-    minHeight: 48,
-    color: colors.textPrimary,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-  },
-  descriptionInput: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
   forceSliderRow: {
     flexDirection: 'row',
   },
@@ -5580,9 +5423,6 @@ const styles = StyleSheet.create({
   removeArcButton: {
     alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
-  },
-  arcSearchInput: {
-    marginTop: spacing.md,
   },
   removeArcText: {
     ...typography.bodySm,

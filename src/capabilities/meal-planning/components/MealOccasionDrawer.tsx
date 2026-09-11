@@ -1,9 +1,10 @@
+import { Input } from '../../../ui/Input';
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { HouseholdMember } from '../../../features/household/data/household';
-import { colors, radii, spacing, typography } from '../../../theme';
+import { colors, radii, spacing } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
@@ -61,7 +62,7 @@ export function MealOccasionDrawer({ visible, title, members, dinerPersonIds, co
           <Button size="sm" variant="outline" onPress={() => setQuantity((value) => value + 1)}>+</Button>
           <Button size="sm" variant="ghost" onPress={() => setQuantity((value) => value + 1)}>Make one extra</Button>
         </View>
-        {showDate ? <TextInput accessibilityLabel="Meal occasion date" placeholder="YYYY-MM-DD" value={date} onChangeText={setDate} style={styles.input} /> : <Button size="sm" variant="ghost" onPress={() => setShowDate(true)}>Add a date</Button>}
+        {showDate ? <Input accessibilityLabel="Meal occasion date" placeholder="YYYY-MM-DD" value={date} onChangeText={setDate} /> : <Button size="sm" variant="ghost" onPress={() => setShowDate(true)}>Add a date</Button>}
         {unresolved.map((member) => <View key={member.personId} style={styles.unresolved}>
           <Text>{member.displayName} still needs another dish or an explicit pass.</Text>
           <View style={styles.actions}>
@@ -86,7 +87,6 @@ const styles = StyleSheet.create({
   personRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
   flex: { flex: 1 },
   quantity: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
-  input: { minHeight: 48, borderRadius: radii.input, paddingHorizontal: spacing.md, backgroundColor: colors.fieldFill, color: colors.textPrimary, ...typography.body },
   unresolved: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.input, backgroundColor: 'rgba(249, 115, 22, 0.10)' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });
