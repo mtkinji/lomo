@@ -13,7 +13,9 @@ jest.mock('../../ui/primitives', () => ({
   HStack: jest.requireActual('react-native').View,
   VStack: jest.requireActual('react-native').View,
 }));
-jest.mock('../../store/useAppStore', () => ({ useAppStore: (select: any) => select({ activityAreas: [
+jest.mock('../../store/useAppStore', () => ({ useAppStore: (select: (state: {
+  activityAreas: Array<{ id: string; label: string; scheduling: { fallbackMode: string } }>;
+}) => unknown) => select({ activityAreas: [
   { id: 'work', label: 'Work', scheduling: { fallbackMode: 'work' } },
 ] }) }));
 jest.mock('./actions/activityAreaActionsBoundary', () => ({ activityAreaActions: { create: (...args: unknown[]) => mockCreate(...args), update: (...args: unknown[]) => mockUpdate(...args), delete: jest.fn() } }));

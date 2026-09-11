@@ -38,6 +38,7 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
   ) {
     const { reduceMotionEnabled } = useAccessibilityPreferences();
     const pulse = useRef(new Animated.Value(0)).current;
+    const pulseStarted = useRef(false);
     const level = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -50,12 +51,16 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
 
     useEffect(() => {
       pulse.stopAnimation();
-      pulse.setValue(0);
-      if (
+      const shouldStayStill =
         (voiceState !== "listening" && voiceState !== "thinking") ||
-        reduceMotionEnabled
-      )
+        reduceMotionEnabled;
+      if (shouldStayStill) {
+        if (pulseStarted.current) pulse.setValue(0);
+        pulseStarted.current = false;
         return;
+      }
+      if (pulseStarted.current) pulse.setValue(0);
+      pulseStarted.current = true;
       const animation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, {

@@ -1,9 +1,10 @@
 import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Keyboard, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Alert, Image, Keyboard, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
+import { Text } from '../../ui/Typography';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { SearchField } from '../../ui/SearchField';

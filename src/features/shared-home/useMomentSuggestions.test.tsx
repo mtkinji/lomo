@@ -5,7 +5,11 @@ let mockHousehold: unknown = null;
 const mockRecent = jest.fn();
 const mockRecipes = jest.fn();
 jest.mock("../../store/useAppStore", () => ({
-  useAppStore: (select: any) =>
+  useAppStore: (select: (state: {
+    authIdentity: { userId: string };
+    domainHydrated: boolean;
+    goals: unknown[];
+  }) => unknown) =>
     select({
       authIdentity: { userId: mockUser },
       domainHydrated: true,
@@ -13,10 +17,14 @@ jest.mock("../../store/useAppStore", () => ({
     }),
 }));
 jest.mock("../household/sharedDevice/useHouseholdModeStore", () => ({
-  useHouseholdModeStore: (select: any) => select({ session: mockHousehold }),
+  useHouseholdModeStore: (select: (state: { session: unknown }) => unknown) =>
+    select({ session: mockHousehold }),
 }));
 jest.mock("../../capabilities/explore/runtime/useExploreStore", () => ({
-  useExploreStore: (select: any) =>
+  useExploreStore: (select: (state: {
+    places: Record<string, unknown>;
+    placeRelationships: Record<string, unknown>;
+  }) => unknown) =>
     select({ places: {}, placeRelationships: {} }),
 }));
 jest.mock("../../capabilities/recipes/data/recipeCookRepository", () => ({
@@ -64,7 +72,7 @@ it("keeps failed sources retryable", async () => {
   await waitFor(() => expect(result.current.error).toBe(false));
 });
 it("drops pending results on account switch and household mode", async () => {
-  let resolve!: (value: any) => void;
+  let resolve!: (value: Array<{ id: string; recipeId: string; completedAt: string }>) => void;
   mockRecent.mockReturnValue(
     new Promise((r) => {
       resolve = r;

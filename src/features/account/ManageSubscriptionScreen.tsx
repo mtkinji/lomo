@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text as RNText, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -96,7 +96,7 @@ export function ManageSubscriptionScreen() {
                       <Text style={styles.tierBullet}>• Arcs, Goals, planning, Focus, and attachments</Text>
                       <Text style={styles.tierBullet}>• Basic one-condition Screen Time rules</Text>
                       <Text style={styles.tierBullet}>
-                        <RNText style={styles.tierBulletStrong}>{`• ${monthlyLimit}`}</RNText>
+                        <Text style={styles.tierBulletStrong}>{`• ${monthlyLimit}`}</Text>
                         {` AI credits / month`}
                       </Text>
                     </VStack>
@@ -107,8 +107,8 @@ export function ManageSubscriptionScreen() {
                         accessibilityLabel={`AI credits: ${remainingCredits} of ${monthlyLimit} remaining`}
                         style={styles.tierCreditsValue}
                       >
-                        <RNText style={styles.creditsValueRemaining}>{remainingCredits}</RNText>
-                        <RNText style={styles.creditsValueTotal}>{` / ${monthlyLimit}`}</RNText>
+                        <Text style={styles.creditsValueRemaining}>{remainingCredits}</Text>
+                        <Text style={styles.creditsValueTotal}>{` / ${monthlyLimit}`}</Text>
                       </Heading>
                       <Text style={styles.tierCreditsSubtitle}>Resets monthly</Text>
                     </VStack>
@@ -126,8 +126,8 @@ export function ManageSubscriptionScreen() {
                       accessibilityLabel={`AI credits: ${remainingCredits} of ${monthlyLimit} remaining`}
                       style={styles.creditsValue}
                     >
-                      <RNText style={styles.creditsValueRemaining}>{remainingCredits}</RNText>
-                      <RNText style={styles.creditsValueTotal}>{` / ${monthlyLimit}`}</RNText>
+                      <Text style={styles.creditsValueRemaining}>{remainingCredits}</Text>
+                      <Text style={styles.creditsValueTotal}>{` / ${monthlyLimit}`}</Text>
                     </Heading>
                     <Text style={styles.creditsSubtitle}>Pro monthly budget • resets monthly</Text>
                     {usedThisMonth > 0 ? (

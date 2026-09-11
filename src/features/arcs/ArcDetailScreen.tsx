@@ -1,6 +1,6 @@
 import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { CommonActions, RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { Animated, StyleSheet, View, Platform, ScrollView, Alert, Linking, Image, Share, StyleProp, ViewStyle, Text } from 'react-native';
+import { Animated, StyleSheet, View, Platform, ScrollView, Alert, Linking, Image, Share, StyleProp, ViewStyle } from 'react-native';
 import {
   ObjectPageHeader,
   HeaderActionPill,
@@ -31,6 +31,7 @@ import {
 } from '../../capabilities/life-structure/actions/arcActions';
 import { createGoal as performGoalCreate } from '../../capabilities/life-structure/actions/goalActions';
 import { Button, IconButton } from '../../ui/Button';
+import { Text } from '../../ui/Typography';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';

@@ -18,6 +18,14 @@ const mockedCreateToken = jest.mocked(createMoneyPlaidLinkToken);
 const mockedExchangeToken = jest.mocked(exchangeMoneyPlaidToken);
 const mockedGetClient = jest.mocked(getSupabaseClient);
 
+beforeEach(() => {
+  jest.spyOn(console, 'info').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe('prepared Money Plaid Link session', () => {
   beforeEach(() => {
     jest.clearAllMocks();

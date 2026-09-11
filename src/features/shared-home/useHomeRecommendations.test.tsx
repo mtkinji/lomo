@@ -13,13 +13,15 @@ jest.mock("@react-navigation/native", () => ({
   },
 }));
 jest.mock("../../store/useAppStore", () => ({
-  useAppStore: (select: any) => select({ authIdentity: { userId: mockUser } }),
+  useAppStore: (select: (state: { authIdentity: { userId: string } }) => unknown) =>
+    select({ authIdentity: { userId: mockUser } }),
 }));
 jest.mock("../household/sharedDevice/useHouseholdModeStore", () => ({
-  useHouseholdModeStore: (select: any) => select({ session: mockMode }),
+  useHouseholdModeStore: (select: (state: { session: unknown }) => unknown) =>
+    select({ session: mockMode }),
 }));
 jest.mock("../household/personalDevice/useManagedChildAccessStore", () => ({
-  useManagedChildAccessStore: (select: any) =>
+  useManagedChildAccessStore: (select: (state: { access: unknown; hydrated: boolean }) => unknown) =>
     select({ access: mockChild, hydrated: true }),
 }));
 jest.mock("../../services/backend/supabaseClient", () => ({

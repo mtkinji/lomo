@@ -3,16 +3,21 @@ jest.mock(
   () => require("react-native-safe-area-context/jest/mock").default,
 );
 import { Alert } from "react-native";
+import type { ReactNode } from "react";
 import { act, render, fireEvent, waitFor } from "@testing-library/react-native";
 import { SharedLifeComposer } from "./SharedLifeComposer";
 import type { SharedLifeRepository } from "./sharedLifeRepository";
+import type { BottomDrawerFooterConfig } from "../../ui/layout/BottomDrawerSemanticFooter";
 jest.mock("../../ui/BottomDrawer", () => {
   const { View } = require("react-native");
   const {
     BottomDrawerSemanticFooter,
   } = require("../../ui/layout/BottomDrawerSemanticFooter");
   return {
-    BottomDrawer: ({ children, footer }: any) => (
+    BottomDrawer: ({ children, footer }: {
+      children?: ReactNode;
+      footer?: BottomDrawerFooterConfig;
+    }) => (
       <View>
         {children}
         {footer ? <BottomDrawerSemanticFooter {...footer} /> : null}

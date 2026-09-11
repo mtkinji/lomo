@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 import {
   HomeRecommendations,
   HomeNextStepsPage,
@@ -9,7 +10,7 @@ import {
   selectHomeRecommendations,
 } from "./homeRecommendations";
 jest.mock("./SharedLifePage", () => ({
-  SharedLifePage: ({ children }: any) => children,
+  SharedLifePage: ({ children }: { children?: ReactNode }) => children,
 }));
 jest.mock("../../ui/DropdownMenu", () => {
   const { View, Pressable, Text } = require("react-native");
@@ -17,7 +18,7 @@ jest.mock("../../ui/DropdownMenu", () => {
     DropdownMenu: View,
     DropdownMenuTrigger: View,
     DropdownMenuContent: View,
-    DropdownMenuItem: ({ label, onPress }: any) => (
+    DropdownMenuItem: ({ label, onPress }: { label?: string; onPress?: () => void }) => (
       <Pressable onPress={onPress}>
         <Text>{label}</Text>
       </Pressable>

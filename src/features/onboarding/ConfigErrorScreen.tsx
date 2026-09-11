@@ -1,6 +1,7 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { colors } from '../../theme';
 import { Logo } from '../../ui/Logo';
+import { Text } from '../../ui/Typography';
 import { getAiProxyBaseUrl, getSupabasePublishableKey, getSupabaseUrl } from '../../utils/getEnv';
 
 type Props = {
@@ -78,5 +79,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
-
 

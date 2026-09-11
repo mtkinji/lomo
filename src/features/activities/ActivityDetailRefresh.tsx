@@ -1,9 +1,10 @@
 import { TagEntryField } from '../../ui/TagEntryField';
 import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Alert, Animated, Image, Linking, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Linking, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
+import { Text } from '../../ui/Typography';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';

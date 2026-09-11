@@ -98,6 +98,11 @@ describe('auth invalid refresh recovery', () => {
 describe('OAuth callback failures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('turns an Apple provider callback failure into a safe retry message', async () => {

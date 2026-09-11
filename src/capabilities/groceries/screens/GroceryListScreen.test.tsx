@@ -1,5 +1,5 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { ReactElement, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { GroceryListScreen } from './GroceryListScreen';
 import { createGroceryRepository } from '../data/groceryRepository';
@@ -18,8 +18,24 @@ const mockRuntimePolicies = jest.fn();
 const mockBuildAffiliateProductSearch = jest.fn();
 const mockOpenAffiliateProductSearch = jest.fn();
 const mockAffiliateLinkDisclosure = jest.fn();
+const mockGroceryCacheRead = jest.fn();
+const mockCapture = jest.fn();
 let mockMealPlans: Array<Record<string, unknown>> = [];
 let mockRecipes: unknown[] = [];
+
+async function renderAfterInitialLoad(element: ReactElement) {
+  let releaseCache!: (lists: unknown[]) => void;
+  const cacheRead = new Promise<unknown[]>((resolve) => {
+    releaseCache = resolve;
+  });
+  mockGroceryCacheRead.mockImplementation(() => cacheRead);
+  const screen = render(element);
+  await act(async () => {
+    releaseCache([]);
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+  });
+  return screen;
+}
 
 type MockPageHeaderProps = {
   title: string;
@@ -66,7 +82,10 @@ jest.mock('../data/groceryEducation', () => ({
   },
 }));
 jest.mock('../data/groceryCache', () => ({
-  groceryCache: { read: jest.fn().mockResolvedValue([]), write: jest.fn().mockResolvedValue(undefined) },
+  groceryCache: {
+    read: (...args: unknown[]) => mockGroceryCacheRead(...args),
+    write: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 jest.mock('../data/groceryOfflineQueue', () => ({
   applyQueuedGroceryStates: (lists: unknown) => lists,
@@ -89,7 +108,7 @@ jest.mock('../../../navigation/CapabilityMenuStateContext', () => ({
   useCapabilityMenuOpen: () => mockCapabilityMenuOpen,
 }));
 jest.mock('../../../services/analytics/useAnalytics', () => ({
-  useAnalytics: () => ({ capture: jest.fn() }),
+  useAnalytics: () => ({ capture: mockCapture }),
 }));
 jest.mock('../../../features/activities/QuickAddDock', () => {
   const { Pressable, TextInput, View } = require('react-native');
@@ -214,6 +233,7 @@ describe('Grocery List primary capability', () => {
     mockCapabilityMenuOpen = false;
     mockScreenFocused = true;
     mockCountryCode = 'US';
+    mockGroceryCacheRead.mockReset().mockResolvedValue([]);
     mockHasSeenAlreadyHave.mockResolvedValue(false);
     mockHasStartedCartFlow.mockResolvedValue(false);
     mockMarkAlreadyHaveSeen.mockResolvedValue(undefined);
@@ -285,7 +305,7 @@ describe('Grocery List primary capability', () => {
       addItem: mockAddItem,
     });
     const replace = jest.fn();
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace } as never}
         route={{ key: 'grocery', name: 'GroceryList', params: { entryPoint: 'capability-menu' } } as never}
@@ -300,7 +320,7 @@ describe('Grocery List primary capability', () => {
   });
 
   it('teaches already-have on the grocery list before the first online cart flow', async () => {
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -521,7 +541,7 @@ describe('Grocery List primary capability', () => {
       },
     ];
 
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -592,7 +612,7 @@ describe('Grocery List primary capability', () => {
       },
     ];
 
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -603,7 +623,9 @@ describe('Grocery List primary capability', () => {
     await waitFor(() => expect(alert).toHaveBeenCalled());
 
     const buttons = alert.mock.calls.at(-1)?.[2];
-    buttons?.find((button) => button.text === 'Add to list')?.onPress?.();
+    await act(async () => {
+      buttons?.find((button) => button.text === 'Add to list')?.onPress?.();
+    });
 
     await waitFor(() => {
       expect(mockAddItem).toHaveBeenCalledWith('list-1', 1, 'Immersion blender');
@@ -612,7 +634,7 @@ describe('Grocery List primary capability', () => {
 
   it('opens first-use setup when no online-shopping preference is saved', async () => {
     const navigate = jest.fn();
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -646,7 +668,7 @@ describe('Grocery List primary capability', () => {
       retailers: [{ id: 'kroger', enabled: true, rank: 1, label: "Smith's", membershipConfirmed: null }],
     });
     const navigate = jest.fn();
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -672,7 +694,7 @@ describe('Grocery List primary capability', () => {
       ],
     });
     const navigate = jest.fn();
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
@@ -760,7 +782,7 @@ describe('Grocery List primary capability', () => {
   });
 
   it('opens the To-do composer contract without To-do-only controls', async () => {
-    const screen = render(
+    const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}

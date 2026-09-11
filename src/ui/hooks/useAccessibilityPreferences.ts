@@ -26,10 +26,10 @@ export function useAccessibilityPreferences(): AccessibilityPreferences {
     let mounted = true;
 
     void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotionEnabled(enabled);
+      if (mounted && enabled) setReduceMotionEnabled(true);
     });
     void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
-      if (mounted) setScreenReaderEnabled(enabled);
+      if (mounted && enabled) setScreenReaderEnabled(true);
     });
 
     const reduceMotionSubscription = AccessibilityInfo.addEventListener(

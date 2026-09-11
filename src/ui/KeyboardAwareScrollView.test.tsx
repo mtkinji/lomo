@@ -48,8 +48,12 @@ describe('KeyboardAwareScrollView reveal', () => {
       events[name] = (event) => callback(event as RN.KeyboardEvent);
       return addListener(name, callback);
     });
-    jest.spyOn(RN.TextInput.State, 'currentlyFocusedInput').mockImplementation(() => focused as any);
-    jest.spyOn(RN, 'findNodeHandle').mockImplementation((node) => node === mockHost as any ? 1 : node as number);
+    jest.spyOn(RN.TextInput.State, 'currentlyFocusedInput').mockImplementation(
+      () => focused as unknown as ReturnType<typeof RN.TextInput.State.currentlyFocusedInput>,
+    );
+    jest.spyOn(RN, 'findNodeHandle').mockImplementation(
+      (node) => node === (mockHost as unknown as Parameters<typeof RN.findNodeHandle>[0]) ? 1 : node as number,
+    );
     jest.spyOn(RN.UIManager, 'measureLayout').mockImplementation((_node, _relative, _failure, success) => success(0, 0, 300, 80));
     jest.spyOn(RN.UIManager, 'measureInWindow').mockImplementation((node, callback) => {
       const done = () => node === 1 ? callback(0, 200, 320, 500) : callback(0, fieldY, 300, 80);

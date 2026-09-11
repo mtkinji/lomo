@@ -1,11 +1,12 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useCreditsInterstitialStore } from '../../store/useCreditsInterstitialStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAppStore } from '../../store/useAppStore';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Icon } from '../../ui/Icon';
+import { Text } from '../../ui/Typography';
 import { openPaywallPurchaseEntry } from '../../services/paywall';
 import { colors, spacing, typography } from '../../theme';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';

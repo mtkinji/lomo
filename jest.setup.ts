@@ -22,6 +22,36 @@ jest.mock('@expo/vector-icons', () => {
   );
 });
 
+// Native Animated uses real timer-driven frame updates under the React Native
+// Jest preset. Those frames can outlive the interaction that started them and
+// produce React act warnings even though component tests do not inspect motion.
+// Complete one-shot animations synchronously and keep loops inert; dedicated
+// animation tests can still spy on the authored timing and spring calls.
+type ImmediateAnimationResult = { finished: boolean };
+type ImmediateAnimation = {
+  start: (callback?: (result: ImmediateAnimationResult) => void) => void;
+  stop: () => void;
+  reset: () => void;
+};
+
+const ReactNative = require('react-native');
+const makeImmediateAnimation = (..._args: unknown[]): ImmediateAnimation => ({
+  start: (callback) => {
+    callback?.({ finished: true });
+  },
+  stop: () => undefined,
+  reset: () => undefined,
+});
+const makeInertLoop = (..._args: unknown[]): ImmediateAnimation => ({
+  start: () => undefined,
+  stop: () => undefined,
+  reset: () => undefined,
+});
+
+ReactNative.Animated.timing = jest.fn(makeImmediateAnimation);
+ReactNative.Animated.spring = jest.fn(makeImmediateAnimation);
+ReactNative.Animated.loop = jest.fn(makeInertLoop);
+
 // Reanimated 4.2 imports Worklets 0.7 during mock initialization. Install the
 // official Worklets mock first so Jest never tries to initialize its JSI proxy.
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));

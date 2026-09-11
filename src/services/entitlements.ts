@@ -126,6 +126,31 @@ type RevenueCatLogInResult = {
   created?: boolean;
 };
 
+type RevenueCatProduct = {
+  identifier?: string;
+  productIdentifier?: string;
+  price?: number;
+  priceString?: string;
+  currencyCode?: string;
+  introPrice?: unknown;
+  introductoryPrice?: unknown;
+  introductoryDiscount?: unknown;
+};
+
+type RevenueCatPackage = {
+  product?: RevenueCatProduct;
+};
+
+type RevenueCatOffering = {
+  identifier?: string;
+  availablePackages?: RevenueCatPackage[];
+};
+
+type RevenueCatOfferings = {
+  current?: RevenueCatOffering;
+  all?: Record<string, RevenueCatOffering>;
+};
+
 type RevenueCatPurchasesLike = {
   configure?: (params: { apiKey: string; appUserID?: string }) => void;
   getCustomerInfo?: () => Promise<RevenueCatCustomerInfo>;
@@ -133,11 +158,11 @@ type RevenueCatPurchasesLike = {
   logIn?: (appUserID: string) => Promise<RevenueCatLogInResult>;
   logOut?: () => Promise<RevenueCatCustomerInfo>;
   restorePurchases?: () => Promise<RevenueCatCustomerInfo>;
-  getOfferings?: () => Promise<any>;
+  getOfferings?: () => Promise<RevenueCatOfferings>;
   checkTrialOrIntroductoryPriceEligibility?: (
     productIdentifiers: string[],
   ) => Promise<Record<string, { status: number; description?: string }>>;
-  purchasePackage?: (pkg: any) => Promise<{ customerInfo?: RevenueCatCustomerInfo }>;
+  purchasePackage?: (pkg: RevenueCatPackage) => Promise<{ customerInfo?: RevenueCatCustomerInfo }>;
   setLogLevel?: (level: any) => void;
   LOG_LEVEL?: Record<string, any>;
   INTRO_ELIGIBILITY_STATUS?: Record<string, number>;
@@ -295,9 +320,9 @@ function extractProAccessType(info: RevenueCatCustomerInfo | null | undefined): 
   return pro.productIdentifier === PRO_LIFETIME_SKU ? 'lifetime' : 'subscription';
 }
 
-function getFoundersPackage(offerings: any): any | undefined {
+function getFoundersPackage(offerings: RevenueCatOfferings | undefined): RevenueCatPackage | undefined {
   return offerings?.all?.[FOUNDERS_OFFERING_ID]?.availablePackages?.find(
-    (pkg: any) => (pkg?.product?.identifier ?? pkg?.product?.productIdentifier) === PRO_LIFETIME_SKU,
+    (pkg) => (pkg.product?.identifier ?? pkg.product?.productIdentifier) === PRO_LIFETIME_SKU,
   );
 }
 

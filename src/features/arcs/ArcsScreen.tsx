@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { StyleSheet, FlatList, View, Text, Switch } from 'react-native';
+import { StyleSheet, FlatList, View, Switch } from 'react-native';
 import { useNavigation as useRootNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -13,6 +13,7 @@ import { createArc } from '../../capabilities/life-structure/actions/arcActions'
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
+import { Text } from '../../ui/Typography';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

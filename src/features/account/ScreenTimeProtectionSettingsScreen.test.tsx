@@ -194,7 +194,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsHousehold');
   });
 
-  it('shows one calm retry row when old native controls could not be cleared', () => {
+  it('shows one calm retry row when old native controls could not be cleared', async () => {
     useAppStore.setState((state) => ({
       screenTimeProtection: { ...state.screenTimeProtection, ruleSystemCleanupStatus: 'needs_attention' },
     }));
@@ -204,6 +204,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(screen.getByText("Kwilt couldn't finish removing older Screen Time controls on this iPhone. Keep Kwilt installed and try again.")).toBeTruthy();
     fireEvent.press(screen.getByText('Finish updating Screen Time rules'));
     expect(mockEnsureCurrentRuleSystem).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGetScreenTimeAuthorizationStatus).toHaveBeenCalledTimes(1));
   });
 
   it('keeps prior approval and management when a foreground refresh is transiently not determined', async () => {
@@ -414,6 +416,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       entry: 'contextual', suggestedKind: 'focus', setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
     });
+    await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGetScreenTimeAuthorizationStatus).toHaveBeenCalledTimes(1));
   });
 
   it('continues from Screen Time permission into the contextual rule builder', async () => {
@@ -444,13 +448,15 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     ));
   });
 
-  it('routes the My rules add action into the guided builder', () => {
+  it('routes the My rules add action into the guided builder', async () => {
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     fireEvent.press(screen.getByLabelText('Add My rule'));
 
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
       entry: 'inventory',
     });
+    await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGetScreenTimeAuthorizationStatus).toHaveBeenCalledTimes(1));
   });
 
   it('keeps repeated rules as uniform detail rows with direct enabled controls', async () => {
