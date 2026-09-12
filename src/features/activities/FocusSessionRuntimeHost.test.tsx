@@ -4,9 +4,9 @@ import * as Notifications from 'expo-notifications';
 import { useKeepAwake } from 'expo-keep-awake';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
-import { syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
+import { endLiveActivity, syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
-import { startSoundscapeLoop } from '../../services/soundscape';
+import { startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
 import { useAppStore } from '../../store/useAppStore';
 import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import { FocusSessionRuntimeHost } from './FocusSessionRuntimeHost';
@@ -50,9 +50,11 @@ jest.mock('../../store/useCelebrationStore', () => ({
 const scheduleNotificationAsync = Notifications.scheduleNotificationAsync as jest.Mock;
 const cancelScheduledNotificationAsync = Notifications.cancelScheduledNotificationAsync as jest.Mock;
 const setGlanceableFocusSessionMock = setGlanceableFocusSession as jest.Mock;
+const endLiveActivityMock = endLiveActivity as jest.Mock;
 const syncLiveActivityMock = syncLiveActivity as jest.Mock;
 const reconcileScreenTimeRestrictionsMock = reconcileScreenTimeRestrictions as jest.Mock;
 const startSoundscapeLoopMock = startSoundscapeLoop as jest.Mock;
+const stopSoundscapeLoopMock = stopSoundscapeLoop as jest.Mock;
 const useKeepAwakeMock = useKeepAwake as jest.Mock;
 const recordShowUpWithCelebrationMock = recordShowUpWithCelebration as jest.Mock;
 
@@ -194,9 +196,13 @@ describe('FocusSessionRuntimeHost', () => {
     });
 
     expect(useFocusSessionStore.getState().activeSession).toBeNull();
-    expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalled();
+    expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalledWith({ focusSessionActive: true });
     expect(syncLiveActivityMock).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'running' }));
     expect(startSoundscapeLoopMock).not.toHaveBeenCalled();
+    expect(stopSoundscapeLoopMock).toHaveBeenCalledWith({ unload: true });
+    expect(setGlanceableFocusSessionMock).toHaveBeenCalledWith(null);
+    expect(endLiveActivityMock).toHaveBeenCalledTimes(1);
+    expect(reconcileScreenTimeRestrictionsMock).toHaveBeenCalledWith({ focusSessionActive: false });
   });
 
   it('settles after restoring a paused session whose notification id is already clear', async () => {

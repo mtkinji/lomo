@@ -152,8 +152,10 @@ export function FocusSessionRuntimeHost() {
 
     // The expiry effect above clears restored sessions synchronously, but the
     // remaining effects from that render still see the stale session value.
-    // Do not restart native Focus state while that cleanup rerender is pending.
+    // Record ownership before returning so the cleanup rerender also clears
+    // the expired Live Activity, glanceable state, audio, and Screen Time.
     if (isRunningFocusSessionExpired(activeSession)) {
+      lastSessionIdRef.current = activeSession.sessionId;
       return;
     }
 
