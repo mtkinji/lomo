@@ -54,6 +54,7 @@ describe('navigation orientation', () => {
   });
 
   it('serializes Focus policy changes through one root owner and restores portrait', async () => {
+    jest.useFakeTimers();
     let resolveInitialPortrait: (() => void) | undefined;
     mockLockAsync.mockImplementationOnce(() => new Promise<void>((resolve) => {
       resolveInitialPortrait = resolve;
@@ -75,6 +76,7 @@ describe('navigation orientation', () => {
 
     await act(async () => {
       resolveInitialPortrait?.();
+      jest.advanceTimersByTime(1500);
     });
     await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
     expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
@@ -82,6 +84,37 @@ describe('navigation orientation', () => {
     rerender({ focusVideoActive: false });
     await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(3));
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+    jest.useRealTimers();
+  });
+
+  it('defers an initial video Focus landscape lock until the launch window settles', async () => {
+    jest.useFakeTimers();
+
+    const { rerender } = renderHook<void, { focusVideoActive: boolean }>(
+      ({ focusVideoActive }) => useNavigationOrientationPolicy({
+        ready: true,
+        routeName: 'StandaloneFocus',
+        focusVideoActive,
+      }),
+      { initialProps: { focusVideoActive: false } },
+    );
+
+    await act(async () => undefined);
+    expect(mockLockAsync).toHaveBeenCalledTimes(1);
+    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+
+    rerender({ focusVideoActive: true });
+    expect(mockLockAsync).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(mockLockAsync).toHaveBeenCalledTimes(2);
+    expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
+    expect(mockUnlockAsync).not.toHaveBeenCalled();
+    jest.useRealTimers();
   });
 
   it('keeps orientation ownership out of the Cook Mode screen', () => {

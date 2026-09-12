@@ -31,19 +31,47 @@ export function useNavigationOrientationPolicy({
 }: NavigationOrientationPolicy) {
   const pendingRequestRef = useRef<Promise<void>>(Promise.resolve());
   const hasRequestedRef = useRef(false);
+  const readyAtRef = useRef<number | undefined>(undefined);
+
+  if (ready && readyAtRef.current === undefined) readyAtRef.current = Date.now();
 
   useEffect(() => {
     if (!ready) return;
 
+    let cancelled = false;
+
     const applyPolicy = () => applyNavigationOrientation(routeName, { focusVideoActive })
       .catch(() => undefined);
 
-    if (!hasRequestedRef.current) {
-      hasRequestedRef.current = true;
-      pendingRequestRef.current = applyPolicy();
-      return;
-    }
+    const enqueuePolicy = () => {
+      if (cancelled) return;
+      if (!hasRequestedRef.current) {
+        hasRequestedRef.current = true;
+        pendingRequestRef.current = applyPolicy();
+        return;
+      }
 
-    pendingRequestRef.current = pendingRequestRef.current.then(applyPolicy, applyPolicy);
+      pendingRequestRef.current = pendingRequestRef.current.then(applyPolicy, applyPolicy);
+    };
+
+    // On a cold launch with a persisted Focus session, iOS can receive the first
+    // landscape request before the window scene has finished attaching. The mask
+    // changes, but the portrait canvas stays in place and renders the app sideways.
+    // Avoid issuing that premature lock at all. Persisted state can hydrate just
+    // after the root's first portrait policy, so use the launch window rather
+    // than whether another policy was already requested.
+    const launchElapsed = Date.now() - (readyAtRef.current ?? Date.now());
+    const launchDelay = Math.max(0, 1200 - launchElapsed);
+    const deferLaunchLandscape = focusVideoActive && launchDelay > 0;
+    if (!deferLaunchLandscape) enqueuePolicy();
+
+    const launchRetry = deferLaunchLandscape
+      ? setTimeout(enqueuePolicy, launchDelay)
+      : undefined;
+
+    return () => {
+      cancelled = true;
+      if (launchRetry !== undefined) clearTimeout(launchRetry);
+    };
   }, [focusVideoActive, ready, routeName]);
 }
