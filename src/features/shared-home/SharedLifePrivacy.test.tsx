@@ -16,6 +16,19 @@ jest.mock("./SharedLifePage", () => ({
     </>
   ),
 }));
+jest.mock("../../ui/BottomDrawer", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    BottomDrawer: ({ children, bottomAccessory }: any) => (
+      <View>
+        {children}
+        {bottomAccessory}
+      </View>
+    ),
+    BottomDrawerScrollView: ({ children }: any) => <View>{children}</View>,
+  };
+});
 jest.mock("./SharedLifeMediaGallery", () => ({ HomePhoto: () => null }));
 const post = {
   id: "post",

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import {
-  startUnifiedChatVoiceRecording, stopAndTranscribeUnifiedChatVoice,
-  transcribeUnifiedChatVoiceClip, cancelUnifiedChatVoiceRecording, discardUnifiedChatVoiceClip,
-  type UnifiedChatVoiceClip,
-} from './unifiedChatVoice';
+import type { UnifiedChatVoiceClip } from './unifiedChatVoice';
 import type { UnifiedChatVoiceInsertion } from './unifiedChatTranscriptInsertion';
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
+
+type UnifiedChatVoiceDriver = typeof import('./unifiedChatVoice');
+
+/** Keep importing a Chat host inert until its microphone control is actually used. */
+function getVoiceDriver(): UnifiedChatVoiceDriver {
+  return require('./unifiedChatVoice') as UnifiedChatVoiceDriver;
+}
 
 export type ChatDictationState = {
   kind: 'dictation'; state: 'idle' | 'connecting' | 'recording' | 'transcribing' | 'error';
@@ -43,12 +46,13 @@ export function useChatDictation(options: {
   const clearTick = useCallback(() => { if (tick.current) clearInterval(tick.current); tick.current = null; }, []);
   const discard = useCallback(() => {
     if (expiry.current) clearTimeout(expiry.current); expiry.current = null;
-    if (clip.current) discardUnifiedChatVoiceClip(clip.current); clip.current = null;
+    if (clip.current) getVoiceDriver().discardUnifiedChatVoiceClip(clip.current); clip.current = null;
   }, []);
   const cancel = useCallback(() => {
+    const active = state.current.state !== 'idle';
     generation.current += 1; controller.current?.abort(); controller.current = null;
     clearTick(); discard(); insertion.current = null;
-    void cancelUnifiedChatVoiceRecording();
+    if (active) void getVoiceDriver().cancelUnifiedChatVoiceRecording();
     publish({ state: 'idle', elapsedSeconds: 0, levels: [], message: undefined, canRetry: false, outcome: 'cancelled' });
   }, [clearTick, discard, publish]);
   useEffect(() => {
@@ -74,7 +78,7 @@ export function useChatDictation(options: {
     const current = () => mounted.current && generation.current === id && selection.current === key;
     publish({ outcome: undefined, state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Opening microphone…', canRetry: false });
     try {
-      await startUnifiedChatVoiceRecording(level => {
+      await getVoiceDriver().startUnifiedChatVoiceRecording(level => {
         if (current() && state.current.state === 'recording') publish({ levels: appendUnifiedChatVoiceLevel(state.current.levels, level) });
       });
       if (!current()) return;
@@ -98,7 +102,7 @@ export function useChatDictation(options: {
       onRecordingStopped: () => { if (current()) callbacks.current.onRecordingStopped?.(); },
       onPhase: (phase: string, elapsedMs: number) => { if (current()) callbacks.current.onPhase?.(phase, elapsedMs, operationId); },
       onClip(recorded: UnifiedChatVoiceClip) {
-        if (!current()) { discardUnifiedChatVoiceClip(recorded); return; }
+        if (!current()) { getVoiceDriver().discardUnifiedChatVoiceClip(recorded); return; }
         clip.current = recorded;
         expiry.current = setTimeout(() => {
           discard();
@@ -107,7 +111,8 @@ export function useChatDictation(options: {
       },
     };
     try {
-      const text = await (retry ? transcribeUnifiedChatVoiceClip(clip.current!, request) : stopAndTranscribeUnifiedChatVoice(request));
+      const voice = getVoiceDriver();
+      const text = await (retry ? voice.transcribeUnifiedChatVoiceClip(clip.current!, request) : voice.stopAndTranscribeUnifiedChatVoice(request));
       if (!current()) return;
       callbacks.current.onPhase?.('completed', Date.now() - startedAt, operationId);
       callbacks.current.onTranscript(text, insertion.current);

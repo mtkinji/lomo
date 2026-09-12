@@ -6,6 +6,7 @@
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
 export { Input } from './Input';
+export { ChatComposer, type ChatComposerHandle, type ChatComposerProps } from './ChatComposer';
 export { TagEntryField } from './TagEntryField';
 export { SearchField, type SearchFieldProps } from './SearchField';
 export { BottomDrawer as Sheet } from './BottomDrawer';

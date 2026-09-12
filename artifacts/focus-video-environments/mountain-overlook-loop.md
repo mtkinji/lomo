@@ -4,7 +4,7 @@ Source: Andrew's iCloud-shared `IMG_0447.MOV`, received 2026-09-11.
 
 ## Delivery asset
 
-- Runtime path: `assets/videos/focus/mountain-overlook-loop-5c6b9596589d.mp4`
+- Runtime URL: `https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/focus_environment_assets/v1/focus/mountain-overlook-loop-5c6b9596589d.mp4`
 - SHA-256: `5c6b9596589df907362cae3420478674bd7e56303039a36746436b5146194ab4`
 - Size: 20,951,252 bytes
 - Duration: 55.56 seconds
@@ -34,5 +34,6 @@ The original hard boundary measured `0.793670` whole-frame SSIM. The circular ed
 ## Proof boundary
 
 - Confirmed locally: decoded video duration/codec/size, first/last-frame inspection, removed embedded audio and source metadata, video and audio content hashes, six-second video seam audition, and automated audio seam admission.
-- Confirmed in Simulator: the bundled background changed across a four-second background-only comparison, proving moving video rather than the poster fallback; the native loop engine decoded `mountain-overlook-wind-5c273d4ddf9f.mp3` into a 205.264-second, 48 kHz stereo PCM cache for the active session.
-- Still required: repeated normal-speed perceptual audition across both boundaries, physical-iPhone loop continuity and audio balance, and thermal/battery observation. CDN verification is no longer applicable because both Mountain Overlook media assets are bundled.
+- Confirmed on CDN: the public object returns `video/mp4`, Smart CDN is enabled, immutable one-year browser caching is configured, and the 20,951,252 downloaded bytes match the local SHA-256 exactly.
+- Confirmed in Simulator before CDN migration: the bundled background changed across a four-second background-only comparison, proving moving video rather than the poster fallback; the native loop engine decoded `mountain-overlook-wind-5c273d4ddf9f.mp3` into a 205.264-second, 48 kHz stereo PCM cache for the active session.
+- Still required: CDN-backed Simulator playback, repeated normal-speed perceptual audition across both boundaries, physical-iPhone loop continuity and audio balance, and thermal/battery observation.

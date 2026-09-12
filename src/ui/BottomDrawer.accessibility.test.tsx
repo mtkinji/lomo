@@ -343,13 +343,14 @@ describe('BottomDrawer accessibility contract', () => {
     expect(shouldBottomDrawerResizeContents('lift')).toBe(false);
     expect(shouldBottomDrawerResizeContents('extend')).toBe(false);
 
-    const { getByTestId } = renderWithProviders(
+    const { getByTestId, UNSAFE_getByType } = renderWithProviders(
       <BottomDrawer visible onClose={jest.fn()} keyboardBehavior="resize">
         <Text>Editable content</Text>
       </BottomDrawer>,
     );
 
     expect(getByTestId('bottom-drawer.keyboard-resized-content')).toBeTruthy();
+    expect(UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBe('height');
   });
 
   it('keeps a dynamically sized drawer visually hidden, touch-inert, and non-modal until measured', () => {

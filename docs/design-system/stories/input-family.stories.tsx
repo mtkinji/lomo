@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { colors, spacing } from '../../../src/theme';
 import { Input } from '../../../src/ui/Input';
+import { ChatComposer } from '../../../src/ui/ChatComposer';
 import { SearchField } from '../../../src/ui/SearchField';
 import { SmallSetPickerField } from '../../../src/ui/PickerFields';
 import { Text } from '../../../src/ui/Typography';
@@ -60,3 +61,20 @@ function EmbeddedEditorsSpecimen() {
   </StoryFrame>;
 }
 export const EmbeddedEditors: Story = {render: () => <EmbeddedEditorsSpecimen />};
+
+function ChatComposerSpecimen() {
+  const [message, setMessage] = useState('');
+  return <StoryFrame title="Canonical message composer" description="Native counterpart to Unified Chat: a compact filled pill at rest, a two-row focused writing surface, measured growth, and Send inside the same composer.">
+    <StoryStack>
+      <ChatComposer
+        accessibilityLabel="Message"
+        placeholder="Write a message…"
+        value={message}
+        onChangeText={setMessage}
+        onSend={() => setMessage('')}
+      />
+      <Text tone="secondary">Focus the empty pill, add wrapped or multiline text, and send.</Text>
+    </StoryStack>
+  </StoryFrame>;
+}
+export const MessageComposer: Story = {render: () => <ChatComposerSpecimen />};

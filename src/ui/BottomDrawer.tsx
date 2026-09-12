@@ -964,7 +964,7 @@ export function BottomDrawer({
     <KeyboardAvoidingView
       testID="bottom-drawer.keyboard-resized-content"
       style={styles.keyboardResizedContent}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'height' : undefined}
       keyboardVerticalOffset={resizeKeyboardOffset}
     >
       {sheetChildren}

@@ -15,6 +15,24 @@ Bottom Dock Geometry is the first Canonical reusable composition. Andrew approve
 
 ## Canonical Patterns
 
+### Message and Reply Composer
+
+Job: When someone writes a chat message or replies to a shared moment, they need one familiar writing control that stays compact for a short response and gives longer writing enough room without changing submission semantics.
+
+Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-09-11.
+
+Anatomy: `ChatComposer` owns one filled composer surface. It is a compact pill at rest, then becomes the same rounded two-row composition as Unified Chat when focused or populated: prompt above, tool/action row below. The prompt measures and grows in place to the Chat viewport cap. Dictation and Send use 40-point targets with 34-point internal visuals; recording replaces the prompt with elapsed time and live levels, while connecting/transcribing stay visible and cancellable and a retained failure may be retried. The host supplies the accessible input/action names and owns draft state, validation, submission, dictation execution, retry, persistence, and its keyboard/layout frame.
+
+Approved routes: Unified Chat is the cross-client reference; Home conversation replies use the native component with speech-to-text. Home omits Unified Chat's AI context and attachment actions because that host does not implement them. A capability-owned post/publish editor with attachments and audience review remains a distinct composition.
+
+States: Empty resting pill, focused expansion, populated expansion, multiline growth, disabled, loading, and send-ready. Blurring an empty composer returns it to the resting pill; entered text keeps the writing surface expanded.
+
+Do not use when: The task is a labeled form field, search, inline title, rich note, or a post/publish composition with capability-owned tools. Do not add a second visible privacy/helper line when the host context already explains the audience; retain necessary context in the accessible hint.
+
+Implementation: `src/ui/ChatComposer.tsx`.
+
+Last reviewed: 2026-09-11.
+
 ### Short List with Incremental Reveal
 
 Job: Scan the most relevant recent items quickly, then reveal older items only when needed.

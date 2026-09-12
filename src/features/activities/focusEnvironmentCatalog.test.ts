@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import {
   CANYON_SPRING_ENVIRONMENT,
+  FOCUS_VIDEO_ENVIRONMENTS,
   MOUNTAIN_OVERLOOK_ENVIRONMENT,
   focusVideoEnvironment,
 } from './focusEnvironmentCatalog';
@@ -28,15 +27,15 @@ describe('Focus environment catalog', () => {
     expect(focusVideoEnvironment('default')).toBeNull();
   });
 
-  it('bundles the Mountain Overlook loop with its local poster', () => {
-    expect(MOUNTAIN_OVERLOOK_ENVIRONMENT).toMatchObject({
-      id: 'mountainOverlook',
-      title: 'Mountain Overlook',
-    });
-    const catalogSource = readFileSync(path.join(__dirname, 'focusEnvironmentCatalog.ts'), 'utf8');
-    expect(catalogSource).toContain("require('../../../assets/videos/focus/mountain-overlook-loop-5c6b9596589d.mp4')");
-    expect(catalogSource).not.toContain('focus/mountain-overlook-loop-5c6b9596589d.mp4`');
-    expect(MOUNTAIN_OVERLOOK_ENVIRONMENT.video).toBeTruthy();
-    expect(MOUNTAIN_OVERLOOK_ENVIRONMENT.poster).toBeTruthy();
+  it('serves every Focus video from a versioned public CDN path with local caching', () => {
+    for (const environment of FOCUS_VIDEO_ENVIRONMENTS) {
+      expect(environment.video).toEqual({
+        uri: expect.stringMatching(
+          /^https:\/\/sqxwjtorodqjdfnuvprf\.supabase\.co\/storage\/v1\/object\/public\/focus_environment_assets\/v\d+\/focus\/[a-z0-9-]+-[a-f0-9]{12}\.mp4$/,
+        ),
+        useCaching: true,
+      });
+      expect(environment.poster).toBeTruthy();
+    }
   });
 });

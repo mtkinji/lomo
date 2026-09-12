@@ -1,4 +1,4 @@
-import { Pressable, TouchableOpacity } from '@/src/ui/HapticPressable';
+import { Pressable } from '@/src/ui/HapticPressable';
 import {
   forwardRef,
   Fragment,
@@ -20,7 +20,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
-import { EditorHeader, EditorSurface } from '../../ui/EditorSurface';
+import { ChatComposer, type ChatComposerHandle } from '../../ui/ChatComposer';
 import { PickerFieldTrigger } from '../../ui/PickerFields';
 import { RelationPickerField, type PickerFieldOption } from '../../ui/primitives';
 import {
@@ -296,11 +296,6 @@ const markdownStyles = StyleSheet.create({
     color: CHAT_COLORS.textPrimary,
   },
 });
-
-// Agent Workspace composer: start at a single line of body text and
-// grow up to ~10 lines before switching to internal scrolling.
-const INPUT_MIN_HEIGHT = typography.body.lineHeight * 1;
-const INPUT_MAX_HEIGHT = typography.body.lineHeight * 10;
 
 const AGE_RANGE_OPTIONS: { value: AgeRange; label: string }[] = [
   { value: 'under-18', label: 'Under 18' },
@@ -729,8 +724,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [thinking, setThinking] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [composerHeight, setComposerHeight] = useState(0);
-  const [composerInputHeight, setComposerInputHeight] = useState(INPUT_MIN_HEIGHT);
-  const [expandedComposerHeight, setExpandedComposerHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
   // In React 18 dev (StrictMode), mount effects can run twice.
   // Guard bootstrap so we never start multiple concurrent “first reply” fetches.
@@ -761,7 +754,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
   const [isFeedbackInlineVisible, setIsFeedbackInlineVisible] = useState(false);
-  const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [feedbackReasons, setFeedbackReasons] = useState<ArcProposalFeedbackReason[]>([]);
   const [feedbackNote, setFeedbackNote] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
@@ -769,8 +761,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const lastKeyboardAlignAtRef = useRef(0);
   const keyboardRawHeightRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
-  const inputRef = useRef<TextInput | null>(null);
-  const expandedInputRef = useRef<TextInput | null>(null);
+  const inputRef = useRef<ChatComposerHandle | null>(null);
   const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const goalProposalPostNoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownGoalProposalRef = useRef(false);
@@ -786,12 +777,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   const hasInput = input.trim().length > 0;
   const canSend = hasInput && !sending;
-  const composerLineHeight = typography.body.lineHeight;
-  const composerExplicitLineCount = input.length === 0 ? 1 : input.split('\n').length;
-  const shouldShowComposerExpand =
-    // Hide the expand affordance until we have ~3 lines of text. We consider both
-    // explicit newlines and soft-wrapping (measured height).
-    composerExplicitLineCount >= 3 || composerInputHeight > composerLineHeight * 2.6;
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
@@ -2298,8 +2283,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }
     // After the user submits, remove focus from the composer so it doesn't
     // keep the keyboard anchored (especially important inside the agent workspace sheet).
-    expandedInputRef.current?.blur?.();
-    inputRef.current?.blur?.();
+    inputRef.current?.blur();
     // Clear immediately so the composer doesn't "stick" while the agent is responding.
     const submitted = input;
     setInput('');
@@ -2312,20 +2296,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       onTransportError?.();
     }
   };
-
-  const openExpandedComposer = useCallback(() => {
-    setIsComposerExpanded(true);
-    requestAnimationFrame(() => {
-      expandedInputRef.current?.focus?.();
-    });
-  }, []);
-
-  const closeExpandedComposer = useCallback(() => {
-    setIsComposerExpanded(false);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus?.();
-    });
-  }, []);
 
   const [adoptedActivityCount, setAdoptedActivityCount] = useState(0);
   const [showActivitySummary, setShowActivitySummary] = useState(false);
@@ -3578,60 +3548,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
               )}
               <View style={styles.composerSection}>
                 <View style={styles.composerRow}>
-                  <Input
+                  <ChatComposer
                     ref={inputRef}
                     testID="agent.composer.input"
+                    sendTestID="agent.composer.send"
                     accessibilityLabel="Message"
-                    surfaceRole="composer"
                     placeholder={composerPlaceholder}
                     value={input}
                     onChangeText={setInput}
-                    onContentSizeChange={(event) => {
-                      const next = Math.max(
-                        INPUT_MIN_HEIGHT,
-                        Math.round(event.nativeEvent.contentSize.height),
-                      );
-                      setComposerInputHeight((current) => (current === next ? current : next));
-                    }}
-                    multiline
-                    multilineMinHeight={INPUT_MIN_HEIGHT}
-                    multilineMaxHeight={INPUT_MAX_HEIGHT}
-                    textAlignVertical="top"
-                    returnKeyType="send"
-                    onSubmitEditing={handleSend}
-                    footerElement={
-                      <View style={styles.composerFooter}>
-                        {shouldShowComposerExpand && (
-                          <TouchableOpacity
-                            style={styles.expandAffordance}
-                            onPress={openExpandedComposer}
-                            accessibilityRole="button"
-                            accessibilityLabel="Expand composer"
-                            activeOpacity={0.85}
-                          >
-                            <Icon name="expand" color={CHAT_COLORS.textSecondary} size={16} />
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                          testID="agent.composer.send"
-                          style={[
-                            styles.sendButton,
-                            (sending || !canSend) && styles.sendButtonInactive,
-                          ]}
-                          onPress={handleSend}
-                          accessibilityRole="button"
-                          accessibilityLabel="Send message"
-                          disabled={sending || !canSend}
-                          activeOpacity={0.85}
-                        >
-                          {sending ? (
-                            <KwiltLoader color={colors.canvas} />
-                          ) : (
-                            <Icon name="arrowUp" color={colors.canvas} size={16} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    }
+                    onSend={handleSend}
+                    loading={sending}
                   />
                 </View>
               </View>
@@ -3751,61 +3677,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
               </View>
             </View>
           </View>
-        </Modal>
-      ) : null}
-
-      {isComposerExpanded ? (
-        <Modal visible animationType="slide" onRequestClose={closeExpandedComposer}>
-          <EditorSurface
-            header={
-              <EditorHeader
-                left={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onPress={closeExpandedComposer}
-                    accessibilityLabel="Close expanded composer"
-                  >
-                    <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
-                  </Button>
-                }
-                center={<Text style={styles.expandedHeaderTitle}>Message</Text>}
-                right={
-                  <Button
-                    variant="ghost"
-                    onPress={handleSend}
-                    accessibilityLabel="Send message"
-                    disabled={sending || !canSend}
-                  >
-                    <Text style={styles.expandedHeaderAction}>Send</Text>
-                  </Button>
-                }
-              />
-            }
-            bodyTopPadding={spacing.lg}
-            bodyBottomPadding={spacing.lg}
-          >
-            <View
-              style={styles.expandedBody}
-              onLayout={event => setExpandedComposerHeight(event.nativeEvent.layout.height)}
-            >
-              <Input
-                variant="plain"
-                accessibilityLabel="Message"
-                ref={expandedInputRef}
-                placeholder={composerPlaceholder}
-                value={input}
-                onChangeText={setInput}
-                multiline
-                multilineMinHeight={expandedComposerHeight}
-                multilineMaxHeight={expandedComposerHeight}
-                textAlignVertical="top"
-                autoFocus
-                returnKeyType="send"
-                onSubmitEditing={handleSend}
-              />
-            </View>
-          </EditorSurface>
         </Modal>
       ) : null}
 
@@ -4699,51 +4570,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.md,
-  },
-  composerFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  trailingIcon: {
-    paddingHorizontal: spacing.sm,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  expandAffordance: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 'auto',
-  },
-  sendButton: {
-    backgroundColor: '#18181B',
-    borderColor: '#18181B',
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandedHeaderTitle: {
-    ...typography.body,
-    fontFamily: fonts.semibold,
-    color: colors.textPrimary,
-  },
-  expandedHeaderAction: {
-    ...typography.body,
-    fontFamily: fonts.semibold,
-    color: colors.textPrimary,
-  },
-  expandedBody: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  sendButtonInactive: {
-    opacity: 0.4,
   },
   sendingButton: {
     opacity: 0.7,
