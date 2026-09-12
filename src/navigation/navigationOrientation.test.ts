@@ -46,15 +46,16 @@ describe('navigation orientation', () => {
     expect(mockUnlockAsync).not.toHaveBeenCalled();
   });
 
-  it('locks every active video Focus session into landscape', async () => {
+  it('lets active video Focus follow the device in portrait or landscape', async () => {
     await applyNavigationOrientation('Today', { focusVideoActive: true });
 
-    expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
-    expect(mockLockPlatformAsync).not.toHaveBeenCalled();
+    expect(mockLockPlatformAsync).toHaveBeenCalledWith({
+      screenOrientationArrayIOS: ['PORTRAIT_UP', 'LANDSCAPE_LEFT', 'LANDSCAPE_RIGHT'],
+    });
+    expect(mockLockAsync).not.toHaveBeenCalled();
   });
 
   it('serializes Focus policy changes through one root owner and restores portrait', async () => {
-    jest.useFakeTimers();
     let resolveInitialPortrait: (() => void) | undefined;
     mockLockAsync.mockImplementationOnce(() => new Promise<void>((resolve) => {
       resolveInitialPortrait = resolve;
@@ -76,45 +77,12 @@ describe('navigation orientation', () => {
 
     await act(async () => {
       resolveInitialPortrait?.();
-      jest.advanceTimersByTime(1500);
     });
-    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
-    expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
+    await waitFor(() => expect(mockLockPlatformAsync).toHaveBeenCalledTimes(1));
 
     rerender({ focusVideoActive: false });
-    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-    jest.useRealTimers();
-  });
-
-  it('defers an initial video Focus landscape lock until the launch window settles', async () => {
-    jest.useFakeTimers();
-
-    const { rerender } = renderHook<void, { focusVideoActive: boolean }>(
-      ({ focusVideoActive }) => useNavigationOrientationPolicy({
-        ready: true,
-        routeName: 'StandaloneFocus',
-        focusVideoActive,
-      }),
-      { initialProps: { focusVideoActive: false } },
-    );
-
-    await act(async () => undefined);
-    expect(mockLockAsync).toHaveBeenCalledTimes(1);
-    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-
-    rerender({ focusVideoActive: true });
-    expect(mockLockAsync).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      jest.advanceTimersByTime(1500);
-      await Promise.resolve();
-    });
-
-    expect(mockLockAsync).toHaveBeenCalledTimes(2);
-    expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
-    expect(mockUnlockAsync).not.toHaveBeenCalled();
-    jest.useRealTimers();
   });
 
   it('keeps orientation ownership out of the Cook Mode screen', () => {
