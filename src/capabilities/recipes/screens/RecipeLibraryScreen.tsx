@@ -61,6 +61,7 @@ import {
   createMealPlanningRepository,
   type GuestMealFeedbackSummary,
 } from "../../meal-planning/data/mealPlanningRepository";
+import { runMealPlanMutationWithFreshVersion } from "../../meal-planning/data/mealPlanMutationRetry";
 import { createMealPlanAttentionRepository } from "../../meal-planning/data/mealPlanAttentionRepository";
 import {
   loadCurrentHouseholdMealCart,
@@ -692,12 +693,18 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     if (!sharedCart?.planId || !sharedCart.version || planMutationBusy || !candidateIds.length) return null;
     setPlanMutationBusy(true);
     try {
-      const receipt = await createMealPlanningRepository().sendSharedCandidates(
-        sharedCart.planId,
-        sharedCart.version,
-        candidateIds,
-        options,
-      );
+      const repository = createMealPlanningRepository();
+      const receipt = await runMealPlanMutationWithFreshVersion({
+        planId: sharedCart.planId,
+        version: sharedCart.version,
+        reload: reloadSharedCart,
+        mutate: (planId, expectedVersion) => repository.sendSharedCandidates(
+          planId,
+          expectedVersion,
+          candidateIds,
+          options,
+        ),
+      });
       await reloadSharedCart();
       const movedMeal = sharedCart.candidates.find((candidate) => candidate.id === candidateIds[0]);
       if (candidateIds.length === 1 && movedMeal) {
@@ -714,6 +721,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       }
       return receipt;
     } catch (caught) {
+      await reloadSharedCart().catch(() => undefined);
       Alert.alert("Meal not planned", caught instanceof Error ? caught.message : "Try again in a moment.");
     } finally {
       setPlanMutationBusy(false);
@@ -725,11 +733,17 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     const movedMeal = sharedCart.candidates.find((candidate) => candidate.id === candidateId);
     setPlanMutationBusy(true);
     try {
-      const receipt = await createMealPlanningRepository().returnSharedCandidateToPlan(
-        sharedCart.planId,
-        sharedCart.version,
-        candidateId,
-      );
+      const repository = createMealPlanningRepository();
+      const receipt = await runMealPlanMutationWithFreshVersion({
+        planId: sharedCart.planId,
+        version: sharedCart.version,
+        reload: reloadSharedCart,
+        mutate: (planId, expectedVersion) => repository.returnSharedCandidateToPlan(
+          planId,
+          expectedVersion,
+          candidateId,
+        ),
+      });
       await reloadSharedCart();
       if (movedMeal) {
         useToastStore.getState().showToast({
@@ -745,6 +759,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       }
       return receipt;
     } catch (caught) {
+      await reloadSharedCart().catch(() => undefined);
       Alert.alert("Meal not returned to Ideas", caught instanceof Error ? caught.message : "Try again in a moment.");
     } finally {
       setPlanMutationBusy(false);

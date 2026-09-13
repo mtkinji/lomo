@@ -2,7 +2,7 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, Animated, ScrollView, StyleSheet, type TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, type TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { getLocales } from 'expo-localization';
 
@@ -36,7 +36,6 @@ import {
 } from '../../../ui/layout/restingComposerMetrics';
 import { Text } from '../../../ui/Typography';
 import { EmptyState } from '../../../ui/EmptyState';
-import { useAccessibilityPreferences } from '../../../ui/hooks/useAccessibilityPreferences';
 import { RecipeIngredientChecklist } from '../../recipes/components/RecipeIngredientList';
 import { buildRecipeLibraryInventory } from '../../recipes/data/starterRecipeCatalog';
 import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
@@ -47,8 +46,6 @@ import {
 } from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
 import { groceryEducation } from '../data/groceryEducation';
-import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
-import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import {
   createGroceryRepository,
   type GroceryProjection,
@@ -65,17 +62,11 @@ import {
   collectRecipeEquipmentSources,
   formatEquipmentRecipeProvenance,
 } from '../domain/recipeEquipmentSuggestions';
-import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
 import {
   buildApprovedAffiliateProductSearch,
   getAffiliateRetailerLinkDisclosure,
-  getOnlineRetailerRuntimePolicies,
   openAffiliateProductSearch,
 } from '../providers/affiliateRetailerProvider';
-import {
-  getAffiliateRetailerTestingEnabled,
-  getAmazonBatchPreparationEnabled,
-} from '../../../utils/getEnv';
 import { useCapabilityOnboardingStore } from '../../../features/capability-onboarding/useCapabilityOnboardingStore';
 import { foodFirstCycleStepFromCheckpoint } from '../../../features/household-food/onboarding/foodFirstCycleGuide';
 
@@ -94,71 +85,6 @@ const aisleLabels: Record<string, string> = {
 };
 
 const GROCERY_EMPTY_ILLUSTRATION = require('../../../../assets/illustrations/groceries-empty.png');
-
-type MarkReviewed = (
-  listId: string,
-  expectedRevision: number,
-) => Promise<unknown>;
-
-export async function prepareGroceryListForFulfillment(
-  list: GroceryProjection,
-  markReviewed: MarkReviewed,
-): Promise<void> {
-  if (list.status === 'stale') {
-    throw new Error('Update this grocery list from the current Plan before shopping.');
-  }
-  if (list.status === 'review_needed') {
-    await markReviewed(list.id, list.revision);
-  }
-}
-
-export function formatShopOnlineLabel(itemCount: number): string {
-  return `Shop online · ${itemCount} item${itemCount === 1 ? '' : 's'}`;
-}
-
-function AnimatedShopOnlineLabel({ itemCount }: { itemCount: number }) {
-  const { reduceMotionEnabled } = useAccessibilityPreferences();
-  const [displayedCount, setDisplayedCount] = useState(itemCount);
-  const progress = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (itemCount === displayedCount) return;
-
-    progress.stopAnimation();
-    setDisplayedCount(itemCount);
-    if (reduceMotionEnabled) {
-      progress.setValue(1);
-      return;
-    }
-
-    progress.setValue(0);
-    Animated.spring(progress, {
-      toValue: 1,
-      damping: 18,
-      stiffness: 260,
-      mass: 0.55,
-      useNativeDriver: true,
-    }).start();
-  }, [displayedCount, itemCount, progress, reduceMotionEnabled]);
-
-  return (
-    <View accessible={false} pointerEvents="none" style={styles.shopLabelFrame}>
-      <Text style={styles.shopLabel}>Shop online · </Text>
-      <Animated.View
-        style={[
-          styles.animatedShopCount,
-          {
-            opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }),
-            transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
-          },
-        ]}
-      >
-        <Text style={styles.shopLabel}>{displayedCount}</Text>
-      </Animated.View>
-      <Text style={styles.shopLabel}>{` item${displayedCount === 1 ? '' : 's'}`}</Text>
-    </View>
-  );
-}
 
 export function resolveGroceryListEntry(
   lists: GroceryProjection[],
@@ -241,6 +167,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [offline, setOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [manualItem, setManualItem] = useState('');
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const manualItemInputRef = useRef<TextInput | null>(null);
@@ -264,7 +191,11 @@ export function GroceryListScreen({ navigation, route }: Props) {
   );
 
   const load = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const [cached, pending] = await Promise.all([
       groceryCache.read(userId),
       groceryOfflineQueue.read(userId),
@@ -288,6 +219,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
       await groceryCache.write(userId, reconciled.lists);
     } catch {
       setOffline(Boolean(cachedList));
+    } finally {
+      setLoading(false);
     }
   }, [chooseList, userId]);
   const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: load });
@@ -506,46 +439,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
     }
   };
 
-  const openFulfillment = async () => {
-    if (!list || busy || offline || pendingCount) return;
-    setCartFlowStarted(true);
-    void groceryEducation.markCartFlowStarted(userId).catch(() => undefined);
-    setBusy(true);
-    try {
-      const repository = createGroceryRepository();
-      await prepareGroceryListForFulfillment(list, repository.markReviewed);
-      if (list.status === 'review_needed') {
-        capture(AnalyticsEvent.GroceryListReviewed, { count: list.items.length });
-      }
-      const preferences = await onlineShoppingPreferencesRepository.read(userId);
-      if (!preferences) {
-        navigation.navigate('OnlineShoppingSetup', { listId: list.id });
-        return;
-      }
-      const preferredStore = await preferredGroceryStore.read(userId);
-      const launch = resolveOnlineShoppingLaunch({
-        listId: list.id,
-        preferences,
-        policies: getOnlineRetailerRuntimePolicies(),
-        preferredStore,
-        amazonBatchPreparationEnabled:
-          getAffiliateRetailerTestingEnabled() || getAmazonBatchPreparationEnabled(),
-      });
-      if (launch.screen === 'RetailerLinkShopping') {
-        navigation.navigate(launch.screen, launch.params);
-      } else {
-        navigation.navigate(launch.screen, launch.params);
-      }
-    } catch (error) {
-      Alert.alert(
-        'Shopping is not ready',
-        error instanceof Error ? error.message : 'Refresh the list and try again.',
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const addManualItem = async () => {
     if (!list || !manualItem.trim() || busy || offline) return;
     setBusy(true);
@@ -629,11 +522,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
     }
   };
 
-  const shopLabel = list?.status === 'stale'
-    ? 'Update from Plan'
-    : list
-      ? formatShopOnlineLabel(fulfillment.remainingCount)
-      : 'Shop online';
   const shopDisabled =
     !list ||
     busy ||
@@ -704,7 +592,10 @@ export function GroceryListScreen({ navigation, route }: Props) {
           scrollEventThrottle={scrollEventThrottle}
         >
           {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
-          {!busy && !list ? (
+          {!busy && loading && !list ? (
+            <Text tone="secondary">Loading your grocery list…</Text>
+          ) : null}
+          {!busy && !loading && !list ? (
             <EmptyState
               variant="screen"
               illustration={GROCERY_EMPTY_ILLUSTRATION}
@@ -799,16 +690,15 @@ export function GroceryListScreen({ navigation, route }: Props) {
           pointerEvents="box-none"
           style={styles.dock}
         >
-          {list?.status === 'stale' || onlineShoppingCountryEligible ? (
+          {list?.status === 'stale' ? (
             <Pressable
               testID="grocery-shop-remaining"
               accessibilityRole="button"
-              accessibilityLabel={shopLabel}
+              accessibilityLabel="Update from Plan"
               accessibilityState={{ disabled: shopDisabled }}
               disabled={shopDisabled}
               onPress={() => {
-                if (list?.status === 'stale') void refreshWithChanges();
-                else void openFulfillment();
+                void refreshWithChanges();
               }}
               style={({ pressed }) => [
                 styles.shopButton,
@@ -823,15 +713,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
                 style={styles.shopSurface}
                 surfaceStyle={[styles.shopSurfaceContent, styles.shopSurfaceBlack]}
               >
-                {busy ? (
-                  <Text style={styles.shopLabel}>Working…</Text>
-                ) : list?.status === 'stale' ? (
-                  <Text style={styles.shopLabel}>Update from Plan</Text>
-                ) : list ? (
-                  <AnimatedShopOnlineLabel itemCount={fulfillment.remainingCount} />
-                ) : (
-                  <Text style={styles.shopLabel}>Shop online</Text>
-                )}
+                <Text style={styles.shopLabel}>{busy ? 'Working…' : 'Update from Plan'}</Text>
               </FloatingControlSurface>
             </Pressable>
           ) : null}
@@ -882,7 +764,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         title={<Text style={styles.coachmarkTitle}>Already have something?</Text>}
         body={(
           <Text style={styles.coachmarkBody}>
-            Check it off here. It won’t be sent to your online cart.
+            Check it off here so your list stays focused on what you still need.
           </Text>
         )}
         actions={[{ id: 'dismiss', label: 'Got it', variant: 'accent' }]}
@@ -978,18 +860,6 @@ const styles = StyleSheet.create({
   shopLabel: {
     color: colors.primaryForeground,
     fontVariant: ['tabular-nums'],
-  },
-  shopLabelFrame: {
-    width: '100%',
-    height: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  animatedShopCount: {
-    minWidth: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   equipmentSection: {
     gap: spacing.sm,

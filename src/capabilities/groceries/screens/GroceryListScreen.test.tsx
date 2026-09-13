@@ -12,9 +12,6 @@ let mockScreenFocused = true;
 let mockCountryCode: string | null = 'US';
 const mockEnqueue = jest.fn();
 const mockAddItem = jest.fn();
-const mockReadOnlineShoppingPreferences = jest.fn();
-const mockReadPreferredStore = jest.fn();
-const mockRuntimePolicies = jest.fn();
 const mockBuildAffiliateProductSearch = jest.fn();
 const mockOpenAffiliateProductSearch = jest.fn();
 const mockAffiliateLinkDisclosure = jest.fn();
@@ -55,16 +52,9 @@ type MockButtonProps = {
 };
 
 jest.mock('../data/groceryRepository', () => ({ createGroceryRepository: jest.fn() }));
-jest.mock('../data/onlineShoppingPreferencesRepository', () => ({
-  onlineShoppingPreferencesRepository: { read: (...args: unknown[]) => mockReadOnlineShoppingPreferences(...args) },
-}));
-jest.mock('../data/preferredGroceryStore', () => ({
-  preferredGroceryStore: { read: (...args: unknown[]) => mockReadPreferredStore(...args) },
-}));
 jest.mock('../providers/affiliateRetailerProvider', () => ({
   buildApprovedAffiliateProductSearch: (...args: unknown[]) => mockBuildAffiliateProductSearch(...args),
   getAffiliateRetailerLinkDisclosure: (...args: unknown[]) => mockAffiliateLinkDisclosure(...args),
-  getOnlineRetailerRuntimePolicies: (...args: unknown[]) => mockRuntimePolicies(...args),
   openAffiliateProductSearch: (...args: unknown[]) => mockOpenAffiliateProductSearch(...args),
 }));
 jest.mock('@react-navigation/native', () => ({
@@ -248,13 +238,6 @@ describe('Grocery List primary capability', () => {
     mockBuildAffiliateProductSearch.mockReturnValue('https://www.amazon.com/s?k=immersion%20blender&tag=kwiltapp-20');
     mockOpenAffiliateProductSearch.mockResolvedValue(true);
     mockAffiliateLinkDisclosure.mockReturnValue('Paid link');
-    mockReadOnlineShoppingPreferences.mockResolvedValue(null);
-    mockReadPreferredStore.mockResolvedValue(null);
-    mockRuntimePolicies.mockReturnValue([
-      { retailerId: 'amazon', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
-      { retailerId: 'kroger', capability: 'cart_prepare', supportedModes: ['pickup'], approvedSurface: true, productEvidence: true, cartWrite: true },
-      { retailerId: 'walmart', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
-    ]);
     mockRecipes = [];
     mockMealPlans = [
       {
@@ -294,6 +277,33 @@ describe('Grocery List primary capability', () => {
     });
   });
 
+  it('does not show the empty-list dead end while a Meal Plan grocery list is loading', async () => {
+    let releaseLists!: (lists: unknown[]) => void;
+    const pendingLists = new Promise<unknown[]>((resolve) => {
+      releaseLists = resolve;
+    });
+    (createGroceryRepository as jest.Mock).mockReturnValue({
+      list: jest.fn(() => pendingLists),
+      setItemState: jest.fn(),
+      markReviewed,
+      addItem: mockAddItem,
+    });
+
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { listId: 'list-from-plan' } } as never}
+      />,
+    );
+
+    expect(screen.queryByText('No grocery list yet')).toBeNull();
+    expect(screen.getByText('Loading your grocery list…')).toBeTruthy();
+
+    await act(async () => {
+      releaseLists([]);
+    });
+  });
+
   it('starts a real manual list before any Meal Plan exists', async () => {
     const createManualList = jest.fn().mockResolvedValue({
       groceryListId: 'manual-list-1', revision: 1, status: 'ready', replayed: false,
@@ -319,7 +329,7 @@ describe('Grocery List primary capability', () => {
     expect(screen.getByTestId('grocery-quick-add-composer')).toBeTruthy();
   });
 
-  it('teaches already-have on the grocery list before the first online cart flow', async () => {
+  it('teaches already-have without promising an online cart flow', async () => {
     const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
@@ -328,7 +338,7 @@ describe('Grocery List primary capability', () => {
     );
 
     expect(await screen.findByText('Already have something?')).toBeTruthy();
-    expect(screen.getByText('Check it off here. It won’t be sent to your online cart.')).toBeTruthy();
+    expect(screen.getByText('Check it off here so your list stays focused on what you still need.')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
 
@@ -632,97 +642,35 @@ describe('Grocery List primary capability', () => {
     });
   });
 
-  it('opens first-use setup when no online-shopping preference is saved', async () => {
+  it('hides the unproven shopping handoff on a ready grocery list', async () => {
     const navigate = jest.fn();
     const screen = await renderAfterInitialLoad(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
-        route={{ params: { entryPoint: 'capability-menu' } } as never}
-      />,
-    );
-
-    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
-
-    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
-    expect(mockMarkCartFlowStarted).toHaveBeenCalledWith('user-1');
-    expect(screen.getByLabelText('Shop online · 1 item')).toBeTruthy();
-    expect(mockReadOnlineShoppingPreferences).toHaveBeenCalledWith('user-1');
-    expect(navigate).toHaveBeenCalledWith('OnlineShoppingSetup', { listId: 'list-1' });
-  });
-
-  it('opens Order this list when online-shopping preferences already exist', async () => {
-    mockReadPreferredStore.mockResolvedValue({
-      id: 'store-1',
-      name: 'Smiths',
-      banner: "Smith's",
-      address: '689 N Redwood Rd · Saratoga Springs, UT 84045',
-      latitude: 40.34,
-      longitude: -111.91,
-    });
-    mockReadOnlineShoppingPreferences.mockResolvedValue({
-      schemaVersion: 1,
-      defaultFulfillment: 'pickup',
-      homePostalCode: null,
-      savedAt: '2026-08-13T16:00:00.000Z',
-      retailers: [{ id: 'kroger', enabled: true, rank: 1, label: "Smith's", membershipConfirmed: null }],
-    });
-    const navigate = jest.fn();
-    const screen = await renderAfterInitialLoad(
-      <GroceryListScreen
-        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
-        route={{ params: { entryPoint: 'capability-menu' } } as never}
-      />,
-    );
-
-    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
-
-    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
-    expect(navigate).toHaveBeenCalledWith('OnlineOrder', { listId: 'list-1' });
-  });
-
-  it('goes directly to Amazon preparation when Amazon is already preferred', async () => {
-    mockReadOnlineShoppingPreferences.mockResolvedValue({
-      schemaVersion: 1,
-      defaultFulfillment: 'pickup',
-      homePostalCode: null,
-      savedAt: '2026-08-13T16:00:00.000Z',
-      retailers: [
-        { id: 'amazon', enabled: true, rank: 1, label: 'Amazon', membershipConfirmed: null },
-        { id: 'walmart', enabled: true, rank: 2, label: 'Walmart', membershipConfirmed: null },
-      ],
-    });
-    const navigate = jest.fn();
-    const screen = await renderAfterInitialLoad(
-      <GroceryListScreen
-        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
-        route={{ params: { entryPoint: 'capability-menu' } } as never}
-      />,
-    );
-
-    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
-
-    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
-    expect(navigate).toHaveBeenCalledWith('RetailerLinkShopping', {
-      listId: 'list-1',
-      retailerId: 'amazon',
-    });
-    expect(navigate).not.toHaveBeenCalledWith('OnlineOrder', { listId: 'list-1' });
-  });
-
-  it('only offers online shopping in the US or Canada', async () => {
-    mockCountryCode = 'FR';
-    const screen = render(
-      <GroceryListScreen
-        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
       />,
     );
 
     await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
     expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
+    expect(markReviewed).not.toHaveBeenCalled();
+    expect(mockMarkCartFlowStarted).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalledWith('GroceryHandoff', expect.anything());
+  });
+
+  it('keeps shopping hidden outside online-shopping countries', async () => {
+    mockCountryCode = 'FR';
+    const navigate = jest.fn();
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
+    expect(navigate).not.toHaveBeenCalledWith('GroceryHandoff', expect.anything());
     expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add grocery item' })).toBeTruthy();
   });
@@ -771,14 +719,11 @@ describe('Grocery List primary capability', () => {
       />,
     );
 
-    expect(await screen.findByLabelText('Shop online · 1 item')).toBeTruthy();
+    await screen.findByTestId('ingredient-check-item-2');
     expect(screen.queryByText(/saved on this device/i)).toBeNull();
     expect(screen.queryByText(/pull to sync/i)).toBeNull();
     expect(screen.queryByText('Sync to shop')).toBeNull();
-    expect(screen.getByTestId('grocery-shop-remaining')).not.toHaveStyle({ opacity: 0.45 });
-    expect(screen.getByTestId('grocery-shop-surface.surface')).toHaveStyle({
-      backgroundColor: '#1C1A19',
-    });
+    expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
   });
 
   it('opens the To-do composer contract without To-do-only controls', async () => {
@@ -790,14 +735,14 @@ describe('Grocery List primary capability', () => {
     );
 
     await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
-    expect(screen.getByLabelText('Shop online · 1 item')).toBeTruthy();
+    expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Add grocery item' }));
 
     const composer = screen.getByLabelText('Grocery item');
     expect(screen.getByTestId('grocery-quick-add-composer').props.accessibilityValue.text).toBe(
       JSON.stringify({ showCollapsedTrigger: false, showLeadingAffordance: false, showAiActions: false }),
     );
-    expect(screen.queryByLabelText('Shop online · 1 item')).toBeNull();
+    expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
     fireEvent.changeText(composer, 'dish soap');
     fireEvent.press(screen.getByRole('button', { name: 'Add grocery item to list' }));
 
