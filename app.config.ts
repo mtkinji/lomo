@@ -172,7 +172,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.126',
+  version: '1.0.127',
   // Games temporarily unlocks orientation for shared-table play and restores
   // portrait when leaving an active table.
   orientation: 'default',
@@ -205,7 +205,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-      buildNumber: '126',
+      buildNumber: '127',
     // App-owned disclosures are source-controlled here because ios/ is generated.
     // Third-party SDK manifests are merged by Xcode into the archive privacy report.
     privacyManifests,
@@ -256,7 +256,7 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-      versionCode: 126,
+      versionCode: 127,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
