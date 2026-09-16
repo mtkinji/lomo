@@ -41,6 +41,7 @@ app-store-screenshots/
 
 # local and Runway-hosted working media
 /artifacts/b-roll/
+/artifacts/video-ads/
 
 # local credentials (never commit)
 credentials.json
