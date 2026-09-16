@@ -205,7 +205,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-      buildNumber: '128',
+      buildNumber: '129',
     // App-owned disclosures are source-controlled here because ios/ is generated.
     // Third-party SDK manifests are merged by Xcode into the archive privacy report.
     privacyManifests,
