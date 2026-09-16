@@ -21,6 +21,10 @@ const monetizationMigration = readFileSync(resolve(
   process.cwd(),
   'supabase/migrations/20260903120000_require_pro_for_managed_child_device_setup.sql',
 ), 'utf8').toLowerCase();
+const recoveryMigration = readFileSync(resolve(
+  process.cwd(),
+  'supabase/migrations/20260915235858_recover_household_device_pairing.sql',
+), 'utf8').toLowerCase();
 
 describe('Household device participation migration', () => {
   it('keeps personal setup sessions, devices, and shared-member access distinct', () => {
@@ -115,5 +119,36 @@ describe('Household device participation migration', () => {
     expect(monetizationMigration).toContain('public.kwilt_has_active_pro()');
     expect(monetizationMigration).toContain("raise exception 'kwilt_pro_required'");
     expect(monetizationMigration).toContain('grant execute on function public.create_kwilt_household_device_setup_session(uuid) to authenticated');
+  });
+
+  it('serializes setup creation and replaces an abandoned issued code', () => {
+    expect(recoveryMigration).toContain('create or replace function public.create_kwilt_household_device_setup_session');
+    expect(recoveryMigration).toContain('pg_advisory_xact_lock');
+    expect(recoveryMigration).toContain("set status = 'cancelled', cancelled_at = now()");
+    expect(recoveryMigration).toContain("status = 'issued'");
+    expect(recoveryMigration).not.toContain("raise exception 'household_device_setup_already_active'");
+    expect(recoveryMigration).toContain("'household_device_setup_cancelled'");
+  });
+
+  it('lets the same claimed install recover when secure credential storage failed', () => {
+    expect(recoveryMigration).toContain('create or replace function public.kwilt_claim_household_device_setup');
+    expect(recoveryMigration).toContain("s.status = 'claimed'");
+    expect(recoveryMigration).toContain('d.install_id = p_install_id');
+    expect(recoveryMigration).toContain('credential_hash = p_credential_hash');
+    expect(recoveryMigration).toContain("'household_device_access_recovered'");
+    expect(recoveryMigration.match(/pg_advisory_xact_lock/g)).toHaveLength(2);
+    expect(recoveryMigration.match(/p_preview_session_id is null or s\.id = p_preview_session_id/g)).toHaveLength(2);
+    expect(recoveryMigration).toMatch(
+      /revoke execute on function public\.kwilt_claim_household_device_setup\(text, text, text, text, text\)\s+from service_role/,
+    );
+  });
+
+  it('restores the managed-child access resolver when an older remote schema omitted it', () => {
+    expect(recoveryMigration).toContain('create or replace function public.kwilt_resolve_managed_child_access');
+    expect(recoveryMigration).toContain("d.status = 'ready'");
+    expect(recoveryMigration).toContain('d.install_id = p_install_id');
+    expect(recoveryMigration).toContain('d.credential_hash = p_credential_hash');
+    expect(recoveryMigration).toContain('grant execute on function public.kwilt_resolve_managed_child_access');
+    expect(recoveryMigration).toContain('to service_role');
   });
 });

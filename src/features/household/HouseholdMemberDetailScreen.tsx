@@ -85,7 +85,10 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
     }
   }, [householdActions, route.params.membershipId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return navigation.addListener('focus', () => void load());
+  }, [load, navigation]);
 
   const confirmDeviceRemoval = (device: HouseholdDevice) => {
     if (!householdActions || !householdId || busy || !member) return;

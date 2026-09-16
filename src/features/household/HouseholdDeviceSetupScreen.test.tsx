@@ -40,7 +40,7 @@ describe('HouseholdDeviceSetupScreen', () => {
     useEntitlementsStore.setState({ isPro: true });
     mockCreate.mockReset().mockResolvedValue({
       id: 'session-1', token: 'secret-1', manualCode: '482731',
-      expiresAt: '2026-08-26T23:00:00Z', childMembershipId: 'child-1',
+      expiresAt: '2099-08-26T23:00:00Z', childMembershipId: 'child-1',
     });
     mockList.mockReset().mockResolvedValue([]);
     mockCancel.mockReset().mockResolvedValue(undefined);
@@ -69,6 +69,19 @@ describe('HouseholdDeviceSetupScreen', () => {
       reason: 'pro_family_screen_time',
       source: 'screen_time_family',
     });
+  });
+
+  it('turns an abandoned-session conflict into a recoverable action instead of exposing an RPC code', async () => {
+    mockCreate.mockRejectedValueOnce(new Error('household_device_setup_already_active'));
+    const { getByText, queryByText } = renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
+
+    await waitFor(() => expect(getByText('A previous setup code is still active.')).toBeTruthy());
+    expect(queryByText('household_device_setup_already_active')).toBeNull();
+
+    fireEvent.press(getByText('Create a new code'));
+
+    await waitFor(() => expect(getByText('482-731')).toBeTruthy());
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
   it('renders one pairing receipt with Share in the header and Back as cancellation', async () => {
@@ -120,6 +133,36 @@ describe('HouseholdDeviceSetupScreen', () => {
 
       act(() => jest.advanceTimersByTime(6_000));
       expect(mockList).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('replaces an expired on-screen pairing code instead of leaving a dead QR visible', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-15T23:00:00.000Z'));
+    mockCreate
+      .mockResolvedValueOnce({
+        id: 'session-1', token: 'secret-1', manualCode: '482731',
+        expiresAt: '2026-09-15T23:00:05.000Z', childMembershipId: 'child-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'session-2', token: 'secret-2', manualCode: '915204',
+        expiresAt: '2026-09-15T23:15:05.000Z', childMembershipId: 'child-1',
+      });
+
+    try {
+      const { getByText, queryByText } = renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
+      await waitFor(() => expect(getByText('482-731')).toBeTruthy());
+
+      await act(async () => {
+        jest.advanceTimersByTime(5_100);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => expect(getByText('915-204')).toBeTruthy());
+      expect(queryByText('482-731')).toBeNull();
+      expect(mockCreate).toHaveBeenCalledTimes(2);
     } finally {
       jest.useRealTimers();
     }

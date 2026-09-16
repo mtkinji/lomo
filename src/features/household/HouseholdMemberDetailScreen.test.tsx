@@ -17,6 +17,7 @@ const mockRevokeDevice = jest.fn();
 const mockUpdateMember = jest.fn();
 const mockPreviewRemoval = jest.fn();
 const mockRemoveMember = jest.fn();
+const mockAddListener = jest.fn();
 
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
@@ -55,7 +56,7 @@ const baseSnapshot = {
 };
 
 const props = {
-  navigation: { goBack: jest.fn(), navigate: jest.fn() },
+  navigation: { goBack: jest.fn(), navigate: jest.fn(), addListener: mockAddListener },
   route: { key: 'member', name: 'SettingsHouseholdMember', params: { membershipId: 'child-1' } },
 } as any;
 
@@ -64,6 +65,7 @@ describe('HouseholdMemberDetailScreen', () => {
     resetAllStores();
     props.navigation.goBack.mockReset();
     props.navigation.navigate.mockReset();
+    mockAddListener.mockReset().mockReturnValue(jest.fn());
     useAppStore.getState().setAuthIdentity({ userId: 'user-1', name: 'Andrew' });
     useEntitlementsStore.setState({ isPro: true });
     mockSnapshot.mockReset().mockResolvedValue(baseSnapshot);
@@ -133,6 +135,25 @@ describe('HouseholdMemberDetailScreen', () => {
     expect(props.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', {
       childMembershipId: 'child-1', childDisplayName: 'Riley', householdId: 'household-1',
     });
+  });
+
+  it('refreshes the child device receipt when the member screen regains focus after setup', async () => {
+    mockListDevices
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        id: 'device-1', householdId: 'household-1', kind: 'personal_child', childMembershipId: 'child-1',
+        assignedCaregiverMembershipId: null, installId: 'install-123', label: "Riley's iPhone",
+        platform: 'ios', status: 'ready', memberIds: [], updatedAt: '2026-09-15T23:00:00.000Z',
+      }]);
+    const { getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByText('No device connected')).toBeTruthy());
+    const focusListener = mockAddListener.mock.calls.find(([event]) => event === 'focus')?.[1];
+    expect(focusListener).toBeDefined();
+
+    act(() => focusListener());
+
+    await waitFor(() => expect(getByText("Riley's iPhone")).toBeTruthy());
+    expect(queryByText('No device connected')).toBeNull();
   });
 
   it('gives a managed child a private help action for another Household member', async () => {

@@ -83,11 +83,35 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
         navigation.goBack();
         return;
       }
-      setStartError(error instanceof Error ? error.message : 'Please try again.');
+      if (error instanceof Error && error.message.includes('child_personal_device_already_connected')) {
+        setConnected(true);
+        return;
+      }
+      setStartError(error instanceof Error && error.message.includes('household_device_setup_already_active')
+        ? 'A previous setup code is still active.'
+        : 'We couldn’t create a setup code. Check your connection and try again.');
     } finally {
       setBusy(false);
     }
   }, [busy, childMembershipId, client, navigation]);
+
+  useEffect(() => {
+    if (!session || connected) return;
+    const expiresAtMs = Date.parse(session.expiresAt);
+    if (!Number.isFinite(expiresAtMs)) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const scheduleRefresh = () => {
+      const remainingMs = expiresAtMs - Date.now() + 250;
+      if (remainingMs <= 0) {
+        setSession(null);
+        void start();
+        return;
+      }
+      timer = setTimeout(scheduleRefresh, Math.min(remainingMs, 2_147_000_000));
+    };
+    scheduleRefresh();
+    return () => clearTimeout(timer);
+  }, [connected, session, start]);
 
   useEffect(() => {
     if (!client || hasStarted.current) return;
@@ -152,7 +176,9 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
               : `${childDisplayName} does not need a separate Kwilt account.`}
           </Text>
           {startError ? (
-            <Button disabled={busy} fullWidth onPress={() => void start()}>Try again</Button>
+            <Button disabled={busy} fullWidth onPress={() => void start()}>
+              {startError === 'A previous setup code is still active.' ? 'Create a new code' : 'Try again'}
+            </Button>
           ) : (
             <KwiltLoader color={colors.textPrimary} size="large" />
           )}
