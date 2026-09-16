@@ -4,6 +4,7 @@ import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
+import { useScreenTimeHandoffStore } from '../screen-time/runtime/screenTimeHandoffStore';
 import { PlanKickoffDrawerHost } from './PlanKickoffDrawerHost';
 
 const mockNavigate = jest.fn();
@@ -39,6 +40,9 @@ describe('PlanKickoffDrawerHost', () => {
       } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>;
     });
     resetAllStores();
+    useAppStore.setState({ lastKickoffShownDateKey: null, isPlanKickoffVisible: false });
+    useScreenTimeHandoffStore.getState().resetForTests();
+    useScreenTimeHandoffStore.setState({ foregroundCheckStatus: 'clear' });
     useFirstTimeUxStore.setState({ isFlowActive: false });
     useAppStore.getState().setHasCompletedFirstTimeOnboarding(true);
     useAppStore.getState().setNotificationPreferences((current) => ({
@@ -84,5 +88,51 @@ describe('PlanKickoffDrawerHost', () => {
       screen: 'SettingsNotifications',
     });
     expect(useAppStore.getState().lastKickoffShownDateKey).toBe('2026-08-20');
+  });
+
+  it('waits for the native shield check before offering the daily prompt', () => {
+    useScreenTimeHandoffStore.setState({ foregroundCheckStatus: 'checking' });
+    const { queryByTestId } = renderWithProviders(<PlanKickoffDrawerHost />);
+
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeNull();
+    expect(useAppStore.getState().isPlanKickoffVisible).toBe(false);
+
+    act(() => useScreenTimeHandoffStore.setState({ foregroundCheckStatus: 'clear' }));
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeTruthy();
+  });
+
+  it('gives a shield handoff priority for the whole visit without dismissing the daily prompt for today', () => {
+    const { queryByTestId } = renderWithProviders(<PlanKickoffDrawerHost />);
+    // The handoff may arrive while a previously queued prompt callback is waiting.
+    act(() => useScreenTimeHandoffStore.getState().capture({
+      requestedAtMs: Date.now(), reason: 'personal_composite_rule', restrictions: [],
+    }));
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeNull();
+    expect(useAppStore.getState().isPlanKickoffVisible).toBe(false);
+
+    act(() => useScreenTimeHandoffStore.getState().dismiss());
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeNull();
+    expect(useAppStore.getState().lastKickoffShownDateKey).not.toBe('2026-08-20');
+
+    // A later ordinary foreground is still eligible for the prompt.
+    act(() => useScreenTimeHandoffStore.setState({ foregroundCheckStatus: 'clear' }));
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeTruthy();
+  });
+
+  it('removes an already visible kickoff when a shield handoff arrives', () => {
+    const { queryByTestId } = renderWithProviders(<PlanKickoffDrawerHost />);
+    finishInteractions();
+    expect(queryByTestId('plan-kickoff-guide')).toBeTruthy();
+
+    act(() => useScreenTimeHandoffStore.getState().capture({
+      requestedAtMs: Date.now(), reason: 'personal_composite_rule', restrictions: [],
+    }));
+    expect(queryByTestId('plan-kickoff-guide')).toBeNull();
+    expect(useAppStore.getState().isPlanKickoffVisible).toBe(false);
   });
 });

@@ -93,7 +93,7 @@ To keep E2E stable, we use `testID`s instead of visible text.
 - Drawer item: DevTools: `nav.drawer.item.DevTools`
 
 - DevTools → Tools (seed actions):
-  - `e2e.seed.triggerFirstTimeUx`
+  - `e2e.seed.triggerFirstTimeUx` — Reset & replay onboarding (keeps the signed-in account and unrelated data)
   - `e2e.seed.showActivitiesListGuide`
   - `e2e.seed.showActivityDetailGuide`
   - `e2e.seed.showFirstArcCelebration`

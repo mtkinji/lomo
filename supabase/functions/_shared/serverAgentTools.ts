@@ -943,7 +943,9 @@ async function executeServerAgentToolHandler({
   if (householdResult) return householdResult;
   const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (screenTimeResult) return screenTimeResult;
-  const moneyResult = await executeServerMoneyTool({ client, userId, call, stageDeviceAction });
+  const moneyResult = await executeServerMoneyTool({
+    client, userId, call, stageDeviceAction, writeContext, actionSource,
+  });
   if (moneyResult) return moneyResult;
   const choreResult = await executeServerChoreTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (choreResult) return choreResult;

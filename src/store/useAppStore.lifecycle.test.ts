@@ -152,7 +152,7 @@ describe('useAppStore object lifecycles', () => {
         parentActivityId: 'parent',
         parentStepId: 'step-1',
       },
-    } as any);
+    });
 
     useAppStore.getState().addActivity(parent);
     useAppStore.getState().addActivity(child);
@@ -683,7 +683,7 @@ describe('resetUserSpecificState', () => {
       lastStreakDateKey: '2026-04-15',
       currentCoveredShowUpStreak: 7,
       streakUpdatedAtIso: '2026-04-15T16:00:00.000Z',
-    } as any);
+    });
 
     resetUserSpecificState();
 
@@ -751,6 +751,57 @@ describe('resetUserSpecificState', () => {
     expect(
       useCapabilityOnboardingStore.getState().recordForUser('user-b').selectedPathId,
     ).toBe('make-meals-easier');
+  });
+});
+
+describe('resetOnboardingAnswers', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('removes the recorded onboarding Arc graph and preserves unrelated objects', () => {
+    useAppStore.getState().addArc(arc({ id: 'onboarding-arc' }));
+    useAppStore.getState().addArc(arc({ id: 'kept-arc' }));
+    useAppStore.getState().addGoal(goal({ id: 'onboarding-goal', arcId: 'onboarding-arc' }));
+    useAppStore.getState().addGoal(goal({ id: 'kept-goal', arcId: 'kept-arc' }));
+    useAppStore.getState().addActivity(activity({ id: 'onboarding-activity', goalId: 'onboarding-goal' }));
+    useAppStore.getState().addActivity(activity({ id: 'kept-activity', goalId: 'kept-goal' }));
+    useAppStore.setState({
+      lastOnboardingArcId: 'onboarding-arc',
+      lastOnboardingGoalId: 'onboarding-goal',
+      hasCompletedFirstTimeOnboarding: true,
+      hasReceivedOnboardingCompletionReward: true,
+    } as any);
+
+    useAppStore.getState().resetOnboardingAnswers();
+
+    const state = useAppStore.getState();
+    expect(state.arcs.map((item) => item.id)).toEqual(['kept-arc']);
+    expect(state.goals.map((item) => item.id)).toEqual(['kept-goal']);
+    expect(state.activities.map((item) => item.id)).toEqual(['kept-activity']);
+    expect(state.lastOnboardingArcId).toBeNull();
+    expect(state.lastOnboardingGoalId).toBeNull();
+    expect(state.hasCompletedFirstTimeOnboarding).toBe(true);
+    expect(state.hasReceivedOnboardingCompletionReward).toBe(false);
+  });
+
+  it('falls back to the recorded onboarding Goal when its Arc pointer is unavailable', () => {
+    useAppStore.getState().addArc(arc({ id: 'shared-arc' }));
+    useAppStore.getState().addGoal(goal({ id: 'onboarding-goal', arcId: 'shared-arc' }));
+    useAppStore.getState().addGoal(goal({ id: 'kept-goal', arcId: 'shared-arc' }));
+    useAppStore.getState().addActivity(activity({ id: 'onboarding-activity', goalId: 'onboarding-goal' }));
+    useAppStore.getState().addActivity(activity({ id: 'kept-activity', goalId: 'kept-goal' }));
+    useAppStore.setState({
+      lastOnboardingArcId: 'missing-arc',
+      lastOnboardingGoalId: 'onboarding-goal',
+    } as any);
+
+    useAppStore.getState().resetOnboardingAnswers();
+
+    const state = useAppStore.getState();
+    expect(state.arcs.map((item) => item.id)).toEqual(['shared-arc']);
+    expect(state.goals.map((item) => item.id)).toEqual(['kept-goal']);
+    expect(state.activities.map((item) => item.id)).toEqual(['kept-activity']);
   });
 });
 

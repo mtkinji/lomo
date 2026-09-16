@@ -538,7 +538,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('$2,692.49')).toBeTruthy();
   });
 
-  it('projects unclear spending as review work and explains the complete spending total', () => {
+  it('puts uncategorized transactions first while review work remains', () => {
     mockSnapshot = {
       ...initialSnapshot,
       categories: [
@@ -556,10 +556,12 @@ describe('MoneySummaryScreen living limit answer', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-reconciliation', name: 'MoneySummary' } as never} />);
 
-    const unclearSummary = screen.getByRole('button', { name: 'Review unclear spending, $8 across 1 transaction' });
-    expect(unclearSummary).toBeTruthy();
-    fireEvent.press(unclearSummary);
-    expect(screen.getByRole('header', { name: 'Unclear spending' })).toBeTruthy();
+    const rendered = JSON.stringify(screen.toJSON());
+    expect(rendered.indexOf('Uncategorized transactions')).toBeLessThan(rendered.indexOf('Flexible spending'));
+    const uncategorizedSummary = screen.getByRole('button', { name: 'Review uncategorized transactions, $8 across 1 transaction' });
+    expect(uncategorizedSummary).toBeTruthy();
+    fireEvent.press(uncategorizedSummary);
+    expect(screen.getByRole('header', { name: 'Uncategorized transactions' })).toBeTruthy();
     expect(screen.getByText('1 transaction · $8')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Review unclear-charge, $8' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', {
@@ -574,8 +576,19 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('Counted toward monthly plan')).toBeTruthy();
     expect(screen.getByText('Outside the plan')).toBeTruthy();
     expect(screen.getByText('CURRENT PLAN')).toBeTruthy();
-    expect(screen.getByText('Flexible and unclear spending')).toBeTruthy();
+    expect(screen.getByText('Flexible and uncategorized spending')).toBeTruthy();
     expect(screen.getByText('$300 in income, transfers, and other non-spending activity is outside this total.')).toBeTruthy();
+  });
+
+  it('keeps a completed uncategorized status at the bottom when no review work remains', () => {
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-complete', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByText("You're all set for July.")).toBeTruthy();
+    expect(screen.getByText('No spending needs a category.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Review uncategorized transactions/ })).toBeNull();
+    const rendered = JSON.stringify(screen.toJSON());
+    expect(rendered.indexOf('July summary')).toBeLessThan(rendered.indexOf("You're all set for July."));
   });
 
   it('offers account-backed setup instead of an invented empty budget', () => {

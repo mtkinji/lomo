@@ -3320,7 +3320,42 @@ export const useAppStore = create<AppState>()(
       resetOnboardingAnswers: () =>
         set((state) => {
           const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
+          const onboardingArcExists = Boolean(
+            state.lastOnboardingArcId &&
+            state.arcs.some((arc) => arc.id === state.lastOnboardingArcId),
+          );
+          const onboardingGoalIds = onboardingArcExists
+            ? new Set(
+              state.goals
+                .filter((goal) => goal.arcId === state.lastOnboardingArcId)
+                .map((goal) => goal.id),
+            )
+            : new Set(
+              state.lastOnboardingGoalId &&
+              state.goals.some((goal) => goal.id === state.lastOnboardingGoalId)
+                ? [state.lastOnboardingGoalId]
+                : [],
+            );
+          const nextArcs = onboardingArcExists
+            ? state.arcs.filter((arc) => arc.id !== state.lastOnboardingArcId)
+            : state.arcs;
+          const nextGoals = onboardingGoalIds.size > 0
+            ? state.goals.filter((goal) => !onboardingGoalIds.has(goal.id))
+            : state.goals;
+          const nextActivities = onboardingGoalIds.size > 0
+            ? state.activities.filter((activity) => !onboardingGoalIds.has(activity.goalId ?? ''))
+            : state.activities;
+          const nextGoalRecommendations = state.lastOnboardingArcId
+            ? Object.fromEntries(
+              Object.entries(state.goalRecommendations)
+                .filter(([arcId]) => arcId !== state.lastOnboardingArcId),
+            )
+            : state.goalRecommendations;
           return {
+            arcs: nextArcs,
+            goals: nextGoals,
+            activities: nextActivities,
+            goalRecommendations: nextGoalRecommendations,
             userProfile: {
               ...base,
               fullName: undefined,
@@ -3334,10 +3369,15 @@ export const useAppStore = create<AppState>()(
             },
             lastOnboardingArcId: null,
             lastOnboardingGoalId: null,
+            hasReceivedOnboardingCompletionReward: false,
             hasSeenOnboardingSharePrompt: false,
             hasDismissedOnboardingGoalGuide: false,
             hasDismissedOnboardingActivitiesGuide: false,
             hasDismissedOnboardingPlanReadyGuide: false,
+            pendingGoalCelebrationId: null,
+            pendingPostGoalPlanGuideGoalId: null,
+            dismissedPostGoalPlanGuideGoalIds: {},
+            hasSeenPostGoalPlanCoachmark: false,
             hasDismissedGoalVectorsGuide: false,
             hasDismissedActivitiesListGuide: false,
             activitiesScreenVisitCount: 0,

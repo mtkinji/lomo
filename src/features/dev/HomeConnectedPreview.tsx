@@ -224,6 +224,20 @@ export function HomeConnectedPreview({ onClose }: { onClose: () => void }) {
   return (
     <HomeMediaSourceContext.Provider value={source}>
       <SharedLifeFeed userId={viewer} previewRepository={repository} recommendationPreview={recommendationPreview}
+        externalReceiptPreview={[
+          {
+            id: 'preview-codex-money',
+            summary: 'Renamed “Auto” to “Transportation”.',
+            sourceName: 'Codex',
+            createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+          },
+          {
+            id: 'preview-chatgpt-todo',
+            summary: 'Added “Book dentist appointment”.',
+            sourceName: 'ChatGPT',
+            createdAt: new Date(Date.now() - 18 * 60_000).toISOString(),
+          },
+        ]}
         renderFrame={(content, shareAction, moreMenu) => <SharedLifePage title="Home · Preview" onClose={onClose} rightElement={shareAction} moreMenu={moreMenu}>
           <HStack><Button variant="ghost" onPress={() => {
             setRecommendationScenario(s => s === 'off' ? 'meals' : s === 'meals' ? 'new' : 'off');

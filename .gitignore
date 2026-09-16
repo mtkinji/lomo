@@ -39,6 +39,9 @@ app-store-screenshots/
 # generated recipe-image review artifacts (published media is authoritative)
 /artifacts/recipe-catalog-media/
 
+# local and Runway-hosted working media
+/artifacts/b-roll/
+
 # local credentials (never commit)
 credentials.json
 

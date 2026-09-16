@@ -945,7 +945,8 @@ export function createUnifiedChatRepository(
       let query = client
         .from('kwilt_agent_threads')
         .select(THREAD_COLUMNS)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('visible_in_chat', true);
       if (!options?.includeArchived) query = query.eq('status', 'active');
       const { data, error } = await query.order('updated_at', { ascending: false });
       assertNoError(error, 'Unable to load chats.');

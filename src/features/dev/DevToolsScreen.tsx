@@ -298,8 +298,32 @@ export function DevToolsScreen() {
   }, []);
 
   const handleTriggerFirstTimeUx = () => {
-    resetOnboardingAnswers();
-    startFlow();
+    const replay = () => {
+      resetOnboardingAnswers();
+      startFlow();
+    };
+    const hasRecordedOnboardingArc = Boolean(
+      lastOnboardingArcId && arcs.some((arc) => arc.id === lastOnboardingArcId),
+    );
+    const hasRecordedOnboardingGoal = Boolean(
+      lastOnboardingGoalId && goals.some((goal) => goal.id === lastOnboardingGoalId),
+    );
+
+    if (!hasRecordedOnboardingArc && !hasRecordedOnboardingGoal) {
+      replay();
+      return;
+    }
+
+    Alert.alert(
+      'Reset onboarding content?',
+      hasRecordedOnboardingArc
+        ? 'This removes the Arc created by your last onboarding run, including its Goals and To-dos. Your account and unrelated data stay in place.'
+        : 'This removes the Goal created by your last onboarding run, including its To-dos. Your account and unrelated data stay in place.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset & replay', style: 'destructive', onPress: replay },
+      ],
+    );
   };
 
   const ensureDevActivityId = () => {
@@ -1119,9 +1143,14 @@ export function DevToolsScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>First-time UX</Text>
+              <Text style={styles.cardBody}>
+                Removes the last onboarding-created Arc and its Goals/To-dos, resets onboarding
+                answers and guides, then reopens the flow. Your signed-in account and unrelated
+                data stay in place; this is not a fresh-install test.
+              </Text>
               <Button testID="e2e.seed.triggerFirstTimeUx" variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
                 <ButtonLabel size="md" tone="inverse">
-                  Trigger first-time UX
+                  Reset & replay onboarding
                 </ButtonLabel>
               </Button>
               <Button testID="e2e.seed.showActivitiesListGuide" variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>

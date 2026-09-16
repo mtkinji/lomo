@@ -162,28 +162,18 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     });
     signalMoneyChoice();
     setPendingChoice(choice);
-    if (outcome === 'offer_rule') {
-      setPendingRuleCategory(category);
-      setRuleDrawerOpen(false);
-      setCategoryPickerOpen(false);
-      setCategoryQuery('');
-    }
     const changed = await runReview(() => transaction.direction === 'inflow'
       ? reviewTransactionMeaning(transaction.id, { meaning: 'category_credit', categoryId: category.sourceId })
       : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
     setPendingChoice(null);
-    if (!changed) {
-      if (outcome === 'offer_rule') {
-        setPendingRuleCategory(null);
-        setCategoryPickerOpen(true);
-      }
-      return;
-    }
+    if (!changed) return;
     categoryCorrectionFeedbackPendingRef.current = true;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
     setDismissedRuleCategoryId(null);
     if (outcome === 'offer_rule') {
+      setPendingRuleCategory(category);
+      setRuleDrawerOpen(false);
       return;
     }
     if (outcome === 'return_to_summary') {
@@ -526,7 +516,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         contentExtendsIntoBottomSafeArea
         contentStyle={styles.ruleGuideContent}
         dynamicSizing
-        onClose={saving ? undefined : () => void dismissRuleOffer()}
+        onClose={() => void dismissRuleOffer()}
         scrim="light"
         snapPoints={['42%']}
         visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen && !noteEditorOpen}
@@ -538,8 +528,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           </Text>
         </View>
         <View style={styles.ruleGuideActions}>
-          <Button disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
-          <Button loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
+          <Button variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+          <Button onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
         </View>
       </BottomGuide>
 

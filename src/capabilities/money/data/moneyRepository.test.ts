@@ -237,7 +237,14 @@ describe('createMoneyRepository transaction review', () => {
   });
 
   it('atomically assigns one category and resolves without a snapshot reload', async () => {
-    const { client, calls, rpcCalls } = createClient();
+    const { client, calls, rpcCalls } = createClient({
+      rpcResult: {
+        transaction_ids: ['transaction-1'],
+        category_id: 'category-1',
+        review_state: 'assigned',
+        updated_at: '2026-09-15T18:20:00.000Z',
+      },
+    });
     const repository = createMoneyRepository(client);
 
     const result = await repository.assignTransactionCategory('transaction-1', 'category-1');
@@ -252,8 +259,47 @@ describe('createMoneyRepository transaction review', () => {
     });
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(0);
     expect(calls.filter((call) => call.table === 'budget_transactions')).toHaveLength(0);
-    expect(result).toMatchObject({ transactionId: 'transaction-1', categorySourceId: 'category-1', meaning: null });
+    expect(result).toEqual({
+      confirmedAt: '2026-09-15T18:20:00.000Z',
+      transactionId: 'transaction-1',
+      categorySourceId: 'category-1',
+      meaning: null,
+      reviewState: 'assigned',
+    });
     expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirms not-counted review from the server receipt', async () => {
+    const { client } = createClient({
+      rpcResult: {
+        transaction_ids: ['transaction-1'],
+        category_id: null,
+        review_state: 'not_counted',
+        updated_at: '2026-09-15T18:21:00.000Z',
+      },
+    });
+
+    await expect(createMoneyRepository(client).markTransactionNotCounted('transaction-1')).resolves.toEqual({
+      confirmedAt: '2026-09-15T18:21:00.000Z',
+      transactionId: 'transaction-1',
+      categorySourceId: null,
+      meaning: 'not_counted',
+      reviewState: 'not_counted',
+    });
+  });
+
+  it('does not report success when the transaction review receipt differs from the requested change', async () => {
+    const { client } = createClient({
+      rpcResult: {
+        transaction_ids: ['different-transaction'],
+        category_id: 'category-1',
+        review_state: 'assigned',
+        updated_at: '2026-09-15T18:22:00.000Z',
+      },
+    });
+
+    await expect(createMoneyRepository(client).assignTransactionCategory('transaction-1', 'category-1'))
+      .rejects.toThrow('confirm the transaction review');
   });
 
   it('persists an exact split through the atomic allocation RPC, then reloads', async () => {

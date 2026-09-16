@@ -38,6 +38,10 @@ const retryMessageReuseMigration = readFileSync(
   new URL('../supabase/migrations/20260829174829_unified_chat_retry_message_reuse.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const externalOperationVisibilityMigration = readFileSync(
+  new URL('../supabase/migrations/20260916181958_keep_external_operations_out_of_chat_list.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const channelJobMigration = readFileSync(
   new URL('../supabase/migrations/20260723170039_agent_channel_job_queue.sql', import.meta.url),
   'utf8',
@@ -125,6 +129,17 @@ test('retries a failed run without inserting the original user prompt again', ()
   assert.match(retryMessageReuseMigration, /insert into public\.kwilt_agent_runs/);
   assert.doesNotMatch(retryMessageReuseMigration, /insert into public\.kwilt_agent_messages/);
   assert.match(retryMessageReuseMigration, /'messageid',\s*v_message_id/);
+});
+
+test('keeps external MCP operation history out of the user Chat list', () => {
+  assert.match(externalOperationVisibilityMigration, /add column if not exists visible_in_chat boolean not null default true/);
+  assert.match(externalOperationVisibilityMigration, /p_origin_channel = 'external'/);
+  assert.match(externalOperationVisibilityMigration, /p_thread_id is null/);
+  assert.match(externalOperationVisibilityMigration, /set visible_in_chat = false/);
+  assert.match(externalOperationVisibilityMigration, /run\.origin_channel = 'external'/);
+  assert.match(externalOperationVisibilityMigration, /not exists[\s\S]+other_run\.origin_channel <> 'external'/);
+  assert.doesNotMatch(externalOperationVisibilityMigration, /set visible_in_chat = true/);
+  assert.doesNotMatch(externalOperationVisibilityMigration, /surface_kwilt_agent_pending_continuation/);
 });
 
 test('projects only bounded native Profile fields for owner-scoped server-channel use', () => {

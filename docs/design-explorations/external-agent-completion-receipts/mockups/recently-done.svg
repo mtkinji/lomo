@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="393" height="852" viewBox="0 0 393 852">
+  <rect width="393" height="852" fill="#F5F3EE"/>
+  <text x="24" y="74" font-family="Arial" font-size="30" font-weight="700" fill="#262522">Home</text>
+  <circle cx="352" cy="64" r="22" fill="#FFFFFF"/>
+  <text x="344" y="72" font-family="Arial" font-size="24" fill="#262522">+</text>
+  <text x="24" y="132" font-family="Arial" font-size="14" fill="#74716A">RECENTLY DONE</text>
+  <rect x="16" y="148" width="361" height="216" rx="20" fill="#FFFFFF"/>
+  <circle cx="42" cy="184" r="12" fill="none" stroke="#67645E" stroke-width="1.5"/>
+  <path d="M36 184l4 4 8-9" fill="none" stroke="#67645E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="181" font-family="Arial" font-size="16" fill="#262522">Renamed “Auto” to “Transportation”</text>
+  <text x="66" y="204" font-family="Arial" font-size="13" fill="#74716A">Codex · 2 min ago</text>
+  <line x1="66" y1="225" x2="353" y2="225" stroke="#E7E3DB"/>
+  <circle cx="42" cy="256" r="12" fill="none" stroke="#67645E" stroke-width="1.5"/>
+  <path d="M36 256l4 4 8-9" fill="none" stroke="#67645E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="253" font-family="Arial" font-size="16" fill="#262522">Added “Book dentist appointment”</text>
+  <text x="66" y="276" font-family="Arial" font-size="13" fill="#74716A">ChatGPT · 18 min ago</text>
+  <line x1="66" y1="297" x2="353" y2="297" stroke="#E7E3DB"/>
+  <circle cx="42" cy="314" r="12" fill="none" stroke="#67645E" stroke-width="1.5"/>
+  <path d="M36 314l4 4 8-9" fill="none" stroke="#67645E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="317" font-family="Arial" font-size="16" fill="#262522">Updated today’s focus</text>
+  <text x="66" y="340" font-family="Arial" font-size="13" fill="#74716A">Claude · Yesterday</text>
+  <text x="24" y="420" font-family="Arial" font-size="14" fill="#74716A">MOMENTS</text>
+  <rect x="16" y="437" width="361" height="260" rx="20" fill="#FFFFFF"/>
+  <circle cx="48" cy="475" r="18" fill="#D9D2C5"/>
+  <text x="76" y="473" font-family="Arial" font-size="15" font-weight="600" fill="#262522">Andrew</text>
+  <text x="76" y="493" font-family="Arial" font-size="13" fill="#74716A">Household · 1h</text>
+  <rect x="32" y="520" width="329" height="120" rx="14" fill="#EEEAE2"/>
+  <text x="46" y="553" font-family="Arial" font-size="17" fill="#262522">A quiet afternoon together.</text>
+  <text x="24" y="730" font-family="Arial" font-size="13" fill="#74716A">Static evidence only — no unread badge, approval, or dismiss action.</text>
+</svg>

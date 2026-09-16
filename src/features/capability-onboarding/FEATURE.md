@@ -12,6 +12,7 @@ job_flow: job-flow-maya-move-family-life-forward
 job_flows:
   - job-flow-maya-move-family-life-forward
   - job-flow-maya-feed-household-with-less-work
+  - job-flow-maya-review-budget-reality-before-spending
 serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-see-who-im-becoming
@@ -21,12 +22,17 @@ serves:
   - jtbd-put-intention-before-impulse
   - jtbd-help-us-enjoy-being-together
   - jtbd-trust-this-app-with-my-life
+  - jtbd-review-budget-reality-before-spending
+  - jtbd-get-help-without-retelling-my-life
+  - jtbd-understand-why-ai-suggested-this
+  - jtbd-stay-in-control-of-ai-actions
 briefs:
   - home-getting-started
   - capability-routed-onboarding
   - food-capability-onboarding
+  - kwilt-first-run-onboarding
 status: draft
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-15
 ---
 
 # Capability onboarding
@@ -39,3 +45,9 @@ geometry; capability owners provide step copy, distinct meaningful illustrations
 optional action without recreating the shell.
 
 The draft `home-getting-started` concept extends continuity into adult personal Home after orientation. It proposes owner-derived progress and scoped resumption, preserves Skip tour and exact-entry behavior, and does not promote rehearsal paths or implement a new production entry. David is included for selected-person participation without requiring a Household.
+
+The draft `kwilt-first-run-onboarding` plan proposes a light, budget-led starter before sign-in,
+visible alternate offers, scoped preview, and a personal first look that ends in an owned action.
+It links Maya's spending job flow without replacing this folder's broader hero job. It is a
+planning artifact: current rehearsal-only entry and existing handoffs are not promoted by this
+manifest update. Money and other capability owners retain truth, setup, mutations, and receipts.

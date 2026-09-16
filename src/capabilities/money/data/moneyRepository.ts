@@ -302,18 +302,20 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
   const replaceTransactionReview = async (
     transactionIds: string[],
     input: Parameters<typeof buildTransactionReviewUpdate>[0],
-  ): Promise<void> => {
+  ): Promise<ConfirmedTransactionWrite> => {
     const normalizedIds = [...new Set(transactionIds.map((id) => id.trim()).filter(Boolean))];
     if (normalizedIds.length === 0) throw new Error('Choose a transaction to review.');
     const update = buildTransactionReviewUpdate(input);
     await requireSignedIn(client);
     const db = client as unknown as MoneyReadClient;
-    const { error } = await db.rpc('replace_budget_transaction_review', {
+    const { data, error } = await db.rpc('replace_budget_transaction_review', {
       p_transaction_ids: normalizedIds,
       p_budget_id: update.budget_id,
       p_excluded: update.budget_match_source === 'excluded',
     });
-    if (!error) return;
+    if (!error) {
+      return parseTransactionReviewReceipt(data, normalizedIds, update);
+    }
     if (!isMissingRpcError(error, 'replace_budget_transaction_review')) {
       throw new Error(`Money could not save the transaction review: ${error.message || 'Unknown database error'}`);
     }
@@ -323,6 +325,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       .in('id', normalizedIds)
       .select('id'));
     requireConfirmedRows('transaction review', updatedRows, normalizedIds.length);
+    return {
+      confirmedAt: new Date().toISOString(),
+      transactionId: normalizedIds[0],
+      categorySourceId: update.budget_id,
+      meaning: update.money_meaning ?? null,
+      reviewState: update.budget_match_source === 'excluded' ? 'not_counted' : 'assigned',
+    };
   };
 
   return {
@@ -366,24 +375,10 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       }
     },
     async assignTransactionCategory(transactionId, categoryId) {
-      await replaceTransactionReview([transactionId], { type: 'category', categoryId });
-      return {
-        confirmedAt: new Date().toISOString(),
-        transactionId: transactionId.trim(),
-        categorySourceId: categoryId.trim(),
-        meaning: null,
-        reviewState: 'assigned',
-      };
+      return replaceTransactionReview([transactionId], { type: 'category', categoryId });
     },
     async markTransactionNotCounted(transactionId) {
-      await replaceTransactionReview([transactionId], { type: 'not_counted' });
-      return {
-        confirmedAt: new Date().toISOString(),
-        transactionId: transactionId.trim(),
-        categorySourceId: null,
-        meaning: 'not_counted',
-        reviewState: 'not_counted',
-      };
+      return replaceTransactionReview([transactionId], { type: 'not_counted' });
     },
     async splitTransaction(input) {
       const transactionId = input.transactionId.trim();
@@ -682,6 +677,38 @@ function parseMerchantRuleReceipt(data: unknown, transactionId: string): Confirm
     merchantKey,
     matchMode,
     categorySourceId,
+  };
+}
+
+function parseTransactionReviewReceipt(
+  data: unknown,
+  expectedIds: string[],
+  update: TransactionReviewUpdate,
+): ConfirmedTransactionWrite {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Money could not confirm the transaction review. Refresh and try again.');
+  }
+  const receipt = data as Record<string, unknown>;
+  const transactionIds = Array.isArray(receipt.transaction_ids)
+    ? receipt.transaction_ids.filter((id): id is string => typeof id === 'string').sort()
+    : [];
+  const sortedExpectedIds = [...expectedIds].sort();
+  const confirmedAt = typeof receipt.updated_at === 'string' ? receipt.updated_at : '';
+  const reviewState = update.budget_match_source === 'excluded' ? 'not_counted' : 'assigned';
+  const expectedCategoryId = update.budget_id;
+  if (transactionIds.length !== sortedExpectedIds.length
+    || transactionIds.some((id, index) => id !== sortedExpectedIds[index])
+    || receipt.category_id !== expectedCategoryId
+    || receipt.review_state !== reviewState
+    || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money could not confirm the transaction review. Refresh and try again.');
+  }
+  return {
+    confirmedAt,
+    transactionId: sortedExpectedIds[0],
+    categorySourceId: expectedCategoryId,
+    meaning: update.money_meaning ?? null,
+    reviewState,
   };
 }
 

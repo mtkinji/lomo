@@ -134,6 +134,11 @@ describe('Unified Chat repository', () => {
       method: 'order',
       args: ['updated_at', { ascending: false }],
     });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_threads',
+      method: 'eq',
+      args: ['visible_in_chat', true],
+    });
   });
 
   test('loads one thread with ordered messages and runs', async () => {

@@ -61,6 +61,9 @@ import {
 import type { HomeRecommendation } from "./homeRecommendations";
 import { homeRecommendationTarget } from "./homeRecommendationNavigation";
 import { useHomeReaction } from "./useHomeReaction";
+import { ExternalActionReceiptRegion } from "./ExternalActionReceiptRegion";
+import { useExternalActionReceipts } from "./useExternalActionReceipts";
+import type { ExternalActionReceipt } from "./externalActionReceipts";
 type RecommendationPreview = {
   model: ReturnType<typeof useHomeRecommendations>;
   onOpen: (offer: HomeRecommendation) => void;
@@ -75,12 +78,14 @@ export function SharedLifeFeed({
   highlightedDeliveryId,
   previewRepository,
   recommendationPreview,
+  externalReceiptPreview,
   renderFrame = (content) => content,
 }: {
   userId: string | null;
   highlightedDeliveryId?: string;
   previewRepository?: SharedLifeRepository;
   recommendationPreview?: RecommendationPreview;
+  externalReceiptPreview?: ExternalActionReceipt[];
   renderFrame?: FeedFrame;
 }) {
   const householdMode = useHouseholdModeStore((state) => state.session);
@@ -111,6 +116,9 @@ export function SharedLifeFeed({
       recommendationPreview={
         __DEV__ && previewRepository ? recommendationPreview : undefined
       }
+      externalReceiptPreview={
+        __DEV__ && previewRepository ? externalReceiptPreview : undefined
+      }
       renderFrame={renderFrame}
     />
   );
@@ -120,12 +128,14 @@ function SignedInSharedLife({
   highlightedDeliveryId,
   previewRepository,
   recommendationPreview,
+  externalReceiptPreview,
   renderFrame,
 }: {
   userId: string;
   highlightedDeliveryId?: string;
   previewRepository?: SharedLifeRepository;
   recommendationPreview?: RecommendationPreview;
+  externalReceiptPreview?: ExternalActionReceipt[];
   renderFrame: FeedFrame;
 }) {
   const life = useSharedLife(userId, previewRepository);
@@ -134,6 +144,7 @@ function SignedInSharedLife({
     !previewRepository,
   );
   const recommendations = recommendationPreview?.model ?? liveRecommendations;
+  const externalActionReceipts = useExternalActionReceipts(userId);
   const [nextSteps, setNextSteps] = useState(false);
   const openRecommendation = (offer: HomeRecommendation) => {
     if (recommendationPreview) {
@@ -219,7 +230,11 @@ function SignedInSharedLife({
   }, [refreshBubbles, life.posts]);
   const refreshUi = useKwiltRefresh({
     onRefresh: async () => {
-      await Promise.all([life.refresh(), refreshDeliveries()]);
+      await Promise.all([
+        life.refresh(),
+        refreshDeliveries(),
+        externalActionReceipts.refresh(),
+      ]);
     },
   });
   const [composer, setComposer] = useState<{
@@ -252,7 +267,8 @@ function SignedInSharedLife({
   useFocusEffect(
     useCallback(() => {
       void life.revalidate();
-    }, [life.revalidate]),
+      void externalActionReceipts.refresh();
+    }, [externalActionReceipts.refresh, life.revalidate]),
   );
   useEffect(() => {
     if (request?.userId === userId && !life.loading && !life.error) {
@@ -717,6 +733,9 @@ function SignedInSharedLife({
                 dispatch={recommendations.dispatch}
                 onOpen={openRecommendation}
                 onOverview={() => setNextSteps(true)}
+              />
+              <ExternalActionReceiptRegion
+                receipts={externalReceiptPreview ?? externalActionReceipts.receipts}
               />
               <SharedLifeCatchUpRail
                 bubbles={bubbles}

@@ -104,8 +104,14 @@ export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: Sig
   const backgroundBaseSource = getWallpaperSource(bgBaseIndex);
   const backgroundOverlaySource = getWallpaperSource(bgOverlayIndex);
 
-  const looksLikeExistingAuthAccount = (session: any): boolean => {
-    const createdAtRaw = (session as any)?.user?.created_at;
+  const looksLikeExistingAuthAccount = (session: Session): boolean => {
+    if (
+      __DEV__ &&
+      session.user.app_metadata?.onboarding_test_account === true
+    ) {
+      return false;
+    }
+    const createdAtRaw = session.user.created_at;
     if (typeof createdAtRaw !== 'string' || !createdAtRaw.trim()) return false;
     const createdAtMs = Date.parse(createdAtRaw);
     if (!Number.isFinite(createdAtMs)) return false;

@@ -7,6 +7,7 @@ import { VStack, Text, HStack } from '../../ui/primitives';
 import { Button } from '../../ui/Button';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { spacing, typography, colors } from '../../theme';
+import { useScreenTimeHandoffStore } from '../screen-time/runtime/screenTimeHandoffStore';
 
 type PlanKickoffCadence = 'daily' | 'weekdays' | 'weekly';
 
@@ -64,9 +65,13 @@ export function PlanKickoffDrawerHost() {
   const notificationPreferences = useAppStore((s) => s.notificationPreferences);
   const hasCompletedFirstTimeOnboarding = useAppStore((s) => s.hasCompletedFirstTimeOnboarding);
   const isFirstTimeFlowActive = useFirstTimeUxStore((s) => s.isFlowActive);
+  const foregroundCheckStatus = useScreenTimeHandoffStore((s) => s.foregroundCheckStatus);
+  const canPresent = foregroundCheckStatus === 'clear';
+  const guideVisible = visible && canPresent;
 
   const checkAndShow = useCallback(() => {
     setVisible(
+      useScreenTimeHandoffStore.getState().foregroundCheckStatus === 'clear' &&
       shouldShowPlanKickoffToday({
         now: new Date(),
         hasCompletedFirstTimeOnboarding,
@@ -106,14 +111,14 @@ export function PlanKickoffDrawerHost() {
       pendingInteractionRef.current = null;
       subscription.remove();
     };
-  }, [scheduleCheckAndShow]);
+  }, [foregroundCheckStatus, scheduleCheckAndShow]);
 
   useEffect(() => {
-    setPlanKickoffVisible(visible);
+    setPlanKickoffVisible(guideVisible);
     return () => {
       setPlanKickoffVisible(false);
     };
-  }, [setPlanKickoffVisible, visible]);
+  }, [setPlanKickoffVisible, guideVisible]);
 
   const handleDismissForToday = () => {
     setLastKickoffShownDateKey(toLocalDateKey(new Date()));
@@ -133,7 +138,7 @@ export function PlanKickoffDrawerHost() {
 
   return (
     <BottomGuide
-      visible={visible}
+      visible={guideVisible}
       onClose={handleDismissForToday}
       scrim="light"
       snapPoints={['35%']}

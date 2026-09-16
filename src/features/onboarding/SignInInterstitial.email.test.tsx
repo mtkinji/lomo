@@ -3,6 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SignInInterstitial } from "./SignInInterstitial";
 
 const mockCheckUserHasSyncedData = jest.fn();
+let mockEmailSession: unknown;
 
 jest.mock("react-native-gesture-handler", () => {
   const { View } = require("react-native");
@@ -34,7 +35,7 @@ jest.mock("../account/EmailPasswordSignInForm", () => {
     }) => (
       <Button
         accessibilityLabel="Complete test email sign-in"
-        onPress={() => onSuccess({ user: { id: "review-user" } })}
+        onPress={() => onSuccess(mockEmailSession)}
       >
         Complete test email sign-in
       </Button>
@@ -43,6 +44,11 @@ jest.mock("../account/EmailPasswordSignInForm", () => {
 });
 
 describe("SignInInterstitial email sign-in", () => {
+  beforeEach(() => {
+    mockCheckUserHasSyncedData.mockReset();
+    mockEmailSession = { user: { id: "review-user" } };
+  });
+
   it("keeps email visually secondary and sends its session through returning-user completion", async () => {
     mockCheckUserHasSyncedData.mockResolvedValue(true);
     const onSignInComplete = jest.fn();
@@ -67,6 +73,35 @@ describe("SignInInterstitial email sign-in", () => {
       expect(onSignInComplete).toHaveBeenCalledWith({ isReturningUser: true }),
     );
     expect(mockCheckUserHasSyncedData).toHaveBeenCalledWith("review-user");
+  });
+
+  it("treats a marked onboarding test account without synced data as new even when it is old", async () => {
+    mockCheckUserHasSyncedData.mockResolvedValue(false);
+    mockEmailSession = {
+      user: {
+        id: "review-user",
+        created_at: "2025-01-01T00:00:00.000Z",
+        app_metadata: { onboarding_test_account: true },
+      },
+    };
+    const onSignInComplete = jest.fn();
+    const screen = render(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 47, left: 0, right: 0, bottom: 34 },
+        }}
+      >
+        <SignInInterstitial onSignInComplete={onSignInComplete} />
+      </SafeAreaProvider>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Sign in with email"));
+    fireEvent.press(screen.getByLabelText("Complete test email sign-in"));
+
+    await waitFor(() =>
+      expect(onSignInComplete).toHaveBeenCalledWith({ isReturningUser: false }),
+    );
   });
 
   it("names the alternate setup path as a shared device", () => {

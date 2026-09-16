@@ -1,6 +1,7 @@
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { colors, spacing } from '../../../theme';
-import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomGuide } from '../../../ui/BottomGuide';
 import { Button } from '../../../ui/Button';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { HStack, VStack } from '../../../ui/Stack';
@@ -8,7 +9,7 @@ import { Text } from '../../../ui/Typography';
 import type { ScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import type { TemporaryOpenResult } from '../runtime/openScreenTimeRulesTemporarily';
-import { WorkflowFeedbackInlineSlot } from '../../workflow-feedback/WorkflowFeedbackInlineSlot';
+import { useWorkflowFeedbackInlineSlot } from '../../workflow-feedback/WorkflowFeedbackInlineSlot';
 
 const triggerDetails = (rule: ScreenTimeRule): string[] => {
   if (rule.blockingDetails?.length) return rule.blockingDetails;
@@ -31,6 +32,8 @@ export function ScreenTimeUnlockGuide(props: {
   onDoThisFirst: () => void;
   onOpenTemporarily: () => void;
 }) {
+  const { height } = useWindowDimensions();
+  const feedback = useWorkflowFeedbackInlineSlot(props.feedbackSourceKey);
   const count = props.rules.length + props.unresolvedCount;
   const opened = props.result?.status === 'opened' || props.result?.status === 'applying';
   const title = opened
@@ -45,21 +48,24 @@ export function ScreenTimeUnlockGuide(props: {
       : 'You can do what the rule asks, or an authorized adult can make a short exception.';
 
   return (
-    <BottomDrawer
+    <BottomGuide
       visible={props.visible}
       onClose={props.onDismiss}
-      snapPoints={['100%']}
-      enableContentPanningGesture
-      scrimToken="pineSubtle"
+      snapPoints={['75%']}
+      dynamicSizing
+      scrim="none"
     >
-      <BottomDrawerScrollView contentContainerStyle={styles.content}>
-        <BottomDrawerHeader
-          variant="withClose"
-          title={title}
-          subtitle={body}
-          onClose={props.onDismiss}
-          closeAccessibilityLabel="Close Screen Time guide"
-        />
+      <BottomDrawerScrollView style={{ maxHeight: height * 0.6 }} contentContainerStyle={styles.content}>
+        <VStack space={spacing.xs}>
+          <BottomDrawerHeader
+            variant="withClose"
+            title={title}
+            onClose={props.onDismiss}
+            closeAccessibilityLabel="Close Screen Time guide"
+            containerStyle={{ paddingBottom: 0 }}
+          />
+          <Text tone="secondary">{body}</Text>
+        </VStack>
 
         {!opened ? (
           <VStack space={spacing.sm}>
@@ -88,11 +94,9 @@ export function ScreenTimeUnlockGuide(props: {
           </Text>
         ) : null}
 
-        {props.feedbackSourceKey ? (
-          <WorkflowFeedbackInlineSlot sourceKey={props.feedbackSourceKey} />
-        ) : null}
+        {feedback}
 
-        <HStack space={spacing.sm} justifyContent="flex-end">
+        <HStack space={spacing.sm} justifyContent="flex-end" style={{ flexWrap: 'wrap' }}>
           {opened ? (
             <Button variant="primary" size="sm" onPress={props.onDismiss}>Done</Button>
           ) : (
@@ -114,7 +118,7 @@ export function ScreenTimeUnlockGuide(props: {
           )}
         </HStack>
       </BottomDrawerScrollView>
-    </BottomDrawer>
+    </BottomGuide>
   );
 }
 

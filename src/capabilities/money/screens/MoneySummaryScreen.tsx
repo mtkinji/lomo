@@ -562,9 +562,9 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       {planAudit && unclearTransactions.length > 0 ? (
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader
-            title="Unclear spending"
+            title="Uncategorized transactions"
             variant="withClose"
-            closeAccessibilityLabel="Close unclear spending review"
+            closeAccessibilityLabel="Close uncategorized transactions review"
             onClose={() => setUnclearReviewOpen(false)}
           />
           <UnclearSpendingReview
@@ -747,8 +747,16 @@ function SummaryMonthPanel({
   const monthlySummary = audit && monthlyPlan
     ? projectMonthlyBudgetSummary({ audit, monthlyPlan, answer })
     : null;
+  const hasUncategorizedTransactions = Boolean(audit?.unclearTransactionIds.length);
   return (
     <View style={[styles.monthBody, { width: pageWidth }]}>
+      {audit && hasUncategorizedTransactions ? (
+        <UncategorizedTransactionsStatus
+          audit={audit}
+          periodLabel={period.periodLabel}
+          onPress={onReviewUnclear}
+        />
+      ) : null}
       <View style={styles.categorySection}>
         {!answer || answer.state === 'missing_income_basis' ? <View style={styles.categoryHeader}>
           <CategoryConceptHeader
@@ -827,9 +835,6 @@ function SummaryMonthPanel({
           </View>
         </View>
       ) : null}
-      {audit && audit.unclearTransactionIds.length > 0 ? (
-        <UnclearSpendingProjection audit={audit} onPress={onReviewUnclear} />
-      ) : null}
       {monthlySummary ? (
         <Pressable
           accessibilityLabel={monthlySummaryAccessibilityLabel(period.periodLabel, monthlySummary)}
@@ -891,6 +896,13 @@ function SummaryMonthPanel({
         <Text style={styles.remainingLabel}>{formatBudgetOverviewMoney(period.totals.remainingCents)} left across planned categories</Text>
       </View> : null}
       <Text style={styles.updatedLabel}>{period.monthOffset === 0 ? `Connected accounts · ${freshness}` : 'Saved transaction history'}</Text>
+      {audit && !hasUncategorizedTransactions ? (
+        <UncategorizedTransactionsStatus
+          audit={audit}
+          periodLabel={period.periodLabel}
+          onPress={onReviewUnclear}
+        />
+      ) : null}
     </View>
   );
 }
@@ -973,7 +985,7 @@ function MonthlySummaryFacts({
               support={committedSupport}
             />
             <StatementRow
-              label={audit.unclearSpendingCents > 0 ? 'Flexible and unclear spending' : 'Flexible spending from plan'}
+              label={audit.unclearSpendingCents > 0 ? 'Flexible and uncategorized spending' : 'Flexible spending from plan'}
               value={answer.facts.countedFlexibleSpendCents == null
                 ? 'Not available'
                 : formatStatementOutflow(answer.facts.countedFlexibleSpendCents)}
@@ -1063,31 +1075,48 @@ function moneyPeriodMonthName(periodLabel: string): string {
   return periodLabel.trim().split(/\s+/)[0] || 'Monthly';
 }
 
-function UnclearSpendingProjection({ audit, onPress }: {
+function UncategorizedTransactionsStatus({ audit, onPress, periodLabel }: {
   audit: MoneyPlanAudit;
   onPress: () => void;
+  periodLabel: string;
 }) {
   const count = audit.unclearTransactionIds.length;
   const transactionLabel = count === 1 ? 'transaction' : 'transactions';
+  const monthName = moneyPeriodMonthName(periodLabel);
   return (
     <View style={styles.categorySection}>
       <View style={styles.categoryHeader}>
-        <Text style={styles.categoryTitle}>Unclear spending</Text>
+        <Text style={styles.categoryTitle}>Uncategorized transactions</Text>
       </View>
-      <Pressable
-        accessibilityLabel={`Review unclear spending, ${formatMoney(audit.unclearSpendingCents)} across ${count} ${transactionLabel}`}
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [styles.unclearProjection, pressed ? styles.monthlyPlanSummaryPressed : null]}
-      >
-        <View style={styles.unclearProjectionCopy}>
-          <Text style={styles.unclearProjectionAmount}>{formatMoney(audit.unclearSpendingCents)}</Text>
-          <Text style={styles.unclearProjectionSupport}>
-            {count} {transactionLabel} {count === 1 ? 'needs' : 'need'} a place
-          </Text>
+      {count > 0 ? (
+        <Pressable
+          accessibilityLabel={`Review uncategorized transactions, ${formatMoney(audit.unclearSpendingCents)} across ${count} ${transactionLabel}`}
+          accessibilityRole="button"
+          onPress={onPress}
+          testID="money-uncategorized-actionable"
+          style={({ pressed }) => [styles.unclearProjection, pressed ? styles.monthlyPlanSummaryPressed : null]}
+        >
+          <View style={styles.unclearProjectionCopy}>
+            <Text style={styles.unclearProjectionAmount}>{formatMoney(audit.unclearSpendingCents)}</Text>
+            <Text style={styles.unclearProjectionSupport}>
+              {count} {transactionLabel} {count === 1 ? 'needs' : 'need'} a category
+            </Text>
+          </View>
+          <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+        </Pressable>
+      ) : (
+        <View
+          accessibilityLabel={`You're all set for ${monthName}. No spending needs a category.`}
+          testID="money-uncategorized-complete"
+          style={styles.unclearProjection}
+        >
+          <View style={styles.unclearProjectionCopy}>
+            <Text style={styles.unclearProjectionCompleteTitle}>You're all set for {monthName}.</Text>
+            <Text style={styles.unclearProjectionSupport}>No spending needs a category.</Text>
+          </View>
+          <Icon name="checkCircle" size={20} color={colors.textSecondary} />
         </View>
-        <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-      </Pressable>
+      )}
     </View>
   );
 }
@@ -1418,6 +1447,7 @@ const styles = StyleSheet.create({
   },
   unclearProjectionCopy: { minWidth: 0, flex: 1, gap: 2 },
   unclearProjectionAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 20, lineHeight: 27, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  unclearProjectionCompleteTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   unclearProjectionSupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   totalSection: { gap: spacing.xs, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder, paddingVertical: spacing.lg },
   totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },

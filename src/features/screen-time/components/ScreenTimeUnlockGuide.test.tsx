@@ -21,7 +21,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
 jest.mock('../../workflow-feedback/WorkflowFeedbackInlineSlot', () => {
   const { Text } = require('react-native');
   return {
-    WorkflowFeedbackInlineSlot: ({ sourceKey }: { sourceKey: string }) => <Text>{`Feedback ${sourceKey}`}</Text>,
+    useWorkflowFeedbackInlineSlot: (sourceKey?: string) => sourceKey ? <Text>{`Feedback ${sourceKey}`}</Text> : null,
   };
 });
 
@@ -34,16 +34,17 @@ const familyRule: ScreenTimeRule = {
 describe('ScreenTimeUnlockGuide', () => {
   beforeEach(() => mockBottomDrawerProps.splice(0));
 
-  it('uses the standard full-width drawer chrome', () => {
+  it('keeps the current page present beneath a compact, content-sized guide', () => {
     renderWithProviders(<ScreenTimeUnlockGuide
       visible rules={[familyRule]} unresolvedCount={0} result={null} busy={false}
       actions={projectScreenTimeGuideActions({ actor: { kind: 'household_child', membershipId: 'child-1' }, activeRules: [familyRule] })}
       onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
     />);
 
-    expect(mockBottomDrawerProps.at(-1)).toMatchObject({ visible: true, snapPoints: ['100%'] });
-    expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('dynamicSizing');
-    expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('sheetStyle');
+    expect(mockBottomDrawerProps.at(-1)).toMatchObject({
+      visible: true, dynamicSizing: true, hideBackdrop: true, presentation: 'inline',
+    });
+    expect(mockBottomDrawerProps.at(-1)?.snapPoints).not.toContain('100%');
     expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
   });
 

@@ -13,6 +13,7 @@ briefs:
   - ai-proxy-and-quotas
   - ftux-goal-arc-onboarding
   - growth-evangelism-shared-goals
+  - repeatable-onboarding-testing
 status: shipped
 last_reviewed: 2026-08-19
 ---

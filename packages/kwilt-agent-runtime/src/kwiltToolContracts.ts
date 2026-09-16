@@ -251,7 +251,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'money.category.rename', version: 1, capabilityId: 'money',
-    purpose: 'Prepare a reviewed name-only change for one Money category, including adding an emoji directly to its name.',
+    purpose: 'Apply an explicitly confirmed name-only change to one authorized Money category, including adding an emoji directly to its name.',
     providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {

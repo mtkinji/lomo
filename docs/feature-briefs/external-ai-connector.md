@@ -16,7 +16,7 @@ related_briefs:
   - brief-background-agents-weekly-planning
   - brief-kwilt-text-coach
 owner: andrew
-last_updated: 2026-08-26
+last_updated: 2026-09-16
 ---
 
 ## Context
@@ -54,6 +54,8 @@ Locked in the design phase — record here so they don't drift during implementa
 | Connection identity | Show the OAuth client's verified name; do not offer renaming in the initial release. | The name identifies the app that actually has access. A user nickname may be added later only as secondary metadata that never replaces the verified identity. |
 | OAuth access | Capability-and-effect scopes: `life`, `household`, `money`, and `food`, each with separate `.read` and `.write` grants. | Consent stays least-privilege as Kwilt grows. Destructive review remains action policy, never a broad super-scope. |
 | Legacy scope removal | Existing `read`/`write` grants map only to the already-exposed Life surface through 2026-11-30; new grants cannot request them. | Compatibility cannot silently authorize later Household, Money, or Food capabilities. |
+| Interaction ownership | An MCP request completes in the originating agentic surface and never creates a visible Kwilt Chat. | The user should not have to switch surfaces or clean up duplicate conversations to finish work they began in ChatGPT, Codex, Claude, or Cursor. |
+| Home completion proof | Home may show a bounded, completed-only `Recently done` receipt region sourced from the external audit log. It has no unread state, approvals, retries, or failure queue. | Kwilt remains trustworthy and inspectable without turning Home into a dashboard or second inbox. Full history stays on the connection detail screen. |
 
 Open questions remaining are listed in the [Open questions](#open-questions) section.
 
@@ -78,12 +80,14 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 - The user says natural-language things; Claude/ChatGPT calls Kwilt tools to fulfill them.
 - Every successful write tool call returns a confirmation snippet that is **calm, identity-anchored, and never gamified** (see anti-pattern guardrails below). Example: `capture_activity` returns *"Logged 'Walk with Mara, 30m' to Family Arc — Saturday 9am. Showed up today."* — never *"Crushed it!"* or *"+1 streak day!"*
-- OAuth write access makes a tool eligible; it does not replace action authority or review. Explicit low-risk instructions may execute through the canonical server dispatcher. Consequential or insufficiently explicit instructions persist a review proposal, while device-owned operations return a native handoff. Every completed write returns the same canonical receipt shape used by Kwilt Chat. Origin stays in the connection/action audit log, not as a badge on the object.
+- OAuth write access makes a tool eligible; it does not replace action authority or review. Explicit low-risk instructions may execute through the canonical server dispatcher. Consequential or insufficiently explicit instructions must preview, confirm, apply, and return their authoritative receipt in the originating agentic surface. A reviewed proposal is an intermediate state, never a terminal success. Device-owned operations return a native handoff only when the operation intrinsically requires device/provider authority.
+- External runs, proposals, and receipts remain durable for audit and retry, but their backing threads are not visible in Kwilt Chat. MCP never creates a sidebar conversation.
 
 **Inside Kwilt:**
 
 - Settings → Apps & connections shows ChatGPT, Claude, Cursor, and Codex as recognizable logo-led destinations, with another MCP app as a quieter manual fallback. Tapping a destination opens app-specific setup instructions. Manual setup explicitly identifies the value being copied as Kwilt's MCP server URL and explains where to paste it.
-- The main screen lists active connections with last-used timestamps. Tapping one opens its verified client identity, access, activity from that connection only, and disconnect action. Recent activity is not shown as a mixed top-level feed, and connections cannot be renamed in the initial release.
+- The main screen lists active connections with last-used timestamps. Tapping one opens its verified client identity, access, complete activity from that connection only, and disconnect action. Connections cannot be renamed in the initial release.
+- Home may show up to three recent, successful terminal writes in a quiet `Recently done` region. It deduplicates idempotent replays and excludes reads, failures, proposals, and native handoffs. This is a bounded completion projection, not the mixed raw activity feed rejected for Settings and not an approval surface.
 - Activities captured from external surfaces show a small surface-origin badge in the Activity card (Claude logo, ChatGPT logo). Tap → "Captured from Claude on May 3 at 8:42 PM."
 - A successful write to `capture_activity` from any external surface counts as a **show-up for that day**, integrating with the streak system shipped in `growth-loops-execution-plan.md` Sprint 1.
 - The Day-7 welcome email and weekly Chapter digest mention "captures from Claude/ChatGPT" alongside in-app activity, so the user sees the cross-surface picture.
@@ -121,11 +125,13 @@ Notably absent: no `set_streak`, no tool that returns a composite "growth score,
 
 ### Core capability coverage contract
 
-The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, a review proposal, a pending native/device handoff, or an explicit temporary boundary.
+The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, an actionable in-surface review continuation, a pending native/device handoff, or an explicit temporary boundary.
 
 Core coverage obligations are Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions. Navigation and notification actions are supporting controls. Games and Explore are explicitly excluded from external conversational control for this program; their absence must not be confused with an accidental catalog gap. AI can never attest publishing rights, complete retailer checkout or payment without provider authority, bypass native device authorization, or silently perform destructive/shared/financial actions.
 
-The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority.
+The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority. A reviewed operation may be externally exposed only when its immutable proposal has a registered server-owned inspect/apply/reject continuation; catalog validation must reject reviewed operations without that continuation.
+
+Implementation checkpoint (2026-09-16): external backing threads are locally classified out of the visible Chat list, and Home has a completed-write projection over the existing external audit trail. The catalog-wide reviewed-operation continuation is still incomplete: many proposal decisions remain implemented only by mobile capability executors. Do not deploy the thread-visibility migration as a complete MCP fix until those exposed reviewed operations can finish in the originating agentic surface or are temporarily withdrawn from the external catalog.
 
 ### Authorization and review contract
 
@@ -193,6 +199,8 @@ Key choices:
 - **Reuse existing Supabase Auth identity.** No new user table and no new sign-in flow. The OAuth provider binds revocable connector tokens to the same Supabase user identity without exposing a Supabase session to the MCP client.
 - **No second business-action implementation in MCP.** Protocol parsing, OAuth, compatibility names, idempotency, and audit are adapters. Actual writes run through the same capability-owned server dispatcher and durable proposal/receipt contracts used by Kwilt Chat.
 - **Audit log as first-class data.** New `kwilt_external_capture_log` table records every tool call (user_id, surface, tool, input hash, success, timestamp). This is what powers the surface-origin badge in-app, the per-surface analytics, and the per-source revoke.
+- **No external Chat projection.** External operations may reuse durable run infrastructure, but their backing threads carry `visible_in_chat = false`. Chat is a user conversation surface, not an implementation log.
+- **Home reads receipts; it does not own them.** The Home `Recently done` region filters the owner-scoped external audit log to recent terminal writes. Settings retains complete connection history, while confirmation and recovery stay with the originating agentic surface.
 
 ### Anti-pattern guardrails (instant-fail in code review)
 
@@ -204,6 +212,8 @@ From `docs/jtbd/_kwilt-context-primer.md`. The reviewer should reject the PR if 
 - A tool response that includes more user data than was requested (e.g. `capture_activity` returning the full Arc narrative).
 - Default-public anything. All data is user-scoped via RLS; the connector cannot expose another user's data even if asked.
 - Any tool that purports to send messages on behalf of the user to other people (sharing is its own surface — see `growth-evangelism-shared-goals.md`).
+- Any reviewed tool exposed without an in-surface inspect/apply/reject continuation.
+- Any Home receipt UI with unread counts, approval controls, failure pressure, gamification, or an unbounded activity timeline.
 
 ### Sprint plan
 

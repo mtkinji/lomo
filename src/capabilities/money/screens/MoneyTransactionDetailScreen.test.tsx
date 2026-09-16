@@ -124,18 +124,17 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).not.toContain('style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}');
   });
 
-  it('opens the merchant-rule guide before the category save returns and keeps review disabled until confirmation', () => {
+  it('only opens the merchant-rule guide after the category save is confirmed', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
     const selectCategory = source.slice(source.indexOf('const selectCategory = async'), source.indexOf('const selectMeaning = async'));
 
-    expect(selectCategory.indexOf("if (outcome === 'offer_rule')")).toBeLessThan(selectCategory.indexOf('const changed = await runReview'));
-    expect(selectCategory.indexOf('setPendingRuleCategory(category)')).toBeLessThan(selectCategory.indexOf('const changed = await runReview'));
-    expect(selectCategory).toContain('if (!changed) {');
-    expect(selectCategory).toContain('setPendingRuleCategory(null)');
-    expect(selectCategory).toContain('setCategoryPickerOpen(true)');
-    expect(source).toContain('onClose={saving ? undefined : () => void dismissRuleOffer()}');
-    expect(source).toContain('<Button loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>');
-    expect(source).toContain('<Button disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>');
+    expect(selectCategory.indexOf('const changed = await runReview')).toBeLessThan(selectCategory.indexOf("if (outcome === 'offer_rule')"));
+    expect(selectCategory.indexOf('const changed = await runReview')).toBeLessThan(selectCategory.indexOf('setPendingRuleCategory(category)'));
+    expect(selectCategory).toContain('if (!changed) return;');
+    expect(selectCategory).toContain('return;');
+    expect(source).toContain('onClose={() => void dismissRuleOffer()}');
+    expect(source).toContain('<Button onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>');
+    expect(source).toContain('<Button variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>');
   });
 
   it('makes transaction counts-as treatment compact and removes the standalone plan-treatment field', () => {
