@@ -71,6 +71,9 @@ import type { MoneyPlaidLinkSession } from '../native/moneyPlaidLinkTypes';
 import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { MoneyFirstLookScreen } from './MoneyFirstLookScreen';
+import { buildMoneyFirstLook } from '../domain/moneyFirstLook';
+import { useIsFocused } from '@react-navigation/native';
 import {
   completeMoneyOnboarding,
   loadMoneyOnboardingState,
@@ -148,6 +151,8 @@ export function MoneySetupExperience({
 }) {
   const insets = useSafeAreaInsets();
   const { reconcileConnectedActivity, refresh, snapshot, status } = useMoneyData();
+  const focused = useIsFocused();
+  const [firstLookDismissed, setFirstLookDismissed] = useState(false);
   const { capture } = useAnalytics();
   const entitlementIsPro = useEntitlementsStore((state) => state.isPro);
   const isProMember = demoScenario ? true : entitlementIsPro;
@@ -668,6 +673,24 @@ export function MoneySetupExperience({
   }
 
   if (step === 'intent' && assessment && coverageConfidence) {
+    if (__DEV__ && source === 'capability-onboarding' && !demoScenario && !firstLookDismissed) {
+      const finding = buildMoneyFirstLook(snapshot?.transactions ?? [], (snapshot?.accounts ?? []).map(({ id }) => id));
+      return <MoneyFirstLookScreen
+        active={focused}
+        finding={finding}
+        onContinue={() => setFirstLookDismissed(true)}
+        onExplore={leaveSetup}
+        onInspect={() => {
+          if (!finding) return;
+          navigation.navigate('MoneyTransactions', {
+            reviewTransactionIds: finding.transactionIds,
+            monthStart: finding.startDate,
+            monthEnd: finding.endDate,
+            inventoryTitle: 'Your first look',
+          });
+        }}
+      />;
+    }
     return (
       <MoneyPlanningIntentScreen
         assessment={assessment}

@@ -11,6 +11,12 @@ import {
 
 const mockSimulatePolicyDelivery = jest.fn();
 const mockListDevices = jest.fn();
+const mockAuthenticateRuleChange = jest.fn();
+
+jest.mock('../../screen-time/runtime/screenTimeRuleAuthentication', () => ({
+  authenticateScreenTimeRuleChange: (...args: unknown[]) => mockAuthenticateRuleChange(...args),
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE: "Kwilt couldn't confirm this change. The rule is still on.",
+}));
 
 jest.mock('./simulatedFamilyScreenTimeDevice', () => ({
   simulateFamilyScreenTimePolicyDelivery: (...args: unknown[]) => mockSimulatePolicyDelivery(...args),
@@ -44,6 +50,7 @@ describe('FamilyScreenTimeLearningScreen', () => {
       policyVersion: 1,
       acknowledgedAtIso: '2026-07-29T22:00:01.000Z',
     });
+    mockAuthenticateRuleChange.mockReset().mockResolvedValue({ outcome: 'authenticated' });
   });
 
   it('shows one device setup sentence and one action before setup', () => {
@@ -93,7 +100,7 @@ describe('FamilyScreenTimeLearningScreen', () => {
     );
 
     fireEvent.press(getByText('Turn on'));
-    expect(getByText('Applying to Charlie’s iPhone…')).toBeTruthy();
+    await waitFor(() => expect(getByText('Applying to Charlie’s iPhone…')).toBeTruthy());
     expect(queryByText('Turn on')).toBeNull();
 
     await act(async () => {
@@ -129,7 +136,7 @@ describe('FamilyScreenTimeLearningScreen', () => {
     fireEvent.press(getByText('45 min'));
     fireEvent.press(getByText('Save changes'));
 
-    expect(getByText('Applying to Charlie’s iPhone…')).toBeTruthy();
+    await waitFor(() => expect(getByText('Applying to Charlie’s iPhone…')).toBeTruthy());
     await act(async () => {
       resolveDelivery?.({
         policyVersion: 2,
@@ -137,6 +144,24 @@ describe('FamilyScreenTimeLearningScreen', () => {
       });
     });
     await waitFor(() => expect(getByText('Weekdays, 5–7 PM · 45 min/day')).toBeTruthy());
+  });
+
+  it('keeps an active family agreement unchanged when authentication is cancelled', async () => {
+    const store = useFamilyScreenTimeLearningStore.getState();
+    store.prepareSimulatedDevice(recordKey);
+    const version = store.activateAgreement(recordKey, '2026-07-29T22:00:00.000Z');
+    store.acknowledgePolicy(recordKey, version, '2026-07-29T22:00:01.000Z');
+    const before = useFamilyScreenTimeLearningStore.getState().records[recordKey];
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+
+    const { getByText } = renderWithProviders(<FamilyScreenTimeLearningScreen {...screenProps} />);
+    fireEvent.press(getByText('Edit'));
+    fireEvent.press(getByText('5 PM'));
+    fireEvent.press(getByText('Save changes'));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('save_active_family'));
+    expect(useFamilyScreenTimeLearningStore.getState().records[recordKey]).toEqual(before);
+    expect(mockSimulatePolicyDelivery).not.toHaveBeenCalled();
   });
 
   it('retries the same desired policy version after delivery fails', async () => {

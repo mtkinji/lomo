@@ -155,7 +155,7 @@ describe('capability registry', () => {
       ['explore', { root: 'Explore', screen: 'ExploreMap' }],
       ['games', { root: 'Games', screen: 'GamesShelf' }],
       ['recipes', { root: 'Food', screen: 'RecipeLibrary' }],
-      ['meal-planning', { root: 'Food', screen: 'NextMeals' }],
+      ['meal-planning', { root: 'Food', screen: 'RecipeLibrary' }],
       ['groceries', { root: 'Food', screen: 'GroceryList' }],
       ['chores', { root: 'Chores' }],
     ]);

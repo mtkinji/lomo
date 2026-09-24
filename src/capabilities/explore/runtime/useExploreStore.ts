@@ -336,6 +336,7 @@ export const useExploreStore = create<ExploreStore>()(
           trackingPolicy: session.trackingPolicy === 'adventure' || session.trackingPolicy === 'ambient'
             ? session.trackingPolicy
             : fallbackPolicy,
+          pathEvidence: session.pathEvidence === 'ambient-recovered' ? session.pathEvidence : undefined,
           points: Array.isArray(session?.points) ? session.points.map((point) => ({
             ...point,
             speedMps: typeof point.speedMps === 'number' && Number.isFinite(point.speedMps) && point.speedMps >= 0

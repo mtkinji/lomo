@@ -22,6 +22,12 @@ const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
 const mockLoadMoneySnapshot = jest.fn();
 const mockCapture = jest.fn();
+const mockAuthenticateRuleChange = jest.fn();
+
+jest.mock('../runtime/screenTimeRuleAuthentication', () => ({
+  authenticateScreenTimeRuleChange: (...args: unknown[]) => mockAuthenticateRuleChange(...args),
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE: "Kwilt couldn't confirm this change. The rule is still on.",
+}));
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -113,6 +119,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
     });
     mockCapture.mockReset();
+    mockAuthenticateRuleChange.mockReset().mockResolvedValue({ outcome: 'authenticated' });
     useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved' } });
     useEntitlementsStore.setState({ isPro: true });
   });
@@ -399,6 +406,50 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
 
     await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.enabled).toBe(false));
     expect(deactivatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  it('does not turn an active saved rule off when authentication is cancelled', async () => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Rule actions' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Turn off rule' }));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('disable_personal'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toEqual(saved);
+  });
+
+  it('does not save edits to an active rule when authentication is cancelled', async () => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('save_active_personal'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toMatchObject(saved);
+    expect(activatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
+    expect(deactivatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
   });
 
   it('keeps a dormant scheduled rule intact and asks Free for Pro before reactivation', async () => {

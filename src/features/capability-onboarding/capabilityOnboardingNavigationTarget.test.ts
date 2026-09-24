@@ -1,6 +1,11 @@
 import { buildCapabilityOnboardingNavigationTarget } from './capabilityOnboardingNavigationTarget';
 
 describe('buildCapabilityOnboardingNavigationTarget', () => {
+  it('hands Screen Time to its real permission and rule owner', () => {
+    expect(buildCapabilityOnboardingNavigationTarget({ kind: 'screen-time-setup' })).toEqual({
+      root: 'Settings', params: { screen: 'SettingsScreenTimeProtection' },
+    });
+  });
   it('routes Money through the real summary setup entry', () => {
     expect(buildCapabilityOnboardingNavigationTarget({ kind: 'money-app-control' })).toEqual({
       root: 'Money',
@@ -15,7 +20,7 @@ describe('buildCapabilityOnboardingNavigationTarget', () => {
     });
   });
 
-  it('can rehearse the Money handoff without existing budgets', () => {
+  it('never injects sample accounts when a real user has no budget', () => {
     expect(buildCapabilityOnboardingNavigationTarget(
       { kind: 'money-app-control' },
       { moneyBudgetState: 'none' },
@@ -27,10 +32,13 @@ describe('buildCapabilityOnboardingNavigationTarget', () => {
           requestedPlace: 'MoneySummary',
           source: 'capability-onboarding',
           mode: 'setup',
-          demoScenario: 'connected-household',
         },
       },
     });
+  });
+
+  it('routes Chores into its household-aware native owner', () => {
+    expect(buildCapabilityOnboardingNavigationTarget({ kind: 'chores-setup' })).toEqual({ root: 'Chores' });
   });
 
   it('routes Meals into the real recipe library', () => {

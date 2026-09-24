@@ -58,6 +58,11 @@ import { openPaywallInterstitial } from '../../../services/paywall';
 import { canSavePersonalRule, conditionRequiresPro } from '../domain/screenTimeAccessPolicy';
 import { isAdvancedScreenTimePaywallEnabled } from '../runtime/screenTimeMonetizationFlag';
 import { usePaywallStore, type PaywallResumeIntentKind } from '../../../store/usePaywallStore';
+import {
+  authenticateScreenTimeRuleChange,
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE,
+  type ScreenTimeRuleMutationClass,
+} from '../runtime/screenTimeRuleAuthentication';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
@@ -253,6 +258,19 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     setDrawer('condition');
   };
 
+  const authenticateRuleChange = async (mutationClass: ScreenTimeRuleMutationClass) => {
+    const authentication = await authenticateScreenTimeRuleChange(mutationClass);
+    capture(AnalyticsEvent.ScreenTimeRuleChangeAuthentication, {
+      mutation_class: mutationClass,
+      outcome: authentication.outcome,
+    });
+    if (authentication.outcome === 'authenticated') return true;
+    if (authentication.outcome !== 'cancelled') {
+      Alert.alert('Change not confirmed', SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE);
+    }
+    return false;
+  };
+
   const openConditionField = async (condition: PersonalRuleCondition) => {
     setActiveConditionId(condition.id);
     if (condition.type !== 'budget') {
@@ -375,6 +393,10 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       if (authorizationStatus !== 'approved') {
         throw new Error('screen_time_rule_authorization_required');
       }
+      if (existingRule?.enabled && !(await authenticateRuleChange('save_active_personal'))) {
+        setSaving(false);
+        return;
+      }
       await savePersonalCompositeScreenTimeRule({
         rule,
         expectedUpdatedAt: existingRule ? existingRule.lastUpdated ?? 'unversioned' : null,
@@ -416,6 +438,10 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       { text: 'Delete rule', style: 'destructive', onPress: () => void (async () => {
         setSaving(true);
         try {
+          if (!(await authenticateRuleChange('delete_personal'))) {
+            setSaving(false);
+            return;
+          }
           await deletePersonalCompositeScreenTimeRule({
             ruleId: existingRule.id,
             expectedUpdatedAt: existingRule.lastUpdated ?? 'unversioned',
@@ -440,6 +466,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       lastUpdated: new Date().toISOString(),
     };
     try {
+      if (existingRule.enabled && !nextEnabled
+        && !(await authenticateRuleChange('disable_personal'))) return;
       await savePersonalCompositeScreenTimeRule({
         rule: nextRule,
         expectedUpdatedAt: existingRule.lastUpdated ?? 'unversioned',

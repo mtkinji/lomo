@@ -13,15 +13,17 @@ serves:
 briefs:
   - rule-based-screen-time-contextual-unlock
   - screen-time-rule-governance
+  - screen-time-rule-aware-recovery
 status: shipping
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-19
 ---
 
 # Screen Time
 
 Owns the shared rule identity, active-restriction explanation, shield handoff,
-temporary-opening semantics, and contextual guide used by personal, Money, and
-family Screen Time agreements.
+bounded-override infrastructure, and contextual guide used by personal, Money,
+and family Screen Time agreements. The contextual guide itself explains and
+routes; it does not offer a temporary opening.
 
 It also owns the grouped Settings inventory and constrained builder contract
 that make private personal rules and shared Household rules inspectable without
@@ -37,6 +39,9 @@ collapsing their distinct visibility or authority.
 - Family authority remains distinct from Apple authorization and device delivery.
 - Children can act on a requirement or request caregiver help, but cannot approve
   their own temporary access.
+- The contextual guide offers a prerequisite action only when it can resolve the
+  complete active blocking set. Authorized adults may follow a quiet link to the
+  canonical editor; active-rule changes require fresh authentication.
 - Immediate manual control and unscheduled, single-condition Focus or
   daily-usage rules remain Free. Time-of-day or recurring schedules, a second
   condition, and explicit AND/OR composition require Pro; app, rule, and minute

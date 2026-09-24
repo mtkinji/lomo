@@ -6,6 +6,7 @@ import { colors, radii, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawer } from './BottomDrawer';
+import type { BottomDrawerFooterConfig } from './layout/BottomDrawerSemanticFooter';
 import { bottomDrawerChromeTokens } from './drawerTokens';
 import { useToastStore } from '../store/useToastStore';
 
@@ -66,6 +67,8 @@ interface BottomGuideProps {
   onClose?: () => void;
   /** Called after the guide's drawer host has fully unmounted. */
   bottomAccessory?: ReactNode;
+  /** Keep bounded-task actions fixed below a scrolling guide body. */
+  footer?: BottomDrawerFooterConfig;
   /**
    * Main content for the guide card rendered near the bottom of the canvas.
    * Typically includes a title, supporting copy, and primary / secondary
@@ -107,6 +110,7 @@ export function BottomGuide({
   showDragHandle = true,
   onClose,
   bottomAccessory,
+  footer,
   children,
   dynamicSizing = false,
   animateOnClose = false,
@@ -180,7 +184,8 @@ export function BottomGuide({
       dynamicSizing={dynamicSizing}
       animateOnHide={animateOnClose}
       bottomAccessory={bottomAccessory}
-      contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory) || contentExtendsIntoBottomSafeArea}
+      footer={footer}
+      contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory || footer) || contentExtendsIntoBottomSafeArea}
     >
       <View style={[styles.content, contentStyle]}>{children}</View>
     </BottomDrawer>

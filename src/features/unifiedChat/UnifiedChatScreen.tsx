@@ -91,6 +91,7 @@ import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { unifiedChatResumeRefreshReason } from './resumeRefreshPolicy';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { authenticateScreenTimeRuleChange } from '../screen-time/runtime/screenTimeRuleAuthentication';
 import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
@@ -1293,6 +1294,7 @@ export function UnifiedChatScreen({
               await executeScreenTimeProposalDecision({
                 proposal, action: 'approve', repository, client: getSupabaseClient(),
                 personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
+                authenticateRuleChange: authenticateScreenTimeRuleChange,
               });
             } else if (proposal.capabilityId === 'plan') {
               await executePlanProposalDecision({
@@ -1463,6 +1465,7 @@ export function UnifiedChatScreen({
             await executeScreenTimeProposalDecision({
               proposal, action: command.action, repository, client: getSupabaseClient(),
               personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
+              authenticateRuleChange: authenticateScreenTimeRuleChange,
             });
             track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
               buildFamilyScreenTimeDecisionTelemetry(

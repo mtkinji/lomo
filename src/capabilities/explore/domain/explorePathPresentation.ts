@@ -1,4 +1,4 @@
-import { isRecordedPathContinuous } from './exploreGeometry';
+import { isRecordedPathContinuous, isRecoveredPathContinuous } from './exploreGeometry';
 import type { ExplorePoint, ExploreSession } from './types';
 
 export type PathPresentationInput = {
@@ -18,6 +18,7 @@ export type PathPresentation = {
     recordingStart: ExplorePoint | null;
     recordingEnd: ExplorePoint | null;
     hasMissingObservations: boolean;
+    pathEvidence: ExploreSession['pathEvidence'];
   } | null;
 };
 
@@ -31,7 +32,17 @@ function validObservation(point: ExplorePoint): boolean {
 
 export function completedPathHistory(sessions: readonly ExploreSession[], excludedSessionId: string | null): readonly (readonly ExplorePoint[])[] {
   return sessions.filter(session => session.trackingPolicy === 'adventure' &&
-    Boolean(session.endedAt) && session.id !== excludedSessionId).map(session => session.points);
+    session.pathEvidence !== 'ambient-recovered' && Boolean(session.endedAt) &&
+    session.id !== excludedSessionId).map(session => session.points);
+}
+
+export function completedRecoveredPathHistory(
+  sessions: readonly ExploreSession[],
+  excludedSessionId: string | null,
+): readonly (readonly ExplorePoint[])[] {
+  return sessions.filter(session => session.trackingPolicy === 'adventure' &&
+    session.pathEvidence === 'ambient-recovered' && Boolean(session.endedAt) &&
+    session.id !== excludedSessionId).map(session => session.points);
 }
 
 /** Presentation owns no persisted geometry; selection never repairs missing evidence. */
@@ -51,8 +62,11 @@ export function buildPathPresentation(input: PathPresentationInput): PathPresent
   const points = count === selected.points.length ? selected.points : selected.points.slice(0, count);
   const validPoints = points.filter(validObservation);
   // Inspect original adjacency, before simplification creates native chunks.
+  const isContinuous = selected.pathEvidence === 'ambient-recovered'
+    ? isRecoveredPathContinuous
+    : isRecordedPathContinuous;
   const hasMissingObservations = selected.points.some((point, index) => !validObservation(point) ||
-    (index > 0 && !isRecordedPathContinuous(selected.points[index - 1], point)));
+    (index > 0 && !isContinuous(selected.points[index - 1], point)));
   return {
     historyGroups,
     foreground: {
@@ -62,6 +76,7 @@ export function buildPathPresentation(input: PathPresentationInput): PathPresent
       recordingStart: validPoints[0] ?? null,
       recordingEnd: !recording && count === selected.points.length ? validPoints.at(-1) ?? null : null,
       hasMissingObservations,
+      pathEvidence: selected.pathEvidence,
     },
   };
 }

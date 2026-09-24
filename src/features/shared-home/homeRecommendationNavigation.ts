@@ -27,6 +27,9 @@ export function homeRecommendationTarget(
     case "recipes":
       return { name: "Food", params: { screen: "RecipeLibrary" } };
     case "meal-planning":
-      return { name: "Food", params: { screen: "NextMeals" } };
+      return {
+        name: "Food",
+        params: { screen: "RecipeLibrary", params: { openPlan: true } },
+      };
   }
 }

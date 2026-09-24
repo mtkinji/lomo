@@ -23,6 +23,6 @@ it("uses real automatic Money entry and native meal surfaces without rehearsal f
   });
   expect(homeRecommendationTarget("meal-planning")).toEqual({
     name: "Food",
-    params: { screen: "NextMeals" },
+    params: { screen: "RecipeLibrary", params: { openPlan: true } },
   });
 });

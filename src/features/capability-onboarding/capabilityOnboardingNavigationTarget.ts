@@ -9,7 +9,6 @@ export type CapabilityOnboardingNavigationTarget =
           requestedPlace: 'MoneySummary';
           source: 'capability-onboarding';
           mode: 'automatic' | 'setup';
-          demoScenario?: 'connected-household';
         };
       };
     }
@@ -29,6 +28,8 @@ export type CapabilityOnboardingNavigationTarget =
       };
     }
   | { root: 'FirstTimeUx'; entryMode: 'capability-path' }
+  | { root: 'Chores' }
+  | { root: 'Settings'; params: { screen: 'SettingsScreenTimeProtection' } }
   | null;
 
 export function buildCapabilityOnboardingNavigationTarget(
@@ -45,7 +46,6 @@ export function buildCapabilityOnboardingNavigationTarget(
             requestedPlace: 'MoneySummary',
             source: 'capability-onboarding',
             mode: _options.moneyBudgetState === 'none' ? 'setup' : 'automatic',
-            ...(_options.moneyBudgetState === 'none' ? { demoScenario: 'connected-household' as const } : {}),
           },
         },
       };
@@ -59,6 +59,10 @@ export function buildCapabilityOnboardingNavigationTarget(
       };
     case 'identity-workflow':
       return { root: 'FirstTimeUx', entryMode: 'capability-path' };
+    case 'chores-setup':
+      return { root: 'Chores' };
+    case 'screen-time-setup':
+      return { root: 'Settings', params: { screen: 'SettingsScreenTimeProtection' } };
     case 'unified-chat':
       return {
         root: 'UnifiedChat',

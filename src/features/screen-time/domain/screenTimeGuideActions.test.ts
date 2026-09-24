@@ -4,17 +4,18 @@ import {
 } from './screenTimeGuideActions';
 import type { ScreenTimeRule } from './screenTimeRule';
 
-const selfRule = (id: string, allowed = true): ScreenTimeRule => ({
-  id,
+const selfRule = (overrides: Partial<ScreenTimeRule> = {}): ScreenTimeRule => ({
+  id: 'real-step',
   domain: 'personal',
   subject: { kind: 'self' },
-  selectionId: id,
+  selectionId: 'real-step',
   title: 'Do a real step first',
   trigger: { type: 'real_step_pending', minFocusMinutes: 10 },
-  temporaryOpen: { allowed, durationMinutes: 20 },
+  temporaryOpen: { allowed: true, durationMinutes: 20 },
   active: true,
   desiredVersion: 1,
   appliedVersion: 1,
+  ...overrides,
 });
 
 const familyRule = (childMembershipId = 'child-1'): ScreenTimeRule => ({
@@ -30,51 +31,68 @@ const familyRule = (childMembershipId = 'child-1'): ScreenTimeRule => ({
   appliedVersion: 4,
 });
 
-const project = (actor: ScreenTimeActor, rules: ScreenTimeRule[]) =>
-  projectScreenTimeGuideActions({ actor, activeRules: rules });
+const project = (
+  actor: ScreenTimeActor,
+  rules: ScreenTimeRule[],
+  unresolvedCount = 0,
+) => projectScreenTimeGuideActions({ actor, activeRules: rules, unresolvedCount });
 
 describe('projectScreenTimeGuideActions', () => {
-  it('lets an adult temporarily open every applicable self-authored rule atomically', () => {
-    expect(project({ kind: 'self_adult' }, [selfRule('real-step'), selfRule('focus')])).toMatchObject({
-      canTemporarilyOpen: true,
-      temporaryOpenMinutes: 20,
-      temporaryOpenRuleIds: ['real-step', 'focus'],
+  it('offers one exact prerequisite only when it resolves the full active set', () => {
+    expect(project({ kind: 'self_adult' }, [selfRule()])).toMatchObject({
+      resolutionKind: 'actionable',
+      requirementAction: {
+        kind: 'real_step',
+        label: 'Do this first',
+        destination: 'kwilt://today?source=screen-time&highlightSuggested=1',
+      },
+      canManageRules: true,
+    });
+
+    expect(project({ kind: 'self_adult' }, [
+      selfRule(),
+      selfRule({ id: 'focus', trigger: { type: 'focus_active' } }),
+    ])).toMatchObject({ resolutionKind: 'mixed', requirementAction: null });
+  });
+
+  it('treats time and usage rules as boundaries without a generic action', () => {
+    expect(project({ kind: 'self_adult' }, [selfRule({
+      trigger: { type: 'daily_usage_limit', minutes: 15, reset: 'daily' },
+    })])).toMatchObject({
+      resolutionKind: 'boundary',
+      requirementAction: null,
+      canManageRules: true,
     });
   });
 
-  it('does not offer a temporary opening when any overlapping rule cannot be overridden', () => {
-    expect(project({ kind: 'self_adult' }, [selfRule('real-step'), selfRule('focus', false)])).toMatchObject({
-      canTemporarilyOpen: false,
-      temporaryOpenRuleIds: [],
+  it('suppresses prerequisite actions when any restriction is unresolved', () => {
+    expect(project({ kind: 'self_adult' }, [selfRule()], 1)).toMatchObject({
+      resolutionKind: 'unresolved',
+      requirementAction: null,
+      canManageRules: true,
     });
   });
 
-  it('lets an owner or scoped caregiver temporarily open a family rule', () => {
-    expect(project({ kind: 'household_owner' }, [familyRule()]).canTemporarilyOpen).toBe(true);
-    expect(project({ kind: 'household_caregiver', childMembershipIds: ['child-1'] }, [familyRule()]).canTemporarilyOpen).toBe(true);
-  });
-
-  it('never lets a child or unscoped caregiver directly open a family rule', () => {
-    expect(project({ kind: 'household_child', membershipId: 'child-1' }, [familyRule()])).toMatchObject({
-      canTemporarilyOpen: false,
-      temporaryOpenRuleIds: [],
+  it('allows management for an owner or scoped caregiver but never for a child', () => {
+    expect(project({ kind: 'household_owner' }, [familyRule()])).toMatchObject({
+      canManageRules: true,
+      requiresCaregiver: false,
+    });
+    expect(project(
+      { kind: 'household_caregiver', childMembershipIds: ['child-1'] },
+      [familyRule()],
+    )).toMatchObject({ canManageRules: true, requiresCaregiver: false });
+    expect(project(
+      { kind: 'household_child', membershipId: 'child-1' },
+      [familyRule()],
+    )).toMatchObject({
+      canManageRules: false,
       requiresCaregiver: true,
+      requirementAction: null,
     });
-    expect(project({ kind: 'household_caregiver', childMembershipIds: ['child-2'] }, [familyRule()])).toMatchObject({
-      canTemporarilyOpen: false,
-      temporaryOpenRuleIds: [],
-      requiresCaregiver: true,
-    });
-  });
-
-  it('does not claim an atomic opening for two family claims on one child', () => {
-    const first = familyRule();
-    const second = {
-      ...familyRule(),
-      id: 'family-social',
-      selectionId: 'family_social',
-      trigger: { type: 'family_agreement' as const, agreementId: 'agreement-2' },
-    };
-    expect(project({ kind: 'household_owner' }, [first, second]).canTemporarilyOpen).toBe(false);
+    expect(project(
+      { kind: 'household_caregiver', childMembershipIds: ['child-2'] },
+      [familyRule()],
+    )).toMatchObject({ canManageRules: false, requiresCaregiver: true });
   });
 });

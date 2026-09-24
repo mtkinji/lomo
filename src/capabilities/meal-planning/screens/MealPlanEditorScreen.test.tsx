@@ -81,6 +81,6 @@ describe('MealPlanEditorScreen', () => {
       candidates: [expect.objectContaining({ title: "Grandma Ruth's Cake" })],
     })));
     expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('householdId');
-    expect(replace).toHaveBeenCalledWith('NextMeals');
+    expect(replace).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true });
   });
 });

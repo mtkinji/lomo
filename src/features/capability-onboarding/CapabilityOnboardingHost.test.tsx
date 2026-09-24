@@ -1,4 +1,5 @@
 import React from 'react';
+import { ScrollView } from 'react-native';
 import { act, fireEvent, within } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -7,6 +8,7 @@ import { useCapabilityOnboardingStore } from './useCapabilityOnboardingStore';
 import { AnalyticsEvent } from '../../services/analytics/events';
 
 const mockCapture = jest.fn();
+jest.mock('./OnboardingShorelineBackdrop', () => ({ OnboardingShorelineBackdrop: () => null }));
 jest.mock('../../services/analytics/useAnalytics', () => ({
   useAnalytics: () => ({ capture: mockCapture }),
 }));
@@ -53,6 +55,52 @@ describe('CapabilityOnboardingHost', () => {
     expect(screen.queryByText('Continue')).toBeNull();
     expect(screen.queryByText(/swipe to choose/i)).toBeNull();
     expect(screen.queryByText('What do you want help with?')).toBeNull();
+  });
+
+  it.each([
+    ['Make a plan for your money', 'Set up Money', 'budget-app-controls', 'money'],
+    ['Make room for less screen time', 'Set up Screen Time', 'screen-time-controls', 'screen'],
+    ['Plan meals together', 'Plan a meal', 'make-meals-easier', 'household'],
+    ['Plan meals together', 'Start with chores', 'household-chores', 'household'],
+    ['Set goals and get help reaching them', 'Create a goal', 'make-progress', 'goals'],
+  ])('shows an illustrated invitation for %s before handing off %s', (label, action, id, illustration) => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    expect(screen.queryByTestId('capabilityOnboarding.pager')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    const artwork = screen.getByTestId(`onboarding.illustration.${illustration}`, { includeHiddenElements: true });
+    // Decorative scenes must not move with the copy's accessibility overflow.
+    let ancestor = artwork.parent;
+    while (ancestor) {
+      expect(ancestor.type).not.toBe(ScrollView);
+      ancestor = ancestor.parent;
+    }
+    expect(screen.queryByText('Example · not your data')).toBeNull();
+    expect(onStartPath).not.toHaveBeenCalled();
+    expect(useCapabilityOnboardingStore.getState().recordForUser('user-a').selectedPathId).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: action }));
+    expect(onStartPath).toHaveBeenCalledTimes(1);
+    expect(onStartPath).toHaveBeenCalledWith(expect.objectContaining({ id }));
+  });
+
+  it('exits the signed-in starter without selecting or creating work', () => {
+    const { screen, onStartPath, onExploreKwilt } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Skip' }));
+    expect(onStartPath).not.toHaveBeenCalled();
+    expect(onExploreKwilt).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets someone return from an example and choose a different start without creating work', () => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Make a plan for your money' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Let’s get your house in order.')).toBeTruthy();
+    expect(screen.getByText('We can start with just one thing.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Built to help you get—and keep—your house in order.')).toBeTruthy();
+    expect(onStartPath).not.toHaveBeenCalled();
   });
 
   it('persists a viewed door without selecting it', () => {

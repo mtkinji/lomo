@@ -112,7 +112,9 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
   const usualDinerCount = preferences?.usualDinerCount ?? Math.max(1, usualDinerPersonIds.length || 2);
   const members = preferences?.members ?? [];
   const { capture } = useAnalytics();
-  const continueToNextMeals = () => navigation.replace('NextMeals', {
+  const continueToMealPlan = () => navigation.replace('RecipeLibrary', {
+    openPlan: true,
+    planId: route.params.planId,
     feedbackPromptId: 'meal_plan_finalized_satisfaction_v1',
   });
 
@@ -176,7 +178,7 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
         await AsyncStorage.setItem(offerKey, 'seen');
         setShowReminderOffer(true);
       } else {
-        continueToNextMeals();
+        continueToMealPlan();
       }
     } catch (error) {
       capture(AnalyticsEvent.MealPlanFinalizeFailed, {
@@ -238,13 +240,13 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
       /> : null}
       <MealPlanningReminderOfferDrawer
         visible={showReminderOffer}
-        onClose={() => { setShowReminderOffer(false); continueToNextMeals(); }}
+        onClose={() => { setShowReminderOffer(false); continueToMealPlan(); }}
         onCreate={({ mode, reminderAt }) => {
           if (!plan?.householdId) return;
           const nowIso = new Date().toISOString();
           addActivity(buildMealPlanningReminderActivity({ mode, reminderAt, householdId: plan.householdId, nowIso, id: `meal-plan-reminder-${Date.now()}` }));
           setShowReminderOffer(false);
-          continueToNextMeals();
+          continueToMealPlan();
         }}
       />
     </AppShell>

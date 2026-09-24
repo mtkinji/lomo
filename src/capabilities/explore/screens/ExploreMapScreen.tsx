@@ -50,6 +50,8 @@ import {
   EXPLORE_REVEAL_RADIUS_M,
   isCoordinateExplored,
   buildRecordedPathTraces,
+  buildRecoveredPathTraces,
+  smoothExplorePresentationTrace,
 } from '../domain/exploreGeometry';
 import type { ExploreNearbyRadius, ExploreNearbyRecommendation } from '../domain/exploreNearby';
 import {
@@ -57,7 +59,10 @@ import {
   explorePlaybackDurationMs,
 } from '../domain/explorePlayback';
 import { buildHistoryHeatGeometry } from '../domain/exploreHistoryHeat';
-import { buildPathPresentation, completedPathHistory } from '../domain/explorePathPresentation';
+import {
+  buildPathPresentation,
+  completedPathHistory,
+} from '../domain/explorePathPresentation';
 import { displayPointsForExploreSession } from '../domain/explorePathReconstruction';
 import { pendingExploreRecap, type ExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExplorePreferences, ExploreSession, Place } from '../domain/types';
@@ -123,7 +128,7 @@ function recordedPathPointGroupsInDisplayOrder(
   playback?: { sessionId: string; visiblePointCount: number } | null,
 ): ExplorePoint[][] {
   const groups = [...sessions].reverse().flatMap((session) => {
-    if (session.trackingPolicy !== 'adventure') return [];
+    if (session.trackingPolicy !== 'adventure' || session.pathEvidence === 'ambient-recovered') return [];
     const points = displayPointsForExploreSession(session);
     return [playback?.sessionId === session.id
       ? points.slice(0, playback.visiblePointCount)
@@ -131,6 +136,18 @@ function recordedPathPointGroupsInDisplayOrder(
   });
   if (active?.trackingPolicy === 'adventure') groups.push(active.points);
   return groups;
+}
+
+function recoveredPathPointGroupsInDisplayOrder(
+  sessions: ExploreSession[],
+  playback?: { sessionId: string; visiblePointCount: number } | null,
+): ExplorePoint[][] {
+  return [...sessions].reverse().flatMap((session) => {
+    if (session.trackingPolicy !== 'adventure' || session.pathEvidence !== 'ambient-recovered') return [];
+    return [playback?.sessionId === session.id
+      ? session.points.slice(0, playback.visiblePointCount)
+      : session.points];
+  });
 }
 
 function regionAround(
@@ -316,6 +333,15 @@ export function ExploreMapScreen() {
     ),
     [activeSession, playbackActive, playbackFrame, reviewAdventureSession, sessions],
   );
+  const recoveredPathPointGroups = useMemo(
+    () => recoveredPathPointGroupsInDisplayOrder(
+      sessions,
+      playbackActive && reviewAdventureSession && playbackFrame
+        ? { sessionId: reviewAdventureSession.id, visiblePointCount: playbackFrame.visiblePointCount }
+        : null,
+    ),
+    [playbackActive, playbackFrame, reviewAdventureSession, sessions],
+  );
   const pathPresentation = useMemo(() => buildPathPresentation({
     sessions, activeSession, reviewedSessionId: reviewAdventureSession?.id ?? null,
     playbackVisiblePointCount: playbackFrame?.visiblePointCount ?? null,
@@ -347,9 +373,18 @@ export function ExploreMapScreen() {
     () => recordedPathGeometry.filter((trace) => trace.length > 1),
     [recordedPathGeometry],
   );
+  const recoveredPathGeometry = useMemo(
+    () => buildRecoveredPathTraces(recoveredPathPointGroups).filter((trace) => trace.length > 1),
+    [recoveredPathPointGroups],
+  );
+  const visiblePathTraces = useMemo(
+    () => [...presentationTraces, ...recoveredPathGeometry]
+      .map((trace) => smoothExplorePresentationTrace(trace)),
+    [presentationTraces, recoveredPathGeometry],
+  );
   const altitudeGradients = useMemo(
-    () => presentationTraces.flatMap((trace) => buildAltitudeGradients(trace, true)),
-    [presentationTraces],
+    () => visiblePathTraces.flatMap((trace) => buildAltitudeGradients(trace, true)),
+    [visiblePathTraces],
   );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
@@ -649,7 +684,7 @@ export function ExploreMapScreen() {
         />
         </> : null}
         {preferences.showMyPath ? <>
-          {presentationTraces.map((trace, index) => (
+          {visiblePathTraces.map((trace, index) => (
             <Polyline
               key={`path-casing-${index}`}
               testID="explore.path.casing"
@@ -676,13 +711,15 @@ export function ExploreMapScreen() {
         </> : null}
         {Platform.OS === 'ios' && pathPresentation.foreground?.recordingStart ? (
           <Marker testID="explore.path.start" coordinate={pathPresentation.foreground.recordingStart}
-            title="Recording started" anchor={{ x: 0.5, y: 0.5 }}>
+            title={pathPresentation.foreground.pathEvidence === 'ambient-recovered'
+              ? 'Recovered path starts' : 'Recording started'} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 3, borderColor: '#5F7E54', backgroundColor: 'white' }} />
           </Marker>
         ) : null}
         {Platform.OS === 'ios' && pathPresentation.foreground?.recordingEnd ? (
           <Marker testID="explore.path.end" coordinate={pathPresentation.foreground.recordingEnd}
-            title="Recording ended" anchor={{ x: 0.5, y: 0.5 }}>
+            title={pathPresentation.foreground.pathEvidence === 'ambient-recovered'
+              ? 'Recovered path ends' : 'Recording ended'} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={{ width: 16, height: 16, borderRadius: 3, borderWidth: 3, borderColor: 'white', backgroundColor: '#2F6F89' }} />
           </Marker>
         ) : null}
@@ -851,7 +888,11 @@ export function ExploreMapScreen() {
               onPress={recorder.beginOnboarding}
               style={styles.primaryAction}
             >
-              {recorder.status === 'locating' ? 'Finding you…' : 'Record a Path'}
+              {recorder.status === 'requesting-permission'
+                ? 'Starting…'
+                : recorder.status === 'locating'
+                  ? 'Finding you…'
+                  : 'Record a Path'}
             </Button>
           </View>
         </View>
@@ -966,7 +1007,11 @@ export function ExploreMapScreen() {
                 }}
                 style={styles.startPathAction}
               >
-                {recorder.status === 'locating' ? 'Finding…' : 'Start path'}
+                {recorder.status === 'requesting-permission'
+                  ? 'Starting…'
+                  : recorder.status === 'locating'
+                    ? 'Finding…'
+                    : 'Start path'}
               </Button>
             </>
           )}
@@ -1242,7 +1287,12 @@ export function ExploreMapScreen() {
                 onProgressChange={scrubAdventurePlayback}
               />
             ) : null}
-            {pathPresentation.foreground?.kind === 'review' && pathPresentation.foreground.hasMissingObservations ? (
+            {pathPresentation.foreground?.kind === 'review' &&
+            pathPresentation.foreground.pathEvidence === 'ambient-recovered' ? (
+              <Text testID="explore.path.recovered-note" style={styles.searchEmpty}>
+                Recovered from automatic location samples. Gaps remain where no sample was recorded.
+              </Text>
+            ) : pathPresentation.foreground?.kind === 'review' && pathPresentation.foreground.hasMissingObservations ? (
               <Text testID="explore.path.gaps" style={styles.searchEmpty}>Some parts of this path weren’t recorded.</Text>
             ) : null}
             {reviewPlaces.length ? (

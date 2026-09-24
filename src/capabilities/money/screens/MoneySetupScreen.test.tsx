@@ -29,6 +29,8 @@ import {
 const mockUseMoneyData = jest.fn();
 const mockPrepareMoneyPlaidLink = jest.fn();
 const mockCapture = jest.fn();
+jest.mock('../../../features/capability-onboarding/OnboardingShorelineBackdrop', () => ({ OnboardingShorelineBackdrop: () => null }));
+jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useIsFocused: () => true }));
 
 jest.mock('../native/moneyPlaidLink', () => ({
   startMoneyPlaidLink: jest.fn(),

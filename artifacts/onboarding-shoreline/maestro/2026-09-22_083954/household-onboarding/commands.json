@@ -1,0 +1,169 @@
+[ {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "MAESTRO_FILENAME" : "household-onboarding",
+        "MAESTRO_DEVICE_UDID" : "D437E709-EF87-49B1-A6C1-7AE350C0BF8A",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1790088006360,
+    "duration" : 3,
+    "sequenceNumber" : 0,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "defineVariablesCommand" : {
+        "env" : {
+          "MAESTRO_FILENAME" : "household-onboarding",
+          "MAESTRO_DEVICE_UDID" : "D437E709-EF87-49B1-A6C1-7AE350C0BF8A",
+          "MAESTRO_SHARD_ID" : "1",
+          "MAESTRO_SHARD_INDEX" : "0"
+        },
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "com.andrewwatanabe.kwilt"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1790088006364,
+    "duration" : 2,
+    "sequenceNumber" : 1,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "applyConfigurationCommand" : {
+        "config" : {
+          "appId" : "com.andrewwatanabe.kwilt"
+        },
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "openLinkCommand" : {
+      "link" : "kwilt://__dev/tools",
+      "autoVerify" : false,
+      "browser" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1790088006366,
+    "duration" : 384,
+    "sequenceNumber" : 2,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "openLinkCommand" : {
+        "link" : "kwilt://__dev/tools",
+        "autoVerify" : false,
+        "browser" : false,
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "textRegex" : "Not now",
+        "optional" : true
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : true
+    }
+  },
+  "metadata" : {
+    "status" : "WARNED",
+    "timestamp" : 1790088006751,
+    "duration" : 7134,
+    "sequenceNumber" : 3,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "tapOnElement" : {
+        "selector" : {
+          "textRegex" : "Not now",
+          "optional" : true
+        },
+        "retryIfNoChange" : false,
+        "waitUntilVisible" : false,
+        "longPress" : false,
+        "optional" : true
+      }
+    },
+    "artifacts" : [ {
+      "type" : "SCREEN_HIERARCHY",
+      "path" : "screen-hierarchy/step-004-tapOnElement-Not_now.json"
+    }, {
+      "type" : "SCREENSHOT",
+      "path" : "screenshots/step-004-tapOnElement-Not_now.png"
+    } ]
+  }
+}, {
+  "command" : {
+    "scrollUntilVisible" : {
+      "selector" : {
+        "idRegex" : "dev.capabilityOnboarding.open",
+        "optional" : false
+      },
+      "direction" : "DOWN",
+      "scrollDuration" : "40",
+      "visibilityPercentage" : 100,
+      "timeout" : "20000",
+      "centerElement" : false,
+      "originalSpeedValue" : "40",
+      "optional" : false,
+      "visibilityPercentageNormalized" : 1.0
+    }
+  },
+  "metadata" : {
+    "status" : "FAILED",
+    "timestamp" : 1790088014089,
+    "duration" : 20854,
+    "error" : {
+      "message" : "No visible element found: id: dev.capabilityOnboarding.open",
+      "debugMessage" : "Could not find a visible element matching selector: id: dev.capabilityOnboarding.open\nTip: Try adjusting the following settings to improve detection:\n- `timeout`: current = 20000ms → Increase if you need more time to find the element\n- `speed`: current = 40 (0-100 scale) → Increase for faster scrolling if element is far away\n- `waitToSettleTimeoutMs`: current = Not defined → Set this value (e.g., 500ms) if your UI updates frequently between scrolls\n- `visibilityPercentage`: current = 100% → Lower this value if you want to detect partially visible elements\n- `centerElement`: current = false → Enable if you want the element to be centered after finding it\n"
+    },
+    "sequenceNumber" : 4,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "scrollUntilVisible" : {
+        "selector" : {
+          "idRegex" : "dev.capabilityOnboarding.open",
+          "optional" : false
+        },
+        "direction" : "DOWN",
+        "scrollDuration" : "601",
+        "visibilityPercentage" : 100,
+        "timeout" : "20000",
+        "centerElement" : false,
+        "originalSpeedValue" : "40",
+        "optional" : false,
+        "visibilityPercentageNormalized" : 1.0
+      }
+    },
+    "artifacts" : [ {
+      "type" : "SCREEN_HIERARCHY",
+      "path" : "screen-hierarchy/step-005-scrollUntilVisible-dev.capabilityOnboard.json"
+    }, {
+      "type" : "SCREENSHOT",
+      "path" : "screenshots/step-005-scrollUntilVisible-dev.capabilityOnboard.png"
+    } ]
+  }
+} ]

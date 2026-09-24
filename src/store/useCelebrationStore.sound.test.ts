@@ -87,4 +87,27 @@ describe('completion celebration sound orchestration', () => {
     expect(useCelebrationStore.getState().activeCelebration?.id).toBe('all-done-2026-08-10');
     expect(useCelebrationStore.getState().hasBeenShown('all-done-2026-08-10')).toBe(true);
   });
+
+  it('celebrates the returning action as the streak recovery', () => {
+    setStreakState({ currentStreak: 10, lastDate: '2026-08-07' });
+    useAppStore.setState({
+      streakGrace: {
+        freeDaysRemaining: 0,
+        lastFreeResetWeek: '2026-W32',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    recordShowUpWithCelebration({ baseSound: 'activity' });
+    jest.advanceTimersByTime(500);
+
+    expect(useCelebrationStore.getState().activeCelebration).toMatchObject({
+      kind: 'streakRepaired',
+      headline: '11 days and counting.',
+      subheadline: 'You came back and made today count. Strong work.',
+      ctaLabel: 'Continue',
+    });
+  });
 });

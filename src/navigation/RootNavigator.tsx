@@ -212,6 +212,7 @@ export type RootDrawerParamList = {
   ProPlanChooser: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: {
+    householdOnboarding?: string;
     homePreview?:string;
     homeItems?:string;
     homeItemId?:string;

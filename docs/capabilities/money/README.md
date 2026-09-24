@@ -34,6 +34,10 @@ frozen source below.
 
 ## Supporting Topical Material
 
+- Competitive benchmark: [Origin as the Kwilt Money execution benchmark](../../research/origin-money-competitive-benchmark.md)
+  separates authenticated product observation, Origin's documented claims,
+  current Kwilt source, and unknowns; it defines match, leapfrog, ignore, and
+  the three highest-leverage roadmap priorities.
 - Design explorations: [`docs/design-explorations/`](../../design-explorations/)
   contains the 31 Money topic folders imported from the frozen source alongside
   the parent-app integration exploration.

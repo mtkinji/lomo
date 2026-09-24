@@ -1,7 +1,7 @@
 import type { ActivityActionCardProvider, ActivityCardReceipt } from '../../../features/activities/actionCards/activityActionCardTypes';
 
 type AuthorityProjection = { state: 'draft'|'collecting_choices'|'ready_to_finalize'|'finalized'|'open'|'closed'|'unavailable'|'unauthorized'; responseCount: number; unresolvedMealCount?: number };
-type Target = { screen: 'NextMeals'; params?: undefined } | { screen: 'MealChoiceResponse'; params: { roundId: string; intent?: 'pass' } };
+type Target = { screen: 'RecipeLibrary'; params: { openPlan: true } } | { screen: 'MealChoiceResponse'; params: { roundId: string; intent?: 'pass' } };
 
 export function createMealPlanningActivityCardProvider(input: {
   resolve(resourceRef: string, projectionKind: string, viewerPersonId: string): Promise<AuthorityProjection>;
@@ -25,7 +25,7 @@ export function createMealPlanningActivityCardProvider(input: {
     async invoke(invocation): Promise<ActivityCardReceipt> {
       const target: Target = invocation.binding.projectionKind === 'participant_round'
         ? { screen: 'MealChoiceResponse', params: { roundId: invocation.binding.resourceRef, ...(invocation.actionId === 'pass' ? { intent: 'pass' as const } : {}) } }
-        : { screen: 'NextMeals' };
+        : { screen: 'RecipeLibrary', params: { openPlan: true } };
       if (!['choose','pass','open_plan'].includes(invocation.actionId)) return { id: `meal-planning:${invocation.idempotencyKey}`, providerId: provider.id, actionId: invocation.actionId, idempotencyKey: invocation.idempotencyKey, outcome: 'rejected', code: 'action_not_offered', returnTarget: null };
       await input.navigate(target);
       return { id: `meal-planning:${invocation.idempotencyKey}`, providerId: provider.id, actionId: invocation.actionId, idempotencyKey: invocation.idempotencyKey, outcome: 'completed', code: null, returnTarget: target };

@@ -3188,16 +3188,22 @@ export const useAppStore = create<AppState>()(
                     graceDaysUsed: graceDaysUsed,
                   };
                 } else {
-                  // Not enough grace — enter repair window instead of immediately resetting
-                  nextStreak = 1;
-                  nextCoveredStreak = 1;
+                  // The action that brings the user back is the recovery step. Because streak
+                  // breaks are only discovered when recordShowUp runs, opening a repair window
+                  // here would ask for an action the user has already completed.
                   nextGrace = { ...nextGrace, graceDaysUsed: 0 };
-                  if (prevStreak > 0) {
+                  if (breakState.brokenAtDateKey) {
+                    // Respect an expired repair state created by an older app version.
+                    nextStreak = 1;
+                    nextCoveredStreak = 1;
+                  } else if (prevStreak > 0) {
+                    nextStreak = prevStreak + 1;
+                    nextCoveredStreak = prevCoveredStreak + 1;
                     nextBreakState = {
-                      brokenAtDateKey: todayKey,
-                      brokenStreakLength: prevStreak,
-                      eligibleRepairUntilMs: nowDate.getTime() + REPAIR_WINDOW_MS,
-                      repairedAtMs: null,
+                      brokenAtDateKey: null,
+                      brokenStreakLength: null,
+                      eligibleRepairUntilMs: null,
+                      repairedAtMs: nowDate.getTime(),
                     };
                   }
                 }

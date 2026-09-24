@@ -8,6 +8,7 @@ export type ExploreCoordinate = {
 };
 
 export type ExploreTrackingPolicy = 'ambient' | 'adventure' | 'presence';
+export type ExplorePathEvidence = 'ambient-recovered';
 export type ExploreTrackingPhase = 'active' | 'soft-sleep' | 'deep-sleep';
 export type ExploreMovementClass =
   | 'unknown'
@@ -54,6 +55,8 @@ export type ExploredCell = {
 export type ExploreSession = {
   id: string;
   trackingPolicy: ExploreTrackingPolicy;
+  /** Present only when an adventure was reconstructed from sparse automatic samples. */
+  pathEvidence?: ExplorePathEvidence;
   startedAt: string;
   endedAt: string | null;
   points: ExplorePoint[];

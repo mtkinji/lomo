@@ -22,7 +22,7 @@ related_briefs:
   - brief-food-capability-onboarding
   - brief-repeatable-onboarding-testing
 owner: andrew
-last_updated: 2026-09-15
+last_updated: 2026-09-22
 ---
 
 # Kwilt first-run onboarding plan
@@ -38,6 +38,12 @@ The distinguishing experience is not another financial health score. It is: **Kw
 This is a proposed product and implementation sequence, not an implementation or release claim. It consolidates the [Quiet Compass exploration](../design-explorations/budget-led-quiet-compass/03-converge.md), [Origin reference catalogue](../design-explorations/budget-led-quiet-compass/origin-first-run-reference.md), and [first-counsel frame](../design-explorations/money-first-counsel/00-frame.md). The existing reference catalogue preserves Andrew's observations; this brief resolves them into one recommended journey.
 
 ## Context
+
+### Native implementation checkpoint — September 22
+
+The first native slice is available through Dev Tools → **Try shoreline onboarding**, on `codex/onboarding-shoreline`. It adds the direct starter, real capability handoffs, bundled shoreline footage with poster fallback, and a development-only Money first look computed from loaded posted outgoing transactions. It does not generate AI advice or change production first-launch routing. Explicit sample-data rehearsal remains separate from real account setup.
+
+Six focused suites (41 tests) and the scoped local verification gate passed. Review found no high-confidence regression. Native visual acceptance is still open: the existing Simulator development client booted from Metro on port 8081, but UI automation could not reach the new presentation. The reduced-motion preference initially resolves asynchronously, and the new Money checkpoint needs direct integration coverage. Pre-auth intent, guest preview, durable first-look reentry, optional context/AI, commercial presentation and complete signed-device journey verification remain unfinished. See the [implementation plan](../superpowers/plans/2026-09-22-onboarding-shoreline.md).
 
 Kwilt's current signed-out entry presents authentication before a person chooses what they want to do. Its normal first-run flow still leads into Goal/Arc creation. A newer capability coordinator exists as a development rehearsal, but it is not the production entry. The broader product now needs an entry that explains its practical capabilities and delivers on the selected one.
 
@@ -89,7 +95,7 @@ The [Money job flow](../job-flows/maya-review-budget-reality-before-spending.md)
 | Origin reference | Kwilt translation |
 | --- | --- |
 | Tiny recurring brand mark | Real Kwilt mark throughout, with an accessible app name. No fabricated logo or repeated large wordmark. |
-| Sky scenes before and after setup | One original daylight/cloud visual family on the invitation, synthesis, and findings. Forms stay white or Parchment. |
+| Calm scenes before and after setup | One licensed real shoreline visual family on the invitation, synthesis, and findings. Forms stay white or Parchment. |
 | Large editorial copy and ample space | Heavy, compact Kwilt headline; short findings with deliberate line breaks; very little supporting copy. |
 | Typed/revealed statements | Brief word/phrase reveals that never delay navigation or announce every character to a screen reader. |
 | Early yeses before account creation | A meaningful starter choice before existing authentication. No extra “Next” screens solely to accumulate taps. |
@@ -105,7 +111,7 @@ Do not carry over Origin's claimed membership count, ratings, certifications, an
 
 The new onboarding should feel like a more confident expression of Kwilt, not a reskin of the old illustrated onboarding and not a separate finance brand.
 
-- **Canvas:** White or existing Parchment (`#FAF7ED`). Atmospheric moments add pale daylight blue and cloud imagery that fades into the light canvas. Let the image occupy space without filling the interface with containers.
+- **Canvas:** White or existing Parchment (`#FAF7ED`). Atmospheric moments use the selected real overhead shoreline footage beneath a neutral veil. Let the image occupy space without filling the interface with containers.
 - **Content:** Sumi (`#1C1A19`) headings and primary controls. Pine stays in the small real brand mark or an existing semantic status; no Pine headline, full-screen green fill, or green bottom-button group.
 - **Typography:** Use existing `Inter_900Black` for the lead, starting at 46–48 logical points at the default text size, with optical adjustment after device review. Narrative findings start around 30–34 with generous line height. Use existing supported weights rather than faux serif or faux italic. Preserve `Urbanist_900Black` for the actual wordmark when needed. A future editorial font exploration is not a prerequisite for this release.
 - **Hierarchy:** One dominant message, at most one short supporting thought, one primary action. Numeric evidence can be prominent without becoming a dashboard chart.
@@ -117,7 +123,7 @@ The new onboarding should feel like a more confident expression of Kwilt, not a 
 
 Reuse `Logo`, `BrandLockup`, `Button`, `Icon`, `SearchField`, and `ChatComposer`. The [input guidance](../design-system/input-guidance.md) remains authoritative: use the filled-field family and canonical composer, not Origin's outlined fields or feature-local raw inputs. Introduce a reviewed **editorial variant** of the shared onboarding presentation; do not silently stretch the old title/illustration slots or change unrelated flows.
 
-Asset brief: one original or appropriately licensed daylight sky, its still fallback, and restrained motion variants. Frame Sumi text against a calm light region. Use the same visual family at the beginning and personal reveal so the return feels intentional. No image generation is required to approve the workflow in this document.
+Selected asset: licensed real shoreline footage by Ruvim M (Pexels 4183071), bundled with its still fallback and provenance in `assets/onboarding/`. It repeats normally; it is not a perfected seamless loop and retains slight original camera drift. Do not spend further generation credits or delay implementation to perfect that loop. Frame Sumi text against a calm light veil. Use the same visual family at the beginning and personal reveal so the return feels intentional.
 
 ### 4. The default Money journey
 

@@ -141,7 +141,7 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
       if (existing) await repository.update({ planId: existing.id, expectedVersion: existing.version, horizon, candidates: selected });
       else await repository.create({ horizon, candidates: selected });
       capture(AnalyticsEvent.MealPlanHorizonSelected, { horizon_kind: horizon.kind });
-      navigation.replace('NextMeals');
+      navigation.replace('RecipeLibrary', { openPlan: true });
     } catch (error) { Alert.alert('Meal plan did not save', error instanceof Error ? error.message : 'Please try again.'); }
     finally { setSaving(false); }
   };

@@ -671,27 +671,7 @@ export function celebrateStreakSaved(
 }
 
 /**
- * Celebrate when a streak breaks but the repair window is active.
- */
-export function celebrateStreakRepairOpportunity(brokenStreakLength: number, onDismiss?: () => void) {
-  const store = useCelebrationStore.getState();
-  const celebrationId = `streak-repair-opportunity-${new Date().toISOString().slice(0, 10)}`;
-  if (store.hasBeenShown(celebrationId)) return;
-
-  store.celebrate({
-    id: celebrationId,
-    kind: 'streakRepairOpportunity',
-    headline: 'This one slipped.',
-    subheadline: `Your ${brokenStreakLength}-day streak can still come back. You have 48 hours to make one small step count.`,
-    ctaLabel: 'Make it count',
-    autoDismissMs: 0,
-    priority: 'high',
-    onDismiss,
-  });
-}
-
-/**
- * Celebrate when the user successfully repairs their streak within the window.
+ * Celebrate when the action that brings the user back keeps their streak going.
  */
 export function celebrateStreakRepaired(repairedStreak: number, onDismiss?: () => void) {
   const store = useCelebrationStore.getState();
@@ -701,7 +681,7 @@ export function celebrateStreakRepaired(repairedStreak: number, onDismiss?: () =
   store.celebrate({
     id: celebrationId,
     kind: 'streakRepaired',
-    headline: `Back to ${repairedStreak} days.`,
+    headline: `${repairedStreak} days and counting.`,
     subheadline: 'You came back and made today count. Strong work.',
     ctaLabel: 'Continue',
     autoDismissMs: 0,
@@ -747,28 +727,16 @@ export function recordShowUpWithCelebration(options?: {
   let streakSoundMoment: StreakSoundMoment = 'none';
 
   if (prevDate !== nextDate) {
-    // Repair success: streak was restored from a break state
+    // Recovery success: the returning action kept the streak going.
     if (
-      prevBreakState.brokenAtDateKey &&
       nextBreakState.repairedAtMs != null &&
+      nextBreakState.repairedAtMs !== prevBreakState.repairedAtMs &&
       nextStreak > 1
     ) {
       streakSoundMoment = 'repaired';
       setTimeout(() => {
         celebrateStreakRepaired(nextStreak);
       }, 500);
-    } else if (
-      nextBreakState.brokenAtDateKey &&
-      nextBreakState.brokenStreakLength != null &&
-      nextBreakState.brokenStreakLength > 3 &&
-      nextStreak === 1
-    ) {
-      streakSoundMoment = 'repairOpportunity';
-      // Streak just broke — repair opportunity (only for streaks > 3)
-      setTimeout(() => {
-        celebrateStreakRepairOpportunity(nextBreakState.brokenStreakLength!);
-      }, 500);
-
     } else if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
       streakSoundMoment = 'savedByGrace';
       setTimeout(() => {

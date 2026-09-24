@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1160" viewBox="0 0 1800 1160">
+  <defs>
+    <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1C1A19" flood-opacity="0.13"/>
+    </filter>
+    <filter id="guideShadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#1C1A19" flood-opacity="0.16"/>
+    </filter>
+    <clipPath id="phone1"><rect x="60" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone2"><rect x="490" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone3"><rect x="920" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone4"><rect x="1350" y="190" width="390" height="844" rx="48"/></clipPath>
+    <style>
+      text { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1C1A19; }
+      .board-title { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+      .board-subtitle { font-size: 17px; font-weight: 400; fill: #57534E; }
+      .screen-name { font-size: 19px; font-weight: 700; }
+      .screen-note { font-size: 13px; font-weight: 450; fill: #57534E; }
+      .status { font-size: 11px; font-weight: 550; fill: #78716C; }
+      .page-title { font-size: 29px; font-weight: 750; letter-spacing: -0.6px; }
+      .page-label { font-size: 12px; font-weight: 650; letter-spacing: 0.7px; fill: #57534E; }
+      .page-body { font-size: 14px; font-weight: 450; fill: #57534E; }
+      .guide-title { font-size: 18px; font-weight: 650; letter-spacing: -0.2px; }
+      .guide-title-large { font-size: 23px; font-weight: 650; letter-spacing: -0.35px; }
+      .guide-body { font-size: 14px; font-weight: 430; fill: #57534E; }
+      .guide-body-large { font-size: 18px; font-weight: 430; fill: #57534E; }
+      .rule-label { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+      .rule-body { font-size: 14px; font-weight: 430; fill: #57534E; }
+      .rule-label-large { font-size: 16px; font-weight: 600; }
+      .rule-body-large { font-size: 18px; font-weight: 430; fill: #57534E; }
+      .button-primary { font-size: 14px; font-weight: 650; fill: #FAFAFA; text-anchor: middle; }
+      .button-ghost { font-size: 14px; font-weight: 600; fill: #1C1A19; text-anchor: middle; }
+      .button-large { font-size: 18px; font-weight: 650; fill: #FAFAFA; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1160" fill="#F1EEE6"/>
+  <text class="board-title" x="60" y="62">Screen Time guide: rule-aware recovery</text>
+  <text class="board-subtitle" x="60" y="98">The explanation leads. Immediate action appears only when the active rule has one; management stays secondary and adult-only.</text>
+
+  <g>
+    <circle cx="76" cy="147" r="14" fill="#315545"/><text x="76" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">1</text>
+    <text class="screen-name" x="100" y="150">Concrete prerequisite</text>
+    <text class="screen-note" x="100" y="171">Rule-derived action leads</text>
+
+    <circle cx="506" cy="147" r="14" fill="#315545"/><text x="506" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">2</text>
+    <text class="screen-name" x="530" y="150">Time or usage boundary</text>
+    <text class="screen-note" x="530" y="171">No invented prerequisite</text>
+
+    <circle cx="936" cy="147" r="14" fill="#315545"/><text x="936" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">3</text>
+    <text class="screen-name" x="960" y="150">Child or unauthorized</text>
+    <text class="screen-note" x="960" y="171">Informational and dismissible</text>
+
+    <circle cx="1366" cy="147" r="14" fill="#315545"/><text x="1366" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">4</text>
+    <text class="screen-name" x="1390" y="150">Large text + overlap</text>
+    <text class="screen-note" x="1390" y="171">Tall guide, truthful combined state</text>
+  </g>
+
+  <!-- Phone 1: actionable Focus prerequisite -->
+  <g filter="url(#phoneShadow)"><rect x="60" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone1)">
+    <rect x="60" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="status" x="86" y="229">9:41</text><rect x="214" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="86" y="282" font-size="23" font-weight="800" fill="#315545">KWILT</text>
+    <text class="page-title" x="86" y="342">Today</text>
+    <rect x="86" y="371" width="338" height="126" rx="18" fill="#F5F5F4"/>
+    <text class="page-label" x="104" y="402">IN FOCUS</text>
+    <text x="104" y="438" font-size="17" font-weight="650">Finish the proposal</text>
+    <text class="page-body" x="104" y="467">34 minutes remaining</text>
+    <rect x="86" y="519" width="338" height="94" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="page-label" x="104" y="551">NEXT</text><text class="page-body" x="104" y="580">Review project notes</text>
+    <rect x="60" y="190" width="390" height="844" fill="#0F172A" opacity="0.18"/>
+
+    <g filter="url(#guideShadow)">
+      <rect x="72" y="626" width="366" height="396" rx="44" fill="#FFFFFF" stroke="#E7E5E4"/>
+    </g>
+    <text class="guide-title" x="96" y="672">One thing comes first.</text>
+    <circle cx="408" cy="664" r="16" fill="#F5F5F4"/><text x="408" y="669" font-size="18" font-weight="450" text-anchor="middle">×</text>
+    <text class="guide-body" x="96" y="705">This app stays paused while Focus is running.</text>
+    <rect x="96" y="734" width="318" height="94" rx="16" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="rule-label" x="112" y="763">FOCUS</text>
+    <text class="rule-body" x="112" y="794">Finish or end “Proposal deep work.”</text>
+    <line x1="96" y1="851" x2="414" y2="851" stroke="#E7E5E4"/>
+    <rect x="96" y="878" width="132" height="48" rx="24" fill="#FFFFFF"/>
+    <text x="162" y="908" font-size="14" font-weight="600" fill="#315545" text-anchor="middle">Manage rules ›</text>
+    <rect x="238" y="878" width="176" height="48" rx="24" fill="#1C1A19"/>
+    <text class="button-primary" x="326" y="908" fill="#FAFAFA">Return to Focus</text>
+  </g>
+
+  <!-- Phone 2: time or usage boundary -->
+  <g filter="url(#phoneShadow)"><rect x="490" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone2)">
+    <rect x="490" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="status" x="516" y="229">7:18</text><rect x="644" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="516" y="282" font-size="23" font-weight="800" fill="#315545">KWILT</text>
+    <text class="page-title" x="516" y="342">Evening</text>
+    <rect x="516" y="371" width="338" height="126" rx="18" fill="#EEF3F8"/>
+    <text class="page-label" x="534" y="402">WINDING DOWN</text>
+    <text x="534" y="438" font-size="17" font-weight="650">A quieter hour</text>
+    <text class="page-body" x="534" y="467">Apps return at 8:00 PM</text>
+    <rect x="516" y="519" width="338" height="94" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="page-label" x="534" y="551">TOMORROW</text><text class="page-body" x="534" y="580">Morning plan begins at 7:00 AM</text>
+    <rect x="490" y="190" width="390" height="844" fill="#0F172A" opacity="0.18"/>
+
+    <g filter="url(#guideShadow)">
+      <rect x="502" y="674" width="366" height="348" rx="44" fill="#FFFFFF" stroke="#E7E5E4"/>
+    </g>
+    <text class="guide-title" x="526" y="720">Instagram is paused.</text>
+    <circle cx="838" cy="712" r="16" fill="#F5F5F4"/><text x="838" y="717" font-size="18" font-weight="450" text-anchor="middle">×</text>
+    <text class="guide-body" x="526" y="753">Your weekday evening rule is still in force.</text>
+    <rect x="526" y="782" width="318" height="84" rx="16" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="rule-label" x="542" y="811">WEEKDAY EVENINGS</text>
+    <text class="rule-body" x="542" y="842">Available again at 8:00 PM.</text>
+    <line x1="526" y1="889" x2="844" y2="889" stroke="#E7E5E4"/>
+    <text x="844" y="938" font-size="14" font-weight="600" fill="#315545" text-anchor="end">Manage rules ›</text>
+  </g>
+
+  <!-- Phone 3: child / unauthorized -->
+  <g filter="url(#phoneShadow)"><rect x="920" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone3)">
+    <rect x="920" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="status" x="946" y="229">8:42</text><rect x="1074" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="946" y="282" font-size="23" font-weight="800" fill="#315545">KWILT</text>
+    <text class="page-title" x="946" y="342">Riley</text>
+    <rect x="946" y="371" width="338" height="126" rx="18" fill="#F6E6C8"/>
+    <text class="page-label" x="964" y="402">TONIGHT</text>
+    <text x="964" y="438" font-size="17" font-weight="650">Weeknight routine</text>
+    <text class="page-body" x="964" y="467">Games return tomorrow morning</text>
+    <rect x="946" y="519" width="338" height="94" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="page-label" x="964" y="551">NEXT</text><text class="page-body" x="964" y="580">Pack backpack for tomorrow</text>
+    <rect x="920" y="190" width="390" height="844" fill="#0F172A" opacity="0.18"/>
+
+    <g filter="url(#guideShadow)">
+      <rect x="932" y="686" width="366" height="336" rx="44" fill="#FFFFFF" stroke="#E7E5E4"/>
+    </g>
+    <text class="guide-title" x="956" y="732">Games are paused for Riley.</text>
+    <circle cx="1268" cy="724" r="16" fill="#F5F5F4"/><text x="1268" y="729" font-size="18" font-weight="450" text-anchor="middle">×</text>
+    <text class="guide-body" x="956" y="765">A caregiver’s weeknight rule is in force.</text>
+    <rect x="956" y="794" width="318" height="94" rx="16" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="rule-label" x="972" y="823">WEEKNIGHT ROUTINE</text>
+    <text class="rule-body" x="972" y="854">Available tomorrow at 7:00 AM.</text>
+  </g>
+
+  <!-- Phone 4: overlap and large text stress state -->
+  <g filter="url(#phoneShadow)"><rect x="1350" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone4)">
+    <rect x="1350" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="status" x="1376" y="229">6:53</text><rect x="1504" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="1376" y="282" font-size="23" font-weight="800" fill="#315545">KWILT</text>
+    <text class="page-title" x="1376" y="342">Today</text>
+    <rect x="1376" y="371" width="338" height="126" rx="18" fill="#F5F5F4"/>
+    <text class="page-label" x="1394" y="402">FOCUS</text>
+    <text x="1394" y="438" font-size="17" font-weight="650">Write the first draft</text>
+    <text class="page-body" x="1394" y="467">20 minutes remaining</text>
+    <rect x="1350" y="190" width="390" height="844" fill="#0F172A" opacity="0.18"/>
+
+    <g filter="url(#guideShadow)">
+      <rect x="1362" y="304" width="366" height="718" rx="44" fill="#FFFFFF" stroke="#E7E5E4"/>
+    </g>
+    <text class="guide-title-large" x="1386" y="356">2 rules are keeping</text>
+    <text class="guide-title-large" x="1386" y="387">this app paused.</text>
+    <circle cx="1698" cy="350" r="18" fill="#F5F5F4"/><text x="1698" y="356" font-size="20" font-weight="450" text-anchor="middle">×</text>
+    <text class="guide-body-large" x="1386" y="431">Finishing Focus resolves one rule,</text>
+    <text class="guide-body-large" x="1386" y="457">but the evening schedule remains.</text>
+
+    <rect x="1386" y="493" width="318" height="126" rx="16" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="rule-label-large" x="1404" y="528">Focus</text>
+    <text class="rule-body-large" x="1404" y="562">Finish or end “Write the first</text>
+    <text class="rule-body-large" x="1404" y="590">draft.”</text>
+
+    <rect x="1386" y="639" width="318" height="126" rx="16" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="rule-label-large" x="1404" y="674">Weekday evenings</text>
+    <text class="rule-body-large" x="1404" y="708">Available again at 8:00 PM.</text>
+    <rect x="1709" y="493" width="3" height="272" rx="2" fill="#E7E5E4"/>
+    <rect x="1709" y="493" width="3" height="96" rx="2" fill="#78716C"/>
+
+    <line x1="1386" y1="802" x2="1704" y2="802" stroke="#E7E5E4"/>
+    <text x="1386" y="871" font-size="18" font-weight="600" fill="#315545">Manage rules ›</text>
+  </g>
+
+  <text x="60" y="1110" font-size="13" fill="#57534E">Static composition study · 390 × 844 pt target · built from Kwilt color, typography, spacing, radius, BottomGuide, and semantic-footer contracts</text>
+</svg>

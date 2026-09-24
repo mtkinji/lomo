@@ -9,6 +9,13 @@ import { colors } from '../../theme';
 import type { HouseholdSnapshot } from '../household/data/household';
 import { ScreenTimeProtectionSettingsScreen } from './ScreenTimeProtectionSettingsScreen';
 
+const mockAuthenticateRuleChange = jest.fn();
+
+jest.mock('../screen-time/runtime/screenTimeRuleAuthentication', () => ({
+  authenticateScreenTimeRuleChange: (...args: unknown[]) => mockAuthenticateRuleChange(...args),
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE: "Kwilt couldn't confirm this change. The rule is still on.",
+}));
+
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -103,6 +110,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     mockRequestScreenTimeAuthorization.mockReset().mockResolvedValue('approved');
     mockEnsureCurrentRuleSystem.mockReset().mockResolvedValue(true);
     mockFocusEpoch = 0;
+    mockAuthenticateRuleChange.mockReset().mockResolvedValue({ outcome: 'authenticated' });
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     mockRouteParams = undefined;
     useAppStore.getState().setAuthIdentity({
@@ -483,6 +491,16 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       ruleId: 'focus-video',
     });
     expect(presentScreenTimeActivityPicker).not.toHaveBeenCalled();
+  });
+
+  it('leaves an active rule on when fresh authentication is cancelled', async () => {
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+
+    fireEvent.press(screen.getByRole('switch', { name: 'Pause while Focus is active. Social. Rule enabled' }));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('disable_personal'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.enabled).toBe(true);
   });
 
   it('confirms a personal-rule deletion exposed by the list swipe action', async () => {

@@ -37,7 +37,12 @@ import {
 } from './foodNavigationOptions';
 
 export type FoodStackParamList = {
-  RecipeLibrary: { openPlan?: boolean; planId?: string; onboarding?: 'pick-meal' } | undefined;
+  RecipeLibrary: {
+    openPlan?: boolean;
+    planId?: string;
+    onboarding?: 'pick-meal';
+    feedbackPromptId?: 'meal_plan_finalized_satisfaction_v1';
+  } | undefined;
   EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
   RecipeHome: { recipeId: string; source?: 'meal_plan' };
@@ -46,7 +51,10 @@ export type FoodStackParamList = {
   RecipeCookMode: { recipeId: string; recipeScaleMultiplier: 1 | 2 | 3; source?: 'meal_plan' };
   RecipeCookComplete: { sessionId: string; recipeId: string };
   RecipeImportReview: { intent?: 'family' | 'web' } | undefined;
-  NextMeals: { feedbackPromptId?: 'meal_plan_finalized_satisfaction_v1' } | undefined;
+  NextMeals: {
+    planId?: string;
+    feedbackPromptId?: 'meal_plan_finalized_satisfaction_v1';
+  } | undefined;
   MealPlanEditor: { planId?: string; source?: 'recipe_library' | 'editorial_collection'; editorialSeed?: EditorialMealPlanSeed };
   MealChoiceInvite: { planId: string };
   MealPlanFinalize: { planId: string };

@@ -635,7 +635,7 @@ describe('recordShowUp streak grace', () => {
     expect(state.streakGrace?.freeDaysRemaining).toBe(0);
   });
 
-  it('resets streak when missed days exceed available grace', () => {
+  it('uses the returning action to recover when missed days exceed available grace', () => {
     // User last showed up April 12, returns April 15 (missed 2 days, only 1 grace)
     setStreakState({
       lastShowUpDate: '2026-04-12',
@@ -653,11 +653,12 @@ describe('recordShowUp streak grace', () => {
 
     const state = useAppStore.getState();
     expect(state.lastShowUpDate).toBe('2026-04-15');
-    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.currentShowUpStreak).toBe(6);
     expect(state.lastStreakDateKey).toBe('2026-04-15');
-    expect(state.currentCoveredShowUpStreak).toBe(1);
+    expect(state.currentCoveredShowUpStreak).toBe(6);
     expect(state.streakUpdatedAtIso).toBe('2026-04-15T16:00:00.000Z');
     expect(state.streakGrace?.graceDaysUsed).toBe(0);
+    expect(state.streakBreakState.repairedAtMs).toBe(new Date('2026-04-15T16:00:00.000Z').getTime());
   });
 });
 
@@ -961,7 +962,7 @@ describe('recordShowUp streak repair window', () => {
 
   const REPAIR_WINDOW_MS = 48 * 60 * 60 * 1000;
 
-  it('sets break state with 48h repair window when streak resets', () => {
+  it('keeps the streak alive when the returning action is the recovery step', () => {
     setStreakState({
       lastShowUpDate: '2026-04-12',
       currentShowUpStreak: 10,
@@ -979,11 +980,11 @@ describe('recordShowUp streak repair window', () => {
     useAppStore.getState().recordShowUp();
 
     const state = useAppStore.getState();
-    expect(state.currentShowUpStreak).toBe(1);
-    expect(state.streakBreakState.brokenAtDateKey).toBe('2026-04-15');
-    expect(state.streakBreakState.brokenStreakLength).toBe(10);
-    expect(state.streakBreakState.eligibleRepairUntilMs).toBe(now.getTime() + REPAIR_WINDOW_MS);
-    expect(state.streakBreakState.repairedAtMs).toBeNull();
+    expect(state.currentShowUpStreak).toBe(11);
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+    expect(state.streakBreakState.brokenStreakLength).toBeNull();
+    expect(state.streakBreakState.eligibleRepairUntilMs).toBeNull();
+    expect(state.streakBreakState.repairedAtMs).toBe(now.getTime());
   });
 
   it('restores streak when user returns within the repair window', () => {

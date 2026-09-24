@@ -1,9 +1,11 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CelebrationInterstitialHost } from './CelebrationInterstitial';
 import { useCelebrationStore } from '../store/useCelebrationStore';
 import { useAppStore } from '../store/useAppStore';
 import { useHouseholdModeStore } from '../features/household/sharedDevice/useHouseholdModeStore';
+import { colors } from '../theme';
 jest.mock('@rn-primitives/portal', () => ({
   Portal: require('react-native').View,
 }));
@@ -74,6 +76,11 @@ it('offers sharing even with celebration media off and Continue does not share',
   act(() => jest.advanceTimersByTime(500));
   expect(share).not.toHaveBeenCalled();
   expect(useCelebrationStore.getState().activeCelebration).toBeNull();
+});
+it('uses the inverse Kwilt action on the pine celebration field', () => {
+  const view = show();
+  const primaryAction = view.getByRole('button', { name: 'Share this moment' });
+  expect(StyleSheet.flatten(primaryAction.props.style).backgroundColor).toBe(colors.parchment);
 });
 it('opens the composer only after the share action and exit animation', () => {
   const view = show();

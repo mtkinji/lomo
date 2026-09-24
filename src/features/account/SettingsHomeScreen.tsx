@@ -339,11 +339,18 @@ export function SettingsHomeScreen() {
         }]
       : []),
     ...(showSuperAdmin || isDevKnownSuperAdminEmail
-      ? [{
-          id: 'superAdminTools',
-          title: 'Admin Tools',
-          onPress: () => navigation.navigate('SettingsSuperAdminTools'),
-        }]
+      ? [
+          {
+            id: 'phoneAgent',
+            title: 'Phone Agent',
+            onPress: () => navigation.navigate('SettingsPhoneAgent'),
+          },
+          {
+            id: 'superAdminTools',
+            title: 'Admin Tools',
+            onPress: () => navigation.navigate('SettingsSuperAdminTools'),
+          },
+        ]
       : []),
   ];
 

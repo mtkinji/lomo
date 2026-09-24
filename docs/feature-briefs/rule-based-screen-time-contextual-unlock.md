@@ -7,12 +7,14 @@ personas: [Maya, Marcus]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-budget-unlock-bottom-guide]
+related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-budget-unlock-bottom-guide, brief-screen-time-rule-aware-recovery]
 owner: andrew
-last_updated: 2026-08-10
+last_updated: 2026-09-19
 ---
 
 # Rule-based Screen Time and contextual unlock
+
+> **Decision precedence (2026-09-19):** [Screen Time Rule-Aware Recovery](screen-time-rule-aware-recovery.md) supersedes this brief wherever it offers **Open for 20 minutes**, treats **Do this first** as universal, or models the contextual guide as an override surface. The guide now explains and routes only. Bounded-override infrastructure remains for separately owned caregiver/request workflows.
 
 > **System ownership:** This brief refines the interaction model for the shared [Screen Time Control Plane](../architecture/screen-time-control-plane.md). Personal, Money, and family domains still own their conditions and durable editors. The control plane owns rule identity, active-restriction truth, temporary overrides, and the shield handoff.
 
@@ -26,7 +28,7 @@ Maya needs family rules that a child can predict and a caregiver can handle with
 
 ## Representative persona
 
-Maya has set a meaningful access agreement for a child. When the child reaches a blocked app, the child should see what must happen next, while an authorized caregiver can handle a true short exception. Marcus may choose a short exception to his own personal or Money rule without losing the page he was using in Kwilt.
+Maya has set a meaningful access agreement for a child. When the child reaches a blocked app, the child should see the active boundary, while an authorized caregiver can deliberately manage the rule from its canonical surface. Marcus can follow one truthful prerequisite or manage his own rule without losing the page he was using in Kwilt.
 
 ## Aspirational design challenge
 
@@ -42,7 +44,7 @@ This improves Maya's **Family participation**, **Keep using the system**, and **
 
 ## JTBD framing
 
-When a selected app is paused, show the active agreement and the next legitimate action without shame or surprise. Keep the current Kwilt context visible. Let an authorized adult make a bounded exception, but require a child to satisfy the agreement rather than quietly granting the same bypass.
+When a selected app is paused, show the active agreement and the next legitimate action without shame or surprise. Keep the current Kwilt context visible. Give an authorized adult a deliberate management path, while keeping both direct override and rule management out of a child's guide.
 
 ## Design
 
@@ -72,32 +74,27 @@ A cold start uses the last valid persisted Kwilt route. If none exists, Kwilt us
 
 Actions are derived from the active rule and current actor, not from a generic bypass button.
 
-- **Self-authored personal or Money rule:** the adult may keep the rule, go to the required action, or use a bounded temporary opening when the rule permits it.
-- **Family rule, authorized owner or caregiver:** the adult may keep the rule, inspect the requirement, or create a bounded allow override for the named child and selection.
-- **Family rule, child:** the child may see and go to the required action. The child never receives a direct temporary-open action and cannot approve their own access request.
-- **Family rule, unscoped caregiver or other household member:** the guide explains that a caregiver with Screen Time access is needed. The UI and server both reject the override.
+- **Self-authored personal or Money rule:** the adult may keep the rule, take one exact prerequisite when it resolves the full blocking set, or follow **Manage rules ›**.
+- **Family rule, authorized owner or scoped caregiver:** the adult may keep the rule or follow **Manage rules ›** to the named child's canonical surface.
+- **Family rule, child:** the child may see the boundary and an exact prerequisite when one is truthful. The child never receives rule management or a direct temporary-open action.
+- **Family rule, unscoped caregiver or other household member:** the guide explains that an authorized caregiver is needed and exposes no management action.
 
 Child access requests remain a distinct caregiver-decision workflow. They may notify a caregiver, but they never make the child's local guide equivalent to caregiver approval.
 
-### Temporary opening contract
+### Separate bounded-override workflows
 
-Use one canonical first-release wall-clock window: **20 minutes**.
-
-- Ten minutes remains the default minimum completed Focus duration for a **real step** qualification. It is not unlock copy.
-- The legacy 15-minute personal bypass migrates to the canonical 20-minute temporary-opening policy.
-- Money already defaults to 20 minutes and keeps that value.
-- A future rule editor may offer other bounded durations, but the shield guide does not present a duration picker in the first release.
-
-The action applies only to the named rule claims the actor is authorized to override. It never calls global clear. If another active rule still blocks the same selection, the receipt says so and advances to the next reason instead of claiming the app is open.
+The control plane may retain bounded-override records, RPCs, expiry, and reconciliation for separately owned caregiver decisions or access-request workflows. The contextual guide does not invoke those primitives, render a duration, or present an override receipt. Ordinary rule transitions never call global clear.
 
 ### Guide states
 
-The guide is a light, inset card with the standard 28-point radius, no heavy scrim, and no clipped shadow. It has four states:
+The guide is a light, inset card with the standard drawer anatomy and four resolution kinds:
 
-1. **Requirement:** names the agreement and what happens next.
-2. **Authorized choice:** adds **Open for 20 min** when the actor and every affected claim permit it.
-3. **Applying:** preserves the guide while the desired override is reconciled.
-4. **Receipt:** says **Open for 20 min**, **Still blocked by another rule**, or **Could not apply** from authoritative state.
+1. **Actionable:** one resolved rule has one exact prerequisite that resolves the complete block.
+2. **Boundary:** a time-, schedule-, or usage-based rule has no immediate prerequisite.
+3. **Mixed:** multiple active rules cannot be resolved by one action.
+4. **Unresolved:** at least one native restriction cannot be mapped truthfully.
+
+Authorized adults may also receive a quiet **Manage rules ›** link. Ordinary content hugs its measured height; large text and overlapping rules use a near-full-height scrolling state.
 
 The page behind the guide remains visually and interactively present. Toasts stay suppressed while the guide is visible so transient feedback does not compete with the decision.
 
@@ -107,13 +104,12 @@ The native shield action records a short-lived handoff containing stable restric
 
 ## Success signal
 
-People can explain why an app is paused and what legitimate action will change it. A shield open preserves the last-viewed Kwilt page. Children cannot self-approve, authorized caregivers can create a bounded exception, and receipts never claim access when another rule still applies.
+People can explain why an app is paused and whether any immediate action can change it. A shield open preserves the last-viewed Kwilt page. Children cannot manage or self-approve, authorized adults can reach canonical management, and changing an active rule requires fresh platform authentication.
 
-Proof requires domain tests for authority and overlap, Simulator proof of navigation preservation and guide hierarchy, and signed-device proof of shield handoff, per-rule clearing, caregiver override delivery, expiry, and child denial. Simulator evidence alone does not prove Apple-effective enforcement.
+Proof requires domain tests for authority and overlap, Simulator proof of navigation preservation and guide hierarchy, and signed-device proof of shield handoff, platform authentication, active-rule reconciliation, and child denial. Simulator evidence alone does not prove Apple-effective enforcement.
 
 ## Open questions
 
 - Whether a later release should let an authorized adult choose 10, 20, or 30 minutes from the guide.
 - Whether child access requests should be offered from the guide after the direct-unblock behavior is proven, or remain in the family Screen Time surface.
 - How much active-rule detail should be disclosed when more than two restrictions overlap.
-

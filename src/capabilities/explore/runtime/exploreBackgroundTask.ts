@@ -62,6 +62,7 @@ function upgradeSession(
     trackingPolicy: session.trackingPolicy === 'adventure' || session.trackingPolicy === 'ambient'
       ? session.trackingPolicy
       : fallbackPolicy,
+    pathEvidence: session.pathEvidence === 'ambient-recovered' ? session.pathEvidence : undefined,
     startedAt: session.startedAt ?? new Date().toISOString(),
     endedAt: session.endedAt ?? null,
     points: Array.isArray(session.points) ? session.points.map((point) => ({

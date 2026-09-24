@@ -808,7 +808,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         void compileIngredients("meal_plan");
         return;
       case "review_meal_plan":
-        navigation.navigate("NextMeals");
+        navigation.navigate("RecipeLibrary", { openPlan: true });
         return;
       case "start_cooking":
       case "continue_cooking":

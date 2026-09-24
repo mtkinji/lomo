@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useAppStore } from '../../../store/useAppStore';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
@@ -24,6 +24,11 @@ import {
 } from './useFamilyScreenTimeLearningStore';
 import { listHouseholdDevices } from '../data/householdDeviceParticipation';
 import { requestFamilyScreenTimeProAccess } from './familyScreenTimeProAccess';
+import {
+  authenticateScreenTimeRuleChange,
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE,
+} from '../../screen-time/runtime/screenTimeRuleAuthentication';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 
 type Props = {
   navigation: {
@@ -186,8 +191,19 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
     }
   };
 
-  const saveChanges = () => {
+  const saveChanges = async () => {
     if (!requestFamilyScreenTimeProAccess()) return;
+    const authentication = await authenticateScreenTimeRuleChange('save_active_family');
+    capture(AnalyticsEvent.ScreenTimeRuleChangeAuthentication, {
+      mutation_class: 'save_active_family',
+      outcome: authentication.outcome,
+    });
+    if (authentication.outcome !== 'authenticated') {
+      if (authentication.outcome !== 'cancelled') {
+        Alert.alert('Change not confirmed', SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE);
+      }
+      return;
+    }
     updateAgreement(recordKey, {
       ...record.rule,
       startMinute: (Number(draftStartHour) + 12) * 60,
@@ -225,7 +241,7 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
               value={draftLimit}
             />
           </View>
-          <Button accessibilityRole="button" fullWidth onPress={saveChanges} variant="primary">
+          <Button accessibilityRole="button" fullWidth onPress={() => void saveChanges()} variant="primary">
             Save changes
           </Button>
         </View>

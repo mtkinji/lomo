@@ -53,6 +53,11 @@ import {
   createPersonalCompositeRuleActionBoundary,
 } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 import { openPaywallInterstitial } from '../../services/paywall';
+import {
+  authenticateScreenTimeRuleChange,
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE,
+  type ScreenTimeRuleMutationClass,
+} from '../screen-time/runtime/screenTimeRuleAuthentication';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -355,6 +360,18 @@ export function ScreenTimeProtectionSettingsScreen() {
   const myRuleRows = buildMyScreenTimeRuleInventory({
     personalSettings: normalized,
   });
+  const authenticateRuleChange = async (mutationClass: ScreenTimeRuleMutationClass) => {
+    const authentication = await authenticateScreenTimeRuleChange(mutationClass);
+    capture(AnalyticsEvent.ScreenTimeRuleChangeAuthentication, {
+      mutation_class: mutationClass,
+      outcome: authentication.outcome,
+    });
+    if (authentication.outcome === 'authenticated') return true;
+    if (authentication.outcome !== 'cancelled') {
+      Alert.alert('Change not confirmed', SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE);
+    }
+    return false;
+  };
   const togglePersonalRule = async (row: ScreenTimeRuleInventoryRow) => {
     if (pendingPersonalRuleId) return;
     const ruleId = row.destination.ruleId;
@@ -362,6 +379,7 @@ export function ScreenTimeProtectionSettingsScreen() {
     if (!rule) return;
     setPendingPersonalRuleId(ruleId);
     try {
+      if (rule.enabled && !(await authenticateRuleChange('disable_personal'))) return;
       await savePersonalCompositeScreenTimeRule({
         rule: { ...rule, enabled: !rule.enabled, lastUpdated: new Date().toISOString() },
         expectedUpdatedAt: rule.lastUpdated ?? 'unversioned',
@@ -395,6 +413,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       { text: 'Delete rule', style: 'destructive', onPress: () => void (async () => {
         setPendingPersonalRuleId(ruleId);
         try {
+          if (!(await authenticateRuleChange('delete_personal'))) return;
           await deletePersonalCompositeScreenTimeRule({
             ruleId: rule.id,
             expectedUpdatedAt: rule.lastUpdated ?? 'unversioned',
