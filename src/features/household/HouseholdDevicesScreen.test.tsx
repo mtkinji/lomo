@@ -65,9 +65,10 @@ describe('HouseholdDevicesScreen', () => {
       assignedCaregiverMembershipId: 'owner-1', installId: 'install-123', label: 'Shared iPad',
       platform: 'ipados', status: 'ready', memberIds: [], updatedAt: '2026-08-27T18:00:00.000Z',
     }]);
-    const { getByLabelText, getByText, queryByText } = renderWithProviders(<HouseholdDevicesScreen {...props} />);
+    const { getByLabelText, getByText, getByRole, queryByText } = renderWithProviders(<HouseholdDevicesScreen {...props} />);
     await waitFor(() => expect(getByText('Set up this iPad')).toBeTruthy());
-    await waitFor(() => expect(mockList).toHaveBeenCalled());
+    // The request starting does not mean its install ID has reached the UI.
+    await waitFor(() => expect(getByRole('button', { name: 'Set up this iPad' })).toBeEnabled());
     expect(queryByText('Scan a code')).toBeNull();
     fireEvent.press(getByText('Set up this iPad'));
     await waitFor(() => expect(mockDesignate).toHaveBeenCalledWith(expect.anything(), {
