@@ -23,6 +23,14 @@ import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { UnifiedChatClientAction } from './types';
 import { createWidgetPreferenceActions } from '../account/actions/widgetPreferenceActions';
+import {
+  presentScreenTimeActivityPicker,
+  requestScreenTimeAuthorization,
+} from '../../services/appleEcosystem/screenTimeProtection';
+import { savePersonalCompositeScreenTimeRule } from '../screen-time/domain/personalCompositeRuleActions';
+import { createPersonalCompositeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
+import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
+import { executePersonalScreenTimeLimitClientAction } from './executePersonalScreenTimeLimitClientAction';
 
 type ClientActionExecutionResult = Record<string, unknown> | Promise<Record<string, unknown>>;
 type DeviceOwnedClientActionResult = { handled: true; result: ClientActionExecutionResult } | { handled: false };
@@ -31,6 +39,23 @@ export function executeDeviceOwnedClientAction(
   clientAction: UnifiedChatClientAction,
   threadId: string | null | undefined,
 ): DeviceOwnedClientActionResult {
+  if (clientAction.actionType === 'open_personal_screen_time_limit') {
+    const boundary = createPersonalCompositeRuleActionBoundary();
+    return {
+      handled: true,
+      result: executePersonalScreenTimeLimitClientAction(clientAction, {
+        readSettings: boundary.readSettings,
+        persistSettings: boundary.persistSettings,
+        requestAuthorization: requestScreenTimeAuthorization,
+        presentActivityPicker: presentScreenTimeActivityPicker,
+        saveRule: (input) => savePersonalCompositeScreenTimeRule(input, boundary),
+        now: () => new Date().toISOString(),
+      }).then(async (result) => {
+        await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
+        return result;
+      }),
+    };
+  }
   if (clientAction.actionType === 'continue_thread_on_phone') {
     if (!threadId) throw new Error('Open a durable Kwilt conversation before continuing it on Phone Agent.');
     return { handled: true, result: continuePhoneAgentThread(threadId)

@@ -9,7 +9,6 @@ export type CapabilityOnboardingNavigationTarget =
           requestedPlace: 'MoneySummary';
           source: 'capability-onboarding';
           mode: 'automatic' | 'setup';
-          demoScenario?: 'connected-household';
         };
       };
     }
@@ -29,6 +28,11 @@ export type CapabilityOnboardingNavigationTarget =
       };
     }
   | { root: 'FirstTimeUx'; entryMode: 'capability-path' }
+  | { root: 'Chores' }
+  | { root: 'Settings'; params: { screen: 'SettingsScreenTimeProtection' } }
+  | { root: 'Settings'; params: { screen: 'SettingsHousehold' } }
+  | { root: 'Settings'; params: { screen: 'SettingsScreenTimeRuleBuilder'; params: { entry: 'contextual'; authorizationMember: 'child'; suggestedKind: 'daily_limit' } } }
+  | { root: 'Settings'; params: { screen: 'SettingsScreenTimeRuleBuilder'; params: { entry: 'contextual'; suggestedKind: 'daily_limit' | 'focus' | 'real_step' } } }
   | null;
 
 export function buildCapabilityOnboardingNavigationTarget(
@@ -45,7 +49,6 @@ export function buildCapabilityOnboardingNavigationTarget(
             requestedPlace: 'MoneySummary',
             source: 'capability-onboarding',
             mode: _options.moneyBudgetState === 'none' ? 'setup' : 'automatic',
-            ...(_options.moneyBudgetState === 'none' ? { demoScenario: 'connected-household' as const } : {}),
           },
         },
       };
@@ -59,6 +62,17 @@ export function buildCapabilityOnboardingNavigationTarget(
       };
     case 'identity-workflow':
       return { root: 'FirstTimeUx', entryMode: 'capability-path' };
+    case 'chores-setup':
+      return { root: 'Chores' };
+    case 'screen-time-setup':
+      if (handoff.suggestedKind) return {
+        root: 'Settings', params: { screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'contextual', suggestedKind: handoff.suggestedKind } },
+      };
+      return { root: 'Settings', params: { screen: 'SettingsScreenTimeProtection' } };
+    case 'screen-time-family':
+      return handoff.device === 'child'
+        ? { root: 'Settings', params: { screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'contextual', authorizationMember: 'child', suggestedKind: 'daily_limit' } } }
+        : { root: 'Settings', params: { screen: 'SettingsHousehold' } };
     case 'unified-chat':
       return {
         root: 'UnifiedChat',

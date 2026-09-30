@@ -1,6 +1,6 @@
-import {
-  DEFAULT_TEMPORARY_OPEN_MINUTES,
-  type ScreenTimeRule,
+import type {
+  ScreenTimeRule,
+  ScreenTimeRuleRequirementAction,
 } from './screenTimeRule';
 
 export type ScreenTimeActor =
@@ -11,15 +11,13 @@ export type ScreenTimeActor =
   | { kind: 'household_member' };
 
 export type ScreenTimeGuideActions = {
-  leadRuleId: string | null;
-  canTemporarilyOpen: boolean;
-  temporaryOpenMinutes: typeof DEFAULT_TEMPORARY_OPEN_MINUTES;
-  temporaryOpenRuleIds: string[];
+  resolutionKind: 'actionable' | 'boundary' | 'mixed' | 'unresolved';
+  requirementAction: ScreenTimeRuleRequirementAction | null;
+  canManageRules: boolean;
   requiresCaregiver: boolean;
 };
 
-function canActorOverride(rule: ScreenTimeRule, actor: ScreenTimeActor): boolean {
-  if (!rule.active || !rule.temporaryOpen.allowed) return false;
+function canActorManage(rule: ScreenTimeRule, actor: ScreenTimeActor): boolean {
   if (rule.subject.kind === 'self') {
     return actor.kind === 'self_adult'
       || actor.kind === 'household_owner'
@@ -30,27 +28,57 @@ function canActorOverride(rule: ScreenTimeRule, actor: ScreenTimeActor): boolean
     && actor.childMembershipIds.includes(rule.subject.membershipId);
 }
 
+function requirementActionForRule(
+  rule: ScreenTimeRule,
+): ScreenTimeRuleRequirementAction | null {
+  if (rule.requirementAction) return rule.requirementAction;
+  if (rule.trigger.type === 'focus_active') {
+    return {
+      kind: 'focus',
+      label: 'Return to Focus',
+      destination: 'kwilt://focus?source=screen-time',
+    };
+  }
+  if (rule.trigger.type === 'real_step_pending') {
+    return {
+      kind: 'real_step',
+      label: 'Do this first',
+      destination: 'kwilt://today?source=screen-time&highlightSuggested=1',
+    };
+  }
+  return null;
+}
+
 export function projectScreenTimeGuideActions(params: {
   actor: ScreenTimeActor;
   activeRules: ScreenTimeRule[];
+  unresolvedCount?: number;
 }): ScreenTimeGuideActions {
   const activeRules = params.activeRules.filter((rule) => rule.active);
-  const familySubjects = activeRules.flatMap((rule) => (
-    rule.subject.kind === 'child' ? [rule.subject.membershipId] : []
-  ));
-  const hasMultipleFamilyClaimsForOneChild = new Set(familySubjects).size !== familySubjects.length;
-  const canTemporarilyOpen = activeRules.length > 0
-    && !hasMultipleFamilyClaimsForOneChild
-    && activeRules.every((rule) => canActorOverride(rule, params.actor));
-  const hasUnauthorizedFamilyRule = activeRules.some((rule) => (
-    rule.domain === 'family' && !canActorOverride(rule, params.actor)
-  ));
+  const unresolvedCount = Math.max(0, params.unresolvedCount ?? 0);
+  const unauthorizedRules = activeRules.filter((rule) => !canActorManage(rule, params.actor));
+  const actorCanOpenOverview = params.actor.kind === 'self_adult'
+    || params.actor.kind === 'household_owner'
+    || params.actor.kind === 'household_caregiver';
+  const canManageRules = unauthorizedRules.length === 0
+    && (activeRules.length > 0 ? activeRules.every((rule) => canActorManage(rule, params.actor)) : actorCanOpenOverview);
+  const exactAction = activeRules.length === 1 && unresolvedCount === 0
+    ? requirementActionForRule(activeRules[0])
+    : null;
+  const resolutionKind: ScreenTimeGuideActions['resolutionKind'] = unresolvedCount > 0
+    ? 'unresolved'
+    : activeRules.length > 1
+      ? 'mixed'
+      : exactAction
+        ? 'actionable'
+        : 'boundary';
 
   return {
-    leadRuleId: activeRules[0]?.id ?? null,
-    canTemporarilyOpen,
-    temporaryOpenMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
-    temporaryOpenRuleIds: canTemporarilyOpen ? activeRules.map((rule) => rule.id) : [],
-    requiresCaregiver: hasUnauthorizedFamilyRule,
+    resolutionKind,
+    requirementAction: canManageRules || activeRules[0]?.domain === 'personal'
+      ? exactAction
+      : null,
+    canManageRules,
+    requiresCaregiver: unauthorizedRules.some((rule) => rule.domain === 'family'),
   };
 }

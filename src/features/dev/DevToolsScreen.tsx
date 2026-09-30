@@ -242,6 +242,15 @@ export function DevToolsScreen() {
   const [capabilityOnboardingVisible, setCapabilityOnboardingVisible] = useState(false);
   const [capabilityOnboardingMoneyBudgetState, setCapabilityOnboardingMoneyBudgetState] = useState<'current' | 'none'>('current');
   useEffect(() => {
+    if (__DEV__ && route.params?.householdOnboarding === '1') {
+      // Same presentation-only reset as the explicit rehearsal button below.
+      useCapabilityOnboardingStore.getState().resetUser(authUserId);
+      setCapabilityOnboardingMoneyBudgetState('current');
+      setCapabilityOnboardingVisible(true);
+      navigation.setParams({ householdOnboarding: undefined });
+    }
+  }, [authUserId, navigation, route.params?.householdOnboarding]);
+  useEffect(() => {
     if ((route.params as { launchTransition?: string } | undefined)?.launchTransition === '1') {
       setLaunchTransitionLabVisible(true);
     }
@@ -1206,8 +1215,8 @@ export function DevToolsScreen() {
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Capability onboarding rehearsal</Text>
               <Text style={styles.cardBody}>
-                Play the production-shaped Welcome and complete outcome chooser. Only paths with a
-                current typed contract appear; unfinished paths remain out of production.
+                Try the shoreline starter and real capability handoffs. This uses your signed-in
+                account; the separate sample-data route below is a rehearsal only.
               </Text>
               <Button
                 testID="dev.capabilityOnboarding.open"
@@ -1219,7 +1228,7 @@ export function DevToolsScreen() {
                 }}
                 style={styles.cardAction}
               >
-                <ButtonLabel size="md" tone="inverse">Play capability onboarding</ButtonLabel>
+                <ButtonLabel size="md" tone="inverse">Try shoreline onboarding</ButtonLabel>
               </Button>
               <Button
                 testID="dev.capabilityOnboarding.openNoBudgets"
@@ -1849,6 +1858,7 @@ export function DevToolsScreen() {
         visible={capabilityOnboardingVisible}
         userId={authUserId}
         surface="development"
+        presentation="editorial"
         onStartPath={(path) => {
           setCapabilityOnboardingVisible(false);
           const target = buildCapabilityOnboardingNavigationTarget(path.handoff, {
@@ -1868,6 +1878,14 @@ export function DevToolsScreen() {
           }
           if (target?.root === 'UnifiedChat') {
             navigation.navigate(target.root, target.params);
+            return;
+          }
+          if (target?.root === 'Chores') {
+            navigation.navigate('Chores');
+            return;
+          }
+          if (target?.root === 'Settings') {
+            navigation.navigate('Settings', target.params);
             return;
           }
           showDevToast('That capability is not in this rehearsal yet.', 'warning');

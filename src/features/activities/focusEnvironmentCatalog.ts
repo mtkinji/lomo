@@ -13,7 +13,7 @@ function focusVideoSource(assetName: string): VideoSource {
 }
 
 export type FocusVideoEnvironment = {
-  id: Extract<SoundscapeId, 'canyonSpring' | 'mountainOverlook'>;
+  id: Extract<SoundscapeId, 'canyonSpring' | 'mountainOverlook' | 'bishopLakes'>;
   title: string;
   poster: ImageSourcePropType;
   video: VideoSource;
@@ -33,9 +33,17 @@ export const CANYON_SPRING_ENVIRONMENT: FocusVideoEnvironment = {
   video: focusVideoSource('canyon-spring-stream-b0d1f2c83a2a.mp4'),
 };
 
+export const BISHOP_LAKES_ENVIRONMENT: FocusVideoEnvironment = {
+  id: 'bishopLakes',
+  title: 'Bishop Lakes',
+  poster: require('../../../assets/images/focus/bishop-lakes-poster.jpg'),
+  video: focusVideoSource('bishop-lakes-reflection-1c5f0bbe3f9c.mp4'),
+};
+
 export const FOCUS_VIDEO_ENVIRONMENTS: readonly FocusVideoEnvironment[] = [
   CANYON_SPRING_ENVIRONMENT,
   MOUNTAIN_OVERLOOK_ENVIRONMENT,
+  BISHOP_LAKES_ENVIRONMENT,
 ];
 
 export function focusVideoEnvironment(id: SoundscapeId): FocusVideoEnvironment | null {

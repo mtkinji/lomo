@@ -1,4 +1,8 @@
-import { buildPathPresentation } from './explorePathPresentation';
+import {
+  buildPathPresentation,
+  completedPathHistory,
+  completedRecoveredPathHistory,
+} from './explorePathPresentation';
 import { buildRecordedPathTraces } from './exploreGeometry';
 import type { ExplorePoint, ExploreSession } from './types';
 
@@ -66,5 +70,14 @@ describe('path presentation ownership', () => {
     const result = buildPathPresentation({ ...input, sessions: [session('long', { points: long })], reviewedSessionId: 'long' });
     expect(buildRecordedPathTraces([long]).length).toBeGreaterThan(1);
     expect(result.foreground).toMatchObject({ hasMissingObservations: false, recordingStart: long[0], recordingEnd: long[1099] });
+  });
+
+  it('keeps recovered evidence out of recorded history and identifies it during review', () => {
+    const recovered = session('recovered', { pathEvidence: 'ambient-recovered' });
+
+    expect(completedPathHistory([a, recovered], null)).toEqual([a.points]);
+    expect(completedRecoveredPathHistory([a, recovered], null)).toEqual([recovered.points]);
+    expect(buildPathPresentation({ ...input, sessions: [recovered], reviewedSessionId: recovered.id }).foreground)
+      .toMatchObject({ pathEvidence: 'ambient-recovered' });
   });
 });

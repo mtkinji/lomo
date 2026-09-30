@@ -6,6 +6,7 @@ const mockRemoveAvatar = jest.fn();
 const mockLaunchImageLibrary = jest.fn();
 const mockCapture = jest.fn();
 const mockOpenPaywallPurchaseEntry = jest.fn();
+const mockGetAdminProCodesStatus = jest.fn();
 
 jest.mock('../../services/paywall', () => ({
   openPaywallPurchaseEntry: () => mockOpenPaywallPurchaseEntry(),
@@ -62,7 +63,7 @@ jest.mock('../../ui/BottomDrawer', () => {
 });
 
 jest.mock('../../services/proCodes', () => ({
-  getAdminProCodesStatus: jest.fn().mockResolvedValue({ role: null, httpStatus: 200 }),
+  getAdminProCodesStatus: (...args: unknown[]) => mockGetAdminProCodesStatus(...args),
 }));
 
 jest.mock('../../services/pushTokenService', () => ({
@@ -120,6 +121,7 @@ describe('SettingsHomeScreen planning group', () => {
     mockLaunchImageLibrary.mockReset();
     mockCapture.mockReset();
     mockOpenPaywallPurchaseEntry.mockReset();
+    mockGetAdminProCodesStatus.mockReset().mockResolvedValue({ role: null, httpStatus: 200 });
     jest.restoreAllMocks();
   });
 
@@ -258,6 +260,17 @@ describe('SettingsHomeScreen planning group', () => {
     expect(queryByText('Haptics')).toBeNull();
     expect(queryByText('No Streak Yet')).toBeNull();
     expect(queryByText('Get Kwilt Pro')).toBeNull();
+  });
+
+  it('exposes the Phone Agent beta only to a verified super-admin', async () => {
+    mockGetAdminProCodesStatus.mockResolvedValue({ role: 'super_admin', httpStatus: 200 });
+    useAppStore.setState({ authIdentity: { userId: 'admin-user' } } as never);
+
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    await waitFor(() => expect(getByText('Phone Agent')).toBeTruthy());
+    fireEvent.press(getByText('Phone Agent'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsPhoneAgent');
   });
 
   it('navigates to SettingsPlanAvailability when Availability is pressed', () => {

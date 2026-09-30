@@ -1,4 +1,5 @@
 import {
+  BISHOP_LAKES_ENVIRONMENT,
   CANYON_SPRING_ENVIRONMENT,
   FOCUS_VIDEO_ENVIRONMENTS,
   MOUNTAIN_OVERLOOK_ENVIRONMENT,
@@ -23,8 +24,23 @@ describe('Focus environment catalog', () => {
   it('returns video ownership only for a video-backed environment', () => {
     expect(focusVideoEnvironment('canyonSpring')).toBe(CANYON_SPRING_ENVIRONMENT);
     expect(focusVideoEnvironment('mountainOverlook')).toBe(MOUNTAIN_OVERLOOK_ENVIRONMENT);
+    expect(focusVideoEnvironment('bishopLakes')).toBe(BISHOP_LAKES_ENVIRONMENT);
     expect(focusVideoEnvironment('quietRain')).toBeNull();
     expect(focusVideoEnvironment('default')).toBeNull();
+  });
+
+  it('keeps Bishop Lakes on an immutable video asset with a local poster', () => {
+    expect(BISHOP_LAKES_ENVIRONMENT).toMatchObject({
+      id: 'bishopLakes',
+      title: 'Bishop Lakes',
+      video: {
+        uri: expect.stringContaining(
+          '/focus_environment_assets/v1/focus/bishop-lakes-reflection-1c5f0bbe3f9c.mp4',
+        ),
+        useCaching: true,
+      },
+    });
+    expect(BISHOP_LAKES_ENVIRONMENT.poster).toBeTruthy();
   });
 
   it('serves every Focus video from a versioned public CDN path with local caching', () => {

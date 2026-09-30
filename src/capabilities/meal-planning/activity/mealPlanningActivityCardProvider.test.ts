@@ -24,6 +24,15 @@ describe('Meal Planning Activity card', () => {
     expect(receipt.outcome).toBe('completed');
   });
 
+  it('opens organizer planning inside Recipes with the Plan drawer expanded', async () => {
+    const navigate = jest.fn();
+    const provider = createMealPlanningActivityCardProvider({ resolve: jest.fn().mockResolvedValue({ state: 'draft', responseCount: 0 }), navigate });
+    const receipt = await provider.invoke({ binding: { providerId: 'meal_planning', projectionKind: 'organizer_cycle', resourceRef: 'household-1', sourceVersion: '1' }, context: { viewerPersonId: 'person-1', activityId: 'activity-1' }, actionId: 'open_plan', idempotencyKey: 'action-2' });
+
+    expect(navigate).toHaveBeenCalledWith({ screen: 'RecipeLibrary', params: { openPlan: true } });
+    expect(receipt.returnTarget).toEqual({ screen: 'RecipeLibrary', params: { openPlan: true } });
+  });
+
   it('summarizes unresolved fit without leaking a person or ingredient', async () => {
     const provider = createMealPlanningActivityCardProvider({ resolve: jest.fn().mockResolvedValue({ state: 'ready_to_finalize', responseCount: 0, unresolvedMealCount: 1 }), navigate: jest.fn() });
     const card = await provider.resolve({ providerId: 'meal_planning', projectionKind: 'organizer_cycle', resourceRef: 'household-1', sourceVersion: '1' }, { viewerPersonId: 'person-1', activityId: 'activity-1' });

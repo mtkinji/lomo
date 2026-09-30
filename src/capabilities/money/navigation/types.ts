@@ -10,6 +10,7 @@ export type MoneyStackParamList = {
     requestedPlace: MoneyPlaceRouteName;
     source: MoneyEntrySource;
     mode: MoneyEntryMode;
+    screenTimeBudgetSetupId?: string;
     demoScenario?: 'connected-household';
   };
   MoneySummary: {

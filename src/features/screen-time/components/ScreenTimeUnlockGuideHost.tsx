@@ -7,25 +7,16 @@ import {
   projectFamilyScreenTimeRule,
   type FamilyScreenTimeSnapshot,
 } from '../../household/screenTime/data/familyScreenTime';
-import { applyTemporaryFamilyScreenTimeAccess } from '../../household/screenTime/familyScreenTimeCommands';
-import {
-  clearPersonalCompositeScreenTimeRule,
-  clearScreenTimeRestrictionsForSelection,
-} from '../../../services/appleEcosystem/screenTimeProtection';
-import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { useAppStore } from '../../../store/useAppStore';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { projectScreenTimeGuideActions, type ScreenTimeActor } from '../domain/screenTimeGuideActions';
-import { projectRulesForScreenTimeHandoff, routeForScreenTimeRuleRequirement } from '../domain/screenTimeHandoffProjection';
+import { projectRulesForScreenTimeHandoff } from '../domain/screenTimeHandoffProjection';
+import { routeForScreenTimeGuideManagement } from '../domain/screenTimeGuideManagement';
 import { resolveScreenTimeActor } from '../domain/screenTimeHouseholdAuthority';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import { useScreenTimeHandoffStore } from '../runtime/screenTimeHandoffStore';
-import {
-  openScreenTimeRulesTemporarily,
-  type TemporaryOpenResult,
-} from '../runtime/openScreenTimeRulesTemporarily';
 import { ScreenTimeUnlockGuide } from './ScreenTimeUnlockGuide';
 import {
   requestWorkflowFeedback,
@@ -34,6 +25,7 @@ import {
 
 type LoadedContext = {
   actor: ScreenTimeActor;
+  household: HouseholdSnapshot | null;
   familySnapshots: FamilyScreenTimeSnapshot[];
 };
 
@@ -52,10 +44,7 @@ export function ScreenTimeUnlockGuideHost() {
   const visible = useScreenTimeHandoffStore((state) => state.visible);
   const dismiss = useScreenTimeHandoffStore((state) => state.dismiss);
   const personalSettings = useAppStore((state) => state.screenTimeProtection);
-  const setPersonalSettings = useAppStore((state) => state.setScreenTimeProtection);
   const [context, setContext] = useState<LoadedContext | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<TemporaryOpenResult | null>(null);
   const [feedbackSourceKey, setFeedbackSourceKey] = useState<string | null>(null);
   const feedbackHandlesRef = useRef<WorkflowFeedbackHandle[]>([]);
 
@@ -71,7 +60,6 @@ export function ScreenTimeUnlockGuideHost() {
     cancelFeedbackRequests();
     setFeedbackSourceKey(episodeKey);
     setContext(null);
-    setResult(null);
     void (async () => {
       let household: HouseholdSnapshot | null = null;
       let familySnapshots: FamilyScreenTimeSnapshot[] = [];
@@ -87,7 +75,7 @@ export function ScreenTimeUnlockGuideHost() {
         household = null;
       }
       if (cancelled) return;
-      setContext({ actor: resolveScreenTimeActor(household), familySnapshots });
+      setContext({ actor: resolveScreenTimeActor(household), household, familySnapshots });
       capture(AnalyticsEvent.ScreenTimeGuideShown, {
         rule_count: handoff.restrictions.length,
         has_family_rule: handoff.restrictions.some((restriction) => restriction.reason === 'family_prerequisite'),
@@ -120,7 +108,8 @@ export function ScreenTimeUnlockGuideHost() {
   const actions = useMemo(() => projectScreenTimeGuideActions({
     actor,
     activeRules: projection.rules,
-  }), [actor, projection.rules]);
+    unresolvedCount: projection.unresolvedRestrictions.length,
+  }), [actor, projection.rules, projection.unresolvedRestrictions.length]);
 
   const handleDismiss = useCallback(() => {
     capture(AnalyticsEvent.ScreenTimeGuideDismissed, { rule_count: projection.rules.length });
@@ -128,70 +117,42 @@ export function ScreenTimeUnlockGuideHost() {
     dismiss();
   }, [cancelFeedbackRequests, capture, dismiss, projection.rules.length]);
 
-  const handleDoThisFirst = useCallback(() => {
-    if (!handoff) return;
-    const leadReason = handoff.restrictions[0]?.reason ?? handoff.reason;
-    capture(AnalyticsEvent.ScreenTimeGuideRequirementOpened, { reason: leadReason ?? 'unknown' });
+  const handleOpenRequirement = useCallback(() => {
+    const destination = actions.requirementAction?.destination;
+    if (!destination) return;
+    capture(AnalyticsEvent.ScreenTimeGuideRequirementOpened, {
+      resolution_kind: actions.resolutionKind,
+      action_kind: actions.requirementAction?.kind,
+    });
     cancelFeedbackRequests();
     dismiss();
-    void Linking.openURL(routeForScreenTimeRuleRequirement({
-      ruleId: actions.leadRuleId,
-      reason: leadReason,
-      personalSettings,
-    }));
-  }, [actions.leadRuleId, cancelFeedbackRequests, capture, dismiss, handoff, personalSettings]);
+    void Linking.openURL(destination);
+  }, [actions.requirementAction, actions.resolutionKind, cancelFeedbackRequests, capture, dismiss]);
 
-  const handleOpenTemporarily = useCallback(async () => {
-    if (!handoff || !context || busy) return;
-    setBusy(true);
-    capture(AnalyticsEvent.ScreenTimeTemporaryOpenRequested, {
-      rule_count: projection.rules.length,
-      duration_minutes: 20,
-    });
-    const next = await openScreenTimeRulesTemporarily({
-      actor: context.actor,
+  const handleManageRules = useCallback(() => {
+    if (!actions.canManageRules) return;
+    const destination = routeForScreenTimeGuideManagement({
       rules: projection.rules,
-      personalSettings,
-      clearSelection: clearScreenTimeRestrictionsForSelection,
-      clearComposite: clearPersonalCompositeScreenTimeRule,
-      savePersonalSettings: (settings) => setPersonalSettings(settings),
-      openFamilyRules: async (rules, expiresAtIso) => {
-        const response = await applyTemporaryFamilyScreenTimeAccess(getSupabaseClient(), {
-          action: 'allow',
-          expiresAt: expiresAtIso,
-          targets: rules.map((rule) => ({
-            childMembershipId: rule.subject.kind === 'child' ? rule.subject.membershipId : '',
-            selectionId: rule.selectionId,
-            expectedVersion: rule.desiredVersion,
-          })),
-          operationId: `screen-time-guide-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        });
-        return response.targets.every((target) => target.deliveryState === 'applied') ? 'applied' : 'applying';
-      },
-      restoreRestrictions: async () => {
-        await reconcileScreenTimeRestrictions({ focusSessionActive: false });
-      },
+      unresolvedCount: projection.unresolvedRestrictions.length,
+      household: context?.household ?? null,
     });
-    setResult(next);
-    const outcomeEvent = next.status === 'opened' || next.status === 'applying'
-      ? AnalyticsEvent.ScreenTimeTemporaryOpenApplied
-      : next.status === 'denied'
-        ? AnalyticsEvent.ScreenTimeTemporaryOpenDenied
-        : AnalyticsEvent.ScreenTimeTemporaryOpenFailed;
-    capture(outcomeEvent, {
-      outcome: next.status,
-      rule_count: projection.rules.length,
-      duration_minutes: 20,
+    capture(AnalyticsEvent.ScreenTimeGuideManageRulesOpened, {
+      resolution_kind: actions.resolutionKind,
+      destination_class: destination.includes('/household/') ? 'family' : 'overview',
     });
-    if (next.status === 'opened' && feedbackSourceKey) {
-      feedbackHandlesRef.current.push(requestWorkflowFeedback({
-        promptId: 'screen_time_block_clear_ease_v1',
-        sourceKey: feedbackSourceKey,
-        placement: 'inline',
-      }));
-    }
-    setBusy(false);
-  }, [busy, capture, context, feedbackSourceKey, handoff, personalSettings, projection.rules, setPersonalSettings]);
+    cancelFeedbackRequests();
+    dismiss();
+    void Linking.openURL(destination);
+  }, [
+    actions.canManageRules,
+    actions.resolutionKind,
+    cancelFeedbackRequests,
+    capture,
+    context?.household,
+    dismiss,
+    projection.rules,
+    projection.unresolvedRestrictions.length,
+  ]);
 
   if (!handoff) return null;
   return <ScreenTimeUnlockGuide
@@ -199,11 +160,9 @@ export function ScreenTimeUnlockGuideHost() {
     rules={projection.rules}
     unresolvedCount={projection.unresolvedRestrictions.length}
     actions={actions}
-    result={result}
-    busy={busy || context === null}
     feedbackSourceKey={feedbackSourceKey ?? undefined}
     onDismiss={handleDismiss}
-    onDoThisFirst={handleDoThisFirst}
-    onOpenTemporarily={handleOpenTemporarily}
+    onOpenRequirement={handleOpenRequirement}
+    onManageRules={handleManageRules}
   />;
 }

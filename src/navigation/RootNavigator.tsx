@@ -212,6 +212,7 @@ export type RootDrawerParamList = {
   ProPlanChooser: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: {
+    householdOnboarding?: string;
     homePreview?:string;
     homeItems?:string;
     homeItemId?:string;
@@ -499,9 +500,8 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
   const widgetNudgeStatus = useAppStore((s) => s.widgetNudge?.status);
   const authIdentity = useAppStore((state) => state.authIdentity);
-  const focusVideoEnvironmentId = useAppStore((state) => state.focusVideoEnvironmentId);
   const activeFocusSessionId = useFocusSessionStore((state) => state.activeSession?.sessionId);
-  const focusVideoActive = Boolean(focusVideoEnvironmentId && activeFocusSessionId);
+  const focusActive = Boolean(activeFocusSessionId);
   const lastWidgetOpenTrackedAtMsRef = useRef<number>(0);
   const markCapabilityMenuOpened = useCapabilityDiscoveryStore((state) => state.markMenuOpened);
 
@@ -520,7 +520,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   useNavigationOrientationPolicy({
     ready: isNavReady && currentNavigationState !== undefined,
     routeName: activeRouteName,
-    focusVideoActive,
+    focusActive,
   });
 
   useEffect(() => {

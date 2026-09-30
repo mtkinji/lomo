@@ -120,7 +120,7 @@ describe('MealChoiceInviteScreen', () => {
     expect(screen.queryByRole('button', { name: 'Open family choices' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Back to meal plan' }));
 
-    expect(replace).toHaveBeenCalledWith('NextMeals');
+    expect(replace).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true, planId: 'plan-1' });
     expect(mockOpenRound).not.toHaveBeenCalled();
   });
 });

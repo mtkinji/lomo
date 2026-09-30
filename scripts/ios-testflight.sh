@@ -21,13 +21,15 @@ esac
 echo "[kwilt] Running protected release verification against ${verification_base}…"
 npm run verify:changed -- --run --base "$verification_base"
 
+echo "[kwilt] Running the complete Jest coverage suite…"
+npm run test:ci
+
 echo "[kwilt] Building iOS (${testflight_profile}) + auto-submitting to TestFlight…"
 npx eas-cli@22.0.0 build \
   --platform ios \
   --profile "$testflight_profile" \
   --non-interactive \
   --auto-submit
-
 
 
 

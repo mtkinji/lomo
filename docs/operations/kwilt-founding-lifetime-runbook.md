@@ -2,6 +2,27 @@
 
 ## Configuration contract
 
+### Approved two-offer direction — 2026-09-29
+
+Andrew approved lifetime at $19.99 once (default selection) alongside an
+individual annual subscription at $59.99/year with a one-month introductory
+free trial for eligible subscribers. Both provide Pro; this does not extend
+individual access to the separate Family plan. Present the offer before Plaid.
+
+The native page reads localized prices and trial eligibility from the store;
+these approved US prices are configuration targets, not hardcoded checkout
+prices. Until Apple confirms an eligible one-month free trial, show the normal
+annual price and Subscribe CTA. Missing annual products leave lifetime usable.
+Other plans, restore, cancellation, and pending purchase recovery remain.
+
+Release checks still required: verify `pro_annual` at $59.99/year in the US,
+configure/verify its one-month free introductory offer in App Store Connect,
+confirm RevenueCat exposes the product and eligibility, and test eligible,
+ineligible, cancellation, pending, restore, and trial expiration in Sandbox.
+No App Store configuration or Sandbox purchase was performed by this local
+implementation. Trial-expiry cleanup of billable Plaid services also remains
+an operational requirement; merely hiding Money does not establish cost cleanup.
+
 | System | Configuration |
 | --- | --- |
 | Apple | Kwilt app, non-consumable product `pro_lifetime`, reference/display name Kwilt Pro Lifetime, initial US price $19.99 |

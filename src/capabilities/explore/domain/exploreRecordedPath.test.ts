@@ -1,4 +1,8 @@
-import { buildRecordedPathTraces, destinationCoordinate } from './exploreGeometry';
+import {
+  buildRecordedPathTraces,
+  buildRecoveredPathTraces,
+  destinationCoordinate,
+} from './exploreGeometry';
 import type { ExplorePoint } from './types';
 
 const origin = { latitude: 40.5, longitude: -111.9 };
@@ -49,5 +53,18 @@ describe('recorded route fidelity', () => {
     expect(traces).toHaveLength(2);
     expect(traces[0]).toEqual(points.slice(0, 2));
     expect(traces[1]).toEqual(points.slice(-2));
+  });
+
+  it('keeps sparse recovery evidence visible without weakening recorded-route continuity', () => {
+    const sparse = [point(0, 0, 0, 1.5), point(50, 0, 60, 1.5), point(100, 0, 120, 1.5)];
+
+    expect(buildRecordedPathTraces([sparse])).toEqual(sparse.map((sample) => [sample]));
+    expect(buildRecoveredPathTraces([sparse])).toEqual([[sparse[0], sparse[2]]]);
+  });
+
+  it('leaves a visible break when recovered samples are more than three minutes apart', () => {
+    const sparse = [point(0, 0, 0, 1.5), point(50, 0, 60, 1.5), point(100, 0, 301, 1.5)];
+
+    expect(buildRecoveredPathTraces([sparse])).toEqual([sparse.slice(0, 2), sparse.slice(2)]);
   });
 });

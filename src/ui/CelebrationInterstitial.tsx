@@ -370,19 +370,21 @@ function CelebrationInterstitialContent({
               ) : (
                 <>
                   {celebration.primaryAction ? (
-                    <Button variant="turmeric" size="lg" onPress={() => handleDismiss(celebration.primaryAction?.run)} style={styles.ctaButton}>
-                      <Text style={styles.ctaLabel}>{celebration.primaryAction.label}</Text>
+                    <Button variant="inverse" size="lg" onPress={() => handleDismiss(celebration.primaryAction?.run)} style={styles.ctaButton}>
+                      {celebration.primaryAction.label}
                     </Button>
                   ) : null}
                   <Button
-                    variant={celebration.primaryAction ? 'ghost' : 'turmeric'}
+                    variant={celebration.primaryAction ? 'ghost' : 'inverse'}
                     size="lg"
                     onPress={() => handleDismiss()}
                     style={styles.ctaButton}
                   >
-                    <Text style={celebration.primaryAction ? styles.tapToDismissText : styles.ctaLabel}>
-                      {celebration.ctaLabel ?? 'Continue'}
-                    </Text>
+                    {celebration.primaryAction ? (
+                      <Text style={styles.tapToDismissText}>{celebration.ctaLabel ?? 'Continue'}</Text>
+                    ) : (
+                      celebration.ctaLabel ?? 'Continue'
+                    )}
                   </Button>
                 </>
               )}
@@ -447,11 +449,6 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     minWidth: 200,
-  },
-  ctaLabel: {
-    ...typography.body,
-    fontFamily: typography.bodyBold.fontFamily,
-    color: colors.sumi900,
   },
   tapToDismiss: {
     paddingVertical: spacing.md,

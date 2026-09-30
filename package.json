@@ -22,7 +22,9 @@
     "lint:tests": "tsc --noEmit --project tsconfig.test.json",
     "verify:changed": "node scripts/verify-changed.mjs",
     "verify:local": "node scripts/verify-local.mjs",
-    "test:verification": "node --test scripts/verify-changed-lib.test.mjs scripts/verification/*.test.mjs scripts/ios-testflight-contract.test.mjs",
+    "verify:push": "node scripts/verify-push.mjs",
+    "hooks:install": "node scripts/install-git-hooks.mjs",
+    "test:verification": "node --test scripts/verify-changed-lib.test.mjs scripts/verification/*.test.mjs scripts/ios-testflight-contract.test.mjs scripts/push-verification.test.mjs",
     "code:health": "node scripts/code-health.mjs",
     "test:code-health": "node --test scripts/code-health-lib.test.mjs",
     "test:eas-upload-policy": "node --test scripts/eas-upload-policy.test.mjs",
@@ -79,7 +81,7 @@
     "test:chat-contracts": "node --test scripts/chat-delivery-lint.test.mjs scripts/unified-chat-migration-contract.test.mjs && npm run chat:protocol:conformance",
     "product:lint": "node scripts/product-lint.mjs && npm run chat:delivery-lint",
     "jtbd:lint": "npm run product:lint",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package && npm run hooks:install -- --if-git"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^14.0.0",

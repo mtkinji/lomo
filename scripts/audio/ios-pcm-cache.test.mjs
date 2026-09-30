@@ -15,11 +15,12 @@ const admittedMp3 = path.join(
   repoRoot,
   'assets/audio/soundscapes/deep-work-drift-loop-c24a34f97230.mp3',
 );
+const bishopLakesM4a = path.join(
+  repoRoot,
+  'assets/audio/soundscapes/bishop-lakes-ambient-8a991dc42b54.m4a',
+);
 
-test('iOS PCM cache decodes an admitted MP3 through its final frame', {
-  skip: process.platform === 'darwin' ? false : 'requires macOS AVFAudio',
-  timeout: 30_000,
-}, () => {
+function probeAdmittedAsset(assetPath, expectedFrameLength) {
   const directory = mkdtempSync(path.join(tmpdir(), 'kwilt-ios-pcm-cache-'));
   const combinedSource = path.join(directory, 'main.swift');
   const executable = path.join(directory, 'pcm-cache-probe');
@@ -50,13 +51,27 @@ struct PCMCacheProbe {
       '-o',
       executable,
     ]);
-    const output = execFileSync(executable, [admittedMp3], {
+    const output = execFileSync(executable, [assetPath], {
       encoding: 'utf8',
       env: { ...process.env, CFFIXED_USER_HOME: directory },
     });
 
-    assert.match(output, /^8551200\s*$/);
+    assert.match(output, new RegExp(`^${expectedFrameLength}\\s*$`));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+}
+
+test('iOS PCM cache decodes an admitted MP3 through its final frame', {
+  skip: process.platform === 'darwin' ? false : 'requires macOS AVFAudio',
+  timeout: 30_000,
+}, () => {
+  probeAdmittedAsset(admittedMp3, 8_551_200);
+});
+
+test('iOS PCM cache decodes the admitted Bishop Lakes M4A through its final frame', {
+  skip: process.platform === 'darwin' ? false : 'requires macOS AVFAudio',
+  timeout: 30_000,
+}, () => {
+  probeAdmittedAsset(bishopLakesM4a, 4_965_312);
 });

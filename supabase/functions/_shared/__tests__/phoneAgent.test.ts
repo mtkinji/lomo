@@ -38,6 +38,7 @@ describe('phoneAgent shared helpers', () => {
     expect(mod.parseSmsCommand('not relevant')).toEqual({ kind: 'not_relevant' });
     expect(mod.parseSmsCommand('STOP')).toEqual({ kind: 'stop' });
     expect(mod.parseSmsCommand('START')).toEqual({ kind: 'start' });
+    expect(mod.parseSmsCommand('YES')).toEqual({ kind: 'start' });
     expect(mod.parseSmsCommand('help')).toEqual({ kind: 'help' });
     expect(mod.parseSmsCommand('Call Dad this weekend')).toEqual({ kind: 'capture' });
   });

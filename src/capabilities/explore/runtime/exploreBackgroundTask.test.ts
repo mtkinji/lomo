@@ -182,6 +182,7 @@ describe('Explore background tasks', () => {
       ...legacyState.activeSession,
       id: 'legacy-completed',
       endedAt: startedAt,
+      pathEvidence: 'ambient-recovered',
     }];
     delete legacyState.sessions[0].trackingPolicy;
     await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state: legacyState, version: 7 }));
@@ -201,6 +202,7 @@ describe('Explore background tasks', () => {
     }));
     expect(upgraded.activeSession.trackingPolicy).toBe('ambient');
     expect(upgraded.sessions[0].trackingPolicy).toBe('ambient');
+    expect(upgraded.sessions[0].pathEvidence).toBe('ambient-recovered');
   });
 
   it('preserves GPS speed and course from a background observation', async () => {

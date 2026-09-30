@@ -33,6 +33,10 @@ jobs:
         if: github.event_name == 'pull_request'
         run: npm run verify:changed -- --run --base origin/main
 
+      - name: Jest (PR full suite)
+        if: github.event_name == 'pull_request'
+        run: npm run test:ci
+
       - name: Code health self-test
         if: github.event_name != 'pull_request'
         run: npm run test:code-health

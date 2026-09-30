@@ -2,6 +2,8 @@
 
 ## Source context
 
+The [27-screen local archive](origin-first-run-screenshots/README.md) preserves the conversation-retained PNGs in walkthrough order. Recovered September 22, 2026; images are Git-ignored because they contain personal information. The archive index documents resolution, provenance and privacy boundaries.
+
 Andrew shared a series of first-run screens from Origin in the order he encountered them. Between
 the fourth and fifth initial screenshots, he authenticated with Google. The observed sequence was:
 

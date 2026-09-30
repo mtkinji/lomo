@@ -2,10 +2,7 @@ import {
   replacePersonalCompositeScreenTimeRule,
   type ScreenTimeProtectionSettings,
 } from '../../../services/screenTimeProtection';
-import {
-  projectScreenTimeGuideActions,
-  type ScreenTimeActor,
-} from '../domain/screenTimeGuideActions';
+import type { ScreenTimeActor } from '../domain/screenTimeGuideActions';
 import {
   DEFAULT_TEMPORARY_OPEN_MINUTES,
   type ScreenTimeRule,
@@ -16,6 +13,33 @@ export type TemporaryOpenResult =
   | { status: 'applying'; expiresAtIso: string }
   | { status: 'denied' }
   | { status: 'failed' };
+
+/**
+ * Compatibility authority for separately owned temporary-access workflows.
+ * The interruption guide intentionally does not call or project this path.
+ */
+function canActorOpenRuleTemporarily(rule: ScreenTimeRule, actor: ScreenTimeActor): boolean {
+  if (!rule.active || !rule.temporaryOpen.allowed) return false;
+  if (rule.subject.kind === 'self') {
+    return actor.kind === 'self_adult'
+      || actor.kind === 'household_owner'
+      || actor.kind === 'household_caregiver';
+  }
+  if (actor.kind === 'household_owner') return true;
+  return actor.kind === 'household_caregiver'
+    && actor.childMembershipIds.includes(rule.subject.membershipId);
+}
+
+function canOpenRulesTemporarily(rules: ScreenTimeRule[], actor: ScreenTimeActor): boolean {
+  const activeRules = rules.filter((rule) => rule.active);
+  const familySubjects = activeRules.flatMap((rule) => (
+    rule.subject.kind === 'child' ? [rule.subject.membershipId] : []
+  ));
+  const hasDuplicateFamilyClaim = new Set(familySubjects).size !== familySubjects.length;
+  return activeRules.length > 0
+    && !hasDuplicateFamilyClaim
+    && activeRules.every((rule) => canActorOpenRuleTemporarily(rule, actor));
+}
 
 export async function openScreenTimeRulesTemporarily(params: {
   actor: ScreenTimeActor;
@@ -28,8 +52,7 @@ export async function openScreenTimeRulesTemporarily(params: {
   restoreRestrictions?: () => void | Promise<void>;
   now?: Date;
 }): Promise<TemporaryOpenResult> {
-  const actions = projectScreenTimeGuideActions({ actor: params.actor, activeRules: params.rules });
-  if (!actions.canTemporarilyOpen) return { status: 'denied' };
+  if (!canOpenRulesTemporarily(params.rules, params.actor)) return { status: 'denied' };
 
   const now = params.now ?? new Date();
   const expiresAtIso = new Date(

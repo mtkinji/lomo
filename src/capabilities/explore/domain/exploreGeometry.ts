@@ -417,6 +417,23 @@ export function isRecordedPathContinuous(from: ExploreContinuityCoordinate, to: 
   return distanceM <= maximumSpeed * seconds + allowanceM + 3 && distanceM / seconds <= 55;
 }
 
+/**
+ * Recovered paths may use sparse automatic observations, but only across the
+ * same bounded acquisition window used by fog evidence. Long outages remain
+ * visible gaps and weak location samples never become route evidence.
+ */
+export function isRecoveredPathContinuous(
+  from: ExploreContinuityCoordinate,
+  to: ExploreContinuityCoordinate,
+): boolean {
+  const accuracyIsWeak = [from, to].some(point => typeof point.horizontalAccuracyM === 'number' &&
+    (!Number.isFinite(point.horizontalAccuracyM) || point.horizontalAccuracyM < 0 || point.horizontalAccuracyM > 25));
+  if (accuracyIsWeak) return false;
+  const seconds = (Date.parse(to.recordedAt ?? '') - Date.parse(from.recordedAt ?? '')) / 1000;
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > MAX_ACQUISITION_AWARE_TRACE_INTERVAL_S) return false;
+  return isExploreTraceContinuous(from, to);
+}
+
 type RecordedPathRegion = ExploreCoordinate & { latitudeDelta: number; longitudeDelta: number };
 
 /**
@@ -424,8 +441,9 @@ type RecordedPathRegion = ExploreCoordinate & { latitudeDelta: number; longitude
  * bound to meet a fog budget. Cull offscreen edges without joining across them;
  * chunk long visible polylines with a shared endpoint to keep native calls bounded.
  */
-export function buildRecordedPathTraces<T extends ExploreContinuityCoordinate>(
+function buildPathTraces<T extends ExploreContinuityCoordinate>(
   groups: readonly (readonly T[])[],
+  isContinuous: (from: T, to: T) => boolean,
   region?: RecordedPathRegion,
 ): T[][] {
   const visible = (a: T, b: T) => !region || (
@@ -448,7 +466,7 @@ export function buildRecordedPathTraces<T extends ExploreContinuityCoordinate>(
     for (let index = 0; index < group.length; index += 1) {
       const point = group[index];
       const previous = current.at(-1);
-      if (previous && (!isRecordedPathContinuous(previous, point) || !visible(previous, point))) {
+      if (previous && (!isContinuous(previous, point) || !visible(previous, point))) {
         emit(current);
         current = [];
       }
@@ -460,4 +478,19 @@ export function buildRecordedPathTraces<T extends ExploreContinuityCoordinate>(
     emit(current);
   }
   return traces;
+}
+
+
+export function buildRecordedPathTraces<T extends ExploreContinuityCoordinate>(
+  groups: readonly (readonly T[])[],
+  region?: RecordedPathRegion,
+): T[][] {
+  return buildPathTraces(groups, isRecordedPathContinuous, region);
+}
+
+export function buildRecoveredPathTraces<T extends ExploreContinuityCoordinate>(
+  groups: readonly (readonly T[])[],
+  region?: RecordedPathRegion,
+): T[][] {
+  return buildPathTraces(groups, isRecoveredPathContinuous, region);
 }

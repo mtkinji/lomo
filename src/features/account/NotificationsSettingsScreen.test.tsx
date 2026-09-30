@@ -5,6 +5,19 @@ import { useAppStore } from '../../store/useAppStore';
 import { NotificationService } from '../../services/NotificationService';
 import { NotificationsSettingsScreen } from './NotificationsSettingsScreen';
 
+const mockGetMealPlanPushEnabled = jest.fn();
+const mockSetMealPlanPushEnabled = jest.fn();
+
+jest.mock(
+  '../../capabilities/meal-planning/data/mealPlanAttentionRepository',
+  () => ({
+    createMealPlanAttentionRepository: () => ({
+      getPushEnabled: mockGetMealPlanPushEnabled,
+      setPushEnabled: mockSetMealPlanPushEnabled,
+    }),
+  }),
+);
+
 jest.mock('../../ui/layout/AppShell', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -36,7 +49,8 @@ jest.mock('@react-navigation/native', () => {
     }),
     useRoute: () => ({ params: undefined }),
     useFocusEffect: (effect: any) => {
-      effect();
+      const React = require('react');
+      React.useEffect(effect, [effect]);
     },
   };
 });
@@ -71,14 +85,22 @@ describe('NotificationsSettingsScreen', () => {
   beforeEach(() => {
     jest.useRealTimers();
     resetAllStores();
+    useAppStore.setState({ authIdentity: null } as never);
+    mockGetMealPlanPushEnabled.mockReset();
+    mockSetMealPlanPushEnabled.mockReset();
     jest
       .spyOn(NotificationService, 'syncOsPermissionStatus')
       .mockResolvedValue('authorized');
+    jest
+      .spyOn(NotificationService, 'ensurePermissionWithRationale')
+      .mockResolvedValue(true);
     jest
       .spyOn(NotificationService, 'applySettings')
       .mockImplementation(async (next: any) => {
         useAppStore.getState().setNotificationPreferences(next);
       });
+    mockGetMealPlanPushEnabled.mockResolvedValue(true);
+    mockSetMealPlanPushEnabled.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -118,6 +140,40 @@ describe('NotificationsSettingsScreen', () => {
         }),
       );
     });
+  });
+
+  it('turns on global notifications without coupling the choice to meal planning sync', async () => {
+    useAppStore.getState().setAuthIdentity({ userId: 'user-1' });
+    useAppStore.getState().setNotificationPreferences({
+      ...useAppStore.getState().notificationPreferences,
+      notificationsEnabled: false,
+      osPermissionStatus: 'authorized',
+      allowHouseholdMealPlanPush: true,
+    });
+    mockSetMealPlanPushEnabled.mockRejectedValueOnce(
+      new Error('meal planning preference RPC unavailable'),
+    );
+
+    const { getByRole } = renderWithProviders(
+      <NotificationsSettingsScreen />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetMealPlanPushEnabled).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      fireEvent.press(
+        getByRole('switch', { name: 'Notifications from Kwilt' }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        useAppStore.getState().notificationPreferences.notificationsEnabled,
+      ).toBe(true);
+    });
+    expect(mockSetMealPlanPushEnabled).not.toHaveBeenCalled();
   });
 
   it.each([

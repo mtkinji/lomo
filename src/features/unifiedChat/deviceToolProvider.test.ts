@@ -543,8 +543,8 @@ test('stages a bounded personal daily app limit for native review', async () => 
       },
     }),
   });
-  expect(provider.actions()[0].title).toBe('Review 10-minute app limit');
-  expect(provider.actions()[0].consequenceSummary).toContain('choose the apps');
+  expect(provider.actions()[0].title).toBe('Choose apps for a 10-minute limit');
+  expect(provider.actions()[0].consequenceSummary).toContain("Apple's picker will appear over Chat");
 });
 
 test('stages a self Money condition and Screen Time effect in the canonical category editor', async () => {

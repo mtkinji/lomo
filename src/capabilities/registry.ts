@@ -87,7 +87,7 @@ export const CAPABILITY_REGISTRY = [
   },
   {
     id: 'meal-planning', label: 'Meal Plan', group: 'food', icon: 'plan', availability: 'active',
-    rootRoute: { root: 'Food', screen: 'NextMeals' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
+    rootRoute: { root: 'Food', screen: 'RecipeLibrary' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
   {
     id: 'groceries', label: 'Groceries', group: 'food', icon: 'cart', availability: 'active',

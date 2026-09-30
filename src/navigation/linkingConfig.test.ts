@@ -284,6 +284,19 @@ describe('linkingConfig', () => {
       expect(leaf?.path).toEqual(['Settings', 'SettingsScreenTimeProtection']);
     });
 
+    test('child Screen Time management preserves its required household context', () => {
+      const leaf = parse(
+        'settings/household/child-1/screen-time?householdId=household-1&childDisplayName=Maya',
+      );
+      expect(leaf?.name).toBe('SettingsFamilyScreenTime');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsFamilyScreenTime']);
+      expect(leaf?.params).toEqual({
+        childMembershipId: 'child-1',
+        householdId: 'household-1',
+        childDisplayName: 'Maya',
+      });
+    });
+
     test('kwilt://plan -> PlanTab', () => {
       expect(parse('plan')?.name).toBe('PlanTab');
     });

@@ -286,18 +286,6 @@ export function NotificationsSettingsScreen() {
         : false,
     };
     await NotificationService.applySettings(next);
-    if (!userId) return;
-    try {
-      await createMealPlanAttentionRepository().setPushEnabled(
-        next.allowHouseholdMealPlanPush,
-      );
-    } catch {
-      await NotificationService.applySettings(preferences);
-      Alert.alert(
-        'Preference not saved',
-        'Check your connection and try again.',
-      );
-    }
   };
 
   const handleToggleLocationOffers = async () => {

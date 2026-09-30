@@ -247,8 +247,9 @@ describe('RevenueCat Pro store offer snapshot', () => {
               priceString: '$9.99',
               currencyCode: 'USD',
               introPrice: {
+                price: 0,
                 priceString: '$0.00',
-                type: 'FREE_TRIAL',
+                period: 'P1M',
                 cycles: 1,
                 periodUnit: 'MONTH',
                 periodNumberOfUnits: 1,
@@ -293,6 +294,17 @@ describe('RevenueCat Pro store offer snapshot', () => {
       },
     });
   });
+
+  it.each([1.99, undefined, null, '0', Number.NaN])(
+    'does not call an intro with numeric price %s a free trial',
+    async (price) => {
+      const offerings = await mockPurchases.getOfferings();
+      offerings.current.availablePackages[0].product.introPrice.price = price;
+      const { getProStoreOfferSnapshot } = require('./entitlements');
+      const snapshot = await getProStoreOfferSnapshot('user-a');
+      expect(snapshot.products.pro_monthly.introPrice?.type).not.toBe('FREE_TRIAL');
+    },
+  );
 
   it('fails eligibility to unknown without suppressing live prices', async () => {
     mockPurchases.checkTrialOrIntroductoryPriceEligibility.mockRejectedValue(

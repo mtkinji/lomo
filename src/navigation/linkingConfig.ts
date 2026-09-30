@@ -267,6 +267,14 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         SettingsHome: 'settings',
         SettingsKwiltLabs: 'settings/labs',
         SettingsScreenTimeProtection: 'settings/screen-time',
+        SettingsFamilyScreenTime: {
+          path: 'settings/household/:childMembershipId/screen-time',
+          parse: {
+            childMembershipId: (value: string) => String(value),
+            householdId: (value: string) => String(value),
+            childDisplayName: (value: string) => String(value),
+          },
+        },
         SettingsExplore: 'settings/explore',
         SettingsGames: 'settings/games',
         // Trial-expiry and Pro-grant emails deep-link into the Manage

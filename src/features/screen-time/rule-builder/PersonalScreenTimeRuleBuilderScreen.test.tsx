@@ -16,12 +16,21 @@ import {
   activatePersonalCompositeScreenTimeRule,
   deactivatePersonalCompositeScreenTimeRule,
 } from '../../../services/screenTimeProtectionRuntime';
-import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBuilderScreen';
+import { PersonalScreenTimeRuleBuilderScreen, PersonalScreenTimeRuleBuilderDrawer } from './PersonalScreenTimeRuleBuilderScreen';
+import { getScreenTimeBudgetSetup } from './screenTimeBudgetSetupSession';
 
 const mockGoBack = jest.fn();
+const mockRootNavigate = jest.fn();
+jest.mock('../../../navigation/rootNavigationRef', () => ({ navigateWhenReady: (...args: unknown[]) => mockRootNavigate(...args) }));
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
 const mockLoadMoneySnapshot = jest.fn();
 const mockCapture = jest.fn();
+const mockAuthenticateRuleChange = jest.fn();
+
+jest.mock('../runtime/screenTimeRuleAuthentication', () => ({
+  authenticateScreenTimeRuleChange: (...args: unknown[]) => mockAuthenticateRuleChange(...args),
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE: "Kwilt couldn't confirm this change. The rule is still on.",
+}));
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -113,6 +122,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
     });
     mockCapture.mockReset();
+    mockAuthenticateRuleChange.mockReset().mockResolvedValue({ outcome: 'authenticated' });
     useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved' } });
     useEntitlementsStore.setState({ isPro: true });
   });
@@ -300,6 +310,33 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     );
   });
 
+  it('lets one rule use two time conditions to define a daily window', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+
+    const secondTimeCondition = screen.getByRole('radio', { name: 'Time of day' });
+    expect(secondTimeCondition.props.accessibilityState.disabled).not.toBe(true);
+    fireEvent.press(secondTimeCondition);
+
+    expect(screen.getAllByRole('button', { name: 'Condition: Time' })).toHaveLength(2);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+    await waitFor(() => expect(
+      useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.conditions,
+    ).toEqual([
+      expect.objectContaining({ type: 'time_of_day' }),
+      expect.objectContaining({ type: 'time_of_day' }),
+    ]));
+  });
+
   it('shows Apple’s exact monitor-limit recovery instead of the generic confirmation error', async () => {
     (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
       selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
@@ -322,6 +359,78 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
       'Couldn’t turn on this rule',
       'Apple still has too many old Screen Time schedules for Kwilt. Turn Kwilt off and back on under Settings → Screen Time → Apps With Screen Time Access, then try again.',
     ));
+  });
+
+  it('keeps a daily-limit route available when no eligible budgets exist', async () => {
+    mockLoadMoneySnapshot.mockResolvedValue({ categories: [] });
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Budget' }));
+    expect(await screen.findByText('A budget comes first.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Use a daily limit instead' }));
+    expect(screen.getByRole('button', { name: 'Condition: Daily use' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rule outcome: Pause access' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
+    expect(activatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
+  });
+
+  it('does not look up Money when choosing a standalone daily limit', async () => {
+    useEntitlementsStore.setState({ isPro: false });
+    mockRouteParams = { entry: 'contextual', suggestedKind: 'daily_limit' };
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    expect(screen.getByRole('button', { name: 'Condition: Daily use' })).toBeTruthy();
+    expect(mockLoadMoneySnapshot).not.toHaveBeenCalled();
+    expect(usePaywallStore.getState().visible).toBe(false);
+  });
+
+  it('returns from optional Money setup with the same unsaved apps and no activated rule', async () => {
+    useAppStore.setState({ authIdentity: { userId: 'budget-owner' } });
+    mockRootNavigate.mockClear();
+    mockLoadMoneySnapshot.mockResolvedValue({ categories: [] });
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({ selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }] });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Budget' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Set up Money' }));
+    const destination = mockRootNavigate.mock.calls[0];
+    expect(destination[0]).toBe('Money');
+    const id = destination[1].params.screenTimeBudgetSetupId;
+    expect(getScreenTimeBudgetSetup(id, 'budget-owner')?.draft.targets.selectedCategories[0].token).toBe('social');
+    expect(JSON.stringify(destination)).not.toContain('social');
+    screen.unmount();
+    mockRouteParams = { entry: 'contextual', budgetSetupResumeId: id };
+    const resumed = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    expect(await resumed.findByText('A budget comes first.')).toBeTruthy();
+    expect(resumed.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
+    expect(activatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
+  });
+
+  it('does not mislabel a failed budget lookup as no budgets and allows retry', async () => {
+    mockLoadMoneySnapshot.mockRejectedValueOnce(new Error('offline'));
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Budget' }));
+    expect(await screen.findByText('Couldn’t load your budgets.')).toBeTruthy();
+    expect(screen.queryByText('A budget comes first.')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('radio', { name: 'Shopping' })).toBeTruthy();
   });
 
   it('offers Budget with the full condition list and adds the chosen budget predicate', async () => {
@@ -399,6 +508,82 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
 
     await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]?.enabled).toBe(false));
     expect(deactivatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  it('does not turn an active saved rule off when authentication is cancelled', async () => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Rule actions' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Turn off rule' }));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('disable_personal'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toEqual(saved);
+  });
+
+  it.each([false, true])('does not overwrite a changed rule (resumed from Money: %s)', async (resumedFromMoney) => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    const newer = { ...saved, lastUpdated: '2026-08-28T20:00:00.000Z' };
+    const screen = resumedFromMoney ? null : renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    await act(async () => { useAppStore.setState({ screenTimeProtection: {
+      ...useAppStore.getState().screenTimeProtection, personalCompositeRules: [newer],
+    } }); });
+    const editor = screen ?? renderWithProviders(<PersonalScreenTimeRuleBuilderDrawer
+      params={{ entry: 'inventory', ruleId: saved.id }} onClose={mockGoBack}
+      initialDraft={{ draftRuleId: saved.id, expectedUpdatedAt: saved.lastUpdated,
+        targets: { selectedApps: saved.selectedApps, selectedCategories: saved.selectedCategories },
+        enabled: saved.enabled, connector: saved.connector, outcome: saved.outcome,
+        conditions: saved.conditions, activeConditionId: null }}
+    />);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    fireEvent.press(editor.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('This rule changed', 'Close and reopen this rule to review its latest settings before saving.'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toMatchObject(newer);
+    expect(activatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('does not save edits to an active rule when authentication is cancelled', async () => {
+    const saved = {
+      id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [{ id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 }],
+      lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    useAppStore.setState({ screenTimeProtection: {
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved', personalCompositeRules: [saved],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    mockAuthenticateRuleChange.mockResolvedValueOnce({ outcome: 'cancelled' });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(mockAuthenticateRuleChange).toHaveBeenCalledWith('save_active_personal'));
+    expect(useAppStore.getState().screenTimeProtection.personalCompositeRules[0]).toMatchObject(saved);
+    expect(activatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
+    expect(deactivatePersonalCompositeScreenTimeRule).not.toHaveBeenCalled();
   });
 
   it('keeps a dormant scheduled rule intact and asks Free for Pro before reactivation', async () => {

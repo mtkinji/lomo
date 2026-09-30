@@ -102,7 +102,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
         closesAt: null,
       });
       capture(AnalyticsEvent.MealChoiceRoundOpened, { count: selected.length });
-      navigation.replace("NextMeals");
+      navigation.replace("RecipeLibrary", { openPlan: true, planId: plan.id });
     } catch (error) {
       Alert.alert(
         "Could not ask the family",
@@ -121,7 +121,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
           <Text tone="secondary">
             Your meal plan is safely saved for you. Sharing is a separate choice so Kwilt never creates or exposes a Household by accident.
           </Text>
-          <Button onPress={() => navigation.replace("NextMeals")}>Back to meal plan</Button>
+          <Button onPress={() => navigation.replace("RecipeLibrary", { openPlan: true, planId: plan.id })}>Back to meal plan</Button>
         </View>
       </AppShell>
     );

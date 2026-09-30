@@ -87,7 +87,23 @@ Kwilt localization: Capability owners define rule conditions and outcome copy. T
 
 Last reviewed: 2026-08-27.
 
+### Onboarding path invitation — adopted design, native proof pending
+
+Andrew approved implementation on 2026-09-28 after the local landing-pattern trial. Applies immediately after the household landing promise, before a capability is selected. Job: invite one starting path without adding another statement/Continue gate. Preserve the anchored introduction and center the compact choice group in the remaining scrollable area above reserved dock clearance. White canvas (`colors.card`) is a scoped exception to parchment, not an app-wide canvas change. Use a medium heading, existing support copy, neutral underlined Skip and four icon-led `ChoicePill` controls with regular sentences and semibold key phrases. No chevrons or extra Continue button. Paths keep their existing capability introductions and handoffs.
+
+Reveal the introduction as one group, then all choices together (200/700ms start delays, 950ms fade with 8pt float); no per-choice ranking or stagger. Return visits, Reduced Motion and screen-reader use omit the choice reveal. Choices wrap and the page scrolls at larger text sizes. Skip remains a button action with an underline, not an external URL. Excludes primary submission buttons, questionnaires with persistent selected state, illustrated capability pages and routine app use. Source: Origin first-run capture 19's invitation/pill composition; reject faded choices and the composer. Implementation owner: HouseholdStarterFlow + ChoicePill. Design direction adopted; native rendering, text scaling and assistive-technology review remain pending. No new global link or button variant is adopted.
+
+#### Continuity into capability invitations — owner-directed mock refinement
+
+Money invitation presentation approved 2026-09-28: shared anchored heading “Your money, in one place.”; no subtitle; a centered middle-region Kwilt–Plaid connection cue with one provider explanation; existing bottom Connect an account action. No sign-up-sequence footnote, fabricated data or connection-success indicator. Current mock uses a plain-text Plaid label, not official partner artwork. Approval is design acceptance, not native/runtime or backend proof. The subsequent account invitation remains a separate trial.
+
+2026-09-28: the white path-choice page and subsequent white capability invitation share an anchored introduction: same top offset below navigation, horizontal gutters, left alignment, heading weight/scale and heading-to-support spacing. The middle region varies by job (choices, illustration, or no visual); removing content must not vertically center the introduction. A capability action uses the existing bottom dock, independent of content height. Headings may wrap naturally and supporting text follows; at larger text sizes allow scrolling rather than clipping or shrinking text. Retain quiet grouped reveals without changing resting positions.
+
+Applies to the current post-landing onboarding invitation trial, not the atmospheric first-launch promise, provider-owned Plaid screens, forms, evidence/results pages or routine app use. Do: leave the content region open on a copy-only invitation. Don't: center its headline because artwork was removed. Mock owner: `landing-pattern-trial.html`, shared `.choices` introduction layout inherited by the Money stage. Design direction requested by Andrew; native extraction and fresh rendered acceptance remain pending. This extends composition scope only, not authentication or connection behavior.
+
 ### Bottom Dock Geometry
+
+Household onboarding refinement (2026-09-26): its full-width actions explicitly use `FullWidthActionDock placement="restingFloatingControl"` and matching hook clearance for the requested 32pt side/bottom corner nesting. Other full-width page actions retain their existing default geometry.
 
 Job: When the current action must remain available at the bottom of a phone surface, the user needs it to feel deliberately nested inside the device rather than attached with arbitrary padding, so it remains reachable without colliding with the home indicator, keyboard, tab bar, or content.
 
@@ -242,3 +258,44 @@ Home trial update: soft content cards with attribution below, accepted for imple
 ### Home purpose-led composition trial (Candidate, September 9, 2026)
 
 Supersedes uniform soft-card anatomy for the current Home trial. Moments use a light outlined compactCard surface, contributions use a compact leading boundary, messages use quotation typography on a neutral surface, and invitations retain one explicit outline action. Smaller name/time and explicit audience share a byline region with 44pt reaction/conversation/overflow targets. Saved and responder details are revealed through the shared menu. See `docs/design-explorations/kwilt-home-feed-items/four-pattern-contract.md`; user acceptance is still required for canonical promotion.
+
+## External candidates awaiting scope and rendered proof
+
+### Onboarding offer: price-led commitment — candidate trial, 2026-09-29
+
+Implementation authorized after the offer refinements: `src/features/paywall/FoundingLifetimeOffer.tsx`, consumed by `ProPlanChooserScreen` when the lifetime product is ready and the person does not already have Pro. Native implementation is local; rendered Simulator/device acceptance remains pending. Existing subscribers and absent offers retain the existing chooser. This does not establish a new auth/Plaid boundary or automatically remove the preceding contextual paywall.
+
+Current accepted presentation replaces earlier trial details: three reveal beats (rating; offer/price/terms; benefits/details), neutral stars with decorative laurels, muted-green `Badge` offer label, system-serif price and “Lifetime access,” raised leading dollar sign with full-size lining `19.99`, three regular-weight benefit rows with edge-to-edge separators and the hourglass for app limits. Localized non-dollar prices remain intact. CTA is the shared fully rounded **Purchase** button, not Apple Pay. Native keeps Other plans, restore, and legal links accessible. It uses the shared accessibility preference hook and canonical action-dock clearance. The existing `Badge` remains Candidate; this scoped use is not app-wide promotion.
+
+Origin capture `07-introductory-offer.png` inspires the compact rating → offer → prominent price → explicit payment terms → informational benefits → bottom action hierarchy. Scoped to first-run Pro consideration, not every capability invitation or returning-user screen. Trial: `/Users/andrewwatanabe/.codex/visualizations/2026/09/15/01a0a6bf-5ee1-7a72-8dae-a5e31f9bf0d3/landing-pattern-trial.html`.
+
+- Preserve Kwilt type, white canvas, and fully rounded Canonical Bottom Dock Geometry; use price as this variant's focal point.
+- Andrew requests average rating and stars **without the count**. Trial uses US App Store 5.0, checked 2026-09-29 at https://apps.apple.com/us/app/kwilt/id6755990439. Refresh before shipping; never reuse Origin member counts. Follow-up trial uses neutral stars and decorative laurel branches at Andrew's request; these do not denote an award or Apple endorsement. This narrowly supersedes the earlier no-laurels direction for this rating treatment only.
+- Follow-up label: “Limited-time founding offer.” Andrew confirms this price will not remain available indefinitely. No invented expiration date, countdown or quantity. Revalidate/remove the label if offer policy changes.
+- Price is the runbook's $19.99 founding non-consumable, not a fresh Store quote. Native must use the localized live product. One payment, no subscription; qualify lifetime as life of service. No fabricated discount, countdown, unlimited usage, or family-sharing claim.
+- Optional `secondaryActions` slot supports future real promo/employer routes; empty means no links and no reserved gap. Neither is supported or displayed now. This does not remove required purchase terms, privacy, restore or existing alternate-plan access from production.
+- “Get Kwilt Pro” invokes Apple in-app purchase in production, not Apple Pay or subscription billing. Trial only displays a boundary notice.
+- Slow soft reveals are presentation, never an interaction gate; reduced motion shows content immediately. Scroll overflow must preserve fixed bottom action clearance.
+- Adoption, precise journey placement, native component implementation, purchase states and runtime proof remain pending. Review unavailable/loading, owned, pending, failure/cancel, restore, larger text and reduced motion before promotion.
+
+### Initial landing: atmospheric promise — owner-adopted design
+
+Extension accepted 2026-09-28: the same atmospheric composition may serve selective invitations before meaningful setup, using a single message instead of landing's identity-line-plus-promise. Andrew approved the slower sequential fade/float refinement in the [motion trial](references/origin-mobile/first-run-2026-09/landing-trial.md). Keep background/logo continuous, action available and Reduce Motion immediate. Not a mandatory extra page or an app-wide animation rule. Native preset choice, implementation and runtime proof remain pending; the initial-only description below records the earlier adoption scope.
+
+Andrew adopted this initial-app-landing-only pattern on 2026-09-28 after the [landing trial](references/origin-mobile/first-run-2026-09/landing-trial.md): calm shoreline video with a message-focused veil, subtle upper logo, one core promise using the actual app's existing copy treatment, and one fully rounded bottom action governed by Canonical Bottom Dock Geometry. No “Always on” equivalent, competing promotional message or feature list. Excludes choices, forms, offers, findings and routine returning use. Existing tokens and components are retained. Design adoption is explicit; native veil implementation and runtime/accessibility proof remain pending, so this entry does not claim a Canonical production implementation or promote the broader onboarding candidate.
+
+- **Promise-led capability onboarding** — [Origin first-run evidence](references/origin-mobile/first-run-2026-09/source.md) and [Candidate flow contract](references/origin-mobile/first-run-2026-09/pattern-extraction.md), `PAT-onboarding-promise-led`. Andrew endorsed the learning direction and requested cataloging on 2026-09-28. Repeats promise, relevance, contextual commitments, guided setup, earned payoff and direct entry across capabilities—not identical screen counts or invented features. Existing Canonical Capability Onboarding Step and Bottom Dock Geometry remain authoritative; specific new variants, offer timing and runtime proof remain unresolved.
+
+- **Focused modal background** — [Origin reference and candidate contract](references/origin-mobile/drawer-background-2026-09/source.md). Andrew likes the combination of dimming and obscured background detail (2026-09-28). Candidate for focused blocking drawers; this does not change the default for guides, coachmarks, or context-dependent tasks. [Initial source audit](audits/2026-09-28-drawer-background.md).
+
+## Local — Biographer inventory scrollbar
+
+Status: Local, accepted default design for Biographer's substantial entry inventory. Andrew explicitly adopted the refined interaction on 2026-09-28. Browser trial implemented; native implementation builds successfully for iOS Simulator and macOS with 19 passing core tests. Native visual review is blocked by Simulator computer-use permissions; physical-device proof remains pending. Not an app-wide Canonical primitive.
+
+Job: Rapidly browse a long chronological inventory while retaining readable text-first cards and full content width.
+
+Contract: Ordinary scrolling reveals a compact right-edge up/down handle. Its position tracks the full scroll range; dragging moves continuously without month snapping. A noninteractive month/year label accompanies the active drag. Release preserves the exact position and smoothly dismisses the label; the handle fades/slides away after inactivity. Entrance and exit reverse smoothly when interaction resumes. Scroll movement itself stays directly coupled to the finger. Emit a light selection haptic when crossing a month during active dragging, with no continuous buzz or ordinary-scroll haptics. Preserve keyboard/assistive access and Reduce Motion behavior.
+
+Ownership: Inventory owns scroll position, gesture and haptic state; chronological grouping supplies the date label; cards retain their accepted white-page, rounded text-first presentation. Entry canvas remains separate. Exclusions: writing, recording, forms, empty/non-scrollable inventories; uncertain memory periods need their own truthful labeling treatment.
+
+Evidence and trial constants: [Google Photos reference and revisions](references/google-photos-mobile/timeline-2026-09/source.md). Replaces the prior month-menu/stepwise overlay proposal for this scope. Native haptic feel, VoiceOver, large text, multi-year scale and device interruptions still require verification.

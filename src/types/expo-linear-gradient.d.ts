@@ -4,6 +4,7 @@ declare module 'expo-linear-gradient' {
 
   export interface LinearGradientProps {
     colors: string[];
+    locations?: readonly number[];
     start?: { x: number; y: number };
     end?: { x: number; y: number };
     style?: StyleProp<ViewStyle>;
@@ -12,5 +13,4 @@ declare module 'expo-linear-gradient' {
 
   export const LinearGradient: React.ComponentType<LinearGradientProps>;
 }
-
 

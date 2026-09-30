@@ -50,6 +50,19 @@ describe('useExploreRecorder recording modes', () => {
     expect(useExploreStore.getState().activeSession).not.toBeNull();
   });
 
+  it('starts the foreground watcher without waiting for the initial location fix', async () => {
+    (Location.getCurrentPositionAsync as jest.Mock).mockImplementationOnce(() => new Promise(() => undefined));
+    const { result } = renderHook(() => useExploreRecorder());
+
+    act(() => {
+      void result.current.start();
+    });
+
+    await waitFor(() => expect(Location.getCurrentPositionAsync).toHaveBeenCalled());
+    expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe('recording');
+  });
+
   it('starts the first recorded path with permission to resume ambient exploration afterward', async () => {
     const { result } = renderHook(() => useExploreRecorder());
     await act(async () => result.current.beginOnboarding());

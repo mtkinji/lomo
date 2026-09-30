@@ -60,8 +60,8 @@ export type CapabilityNavigationTarget =
   | {
       name: 'Food';
       params: {
-        screen: 'RecipeLibrary' | 'NextMeals' | 'GroceryList';
-        params?: { entryPoint: 'capability-menu' };
+        screen: 'RecipeLibrary' | 'GroceryList';
+        params?: { entryPoint: 'capability-menu' } | { openPlan: true };
       };
     };
 
@@ -123,6 +123,15 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
     return { name: 'Chores' };
   }
   if (rootRoute.root === 'Food') {
+    if (id === 'meal-planning') {
+      return {
+        name: 'Food',
+        params: {
+          screen: 'RecipeLibrary',
+          params: { openPlan: true },
+        },
+      };
+    }
     if (id === 'groceries') {
       return {
         name: 'Food',

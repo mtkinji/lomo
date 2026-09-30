@@ -1,0 +1,32 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Presentation-only rehearsal. No bank links, purchases, rules, or household writes.
+- openLink: "kwilt://__dev/tools?householdOnboarding=1"
+- tapOn:
+    text: "Not now"
+    optional: true
+- assertVisible: "Kwilt. One app for life."
+- takeScreenshot: "household-promise"
+- tapOn: "Get started"
+- assertVisible: "Where would you like to start?"
+- takeScreenshot: "household-choices"
+- tapOn: "Money"
+- assertVisible: "Example · not your data"
+- takeScreenshot: "household-money-example"
+- tapOn: "Back"
+- tapOn: "Screen time"
+- assertVisible: "Set up Screen Time"
+- takeScreenshot: "household-screen-time-example"
+- tapOn: "Back"
+- scrollUntilVisible:
+    element:
+      text: "Goals and to-dos"
+    direction: DOWN
+- tapOn: "Goals and to-dos"
+- assertVisible: "Create a goal"
+- tapOn: "Back"
+- tapOn: "Meals and chores"
+- assertVisible: "Start with chores"
+- takeScreenshot: "household-meals-example"
+- tapOn: "Skip"
+- assertNotVisible: "Where would you like to start?"

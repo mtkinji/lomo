@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
-import { Alert, FlatList, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, FlatList, InteractionManager, ScrollView, StyleSheet, View } from "react-native";
 import * as Crypto from "expo-crypto";
 
 import { colors, radii, spacing, typography } from "../../../theme";
@@ -126,6 +126,7 @@ import { FoodNeedsDrawer } from "../../../features/household-food/components/Foo
 import { useHouseholdMealPreferencesStore } from "../../../features/household-food/runtime/useHouseholdMealPreferencesStore";
 import { groceryEducation } from "../../groceries/data/groceryEducation";
 import { useCapabilityOnboardingStore } from "../../../features/capability-onboarding/useCapabilityOnboardingStore";
+import { requestWorkflowFeedback } from "../../../features/workflow-feedback";
 import {
   FOOD_FIRST_CYCLE_CHECKPOINTS,
   foodFirstCycleStepFromCheckpoint,
@@ -411,6 +412,23 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     void groceryEducation.markReadyPlanSeen(planPersonId).catch(() => undefined);
     navigation.setParams({ openPlan: undefined });
   }, [navigation, planPersonId, route.params?.openPlan]);
+  useEffect(() => {
+    const feedbackPromptId = route.params?.feedbackPromptId;
+    if (!feedbackPromptId) return undefined;
+    navigation.setParams({ feedbackPromptId: undefined });
+    let feedbackHandle: ReturnType<typeof requestWorkflowFeedback> | null = null;
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      feedbackHandle = requestWorkflowFeedback({
+        promptId: feedbackPromptId,
+        sourceKey: 'meal-plan-finalized',
+        placement: 'standalone',
+      });
+    });
+    return () => {
+      interaction.cancel();
+      feedbackHandle?.cancel();
+    };
+  }, [navigation, route.params?.feedbackPromptId]);
   useFocusEffect(useCallback(() => {
     if (!userId) {
       setMealPlanNeedsAttention(false);

@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import {
+  authenticationClassForScreenTimeProposal,
+  executeScreenTimeProposalDecision,
+} from './executeScreenTimeProposalDecision';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 import { normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
 
@@ -125,6 +128,7 @@ describe('executeScreenTimeProposalDecision', () => {
         persistSettings: (next) => { settings = next; },
         activateRule: async () => true, deactivateRule: async () => true,
       },
+      authenticateRuleChange: jest.fn(async () => ({ outcome: 'authenticated' as const })),
       now: () => new Date('2026-08-27T11:00:00.000Z'),
     });
     expect(settings.personalCompositeRules[0]).toMatchObject({ enabled: false, lastUpdated: '2026-08-27T11:00:00.000Z' });
@@ -143,6 +147,62 @@ describe('executeScreenTimeProposalDecision', () => {
       undoOperation: { type: 'screen_time.personal_rule.update', ruleId: 'rule-1' },
     });
     expect(JSON.stringify(finalized)).not.toMatch(/private-token|private-selection/);
+  });
+
+  it('leaves an active personal rule and proposal untouched when authentication is cancelled', async () => {
+    let settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved', personalRuleSchemaVersion: 2, personalCompositeRules: [{
+        id: 'rule-1', selectionId: 'private-selection', selectedApps: [{ token: 'private-token' }],
+        selectedCategories: [], enabled: true, setupCompleted: true, connector: 'all', outcome: 'pause',
+        conditions: [{ id: 'usage', type: 'daily_usage', operator: 'reaches', minutes: 30 }],
+        lastUpdated: '2026-08-27T10:00:00.000Z',
+      }],
+    });
+    const repository = {
+      decideProposal: jest.fn(), transitionProposalStatus: jest.fn(),
+      persistMutationReceipt: jest.fn(), finalizeMutationReceipt: jest.fn(),
+    };
+    const authenticateRuleChange = jest.fn(async () => ({ outcome: 'cancelled' as const }));
+
+    await executeScreenTimeProposalDecision({
+      proposal: personalProposal, action: 'approve', repository,
+      client: { rpc: jest.fn() } as unknown as SupabaseClient,
+      personalBoundary: {
+        readSettings: () => settings,
+        persistSettings: (next) => { settings = next; },
+        activateRule: async () => true, deactivateRule: async () => true,
+      },
+      authenticateRuleChange,
+    });
+
+    expect(authenticateRuleChange).toHaveBeenCalledWith('save_active_personal');
+    expect(repository.decideProposal).not.toHaveBeenCalled();
+    expect(settings.personalCompositeRules[0]?.enabled).toBe(true);
+  });
+
+  it('requires fresh authentication for family agreement updates and deactivation', () => {
+    const baseOperation = prerequisiteProposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+      ? prerequisiteProposal.operation
+      : null;
+    expect(baseOperation).not.toBeNull();
+    const updateProposal = {
+      ...prerequisiteProposal,
+      operation: {
+        ...baseOperation!,
+        type: 'update_family_screen_time_agreement' as const,
+        targetId: 'agreement-1',
+        payload: {
+          childMembershipId: 'charlie', selectionId: 'selection-games', expectedVersion: 1,
+          rule: baseOperation!.payload.rule,
+        },
+      },
+    };
+    const deactivateProposal = {
+      ...updateProposal,
+      operation: { ...updateProposal.operation, type: 'deactivate_family_screen_time_agreement' as const },
+    };
+    expect(authenticationClassForScreenTimeProposal(updateProposal)).toBe('save_active_family');
+    expect(authenticationClassForScreenTimeProposal(deactivateProposal)).toBe('deactivate_family');
   });
 
   it('creates the confirmed prerequisite agreement atomically and keeps device delivery distinct', async () => {

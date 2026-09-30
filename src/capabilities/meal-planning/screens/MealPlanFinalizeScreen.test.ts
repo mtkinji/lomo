@@ -18,6 +18,9 @@ describe('Meal Plan finalization occasions', () => {
   it('hands successful finalization to Next Meals and emits only a bounded failure class', () => {
     const source = readFileSync(path.join(__dirname, 'MealPlanFinalizeScreen.tsx'), 'utf8');
 
+    expect(source).toContain("navigation.replace('RecipeLibrary', {");
+    expect(source).toContain('openPlan: true');
+    expect(source).toContain('planId: route.params.planId');
     expect(source).toContain("feedbackPromptId: 'meal_plan_finalized_satisfaction_v1'");
     expect(source).toContain('AnalyticsEvent.MealPlanFinalizeFailed');
     expect(source).toContain('failure_class: classifyMealPlanFinalizeFailure(error)');

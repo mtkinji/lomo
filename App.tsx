@@ -102,6 +102,9 @@ import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
 import { developmentNotificationLogFilters } from './src/services/notifications/developmentNotificationLogFilters';
 import { markAppStarted } from './src/services/performance/startupTelemetry';
 import { useCapabilityOnboardingStore } from './src/features/capability-onboarding/useCapabilityOnboardingStore';
+import { FirstRunCapabilityHost } from './src/features/capability-onboarding/FirstRunCapabilityHost';
+import { clearScreenTimeBudgetSetup } from './src/features/screen-time/rule-builder/screenTimeBudgetSetupSession';
+import { resolveCapabilityFirstRunEntry } from './src/features/capability-onboarding/capabilityFirstRunEntry';
 import { HouseholdModeHost } from './src/features/household/sharedDevice/HouseholdModeHost';
 import { useHouseholdModeStore } from './src/features/household/sharedDevice/useHouseholdModeStore';
 import { ManagedChildDeviceHost } from './src/features/household/personalDevice/ManagedChildDeviceHost';
@@ -165,6 +168,13 @@ export default function App() {
       : null,
   );
   const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
+  const capabilityOnboardingHydrated = useCapabilityOnboardingStore((state) => state.hydrated);
+  useEffect(() => {
+    // Unsaved native app selections cannot cross sign-out or account changes.
+    clearScreenTimeBudgetSetup();
+  }, [authIdentity?.userId]);
+  const capabilityUniversalState = useCapabilityOnboardingStore((state) =>
+    authIdentity?.userId ? state.recordsByUserId[authIdentity.userId]?.universalState ?? 'reel' : 'reel');
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const didRunAppInitRef = useRef(false);
   const analyticsConsentStatus = useAnalyticsConsentStore((state) => state.status);
@@ -553,22 +563,22 @@ export default function App() {
     }
   }, [hasCustomizedLlmModel, isPro, llmModel, setLlmModelSystem]);
 
+  const capabilityFirstRunEntry = resolveCapabilityFirstRunEntry({
+    hydrated: capabilityOnboardingHydrated,
+    signedIn: authStartupState === 'signedIn',
+    returningUser: isReturningUser,
+    completed: hasCompletedFirstTimeOnboarding,
+    returningPermissions: showReturningUserFlow,
+    goalFlowActive: isFirstTimeFlowActive,
+    universalState: capabilityUniversalState,
+    selectedPathId: selectedCapabilityOnboardingPathId,
+  });
   useEffect(() => {
-    const shouldRunFtue =
-      authStartupState === 'signedIn' &&
-      !hasCompletedFirstTimeOnboarding &&
-      !isFirstTimeFlowActive &&
-      isReturningUser === false &&
-      !showReturningUserFlow;
-    if (shouldRunFtue) {
+    if (capabilityFirstRunEntry === 'resume-goal') {
       startFirstTimeFlow();
     }
   }, [
-    authStartupState,
-    hasCompletedFirstTimeOnboarding,
-    isFirstTimeFlowActive,
-    isReturningUser,
-    showReturningUserFlow,
+    capabilityFirstRunEntry,
     startFirstTimeFlow,
   ]);
 
@@ -756,6 +766,7 @@ export default function App() {
     >
       <WorkflowFeedbackProvider>
         <RootNavigatorWithPostHog />
+        <FirstRunCapabilityHost visible={capabilityFirstRunEntry === 'choose-path'} userId={authIdentity.userId} />
         <FirstTimeUxFlow
           entryMode={firstTimeUxEntryMode}
           onCapabilityComplete={handleCapabilityOnboardingComplete}
@@ -769,6 +780,7 @@ export default function App() {
   ) : (
     <WorkflowFeedbackProvider>
       <RootNavigator />
+      <FirstRunCapabilityHost visible={capabilityFirstRunEntry === 'choose-path'} userId={authIdentity.userId} />
       <FirstTimeUxFlow
         entryMode={firstTimeUxEntryMode}
         onCapabilityComplete={handleCapabilityOnboardingComplete}

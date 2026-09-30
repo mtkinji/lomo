@@ -14,6 +14,7 @@ serves:
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - bishop-lakes-focus-environment
   - monthly-weekday-repeat
   - activity-place-context
   - activity-session-substrate
@@ -45,7 +46,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-08-27
+last_reviewed: 2026-09-23
 ---
 
 # activities

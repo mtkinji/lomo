@@ -190,7 +190,7 @@ serve(async (req) => {
 
   if (!link) {
     if (command.kind === 'help') {
-      return twiml('Kwilt Phone Agent saves messages into Kwilt after you link your number in Settings. Reply STOP to opt out.');
+      return twiml('Kwilt Phone Agent help: link your number in Kwilt Settings, then text notes or reminders. Msg & data rates may apply. Reply STOP to opt out. Support: kwilt.app/support');
     }
     if (command.kind === 'stop') {
       return twiml('You are opted out of Kwilt Phone Agent texts.');
@@ -202,7 +202,7 @@ serve(async (req) => {
   }
 
   if (command.kind === 'help') {
-    return twiml('Kwilt Phone Agent saves messages into Kwilt and can send follow-ups you control in Settings. Reply STOP to opt out.');
+    return twiml('Kwilt Phone Agent help: text notes or reminders to save them in Kwilt. Follow-ups stay under your control in Settings. Msg & data rates may apply. Reply STOP to opt out. Support: kwilt.app/support');
   }
 
   if (command.kind === 'stop') {
@@ -244,7 +244,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', link.id);
-    return twiml('Kwilt Phone Agent is re-enabled. Open Kwilt Settings to choose follow-up permissions.');
+    return twiml('Kwilt Phone Agent: You are opted in again. Message frequency varies, up to 3/day by default. Msg & data rates may apply. Reply HELP for help, STOP to opt out. Open Kwilt Settings to choose follow-up permissions.');
   }
 
   if (link.status !== 'verified' || link.opted_out_at) {

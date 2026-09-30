@@ -5,6 +5,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { bottomDockGeometry } from '../theme';
 import * as keyboardHeight from './hooks/useKeyboardHeight';
+import { shouldStackBottomDrawerFooterActions } from './layout/BottomDrawerSemanticFooter';
 import {
   BottomDrawer,
   BottomDrawerScrollView,
@@ -18,6 +19,13 @@ import {
 } from './BottomDrawer';
 
 describe('BottomDrawer accessibility contract', () => {
+  it('stacks responsive footer actions when enlarged text would make them compete horizontally', () => {
+    expect(shouldStackBottomDrawerFooterActions('responsive', 1)).toBe(false);
+    expect(shouldStackBottomDrawerFooterActions('responsive', 1.4)).toBe(true);
+    expect(shouldStackBottomDrawerFooterActions('row', 2)).toBe(false);
+    expect(shouldStackBottomDrawerFooterActions('stacked', 1)).toBe(true);
+  });
+
   it('reveals the field within the resized body, including the footer clearance', () => {
     expect(getDrawerFocusedInputScrollOffset(280, 112, 300, 0)).toBe(108);
     expect(getDrawerFocusedInputScrollOffset(280, 112, 240, 108)).toBe(168);
@@ -314,6 +322,30 @@ describe('BottomDrawer accessibility contract', () => {
     fireEvent.press(getByText('Save chore'));
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('can present a quiet management link without inventing a primary action', () => {
+    const onManage = jest.fn();
+    const { getByTestId, getByText, queryByText } = renderWithProviders(
+      <BottomDrawer
+        visible
+        onClose={jest.fn()}
+        footer={{
+          secondaryAction: {
+            label: 'Manage rules ›',
+            onPress: onManage,
+            variant: 'link',
+          },
+        }}
+      >
+        <Text>Time boundary</Text>
+      </BottomDrawer>,
+    );
+
+    expect(getByTestId('bottom-drawer.semantic-footer.actions').children).toHaveLength(1);
+    fireEvent.press(getByText('Manage rules ›'));
+    expect(onManage).toHaveBeenCalledTimes(1);
+    expect(queryByText('Continue')).toBeNull();
   });
 
   it('floats a drawer action dock over content with equal corner nesting', () => {

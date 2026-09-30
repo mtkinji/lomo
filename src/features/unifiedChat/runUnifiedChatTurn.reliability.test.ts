@@ -282,6 +282,46 @@ describe('Unified Chat action reliability', () => {
     }));
   });
 
+  test('persists only the specific personal Screen Time rule when the model also opens generic setup', async () => {
+    const sender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      const setupTool = options.runtimeTools?.find((candidate) => candidate.id === 'screen_time.personal.setup.open');
+      const limitTool = options.runtimeTools?.find((candidate) => candidate.id === 'screen_time.personal.limit.open');
+      expect(setupTool).toBeDefined();
+      expect(limitTool).toBeDefined();
+      await options.executeRuntimeTool?.({
+        id: 'personal-setup', toolId: 'screen_time.personal.setup.open',
+        arguments: { subject: { kind: 'self' } },
+      }, setupTool);
+      await options.executeRuntimeTool?.({
+        id: 'personal-limit', toolId: 'screen_time.personal.limit.open', arguments: {
+          subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
+        },
+      }, limitTool);
+      return 'Your 10-minute Instagram limit is ready to review.';
+    });
+    const { repository, sendCoachChat } = harness(sender);
+
+    await runUnifiedChatTurn({
+      aggregate,
+      prompt: 'Set a screen time rule that allows me to use Instagram for 10 minutes before I have to turn it off.',
+    }, {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      enableRuntimeTools: true,
+      loadCapabilitySnapshots: snapshots,
+    });
+
+    expect(repository.createClientAction).toHaveBeenCalledTimes(1);
+    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
+      actionType: 'open_personal_screen_time_limit',
+      title: 'Choose apps for a 10-minute limit',
+      payload: expect.objectContaining({ suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily' }),
+    }));
+  });
+
   test('finishes with a clarification when bounded recovery still cannot stage work', async () => {
     const sender = jest.fn(async () => 'Done. I updated the Goal.');
     const { repository, sendCoachChat } = harness(sender);

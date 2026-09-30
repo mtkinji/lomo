@@ -794,6 +794,7 @@ function SummaryMonthPanel({
               />
             ) : (
               <MoneyCategoryListRow
+                showMeter={categoryView.layout === 'bars'}
                 key={category.id}
                 category={category}
                 onPress={() => onOpenCategory(category.id)}
@@ -825,6 +826,7 @@ function SummaryMonthPanel({
                 />
               ) : (
                 <MoneyCategoryListRow
+                  showMeter={categoryView.layout === 'bars'}
                   key={category.id}
                   category={category}
                   onPress={() => onOpenCategory(category.id)}
@@ -1205,7 +1207,8 @@ function CategoryViewMenu({ onPresentationChange, onReorder, presentation }: {
       <DropdownMenuContent align="end" side="bottom" sideOffset={4}>
         <DropdownMenuRadioGroup value={presentation} onValueChange={(value) => value && onPresentationChange(value as MoneyCategoryPresentation)}>
           <CategoryViewChoice label="List" value="list" />
-          <CategoryViewChoice label="Meters" value="meters" />
+          <CategoryViewChoice label="Bar meters" value="bars" />
+          <CategoryViewChoice label="Dial meters" value="meters" />
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem accessibilityLabel="Reorder categories" onPress={onReorder}>

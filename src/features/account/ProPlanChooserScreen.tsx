@@ -38,6 +38,7 @@ import {
   type SubscriptionPlan,
 } from './subscriptionPricing';
 import { useProStoreOffer } from './useProStoreOffer';
+import { FoundingLifetimeOffer } from '../paywall/FoundingLifetimeOffer';
 
 function PlanRow({
   title,
@@ -83,10 +84,12 @@ export function ProPlanChooserScreen() {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const isRefreshing = useEntitlementsStore((state) => state.isRefreshing);
   const purchase = useEntitlementsStore((state) => state.purchase);
+  const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const { capture } = useAnalytics();
   const [cadence, setCadence] = React.useState<SubscriptionCadence>('annual');
   const [plan, setPlan] = React.useState<SubscriptionPlan>('individual');
+  const [showOtherPlans, setShowOtherPlans] = React.useState(false);
   const hasFocusedOnceRef = React.useRef(false);
   const isDevelopmentOfferPreview =
     __DEV__ && storeOffer.snapshot?.source === 'development_fixture';
@@ -184,6 +187,10 @@ export function ProPlanChooserScreen() {
     });
     purchase({ plan, cadence })
       .then((snapshot) => {
+        if (!snapshot.isPro) {
+          Alert.alert('Purchase pending', 'Pro access has not been confirmed yet. You can restore purchases after Apple completes the purchase.');
+          return;
+        }
         const trialStarted = snapshot.isPro && snapshot.proPeriodType === 'trial';
         capture(AnalyticsEvent.PurchaseSucceeded, {
           ...purchaseProps,
@@ -228,6 +235,10 @@ export function ProPlanChooserScreen() {
   const lifetimeReady = Boolean(lifetime?.priceString && lifetime.price && lifetime.price > 0 && proAccessType !== 'lifetime');
   const startLifetimePurchase = async () => {
     if (isRefreshing || !lifetimeReady) return;
+    if (isDevelopmentOfferPreview) {
+      Alert.alert('Simulator offer preview', 'Choose Live Apple in Dev Tools to test the real purchase sheet.');
+      return;
+    }
     capture(AnalyticsEvent.PurchaseStarted, { product_id: PRO_LIFETIME_SKU, variant: 'founders', offer_state: 'lifetime' });
     try {
       const snapshot = await purchase({ lifetime: true });
@@ -250,12 +261,43 @@ export function ProPlanChooserScreen() {
   };
 
   const showPurchaseAction = storeOffer.status === 'ready' && pricesReady;
+  const annualProduct = storeOffer.snapshot?.products[getProSku('individual', 'annual')];
+  const annualReady = Boolean(annualProduct?.priceString && annualProduct.price && annualProduct.price > 0);
+  const annualOffer = buildSelectedPlanOffer({ snapshot: storeOffer.snapshot ?? { status: 'unavailable', products: {} }, plan: 'individual', cadence: 'annual' });
+
+  // Existing subscribers retain the management-oriented chooser and its warning
+  // about independently cancelling renewals. Unavailable offers use its retry UI.
+  if (storeOffer.status === 'ready' && lifetimeReady && !isPro && !showOtherPlans) {
+    return <FoundingLifetimeOffer price={lifetime!.priceString!} busy={isRefreshing}
+      annual={annualReady ? { price: annualProduct!.priceString!, trial: annualOffer.expectsTrial } : undefined}
+      onAnnualPurchase={plan === 'individual' && cadence === 'annual' ? startPurchase : undefined}
+      onPurchase={startLifetimePurchase} onClose={handleBack}
+      onOtherPlans={() => setShowOtherPlans(true)}
+      onRestore={async () => {
+        if (isRefreshing) return;
+        capture(AnalyticsEvent.RestoreStarted);
+        try {
+          const snapshot = await restore();
+          capture(AnalyticsEvent.RestoreSucceeded);
+          if (snapshot.isPro) {
+            returnToPaidIntent(usePaywallStore.getState().completeUpgrade());
+          } else {
+            Alert.alert('No Pro purchase found', 'No active Pro purchase was found for this store account.');
+          }
+        } catch {
+          capture(AnalyticsEvent.RestoreFailed);
+          Alert.alert('Restore failed', 'We couldn’t restore purchases right now. Please try again.');
+        }
+      }} />;
+  }
 
   return (
     <AppShell>
       <PageHeader
         title="Choose your plan"
-        onPressBack={handleBack}
+        onPressBack={showOtherPlans && lifetimeReady && !isPro
+          ? () => { setPlan('individual'); setCadence('annual'); setShowOtherPlans(false); }
+          : handleBack}
       />
       <View style={styles.viewport}>
         <ScrollView

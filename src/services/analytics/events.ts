@@ -168,10 +168,8 @@ export const AnalyticsEvent = {
   ScreenTimeGuideShown: 'screen_time_guide_shown',
   ScreenTimeGuideDismissed: 'screen_time_guide_dismissed',
   ScreenTimeGuideRequirementOpened: 'screen_time_guide_requirement_opened',
-  ScreenTimeTemporaryOpenRequested: 'screen_time_temporary_open_requested',
-  ScreenTimeTemporaryOpenApplied: 'screen_time_temporary_open_applied',
-  ScreenTimeTemporaryOpenDenied: 'screen_time_temporary_open_denied',
-  ScreenTimeTemporaryOpenFailed: 'screen_time_temporary_open_failed',
+  ScreenTimeGuideManageRulesOpened: 'screen_time_guide_manage_rules_opened',
+  ScreenTimeRuleChangeAuthentication: 'screen_time_rule_change_authentication',
 
   // Registered contextual experience feedback. Metadata only: opaque
   // presentation id and product-controlled registry dimensions.

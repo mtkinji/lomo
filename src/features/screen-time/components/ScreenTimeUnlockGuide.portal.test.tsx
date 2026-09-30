@@ -30,10 +30,10 @@ it('keeps inline feedback usable when the guide portal sits outside the feedback
   const view = renderWithProviders(<>
     <WorkflowFeedbackProvider>
       <ScreenTimeUnlockGuide
-        visible rules={[]} unresolvedCount={1} result={null} busy={false}
+        visible rules={[]} unresolvedCount={1}
         feedbackSourceKey="screen-time-episode"
-        actions={projectScreenTimeGuideActions({ actor: { kind: 'self_adult' }, activeRules: [] })}
-        onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
+        actions={projectScreenTimeGuideActions({ actor: { kind: 'self_adult' }, activeRules: [], unresolvedCount: 1 })}
+        onDismiss={jest.fn()} onOpenRequirement={jest.fn()} onManageRules={jest.fn()}
       />
     </WorkflowFeedbackProvider>
     <PortalHost />

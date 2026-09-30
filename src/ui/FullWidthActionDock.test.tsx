@@ -6,10 +6,10 @@ import { bottomDockGeometry } from '../theme';
 import { Button } from './Button';
 import { FullWidthActionDock, useFullWidthActionDockClearance } from './FullWidthActionDock';
 
-function ClearanceProbe() {
-  const clearance = useFullWidthActionDockClearance();
+function ClearanceProbe({ placement }: { placement?: 'phoneFloating' | 'restingFloatingControl' }) {
+  const clearance = useFullWidthActionDockClearance(placement);
   return (
-    <FullWidthActionDock>
+    <FullWidthActionDock placement={placement}>
       <Button accessibilityLabel={`Clearance ${clearance}`} fullWidth size="lg" onPress={() => {}}>Continue</Button>
     </FullWidthActionDock>
   );
@@ -44,5 +44,10 @@ describe('FullWidthActionDock', () => {
     const screen = renderWithProviders(<ClearanceProbe />);
 
     expect(screen.getByRole('button', { name: 'Clearance 88' })).toBeTruthy();
+  });
+
+  it('reserves the roomier corner-nested clearance when explicitly selected', () => {
+    const screen = renderWithProviders(<ClearanceProbe placement="restingFloatingControl" />);
+    expect(screen.getByRole('button', { name: 'Clearance 96' })).toBeTruthy();
   });
 });

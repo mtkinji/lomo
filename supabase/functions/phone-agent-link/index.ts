@@ -103,7 +103,10 @@ async function sendVerificationCode(phone: string, code: string): Promise<boolea
   const form = new URLSearchParams();
   form.set('To', phone);
   form.set('From', from);
-  form.set('Body', `Your Kwilt Phone Agent verification code is ${code}.`);
+  form.set(
+    'Body',
+    `Kwilt Phone Agent: Your verification code is ${code}. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.`,
+  );
 
   const res = await fetch(url, {
     method: 'POST',

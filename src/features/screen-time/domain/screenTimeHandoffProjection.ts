@@ -9,6 +9,35 @@ import type { ScreenTimeRule } from './screenTimeRule';
 import type { PersonalCompositeScreenTimeRule } from './personalCompositeScreenTimeRule';
 import { routeForScreenTimeShieldReason } from '../../../services/screenTimeShieldHandoff';
 
+function projectRequirementAction(
+  rule: PersonalCompositeScreenTimeRule,
+): ScreenTimeRule['requirementAction'] {
+  if (rule.conditions.length !== 1) return undefined;
+  const condition = rule.conditions[0];
+  if (condition.type === 'focus_active') {
+    return {
+      kind: 'focus',
+      label: 'Return to Focus',
+      destination: 'kwilt://focus?source=screen-time',
+    };
+  }
+  if (condition.type === 'real_step_complete') {
+    return {
+      kind: 'real_step',
+      label: 'Do this first',
+      destination: 'kwilt://today?source=screen-time&highlightSuggested=1',
+    };
+  }
+  if (condition.type === 'budget') {
+    return {
+      kind: 'money',
+      label: 'Review Money',
+      destination: `kwilt://money/category/${encodeURIComponent(condition.categorySourceId)}?source=screen-time`,
+    };
+  }
+  return undefined;
+}
+
 function projectCompositeRule(rule: PersonalCompositeScreenTimeRule): ScreenTimeRule {
   const targets = [...rule.selectedApps, ...rule.selectedCategories];
   const first = targets[0]?.label?.trim();
@@ -22,7 +51,8 @@ function projectCompositeRule(rule: PersonalCompositeScreenTimeRule): ScreenTime
     selectionId: rule.selectionId,
     title,
     trigger: { type: 'composite' },
-    temporaryOpen: { allowed: true, durationMinutes: 20 },
+    requirementAction: projectRequirementAction(rule),
+    temporaryOpen: { allowed: false, durationMinutes: 20 },
     active: rule.enabled,
     desiredVersion: 1,
     appliedVersion: null,

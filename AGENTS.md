@@ -18,6 +18,10 @@ For Kwilt, the project content lives at:
 - **Money product documentation**: [`docs/capabilities/money/README.md`](docs/capabilities/money/README.md) — canonical Money persona/JTBD/job-flow links, 26 topical briefs, design explorations, concepts, source provenance, and current proof boundaries. Read this before framing or changing Money behavior.
 - **Input design and authoring**: [`docs/design-system/input-guidance.md`](docs/design-system/input-guidance.md) — Andrew-approved filled-field family, pattern selection, shared anatomy, states, and exceptions. Read before adding or changing text entry, search, picker triggers, inline editing, or composers. Use owned UI components; do not add feature-local raw inputs or appearance overrides. The linked migration plan distinguishes the approved target from implementation still pending and preserves each caller's keyboard/persistence contract.
 
+### UI inspiration and design-system audits
+
+For supplied UI inspiration, design-system cataloging, or conformance audits/application, use `operating-design-system` and [the capture/audit workflow](docs/design-system/inspiration-workflow.md). Catalog durable source assets and the selected quality; distinguish observation, accepted rule, implementation and runtime proof. Audit components **and** grouping, spacing, page composition and flows. Use [coverage](docs/design-system/coverage.md) to expose gaps; preserve inventory/atlas maturity and document exceptions. An audit request alone does not request an app-wide rewrite.
+
 ### The loop
 
 ```

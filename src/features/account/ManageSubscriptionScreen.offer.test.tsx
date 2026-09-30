@@ -250,9 +250,11 @@ describe('Founding Lifetime alongside subscriptions', () => {
   it('uses the live lifetime price and purchases independently of the subscription selection', async () => {
     const purchase = jest.fn(async () => ({ isPro: true, proAccessType: 'lifetime' as const, isProToolsTrial: false, checkedAt: '', source: 'revenuecat' as const }));
     useEntitlementsStore.setState({ purchase });
-    const { getByText } = renderWithProviders(<ProPlanChooserScreen />);
-    fireEvent.press(getByText('Get lifetime Pro — $29.99'));
+    const { getByText, getByLabelText } = renderWithProviders(<ProPlanChooserScreen />);
+    expect(getByLabelText('$29.99')).toBeTruthy();
+    fireEvent.press(getByText('Purchase'));
     await waitFor(() => expect(purchase).toHaveBeenCalledWith({ lifetime: true }));
+    fireEvent.press(getByText('Other plans'));
     expect(getByText('Individual')).toBeTruthy();
     expect(getByText('Family')).toBeTruthy();
   });
@@ -270,7 +272,7 @@ describe('Founding Lifetime alongside subscriptions', () => {
         isProToolsTrial: false, checkedAt: '', source: 'revenuecat' as const })),
     });
     const { getByText } = renderWithProviders(<ProPlanChooserScreen />);
-    fireEvent.press(getByText('Get lifetime Pro — $29.99'));
+    fireEvent.press(getByText('Purchase'));
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Purchase pending', expect.any(String)));
     expect(mockCapture).not.toHaveBeenCalledWith(AnalyticsEvent.PurchaseSucceeded, expect.anything());
     alert.mockRestore();

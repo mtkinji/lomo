@@ -498,6 +498,15 @@ describe('ExploreMapScreen', () => {
     expect(primaryIndex).toBeGreaterThan(placesIndex);
   });
 
+  it('shows that path startup is underway while location permission is resolving', () => {
+    mockRecorder.status = 'requesting-permission';
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByText('Starting…')).toBeTruthy();
+    expect(screen.getByLabelText('Record a path').props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
   it('replaces Places with one full-width stop control while manually recording', () => {
     mockRecorder.active = true;
     mockRecorder.status = 'recording';
@@ -811,6 +820,43 @@ describe('ExploreMapScreen', () => {
     expect(screen.getAllByTestId('explore.path.altitude', { includeHiddenElements: true })).toHaveLength(1);
     expect(screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true }).map(node => node.props.coordinates))
       .toEqual(screen.getAllByTestId('explore.path.altitude', { includeHiddenElements: true }).map(node => node.props.coordinates));
+  });
+
+  it('draws recovered automatic samples with the normal path language and explains their gaps', () => {
+    act(() => {
+      const store = useExploreStore.getState();
+      store.startSession('2026-09-17T19:54:23.726Z', 'recovered-outing');
+      [0, 60, 120, 360].forEach((seconds, index) => store.appendSample({
+        latitude: 40.55 + index * 0.0004,
+        longitude: -105.12 + (index === 1 ? 0.00015 : 0),
+        altitudeM: 1500,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: new Date(Date.parse('2026-09-17T19:54:23.726Z') + seconds * 1000).toISOString(),
+      }, `recovered-point-${index}`));
+      store.stopSession('2026-09-17T20:00:23.726Z', 'interrupted');
+      useExploreStore.setState((state) => ({
+        sessions: state.sessions.map((session) => session.id === 'recovered-outing'
+          ? { ...session, pathEvidence: 'ambient-recovered', recapStatus: 'ready' }
+          : session),
+      }));
+    });
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.queryAllByTestId('explore.path.recovered', { includeHiddenElements: true })).toHaveLength(0);
+    const casing = screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true });
+    const altitude = screen.getAllByTestId('explore.path.altitude', { includeHiddenElements: true });
+    expect(casing).toHaveLength(1);
+    expect(altitude).toHaveLength(1);
+    expect(casing[0].props.coordinates.length).toBeGreaterThan(3);
+    expect(altitude[0].props.coordinates).toEqual(casing[0].props.coordinates);
+    expect(casing[0].props.lineDashPattern).toBeUndefined();
+    expect(altitude[0].props.lineDashPattern).toBeUndefined();
+
+    fireEvent.press(screen.getByText('Review'));
+    expect(screen.getByTestId('explore.path.recovered-note'))
+      .toHaveTextContent('Recovered from automatic location samples. Gaps remain where no sample was recorded.');
   });
 
   it('keeps native path overlays mounted and unchanged while the viewport moves', () => {

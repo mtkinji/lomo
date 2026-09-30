@@ -128,14 +128,16 @@ export function useExploreRecorder() {
     if (!useExploreStore.getState().activeSession) {
       startSession(undefined, undefined, nextPolicy);
     }
-    const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    consumeLocation(initial);
+    const initialLocation = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+      .then(consumeLocation)
+      .catch(() => undefined);
     await startForegroundWatcher(mode);
     setStatus('recording');
     track(posthogClient, AnalyticsEvent.ExploreRecordingStarted, {
       recording_mode: mode,
       outcome: 'recording',
     });
+    void initialLocation;
   }, [consumeLocation, startForegroundWatcher, startSession]);
 
   const beginAutomaticRecording = useCallback(async () => {

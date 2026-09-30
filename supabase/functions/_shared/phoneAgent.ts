@@ -35,7 +35,7 @@ export function parseSmsCommand(raw: unknown): SmsCommand {
   if (body === 'pause') return { kind: 'pause' };
   if (body === 'not relevant' || body === 'not_relevant') return { kind: 'not_relevant' };
   if (body === 'stop' || body === 'unsubscribe' || body === 'cancel') return { kind: 'stop' };
-  if (body === 'start' || body === 'unstop') return { kind: 'start' };
+  if (body === 'start' || body === 'yes' || body === 'unstop') return { kind: 'start' };
   if (body === 'help' || body === 'info') return { kind: 'help' };
   if (body === 'change time' || body === 'change_time') return { kind: 'change_time' };
 

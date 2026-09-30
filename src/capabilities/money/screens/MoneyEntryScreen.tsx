@@ -10,6 +10,7 @@ export function MoneyEntryScreen({ navigation, route }: NativeStackScreenProps<M
       requestedPlace={route.params.requestedPlace}
       source={route.params.source}
       demoScenario={route.params.demoScenario}
+      screenTimeBudgetSetupId={route.params.screenTimeBudgetSetupId}
     />
   );
 }

@@ -23,19 +23,24 @@ personal Screen Time device.
 Apple shield actions return to the last valid Kwilt page and present one root-level
 `BottomGuide`; they do not force navigation into Settings, Money, Focus, or Today.
 The guide receives semantic rule and selection identities from the native restriction
-ledger without exposing Apple tokens to JavaScript. It routes to a condition owner only
-after the person chooses **Do this first**.
+ledger without exposing Apple tokens to JavaScript. It offers a prerequisite only when
+one exact action can resolve the complete active blocking set. Time-, usage-, mixed-,
+and unresolved boundaries do not receive a generic action.
 
 Each personal real-step or Focus card is an independent rule with its own native
 selection. Money categories and family agreements compile into the same shared rule
 projection while remaining editable only in their canonical domains. Overlapping claims
 retain AND enforcement.
 
-An authorized self-managing adult, household owner, or scoped caregiver may create one
-20-minute wall-clock opening only when every active claim can be overridden truthfully.
-A child cannot self-open. Family changes remain **Applying** until the named child device
-acknowledges the desired policy version. Expiry and foreground reconciliation operate on
-named selections; ordinary transitions never use a global clear.
+The contextual guide never creates a temporary opening. An authorized self-managing
+adult, household owner, or scoped caregiver may follow a quiet management link to the
+canonical personal overview or named child's family surface. Existing bounded-override
+infrastructure remains available only to separately owned caregiver/request workflows.
+A child cannot manage or self-open. Changes to an active rule require fresh platform
+authentication in addition to existing account authority. Family changes remain
+**Applying** until the named child device acknowledges the desired policy version.
+Expiry and foreground reconciliation operate on named selections; ordinary transitions
+never use a global clear.
 
 Users encounter Screen Time at the moment they create or understand an agreement:
 
@@ -313,7 +318,7 @@ As of 2026-08-28:
 
 - Personal Screen Time uses canonical composite rules in `useAppStore.screenTimeProtection`, stable per-rule native selections, the sentence composer, and `screenTimeProtectionRuntime`.
 - Budget is a composite condition whose current truth is supplied by Money; Money does not own a Screen Time policy store, editor, inventory row, or reconciler.
-- The shared shield handoff preserves the current route and projects canonical personal and family claims into the root contextual guide.
+- The shared shield handoff preserves the current route and projects canonical personal and family claims into the root contextual guide. The guide explains the complete boundary, shows only a provably sufficient prerequisite, and never offers temporary opening.
 - Family Screen Time uses server Household activation plus a local pre-TestFlight learning record with a development-only simulated acknowledgement.
 - Family native `.child` authorization, cross-device delivery, enforcement, and cleanup are not yet implemented or proven.
 

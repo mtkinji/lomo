@@ -1,0 +1,3 @@
+# Private reference captures contain personal financial information.
+*.png
+manifest.json

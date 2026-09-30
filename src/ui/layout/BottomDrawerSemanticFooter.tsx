@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { spacing } from '../../theme';
 import { Button } from '../Button';
@@ -18,23 +18,35 @@ export type BottomDrawerFooterAction = {
 
 export type BottomDrawerSecondaryAction = BottomDrawerFooterAction & {
   tone?: 'neutral' | 'destructive';
+  variant?: 'ghost' | 'link';
 };
 
 export type BottomDrawerFooterConfig = {
-  primaryAction: BottomDrawerFooterAction;
+  primaryAction?: BottomDrawerFooterAction;
   secondaryAction?: BottomDrawerSecondaryAction;
   status?: string;
   showTopBorder?: boolean;
+  actionLayout?: 'row' | 'stacked' | 'responsive';
 };
+
+export function shouldStackBottomDrawerFooterActions(
+  layout: NonNullable<BottomDrawerFooterConfig['actionLayout']>,
+  fontScale: number,
+): boolean {
+  return layout === 'stacked' || (layout === 'responsive' && fontScale >= 1.3);
+}
 
 function FooterActionButton({
   action,
   primary,
+  stacked,
 }: {
   action: BottomDrawerFooterAction | BottomDrawerSecondaryAction;
   primary: boolean;
+  stacked: boolean;
 }) {
   const destructive = !primary && 'tone' in action && action.tone === 'destructive';
+  const secondaryVariant = !primary && 'variant' in action ? action.variant : undefined;
 
   return (
     <Button
@@ -45,8 +57,12 @@ function FooterActionButton({
       haptic={action.haptic}
       onPress={action.onPress}
       testID={action.testID}
-      variant={primary ? 'primary' : 'ghost'}
-      style={primary ? styles.primaryAction : styles.secondaryAction}
+      variant={primary ? 'primary' : secondaryVariant ?? 'ghost'}
+      size={secondaryVariant === 'link' ? 'inline' : 'default'}
+      style={[
+        primary ? styles.primaryAction : styles.secondaryAction,
+        stacked ? styles.stackedAction : null,
+      ]}
     >
       {destructive ? <ButtonLabel tone="destructive">{action.label}</ButtonLabel> : action.label}
     </Button>
@@ -62,15 +78,24 @@ export function BottomDrawerSemanticFooter({
   primaryAction,
   secondaryAction,
   status,
+  actionLayout = 'row',
 }: BottomDrawerFooterConfig) {
+  const { fontScale } = useWindowDimensions();
+  const stacked = shouldStackBottomDrawerFooterActions(actionLayout, fontScale);
+
   return (
     <View testID="bottom-drawer.semantic-footer" style={styles.footer}>
       {status ? <Text tone="secondary">{status}</Text> : null}
-      <View testID="bottom-drawer.semantic-footer.actions" style={styles.actions}>
+      <View
+        testID="bottom-drawer.semantic-footer.actions"
+        style={[styles.actions, stacked ? styles.actionsStacked : null]}
+      >
         {secondaryAction ? (
-          <FooterActionButton action={secondaryAction} primary={false} />
+          <FooterActionButton action={secondaryAction} primary={false} stacked={stacked} />
         ) : null}
-        <FooterActionButton action={primaryAction} primary />
+        {primaryAction ? (
+          <FooterActionButton action={primaryAction} primary stacked={stacked} />
+        ) : null}
       </View>
     </View>
   );
@@ -86,10 +111,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: spacing.sm,
   },
+  actionsStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   primaryAction: {
     flexShrink: 1,
   },
   secondaryAction: {
     flexShrink: 1,
+  },
+  stackedAction: {
+    alignSelf: 'stretch',
   },
 });

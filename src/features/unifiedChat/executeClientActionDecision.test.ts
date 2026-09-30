@@ -1,5 +1,8 @@
 import type { UnifiedChatClientAction } from './types';
-import { executeClientActionDecision } from './executeClientActionDecision';
+import {
+  ClientActionPresentationCancelledError,
+  executeClientActionDecision,
+} from './executeClientActionDecision';
 
 const pending: UnifiedChatClientAction = {
   id: 'client-action-1', threadId: 'thread-1', runId: 'run-1', messageId: 'message-1',
@@ -80,5 +83,26 @@ test('resumes an interrupted presenting action without reserving it twice', asyn
   expect(repository.transitionClientAction).toHaveBeenCalledTimes(1);
   expect(repository.transitionClientAction).toHaveBeenCalledWith(expect.objectContaining({
     fromStatus: 'presenting', toStatus: 'completed', expectedVersion: 2,
+  }));
+});
+
+test('keeps a dismissed inline native picker available to continue again', async () => {
+  const repository = {
+    transitionClientAction: jest.fn(async (input) => ({
+      ...pending, status: input.toStatus, version: input.expectedVersion + 1,
+      presentedAt: input.presentedAt ?? null, completedAt: input.completedAt ?? null,
+    } as UnifiedChatClientAction)),
+  };
+
+  await executeClientActionDecision({
+    clientAction: pending,
+    decision: 'continue',
+    repository,
+    open: async () => { throw new ClientActionPresentationCancelledError(); },
+  });
+
+  expect(repository.transitionClientAction).toHaveBeenCalledTimes(1);
+  expect(repository.transitionClientAction).toHaveBeenCalledWith(expect.objectContaining({
+    fromStatus: 'pending_client_action', toStatus: 'presenting', expectedVersion: 1,
   }));
 });

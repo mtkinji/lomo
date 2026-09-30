@@ -13,6 +13,23 @@ export type ScreenTimeRuleTrigger =
   | { type: 'composite' }
   | { type: 'family_agreement'; agreementId: string };
 
+export type ScreenTimeRuleRequirementAction =
+  | {
+      kind: 'focus';
+      label: 'Return to Focus';
+      destination: 'kwilt://focus?source=screen-time';
+    }
+  | {
+      kind: 'real_step';
+      label: 'Do this first';
+      destination: 'kwilt://today?source=screen-time&highlightSuggested=1';
+    }
+  | {
+      kind: 'money';
+      label: 'Review Money';
+      destination: string;
+    };
+
 export type ScreenTimeRule = {
   id: string;
   domain: ScreenTimeRuleDomain;
@@ -20,6 +37,8 @@ export type ScreenTimeRule = {
   selectionId: string;
   title: string;
   trigger: ScreenTimeRuleTrigger;
+  /** Exact prerequisite that can resolve this rule, when the source can prove one. */
+  requirementAction?: ScreenTimeRuleRequirementAction;
   blockingDetails?: string[];
   temporaryOpen: {
     allowed: boolean;

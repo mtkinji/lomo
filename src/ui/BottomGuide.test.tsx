@@ -157,6 +157,22 @@ describe('BottomGuide interaction semantics', () => {
     expect(mockBottomDrawerProps.at(-1)?.contentExtendsIntoBottomSafeArea).toBe(true);
   });
 
+  it('can keep bounded-task actions fixed below a scrolling guide body', () => {
+    const footer = {
+      primaryAction: { label: 'Continue', onPress: jest.fn() },
+      secondaryAction: { label: 'Not now', onPress: jest.fn() },
+    };
+
+    renderWithProviders(
+      <BottomGuide visible scrim="light" footer={footer} onClose={jest.fn()}>
+        <Text>Scrollable guidance</Text>
+      </BottomGuide>,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.footer).toBe(footer);
+    expect(mockBottomDrawerProps.at(-1)?.contentExtendsIntoBottomSafeArea).toBe(true);
+  });
+
   it('can let floating content own an equal bottom inset without a second safe-area lift', () => {
     renderWithProviders(
       <BottomGuide visible contentExtendsIntoBottomSafeArea onClose={jest.fn()}>

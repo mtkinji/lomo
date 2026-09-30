@@ -72,6 +72,7 @@ describe('Focus soundscape sources', () => {
       'quietRain',
       'canyonSpring',
       'mountainOverlook',
+      'bishopLakes',
       'oceanWaves',
       'fireplace',
     ]);
@@ -86,6 +87,7 @@ describe('Focus soundscape sources', () => {
       'Quiet Rain',
       'Canyon Spring',
       'Mountain Overlook',
+      'Bishop Lakes',
       'Ocean Waves',
       'Fireplace',
     ]);

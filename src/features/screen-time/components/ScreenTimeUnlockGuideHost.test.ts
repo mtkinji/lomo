@@ -13,14 +13,21 @@ describe('ScreenTimeUnlockGuideHost workflow feedback attachment', () => {
     );
   });
 
-  it('requests clearing Ease only from the opened receipt', () => {
-    expect(source).toContain("if (next.status === 'opened' && feedbackSourceKey)");
-    expect(source).toContain("promptId: 'screen_time_block_clear_ease_v1'");
-    expect(source).not.toContain("next.status === 'applying' && feedbackSourceKey");
+  it('does not attach temporary-opening behavior or feedback to the guide', () => {
+    expect(source).not.toContain('openScreenTimeRulesTemporarily');
+    expect(source).not.toContain('applyTemporaryFamilyScreenTimeAccess');
+    expect(source).not.toContain("promptId: 'screen_time_block_clear_ease_v1'");
+    expect(source).not.toContain('ScreenTimeTemporaryOpenRequested');
   });
 
   it('cancels pending requests when the guide leaves its context', () => {
     expect(source).toContain('cancelFeedbackRequests();');
     expect(source).toContain('feedbackSourceKey={feedbackSourceKey ?? undefined}');
+  });
+
+  it('opens only the projected prerequisite and authority-aware management route', () => {
+    expect(source).toContain('actions.requirementAction?.destination');
+    expect(source).toContain('routeForScreenTimeGuideManagement');
+    expect(source).toContain('AnalyticsEvent.ScreenTimeGuideManageRulesOpened');
   });
 });

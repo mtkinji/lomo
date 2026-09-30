@@ -27,11 +27,20 @@ The layers below describe *what* each kind of test proves. Run them at the stage
 |---|---|---|
 | Implementation loop | One focused test file, `--findRelatedTests` for the touched seam, or the relevant runtime interaction | No |
 | Task completion | `npm run verify:local -- --run`, scoped explicitly when other work shares the checkout | Related tests; broad fallback for shared runtime/configuration or removed sources |
-| Integration / release | Uncached `npm run verify:changed -- --run`, required CI gates, and relevant native/backend/release proof | Existing protected selection and CI coverage remain intact |
+| Push to a non-main branch | Normal Git push; PR CI runs the uncached changed-file gate and complete Jest coverage suite | Yes, in PR CI |
+| Push targeting `main` | Repository pre-push hook requires a clean exact `HEAD`, then runs `npm run verify:changed -- --run --base <remote>/main` and `npm run test:ci` | Yes, before the push |
+| TestFlight / release | Uncached `npm run verify:changed -- --run`, complete Jest coverage, and relevant native/backend/release proof before EAS | Yes |
 
 Logic, branching hooks, sync/queue behavior, shared packages, backend functions, notification rules, and bug fixes keep their regression-first posture. Presentational UI, layout, animation, copy, color, and padding may be implemented and visually iterated before focused automation unless they contain meaningful behavior.
 
 Do not repeat the task-completion gate without a reason. Read `npm run verify:local -- --report` first. Matching local receipts preserve their original pass time and may save repeated execution; input changes, failed checks, or an intentional `--force` require a fresh run. External waiting and physical-device acceptance are separate proof stages, not reasons to rerun unrelated automated tests. Local receipts never satisfy merge or deployment gates. See [local verification](development/local-verification.md) for commands, invalidation, and timing evidence.
+
+Commits intentionally remain cheap and frequent. `npm run hooks:install` configures
+the repository-local `.githooks` directory. The pre-push hook only pays the full
+integration cost when a pushed ref targets `refs/heads/main`; it preserves Git
+LFS pre-push behavior and rejects dirty or non-`HEAD` candidates so the tested
+checkout cannot differ from the commit being published. `git push --no-verify`
+can bypass a local hook, so hosted CI repeats the complete suite.
 
 ### Test authoring and quality signals
 

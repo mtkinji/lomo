@@ -82,6 +82,20 @@ describe('useStandaloneFocusController', () => {
     expect(preloadSoundscape).toHaveBeenCalledWith({ soundscapeId: 'mountainOverlook' });
   });
 
+  it('selects Bishop Lakes with the ambience recorded for that environment', async () => {
+    const { result } = renderHook(() =>
+      useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),
+    );
+
+    await act(async () => {
+      expect(await result.current.start(25, 'bishopLakes')).toBe(true);
+    });
+
+    expect(useAppStore.getState().focusVideoEnvironmentId).toBe('bishopLakes');
+    expect(useAppStore.getState().soundscapeTrackId).toBe('bishopLakes');
+    expect(preloadSoundscape).toHaveBeenCalledWith({ soundscapeId: 'bishopLakes' });
+  });
+
   it('can start silently from a widget configured with no audio', async () => {
     const { result } = renderHook(() =>
       useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),

@@ -7,14 +7,17 @@ import { BUTTON_SIZE_TOKENS } from './buttonTokens';
 import {
   resolvePhoneFloatingActionContentInset,
   resolvePhoneFloatingBottomInset,
+  resolveRestingFloatingControlContentInset,
 } from './layout/bottomDockGeometry';
 
 const ACTION_HEIGHT = BUTTON_SIZE_TOKENS.lg.height;
+type Placement = 'phoneFloating' | 'restingFloatingControl';
 
 type Props = {
   children: ReactNode;
   dockTestID?: string;
   style?: StyleProp<ViewStyle>;
+  placement?: Placement;
 };
 
 /**
@@ -24,7 +27,7 @@ type Props = {
  * provide one full-width `Button` and reserve body clearance with
  * `useFullWidthActionDockClearance`; they do not pass numeric inset overrides.
  */
-export function FullWidthActionDock({ children, dockTestID, style }: Props) {
+export function FullWidthActionDock({ children, dockTestID, style, placement = 'phoneFloating' }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -33,8 +36,10 @@ export function FullWidthActionDock({ children, dockTestID, style }: Props) {
       style={[
         styles.host,
         {
-          bottom: resolvePhoneFloatingBottomInset(insets.bottom),
-          paddingHorizontal: bottomDockGeometry.phoneFloating.inlineGap,
+          bottom: placement === 'restingFloatingControl'
+            ? bottomDockGeometry.restingFloatingControl.bottomGap
+            : resolvePhoneFloatingBottomInset(insets.bottom),
+          paddingHorizontal: bottomDockGeometry[placement].inlineGap,
         },
         style,
       ]}
@@ -45,9 +50,11 @@ export function FullWidthActionDock({ children, dockTestID, style }: Props) {
   );
 }
 
-export function useFullWidthActionDockClearance(): number {
+export function useFullWidthActionDockClearance(placement: Placement = 'phoneFloating'): number {
   const insets = useSafeAreaInsets();
-  return resolvePhoneFloatingActionContentInset(insets.bottom, ACTION_HEIGHT);
+  return placement === 'restingFloatingControl'
+    ? resolveRestingFloatingControlContentInset(ACTION_HEIGHT)
+    : resolvePhoneFloatingActionContentInset(insets.bottom, ACTION_HEIGHT);
 }
 
 const styles = StyleSheet.create({

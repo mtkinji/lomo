@@ -16,6 +16,11 @@ import type {
   UnifiedChatProposal,
   UnifiedChatProposalDecisionResult,
 } from './types';
+import {
+  SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE,
+  type ScreenTimeRuleAuthenticationOutcome,
+  type ScreenTimeRuleMutationClass,
+} from '../screen-time/runtime/screenTimeRuleAuthentication';
 
 type ScreenTimeProposal = Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }>;
 export type PersonalScreenTimeProposal = ScreenTimeProposal & {
@@ -34,6 +39,23 @@ type Repository = {
   persistMutationReceipt: (input: PersistUnifiedChatMutationReceiptInput) => Promise<UnifiedChatMutationReceipt>;
   finalizeMutationReceipt: (id: string, input: FinalizeUnifiedChatMutationReceiptInput) => Promise<UnifiedChatMutationReceipt>;
 };
+
+export function authenticationClassForScreenTimeProposal(
+  proposal: ScreenTimeProposal,
+  personalBoundary?: PersonalScreenTimeRuleActionBoundary,
+): ScreenTimeRuleMutationClass | null {
+  const operation = proposal.operation;
+  if (operation.type === 'deactivate_personal_screen_time_rule') return 'disable_personal';
+  if (operation.type === 'delete_personal_screen_time_rule') return 'delete_personal';
+  if (operation.type === 'update_personal_screen_time_rule') {
+    if (!personalBoundary) throw new Error('Personal Screen Time control is unavailable on this device.');
+    const current = getPersonalScreenTimeRule({ ruleId: operation.targetId }, personalBoundary).result;
+    return current.enabled ? 'save_active_personal' : null;
+  }
+  if (operation.type === 'update_family_screen_time_agreement') return 'save_active_family';
+  if (operation.type === 'deactivate_family_screen_time_agreement') return 'deactivate_family';
+  return null;
+}
 
 export function preparePersonalScreenTimeProposal(
   proposal: PersonalScreenTimeProposal,
@@ -80,9 +102,26 @@ export async function executeScreenTimeProposalDecision(input: {
   repository: Repository;
   client: SupabaseClient;
   personalBoundary?: PersonalScreenTimeRuleActionBoundary;
+  authenticateRuleChange?: (
+    mutationClass: ScreenTimeRuleMutationClass,
+  ) => Promise<ScreenTimeRuleAuthenticationOutcome>;
   now?: () => Date;
 }): Promise<void> {
   const { proposal, action, repository, client } = input;
+  if (action === 'approve') {
+    const mutationClass = authenticationClassForScreenTimeProposal(
+      proposal,
+      input.personalBoundary,
+    );
+    if (mutationClass) {
+      const authentication = await input.authenticateRuleChange?.(mutationClass)
+        ?? { outcome: 'unavailable' as const };
+      if (authentication.outcome === 'cancelled') return;
+      if (authentication.outcome !== 'authenticated') {
+        throw new Error(SCREEN_TIME_RULE_AUTHENTICATION_FAILURE_MESSAGE);
+      }
+    }
+  }
   const decision = await repository.decideProposal({
     proposalId: proposal.id, action, expectedVersion: proposal.version,
   });
