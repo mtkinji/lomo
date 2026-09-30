@@ -13,6 +13,7 @@
 
 # dependencies
 node_modules/
+coverage/
 
 # Expo
 .expo/
