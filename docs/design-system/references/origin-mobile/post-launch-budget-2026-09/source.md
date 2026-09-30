@@ -1,9 +1,9 @@
 # Origin: post-launch budget invitation, review and explanation
 
-Reference ID: `REF-2026-09-28-origin-post-launch-budget`  
-Received/cataloged: 2026-09-28. Actual capture date, app version and device model unknown; screenshots show iOS chrome.  
-Source: Andrew's nine supplied attachments in six batches (eight unique images), his identification of the previously captured drawer as an earlier screen, and his firsthand reports of timed section reveals and dragging the budget handle to change savings.  
-Levels: flow, page, group. Tags: post-launch, budget, invitation, synthesis, loading, evidence, explanation, payoff.  
+Reference ID: `REF-2026-09-28-origin-post-launch-budget`\
+Received/cataloged: 2026-09-28. Actual capture date, app version and device model unknown; screenshots show iOS chrome.\
+Source: Andrew's nine supplied attachments in six batches (eight unique images), his identification of the previously captured drawer as an earlier screen, and his firsthand reports of timed section reveals and dragging the budget handle to change savings.\
+Levels: flow, page, group. Tags: post-launch, budget, invitation, synthesis, loading, evidence, explanation, payoff.\
 Status: captured evidence; Candidate learning extension, not an approved Kwilt feature or implementation.
 
 ## Evidence and provenance

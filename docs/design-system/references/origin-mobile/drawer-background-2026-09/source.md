@@ -1,10 +1,10 @@
 # Origin: focused drawer background
 
-Reference ID: `REF-2026-09-28-origin-drawer-background`  
-Received: 2026-09-28. Capture date and app version: unknown.  
-Source: Andrew-supplied Origin screenshot, apparently iOS; attribution supplied by Andrew.  
-Level: component + overlay composition. Tags: drawer, scrim, blur, background, focus, interstitial.  
-Status: captured preference; candidate Kwilt adaptation, not a canonical app-wide rule.  
+Reference ID: `REF-2026-09-28-origin-drawer-background`\
+Received: 2026-09-28. Capture date and app version: unknown.\
+Source: Andrew-supplied Origin screenshot, apparently iOS; attribution supplied by Andrew.\
+Level: component + overlay composition. Tags: drawer, scrim, blur, background, focus, interstitial.\
+Status: captured preference; candidate Kwilt adaptation, not a canonical app-wide rule.\
 Refresh: before implementation; static evidence remains useful but is not a claim about current Origin.
 
 ![Origin drawer with darkened and visually obscured background](source.jpg)

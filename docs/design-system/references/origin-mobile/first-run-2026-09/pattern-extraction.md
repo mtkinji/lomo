@@ -1,8 +1,8 @@
 # Candidate: promise-led capability onboarding
 
-Pattern ID: `PAT-onboarding-promise-led`  
-Status: **Candidate**, cross-capability design direction; not an implemented or visually accepted flow.  
-Source: [Origin first-run evidence](source.md), `REF-2026-09-28-origin-first-run`.  
+Pattern ID: `PAT-onboarding-promise-led`\
+Status: **Candidate**, cross-capability design direction; not an implemented or visually accepted flow.\
+Source: [Origin first-run evidence](source.md), `REF-2026-09-28-origin-first-run`.\
 Last reviewed: 2026-09-28.
 
 ## Job and selection

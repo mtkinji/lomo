@@ -1,8 +1,8 @@
 # Drawer background — initial source audit
 
-Date: 2026-09-28. Scope: background mechanics and exclusions for the first captured reference.  
-Checkout: `/Users/andrewwatanabe/Kwilt`; branch `codex/onboarding-shoreline`; HEAD `59e8acff8831400a436407d463c58c10f5ff5f39`; substantial pre-existing staged/unstaged/untracked changes, including the pattern atlas.  
-Evidence: source only. No runtime started, build installed, or app UI changed.  
+Date: 2026-09-28. Scope: background mechanics and exclusions for the first captured reference.\
+Checkout: `/Users/andrewwatanabe/Kwilt`; branch `codex/onboarding-shoreline`; HEAD `59e8acff8831400a436407d463c58c10f5ff5f39`; substantial pre-existing staged/unstaged/untracked changes, including the pattern atlas.\
+Evidence: source only. No runtime started, build installed, or app UI changed.\
 Reference: [Origin focused drawer](../references/origin-mobile/drawer-background-2026-09/source.md).
 
 ## Findings

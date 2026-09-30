@@ -1,10 +1,10 @@
 # Origin first run: promise-led onboarding
 
-Reference ID: `REF-2026-09-28-origin-first-run`  
-Source: Andrew's Origin iOS walkthrough in the connected-onboarding conversation.  
-Captured/received: September 15, 2026, per the existing archive; recovered September 22; cataloged September 28. App version and original device model unknown.  
-Levels: flow, page, group; supporting typography, imagery and action hierarchy.  
-Tags: onboarding, invitation, promise, authentication, purchase, personalization, imagery, pacing, payoff, capability-entry.  
+Reference ID: `REF-2026-09-28-origin-first-run`\
+Source: Andrew's Origin iOS walkthrough in the connected-onboarding conversation.\
+Captured/received: September 15, 2026, per the existing archive; recovered September 22; cataloged September 28. App version and original device model unknown.\
+Levels: flow, page, group; supporting typography, imagery and action hierarchy.\
+Tags: onboarding, invitation, promise, authentication, purchase, personalization, imagery, pacing, payoff, capability-entry.\
 Status: captured reference and owner-endorsed learning direction; derived pattern **Candidate**, not Canonical or implementation approval.
 
 ## Preserved evidence
