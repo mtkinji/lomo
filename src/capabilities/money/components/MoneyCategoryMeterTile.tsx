@@ -10,14 +10,14 @@ const TICK_COUNT = 52;
 const MAX_OVER_BUDGET_TICK_WIDTH_MULTIPLIER = 3.2;
 
 export type MoneyCategoryValueMode = 'percent_used' | 'dollars_left';
-export type MoneyCategoryPresentation = 'list' | 'meters';
+export type MoneyCategoryPresentation = 'list' | 'bars' | 'meters';
 
 export function resolveCategoryPresentation(presentation: MoneyCategoryPresentation): {
-  layout: 'meters' | 'list';
+  layout: 'meters' | 'bars' | 'list';
   valueMode: MoneyCategoryValueMode;
 } {
   if (presentation === 'meters') return { layout: 'meters', valueMode: 'percent_used' };
-  return { layout: 'list', valueMode: 'dollars_left' };
+  return { layout: presentation, valueMode: 'dollars_left' };
 }
 
 export function MoneyCategoryMeterTile({
@@ -118,10 +118,11 @@ export function getCategoryListStatus(category: MoneyCategory): MoneyCategoryLis
   return { label: null, tone: 'neutral' };
 }
 
-export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, targetRef }: {
+export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, showMeter = false, targetRef }: {
   category: MoneyCategory;
   onPress: () => void;
   periodElapsedPercent: number;
+  showMeter?: boolean;
   targetRef?: Ref<View>;
 }) {
   const isOver = category.remainingCents < 0;
@@ -140,7 +141,7 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
       accessibilityLabel={`Open ${category.name} category, ${value}${status.label ? `, ${status.label}` : ''}`}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.listRow, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [styles.listRow, !showMeter ? styles.plainListRow : null, pressed ? styles.pressed : null]}
     >
       <View style={styles.listRowContent}>
         <Text numberOfLines={2} style={styles.listName}>{category.name}</Text>
@@ -170,7 +171,7 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
           />
         </View>
       </View>
-      <View
+      {showMeter ? <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={styles.paceRail}
@@ -184,7 +185,7 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
           testID="money-category-pace-elapsed"
           style={[styles.paceRailMarker, { left: `${elapsedPercent}%` }]}
         />
-      </View>
+      </View> : null}
     </Pressable>
   );
 }
@@ -424,6 +425,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  plainListRow: { minHeight: 56 },
   listRowContent: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   listName: { flex: 1, minWidth: 0, color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   listTrailing: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

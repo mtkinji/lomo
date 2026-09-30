@@ -22,14 +22,112 @@ related_briefs:
   - brief-food-capability-onboarding
   - brief-repeatable-onboarding-testing
 owner: andrew
-last_updated: 2026-09-22
+last_updated: 2026-09-28
 ---
 
 # Kwilt first-run onboarding plan
 
+## Other capabilities: commercial direction and proposed paths
+
+Owner direction: Goals and Meals are free paths to value. Screen Time must work
+without Money setup; advanced controls linked to goals/actions or budgets are
+contextual Pro opportunities, not mandatory dependencies of Screen Time entry.
+See the [capability path storyboards](../design-explorations/progressive-capability-onboarding/08-origin-capability-paths.md)
+for the current-source inventory, proposed sequences, GTM/return loops,
+dependency handling and unresolved implementation boundaries. Those storyboards
+are proposed for review, not an implemented or runtime-verified flow.
+
+## Approved commercial sequence update — September 29
+
+This update supersedes the earlier post-Plaid purchase proposals below. Money's
+account-connection invitation leads directly to the Pro offer, before preparing
+or opening Plaid. Confirmed Pro access (including an active trial) is required
+to continue. Dismissing or an unconfirmed purchase must not open Plaid.
+
+The approved offer pairs default-selected lifetime ($19.99 once) with individual
+annual (one month free for eligible subscribers, then $59.99/year). Native uses
+actual localized Store prices and verified eligibility, never mock price or
+trial fallback text. The existing signed-in identity boundary is unchanged;
+this slice does not implement guest Plaid or post-Plaid sign-in.
+
+Local source now routes Money onboarding directly to ProPlanChooser, retains
+its connection resume intent, and omits the prior contextual promotional sheet.
+The offer retains three reveal groups, shared buttons/action dock, restore,
+legal links, and Other plans. Trial configuration, Sandbox purchase/expiry and
+native visual review remain separate release checks. See the
+[commercial runbook](../operations/kwilt-founding-lifetime-runbook.md).
+
 ## Recommendation
 
-Build a brief, atmospheric guided start: **choose a practical offer → sign in → connect the minimum → see something personal → take one useful action**. Lead with **Control your spending**, keep Goals, Chores, and Meals visible, and let people look around without committing to setup.
+This brief is the durable working journey map. The September 28 decisions and map below supersede conflicting sequencing, copy and visual proposals later in this document; those remain historical proposals, not implementation authority.
+
+Build a household-led start: **household promise → choose a capability → relevant invitation → earliest meaningful value available without an account → sign in at the first action that genuinely requires identity → resume that action → usable capability.** This is a sequencing principle, not a requirement to manufacture a pre-auth result or add a quiz. When a path cannot deliver personal value without identity, explain the benefit and necessary account requirement honestly. Do not withhold an already-earned result merely to capture a lead.
+
+## Working journey map — September 28
+
+Status labels distinguish owner decisions, proposed placement and current implementation. This map does not authorize changes to auth, payment, permissions or backend ownership. Future screen-by-screen decisions should be recorded here; reference observations belong in the linked Origin catalog, and visual contracts in the design-system atlas.
+
+### Shared decisions
+
+**Money invitation approved by Andrew, 2026-09-28:** “Your money, in one place.” No subtitle or sign-up-sequence footnote. Keep the Kwilt–Plaid connection cue and “Kwilt uses Plaid to connect your accounts.” CTA: “Connect an account.” Preserve the shared white-page anchored heading and bottom action. This supersedes the older Money copy/graphic trials below. Approval covers the mock's presentation; native implementation, official Plaid artwork and secure pre-auth ownership remain separate work.
+
+**Next screen under review:** after a successful provider return, invite Kwilt account creation/sign-in using existing Apple, Google and email methods. Trial heading: “Save your connection.” Support: “Create an account or sign in to keep your money connected to Kwilt.” The mock explicitly assumes success and makes no real connection. Provider cancellation/error returns to connection recovery, not this success-path invitation; already authenticated users should not be asked to sign in again. This screen and its wording are not yet approved. Financial import/results follow only when authentication, ownership and real data readiness are established.
+
+**Latest owner direction — overrides the account-boundary proposal below:** connect through Plaid before Kwilt sign-in/account creation. This is the intended Money sequence, not current technical support. The mock reflects that order and removes the explanatory graphic for a copy-only trial. Before implementation, design server-owned pre-auth session binding, secure ownership transfer after authentication, cancellation/expiry cleanup, recovery and account-switch protection, plus Pro entitlement handling. Do not expose connection tokens or financial data through an unowned guest session, or silently remove existing access gates. Earlier statements that sign-in precedes Plaid are superseded as design intent but remain accurate descriptions of current code.
+
+Choice headline trial: “Start with one thing you’d like to make easier.” Support: “Choose a place to begin.” Money invitation retains “See where your money goes.”; CTA is “Connect an account”; expectation is “Connect through Plaid, then create your Kwilt account.” These are mock copy trials, not native adoption.
+
+- **Adopted:** shoreline household promise followed by a white path invitation, icon-led choice pills and grouped reveal. Local native implementation exists in the development rehearsal; production signed-out entry is not migrated.
+- **Adopted sequencing principle:** defer sign-in to the first action requiring an account; allow meaningful pre-account value where actually supported. Preserve chosen intent across sign-in and cancellation.
+- **Not decided:** exact auth boundary for each path, offer placement, guest persistence and signed-out Skip destination. Do not call Skip guest app access while the production shell remains gated.
+- **Scope:** repeat invitation/pacing/style across paths, not identical screens or gate positions. Retain existing entitlement and permission contracts until explicitly changed.
+
+### Money-first review map
+
+| Moment | What the person sees/does | Decision and evidence |
+| --- | --- | --- |
+| 1. Landing | Household promise and Get started | Adopted visual direction; HouseholdStarterFlow / AtmosphericInvitationScreen |
+| 2. Path invitation | Select Make a plan for your money | Adopted; ChoicePill; no signup gate inserted here |
+| 3. Money invitation | Existing “A clearer picture of your money.” introduction, with existing setup action | Current native capability introduction; proposed next screen in the future pre-auth journey. This explains value, not a personalized result. Review this next. |
+| 4. Account boundary | Explain why identity is needed before initiating real connected Money setup; sign in and resume intended setup | Proposed boundary, not implemented. MoneySetupScreen connectAccount requires userId; connection is also Pro-gated. Need exact end-to-end auth/entitlement audit before changing routes. Do not promise connection immediately if an offer must intervene. |
+| 5. Connection | Existing Money welcome/account setup and secure institution connection | Existing owners; reconcile any duplicated introduction rather than blindly stacking screens. Payment/offer placement remains unresolved. |
+| 6. First personal value | Review actual connected-account evidence when ready | Existing Money first-look/assessment owners; no invented preview figures. Handle empty, partial, failed and resumed connection truthfully. |
+| 7. Next action / app entry | Continue existing supported plan workflow or enter usable Money | Preserve actual capability behavior; subsequent screen decisions remain open. |
+
+**Unresolved pre-account Money value:** no genuine personalized result has been established in the inspected flow before identity. A manual budget exercise, quiz or invented estimate is not approved to fill this gap. The invitation can precede sign-in without pretending it is the same as delivered financial value.
+
+### Other path boundary ledger
+
+### Money invitation copy trial
+
+Authorized for exploration after the Origin/Plaid comparison; not yet adopted copy or native implementation. The connected `landing-pattern-trial.html` mock now opens this screen from the Money pill:
+
+- Heading: “See where your money goes.”
+- Support: “Connect an account to see your spending in one place and start building your budget.”
+- Action: Continue.
+- Expectation: “You’ll sign in before connecting through Plaid.”
+- Quiet explanatory account-to-spending graphic, no fabricated figures, certifications or social proof. Existing app-pause illustration is not reused because it emphasizes a different job.
+- Continue stops at an explicitly labeled prototype boundary. Exact sign-in/Pro access handoff remains unresolved; existing native Plaid flow is unchanged. No custom bank picker is planned for this slice.
+
+Copywriting review favors the concrete benefit and avoids generic “insights” claims. White canvas, medium heading, protected text area, rounded bottom action and slow grouped reveal retain the explored style. Script syntax passed; browser policy prevents local-file automated rendering, so visual acceptance remains pending.
+
+### Other path boundary ledger (pending review)
+
+| Path | Pre-account value | First identity-required action |
+| --- | --- | --- |
+| Screen Time | Not yet audited | Not yet audited; do not assume system permission requires Kwilt sign-in |
+| Meals / household | Not yet audited | Not yet audited; separate personal creation from household sharing |
+| Goals | Not yet audited | Not yet audited; separate local drafting from account-owned persistence |
+
+### Origin sequence — reference, not Kwilt requirements
+
+Captured 04 Join Origin → 05 Face ID choice → 06 Face ID system permission → 07 introductory subscription offer → 08 connect-accounts invitation → 09 institution picker → provider connection. The permission screen reflects the captured branch, not a proven mandatory step for everyone. Origin's pill personalization screen is capture 19, later in that sequence. Its placement is not the placement of Kwilt's early capability choice. Source: [archived storyboard](../design-explorations/budget-led-quiet-compass/origin-first-run-screenshots/README.md).
+
+### Current implementation boundary
+
+Read September 28: App.tsx renders SignInInterstitial for signed-out users; HouseholdStarterFlow's current Money choice opens its existing illustration/introduction and then hands off to the capability. MoneySetupScreen requires userId for connectAccount and checks Pro access. These are source observations, not fresh signed-out runtime proof. No auth implementation changed when recording this map.
+
+## Earlier rationale and proposals (subject to the map above)
 
 Borrow Origin's visual confidence, invitation before authentication, coherent transitions, and personal reveal. Change its completion contract: Kwilt does not need a complete financial profile before it becomes useful. Once the first account is connected, the person can enter Money; the remaining guidance is skippable, resumable, and available inside the app.
 
@@ -285,6 +383,12 @@ Lead with the existing founding one-time Pro option, **not** an invented free ye
 The source runbook records `pro_lifetime` as a non-consumable with Pro entitlement and an initial US price of $19.99. That is a source configuration, not a fresh verification of App Store availability or today's sell price. Production displays the localized price and terms from the actual product. Retain existing monthly/annual alternatives in a quiet “Other plans” route and Restore Purchases.
 
 Suggested paywall anatomy:
+
+**Native implementation checkpoint:** Andrew requested implementing the refined offer. `FoundingLifetimeOffer` now leads the existing plan chooser for non-Pro users with a ready lifetime Store product. It retains live localized pricing, the existing lifetime purchase/resume handler, pending/cancel/failure behavior, dismissal, alternate plans, restore and legal disclosures. Development fixtures cannot initiate lifetime purchases. Existing subscribers keep the subscription-management presentation. Three reveal groups and the refined serif price/label/rows are implemented; native visual proof is pending because the booted Simulator is in a separate Journal session. No purchase, release, guest-Plaid/auth routing change, or removal of the preceding contextual paywall is claimed.
+
+Follow-up trial refinement: neutral stars, decorative laurels around the rating (not an award claim), and “Limited-time founding offer,” based on Andrew's confirmation that the founding price will end. No countdown/date is invented. The mock's close control returns to the connection invitation; it is not evidence of free connected Money access. Current `MoneySetupScreen.connectAccount` still requires Pro and the existing paywall is dismissible. Recommendation under discussion: allow declining Pro and returning to free capabilities, without bypassing paid Money access. No production gating change is approved by this visual refinement.
+
+**2026-09-29 presentation trial:** Andrew requested borrowing Origin's offer hierarchy closely, substituting Kwilt's founding lifetime offer, actual average App Store rating and stars (explicitly **no rating count**), and fully rounded CTA. The current HTML trial opens this offer variant. It uses the recorded $19.99 price, not a verified current Store price, and US App Store 5.0 checked on this date. Promo codes and employer offers are omitted; an empty optional-action slot leaves room for future genuinely supported routes. This is a candidate presentation, not approval of offer placement, native purchase implementation, or changes to auth/Plaid gates. The production requirements for alternative plans, restore, legal terms and live pricing below remain in force.
 
 ```text
                         [Kwilt mark]             [Close]

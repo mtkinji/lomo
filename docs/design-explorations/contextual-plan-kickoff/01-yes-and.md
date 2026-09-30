@@ -1,5 +1,7 @@
 # Yes-And: Contextual Plan Kickoff
 
+> Historical exploration. The [2026-09-24 app-wide strategy](03-app-wide-engagement-strategy.md) expands the scope and clarifies that delivery prevents duplicate interruptions, not access to useful content. Explicit outcomes and preferences, rather than assumed notification visibility, resolve an opportunity.
+
 ## Original idea
 
 Let the capability the user is currently using own the foreground guide, and move daily planning guidance either inside Plan or into an intentional notification that opens Plan.

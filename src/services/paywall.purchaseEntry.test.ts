@@ -6,7 +6,8 @@ jest.mock('../navigation/rootNavigationRef', () => ({
 }));
 
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
-import { openPaywallPurchaseEntry } from './paywall';
+import { openPaywallPurchaseEntry, openPaywallInterstitial } from './paywall';
+import { usePaywallStore } from '../store/usePaywallStore';
 
 describe('openPaywallPurchaseEntry', () => {
   beforeEach(() => {
@@ -17,5 +18,11 @@ describe('openPaywallPurchaseEntry', () => {
     openPaywallPurchaseEntry();
 
     expect(rootNavigationRef.navigate).toHaveBeenCalledWith('ProPlanChooser');
+  });
+  it('takes Money onboarding directly to the offer and retains the connection intent', () => {
+    openPaywallInterstitial({ reason: 'pro_money_budgets', source: 'money_onboarding_add_institution', resumeIntent: { kind: 'money_connect_account' } });
+    expect(rootNavigationRef.navigate).toHaveBeenCalledWith('ProPlanChooser');
+    expect(usePaywallStore.getState().visible).toBe(false);
+    expect(usePaywallStore.getState().pendingResumeIntent?.kind).toBe('money_connect_account');
   });
 });

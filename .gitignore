@@ -36,6 +36,9 @@ eas_cloud_logs/
 # generated App Store screenshot exports
 app-store-screenshots/
 
+# generated Simulator / Maestro run logs (keep local only)
+/artifacts/**/maestro*/**/*.log
+
 # generated recipe-image review artifacts (published media is authoritative)
 /artifacts/recipe-catalog-media/
 

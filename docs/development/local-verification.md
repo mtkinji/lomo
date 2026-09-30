@@ -1,6 +1,6 @@
 # Faster local verification, protected integration
 
-`verify:local` shortens development feedback. `verify:changed` remains the uncached integration command used by PR CI. All pre-existing CI checks, coverage, EAS commands, deployment workflows, reviews, and release approvals retain their role. This change does not merge, deploy, or approve a release.
+`verify:local` shortens development feedback. `verify:changed` remains the uncached integration command used by PR CI. Full Jest coverage runs separately in PR CI, before any push targeting `main`, and before TestFlight builds. All other CI checks, EAS commands, deployment workflows, reviews, and release approvals retain their role. This change does not merge, deploy, or approve a release.
 
 ## Everyday commands
 
@@ -62,9 +62,17 @@ Before integration, merging, or publication, retain:
 npm run verify:changed -- --run
 ```
 
-PR CI continues to pass `--base origin/main`. The protected planner retains its original commands, thresholds, order, and manual follow-ups for existing change categories. Tooling changes add a verifier self-test; they remove no existing gate. Protected execution never reads local receipts. `verify:local` refuses execution when CI, GitHub Actions, or EAS build markers are active.
+Install the repository hooks once after cloning (normal `npm install` also does this):
 
-The existing full CI/coverage and release workflows are not replaced by this command. Check the actual candidate and preserve required approvals, backend/native evidence, and TestFlight/production proof. A local pass is not merge permission or release availability.
+```bash
+npm run hooks:install
+```
+
+Commits do not run the full suite. A push that targets `main` is different: the tracked composite pre-push hook preserves Git LFS, requires the working tree to be clean and the pushed SHA to equal `HEAD`, then runs the uncached changed-file gate and `npm run test:ci`. Feature-branch pushes stay fast; PR CI repeats both the changed-file gate and complete Jest coverage. TestFlight repeats complete coverage after its protected gate and before EAS build/submission.
+
+PR CI continues to pass `--base origin/main`. The protected planner retains its original commands, thresholds, order, and manual follow-ups for existing change categories. Tooling changes add verifier and push-policy self-tests; they remove no existing gate. Protected execution never reads local receipts. `verify:local` refuses execution when CI, GitHub Actions, or EAS build markers are active.
+
+The full push, CI/coverage, and release workflows are not replaced by this command. Check the actual candidate and preserve required approvals, backend/native evidence, and TestFlight/production proof. A local pass is not merge permission or release availability. Local hooks remain technically bypassable with `git push --no-verify`; hosted CI is the independent backstop.
 
 ## Measuring improvement
 

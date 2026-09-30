@@ -1,6 +1,19 @@
 import { buildCapabilityOnboardingNavigationTarget } from './capabilityOnboardingNavigationTarget';
 
 describe('buildCapabilityOnboardingNavigationTarget', () => {
+  it('keeps child-device authorization distinct from caregiver household setup', () => {
+    expect(buildCapabilityOnboardingNavigationTarget({ kind: 'screen-time-family', device: 'child' })).toEqual({
+      root: 'Settings', params: { screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'contextual', authorizationMember: 'child', suggestedKind: 'daily_limit' } },
+    });
+    expect(buildCapabilityOnboardingNavigationTarget({ kind: 'screen-time-family', device: 'caregiver' })).toEqual({
+      root: 'Settings', params: { screen: 'SettingsHousehold' },
+    });
+  });
+  it.each(['daily_limit', 'focus', 'real_step'] as const)('preserves %s intent without routing through Money', (suggestedKind) => {
+    expect(buildCapabilityOnboardingNavigationTarget({ kind: 'screen-time-setup', suggestedKind })).toEqual({
+      root: 'Settings', params: { screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'contextual', suggestedKind } },
+    });
+  });
   it('hands Screen Time to its real permission and rule owner', () => {
     expect(buildCapabilityOnboardingNavigationTarget({ kind: 'screen-time-setup' })).toEqual({
       root: 'Settings', params: { screen: 'SettingsScreenTimeProtection' },

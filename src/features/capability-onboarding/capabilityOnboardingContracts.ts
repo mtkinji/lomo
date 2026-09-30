@@ -26,7 +26,8 @@ export type CapabilityOnboardingHandoff =
   | { kind: 'food-meal-loop' }
   | { kind: 'identity-workflow' }
   | { kind: 'unified-chat' }
-  | { kind: 'screen-time-setup' }
+  | { kind: 'screen-time-setup'; suggestedKind?: 'daily_limit' | 'focus' | 'real_step' }
+  | { kind: 'screen-time-family'; device: 'child' | 'caregiver' }
   | { kind: 'chores-setup' }
   | { kind: 'games-entry' };
 

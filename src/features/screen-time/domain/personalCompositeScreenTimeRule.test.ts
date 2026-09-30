@@ -40,12 +40,26 @@ describe('personalCompositeScreenTimeRule', () => {
     expect(validatePersonalCompositeScreenTimeRule(candidate)).toEqual({ valid: true, issues: [] });
   });
 
+  it('normalizes two time conditions as a bounded daily window', () => {
+    const candidate = {
+      ...composite,
+      outcome: 'pause' as const,
+      conditions: [
+        { id: 'after-eight-am', type: 'time_of_day', operator: 'after', minuteOfDay: 8 * 60 },
+        { id: 'before-four-pm', type: 'time_of_day', operator: 'before', minuteOfDay: 16 * 60 },
+      ],
+    };
+
+    expect(normalizePersonalCompositeScreenTimeRule(candidate)).toEqual(candidate);
+    expect(validatePersonalCompositeScreenTimeRule(candidate)).toEqual({ valid: true, issues: [] });
+  });
+
   it.each([
     [{ ...composite, connector: 'sometimes' }, 'connector'],
     [{ ...composite, outcome: 'notify' }, 'outcome'],
     [{ ...composite, conditions: [] }, 'conditions'],
     [{ ...composite, conditions: [composite.conditions[0], { ...composite.conditions[1], id: 'after-five' }] }, 'condition_ids'],
-    [{ ...composite, conditions: [composite.conditions[0], { ...composite.conditions[0], id: 'another-time' }] }, 'condition_type'],
+    [{ ...composite, conditions: [composite.conditions[1], { ...composite.conditions[1], id: 'another-usage' }] }, 'condition_type'],
     [{ ...composite, conditions: [{ id: 'late', type: 'time_of_day', operator: 'after', minuteOfDay: 1440 }] }, 'condition_value'],
     [{ ...composite, conditions: [{ id: 'usage', type: 'daily_usage', operator: 'below', minutes: 0 }] }, 'condition_value'],
     [{ ...composite, conditions: [{ id: 'real', type: 'real_step_complete', operator: 'sometimes' }] }, 'condition_operator'],

@@ -24,6 +24,8 @@ type Props = {
   userId: string;
   surface: 'development' | 'production';
   presentation?: 'reel' | 'editorial';
+  /** Explicit owner-approved first-run scope; does not promote the generic catalog. */
+  paths?: CapabilityOnboardingContract[];
   onStartPath: (path: CapabilityOnboardingContract) => void;
   onExploreKwilt: () => void;
 };
@@ -33,6 +35,7 @@ export function CapabilityOnboardingHost({
   userId,
   surface,
   presentation = 'reel',
+  paths,
   onStartPath,
   onExploreKwilt,
 }: Props) {
@@ -46,7 +49,8 @@ export function CapabilityOnboardingHost({
   const viewedPages = useRef(new Set<string>());
   const sessionEntry = useRef<CapabilityOnboardingSessionEntry>('fresh');
   const record = normalizeCapabilityOnboardingRecord(persistedRecord);
-  const doors = getCapabilityOnboardingDoors(surface);
+  const availablePaths = paths ?? getCapabilityOnboardingPaths(surface);
+  const doors = paths ? paths.filter(path => path.reelRank !== null) : getCapabilityOnboardingDoors(surface);
   const pageIds = ['welcome', ...doors.map((door) => door.id)] as const;
 
   const pageContext = useCallback((pageId: typeof pageIds[number], pageIndex?: number) => ({
@@ -130,7 +134,7 @@ export function CapabilityOnboardingHost({
             onLookAround={() => explore('button')}
           />
         ) : presentation === 'editorial' ? (
-          <HouseholdStarterFlow paths={getCapabilityOnboardingPaths(surface)} onStartPath={startPath} onExplore={() => explore('button')} />
+          <HouseholdStarterFlow paths={availablePaths} onStartPath={startPath} onExplore={() => explore('button')} />
         ) : (
           <CapabilityOnboardingPager
             doors={doors}

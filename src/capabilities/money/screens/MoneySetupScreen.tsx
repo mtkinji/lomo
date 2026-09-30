@@ -8,6 +8,7 @@ import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { returnFromScreenTimeBudgetSetup } from '../../../features/screen-time/rule-builder/returnFromScreenTimeBudgetSetup';
 import { usePaywallStore } from '../../../store/usePaywallStore';
 import { useToastStore } from '../../../store/useToastStore';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
@@ -142,12 +143,14 @@ export function MoneySetupExperience({
   requestedPlace,
   source,
   demoScenario,
+  screenTimeBudgetSetupId,
 }: {
   mode: MoneyEntryMode;
   navigation: NativeStackNavigationProp<MoneyStackParamList>;
   requestedPlace: MoneyPlaceRouteName;
   source: MoneyEntrySource;
   demoScenario?: 'connected-household';
+  screenTimeBudgetSetupId?: string;
 }) {
   const insets = useSafeAreaInsets();
   const { reconcileConnectedActivity, refresh, snapshot, status } = useMoneyData();
@@ -246,6 +249,7 @@ export function MoneySetupExperience({
           mode,
         });
         if (decision.kind === 'destination') {
+          if (returnFromScreenTimeBudgetSetup(screenTimeBudgetSetupId, data.user.id)) return;
           resetToMoneyDestination(navigation, decision.requestedPlace);
           return;
         }
@@ -273,9 +277,10 @@ export function MoneySetupExperience({
       }
     };
     void load();
-  }, [demoScenario, mode, navigation, requestedPlace, source, status]);
+  }, [demoScenario, mode, navigation, requestedPlace, screenTimeBudgetSetupId, source, status]);
 
   const leaveSetup = () => {
+    if (returnFromScreenTimeBudgetSetup(screenTimeBudgetSetupId, useAppStore.getState().authIdentity?.userId)) return;
     if (userId) void recordMoneyOnboardingCheckpoint(userId, requestedPlace, null);
     navigation.replace(requestedPlace);
   };
@@ -541,6 +546,7 @@ export function MoneySetupExperience({
       await completeMoneyOnboarding(userId, acceptedTarget, { skippedAccountConnection: false });
       await recordMoneyOnboardingHandoff(userId, handoff);
       setFollowThrough(createdFollowThrough);
+      if (!demoScenario && returnFromScreenTimeBudgetSetup(screenTimeBudgetSetupId, userId)) return;
       navigation.replace('MoneySummary', {
         onboardingHandoff: handoff,
         ...(__DEV__ && demoScenario ? { devBudgetState: 'onboarding-sample' as const } : {}),
@@ -555,7 +561,7 @@ export function MoneySetupExperience({
 
   if (!entryDecisionResolved) {
     return (
-      <MoneyScreenFrame title={requestedPlace === 'MoneySummary' ? 'Budget' : requestedPlace === 'MoneyTransactions' ? 'Transactions' : 'Accounts'}>
+      <MoneyScreenFrame onPressBack={screenTimeBudgetSetupId ? leaveSetup : undefined} title={requestedPlace === 'MoneySummary' ? 'Budget' : requestedPlace === 'MoneyTransactions' ? 'Transactions' : 'Accounts'}>
         <View accessibilityLabel={`Opening ${requestedPlace === 'MoneySummary' ? 'Budget' : requestedPlace === 'MoneyTransactions' ? 'Transactions' : 'Accounts'}`} style={styles.entryResolution}>
           <KwiltLoader color={colors.accent} size="small" />
         </View>

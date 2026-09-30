@@ -1,11 +1,12 @@
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, within } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { CapabilityOnboardingHost } from './CapabilityOnboardingHost';
 import { useCapabilityOnboardingStore } from './useCapabilityOnboardingStore';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { typography } from '../../theme';
 
 const mockCapture = jest.fn();
 jest.mock('./OnboardingShorelineBackdrop', () => ({ OnboardingShorelineBackdrop: () => null }));
@@ -57,30 +58,75 @@ describe('CapabilityOnboardingHost', () => {
     expect(screen.queryByText('What do you want help with?')).toBeNull();
   });
 
+  it('keeps the shoreline action corner-nested and the promise in heading weight', () => {
+    const { screen } = renderHost({ presentation: 'editorial' });
+    const dock = screen.getByTestId('onboarding.householdActionDock');
+    expect(StyleSheet.flatten(dock.props.style)).toMatchObject({ bottom: 32, paddingHorizontal: 32 });
+    expect(StyleSheet.flatten(screen.getByRole('header').props.style).fontFamily).toBe(typography.titleXl.fontFamily);
+  });
+
   it.each([
-    ['Make a plan for your money', 'Set up Money', 'budget-app-controls', 'money'],
-    ['Make room for less screen time', 'Set up Screen Time', 'screen-time-controls', 'screen'],
-    ['Plan meals together', 'Plan a meal', 'make-meals-easier', 'household'],
-    ['Plan meals together', 'Start with chores', 'household-chores', 'household'],
-    ['Set goals and get help reaching them', 'Create a goal', 'make-progress', 'goals'],
-  ])('shows an illustrated invitation for %s before handing off %s', (label, action, id, illustration) => {
+    ['Make a plan for your money', 'Make a plan for my money', 'budget-app-controls'],
+  ])('shows a preview quote for %s before handing off %s', (label, action, id) => {
     const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
     expect(screen.queryByTestId('capabilityOnboarding.pager')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
     fireEvent.press(screen.getByRole('button', { name: label }));
-    const artwork = screen.getByTestId(`onboarding.illustration.${illustration}`, { includeHiddenElements: true });
-    // Decorative scenes must not move with the copy's accessibility overflow.
-    let ancestor = artwork.parent;
-    while (ancestor) {
-      expect(ancestor.type).not.toBe(ScrollView);
-      ancestor = ancestor.parent;
-    }
+    expect(within(screen.getByTestId('onboarding.householdActionDock')).getAllByRole('button')).toHaveLength(1);
     expect(screen.queryByText('Example · not your data')).toBeNull();
     expect(onStartPath).not.toHaveBeenCalled();
     expect(useCapabilityOnboardingStore.getState().recordForUser('user-a').selectedPathId).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: action }));
     expect(onStartPath).toHaveBeenCalledTimes(1);
     expect(onStartPath).toHaveBeenCalledWith(expect.objectContaining({ id }));
+  });
+
+  it.each([
+    ['Plan meals together', 'Choose a recipe', 'make-meals-easier'],
+    ['Set goals and get help reaching them', 'Shape a goal', 'make-progress'],
+  ])('hands %s to its free creation flow without a testimonial or offer', (label, action, id) => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(screen.queryByText('Preview quote · not a customer review')).toBeNull();
+    expect(onStartPath).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: action }));
+    expect(onStartPath).toHaveBeenCalledWith(expect.objectContaining({ id }));
+  });
+
+  it.each([
+    ['Set a daily limit', 'daily_limit'], ['Protect a Focus session', 'focus'],
+  ])('preserves the standalone Screen Time choice %s', (label, suggestedKind) => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Make room for less screen time' }));
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(onStartPath).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'screen-time-controls', handoff: { kind: 'screen-time-setup', suggestedKind },
+    }));
+  });
+
+  it('lets someone leave advanced controls without starting Money or purchasing', () => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Make room for less screen time' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Explore advanced controls' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Set a daily limit' })).toBeTruthy();
+    expect(onStartPath).not.toHaveBeenCalled();
+  });
+
+  it.each(['On this child’s iPhone', 'From my phone'])('keeps family setup separate: %s', label => {
+    const { screen, onStartPath } = renderHost({ presentation: 'editorial' });
+    fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Make room for less screen time' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Set up for a child' }));
+    expect(screen.getByText('Manage a child’s screen time.')).toBeTruthy();
+    expect(onStartPath).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(onStartPath).toHaveBeenCalledWith(expect.objectContaining({ handoff: {
+      kind: 'screen-time-family', device: label === 'From my phone' ? 'caregiver' : 'child',
+    } }));
   });
 
   it('exits the signed-in starter without selecting or creating work', () => {

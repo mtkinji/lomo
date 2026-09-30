@@ -18,9 +18,11 @@ test('TestFlight commands cannot bypass the protected changed-file gate', () => 
   );
 
   const verification = releaseScript.indexOf('npm run verify:changed -- --run --base');
+  const fullTests = releaseScript.indexOf('npm run test:ci');
   const build = releaseScript.indexOf('npx eas-cli@22.0.0 build');
   assert.ok(verification >= 0, 'release script must run verify:changed');
-  assert.ok(build > verification, 'EAS build must start only after verify:changed passes');
+  assert.ok(fullTests > verification, 'the full suite must run after verify:changed');
+  assert.ok(build > fullTests, 'EAS build must start only after the full suite passes');
 });
 
 test('tag-triggered TestFlight builds fetch the integration base used by verification', () => {
@@ -52,6 +54,7 @@ test('TestFlight wrapper executes verification and build commands under strict s
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const commands = fs.readFileSync(commandLog, 'utf8');
     assert.match(commands, /npm run verify:changed -- --run --base origin\/main/);
+    assert.match(commands, /npm run test:ci/);
     assert.match(commands, /npx eas-cli@22\.0\.0 build --platform ios --profile testflight-widgets --non-interactive --auto-submit/);
   } finally {
     fs.rmSync(binDir, { recursive: true, force: true });

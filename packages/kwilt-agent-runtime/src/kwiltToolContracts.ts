@@ -563,7 +563,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'screen_time.personal.limit.open', version: 1, capabilityId: 'screenTime',
-    purpose: 'Open native review for a reusable daily usage limit on user-selected apps for the signed-in person on this device.',
+    purpose: 'Complete a reusable daily usage limit in Chat by presenting Apple app selection temporarily on the signed-in device.',
     providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {

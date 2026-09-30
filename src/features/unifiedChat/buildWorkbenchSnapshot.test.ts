@@ -469,6 +469,33 @@ describe('buildWorkbenchSnapshot', () => {
     })]);
   });
 
+  test('projects a completed inline personal limit as a Chat receipt without private tokens', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      clientActions: [{
+        id: 'client-action-limit', threadId: 'thread-1', runId: 'run-device', messageId: null,
+        capabilityId: 'screenTime', actionType: 'open_personal_screen_time_limit',
+        targetType: 'personal_screen_time_device', targetId: 'self',
+        title: 'Choose apps for a 10-minute limit', consequenceSummary: 'Choose apps.',
+        payload: { subject: { kind: 'self' }, limitMinutes: 10, reset: 'daily' },
+        idempotencyKey: 'client-limit', status: 'completed',
+        result: {
+          outcome: 'created_personal_screen_time_limit', ruleId: 'rule-1', limitMinutes: 10,
+          targetLabels: ['Instagram'], targetCount: 1, updatedAt: '2026-09-24T12:00:02.000Z',
+        },
+        errorCode: null, errorMessage: null, version: 3, presentedAt: '2026-09-24T12:00:01.000Z',
+        completedAt: '2026-09-24T12:00:02.000Z', createdAt: '2026-09-24T12:00:00.000Z',
+        updatedAt: '2026-09-24T12:00:02.000Z',
+      }],
+    });
+
+    expect(snapshot.clientActions).toEqual([expect.objectContaining({
+      status: 'completed',
+      consequenceSummary: '10-minute daily limit is on for Instagram.',
+      canContinue: false,
+    })]);
+  });
+
   test('projects outcome order and resolves prerequisites to proposal ids', () => {
     const baseProposal = {
       threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'todos' as const,

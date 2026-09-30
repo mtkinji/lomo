@@ -134,8 +134,11 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
         return;
       }
       const conditionType = String(candidate.type);
-      if (conditionType !== 'budget' && types.has(conditionType)) issues.add('condition_type');
-      else types.add(conditionType);
+      if (conditionType !== 'budget' && conditionType !== 'time_of_day' && types.has(conditionType)) {
+        issues.add('condition_type');
+      } else {
+        types.add(conditionType);
+      }
       if (candidate.type === 'focus_active') {
         if (candidate.operator !== 'is' && candidate.operator !== 'is_not') issues.add('condition_operator');
         if (candidate.value !== true) issues.add('condition_value');

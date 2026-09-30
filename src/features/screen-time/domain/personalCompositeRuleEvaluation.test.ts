@@ -1,4 +1,8 @@
-import { evaluatePersonalCompositeRule, resolvePersonalRuleCondition } from './personalCompositeRuleEvaluation';
+import {
+  evaluatePersonalCompositeRule,
+  evaluatePersonalCompositeRuleAtContext,
+  resolvePersonalRuleCondition,
+} from './personalCompositeRuleEvaluation';
 import type { PersonalCompositeScreenTimeRule } from './personalCompositeScreenTimeRule';
 
 const rule: PersonalCompositeScreenTimeRule = {
@@ -46,6 +50,28 @@ describe('evaluatePersonalCompositeRule', () => {
       'after-five': false,
       'under-limit': true,
     })).toEqual({ status: 'available', matched: false });
+  });
+
+  it('pauses only inside a bounded daily time window', () => {
+    const boundedRule: PersonalCompositeScreenTimeRule = {
+      ...rule,
+      outcome: 'pause',
+      connector: 'all',
+      conditions: [
+        { id: 'after-eight-am', type: 'time_of_day', operator: 'after', minuteOfDay: 8 * 60 },
+        { id: 'before-four-pm', type: 'time_of_day', operator: 'before', minuteOfDay: 16 * 60 },
+      ],
+    };
+
+    expect(evaluatePersonalCompositeRuleAtContext(boundedRule, {
+      minuteOfDay: 7 * 60 + 59, dailyUsageMinutes: null, focusActive: null, realStepComplete: null,
+    }).status).toBe('available');
+    expect(evaluatePersonalCompositeRuleAtContext(boundedRule, {
+      minuteOfDay: 8 * 60, dailyUsageMinutes: null, focusActive: null, realStepComplete: null,
+    }).status).toBe('paused');
+    expect(evaluatePersonalCompositeRuleAtContext(boundedRule, {
+      minuteOfDay: 16 * 60, dailyUsageMinutes: null, focusActive: null, realStepComplete: null,
+    }).status).toBe('available');
   });
 
   it('uses Money-owned truth for a budget condition without reinterpreting it', () => {

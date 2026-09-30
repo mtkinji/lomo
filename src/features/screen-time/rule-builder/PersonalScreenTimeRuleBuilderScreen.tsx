@@ -50,6 +50,9 @@ import { createPersonalCompositeRuleActionBoundary } from '../runtime/personalSc
 import { PersonalRuleConditionRow } from './PersonalRuleConditionRow';
 import { RuleSentencePickerField } from './RuleSentencePickerField';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
+import { beginScreenTimeBudgetSetup, clearScreenTimeBudgetSetup, getScreenTimeBudgetSetup, type ScreenTimeBudgetDraft } from './screenTimeBudgetSetupSession';
+import { realStepExplanation } from './realStepExplanation';
+import { navigateWhenReady } from '../../../navigation/rootNavigationRef';
 import { createMoneyRepository } from '../../../capabilities/money/data/moneyRepository';
 import type { MoneyCategory } from '../../../capabilities/money/data/moneySnapshot';
 import type { MoneyAppControlPreset } from '../../../capabilities/money/domain/moneyAppControl';
@@ -141,10 +144,14 @@ function suggestedDraft(params: PersonalScreenTimeRuleBuilderParams, id: string)
 export function PersonalScreenTimeRuleBuilderScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  return <PersonalScreenTimeRuleBuilderDrawer params={route.params} onClose={() => navigation.goBack()} />;
+  const userId = useAppStore(state => state.authIdentity?.userId);
+  const resume = getScreenTimeBudgetSetup(route.params.budgetSetupResumeId, userId);
+  return <PersonalScreenTimeRuleBuilderDrawer key={`${userId}:${route.params.budgetSetupResumeId ?? 'new'}`}
+    initialDraft={resume?.draft} params={resume ? { ...resume.params, budgetSetupResumeId: resume.id } : route.params}
+    onClose={() => { if (resume) clearScreenTimeBudgetSetup(resume.id); navigation.goBack(); }} />;
 }
 
-export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScreenTimeRuleBuilderParams; onClose: () => void }) {
+export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScreenTimeRuleBuilderParams; initialDraft?: ScreenTimeBudgetDraft; onClose: () => void }) {
   const { capture } = useAnalytics();
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
@@ -156,26 +163,36 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     return getPersonalCompositeScreenTimeRuleById(normalized, props.params.ruleId);
   }, [normalized, props.params.ruleId]);
   const isEditing = !!existingRule;
-  const [draftRuleId] = useState(() => existingRule?.id ?? `personal_rule_${Crypto.randomUUID()}`);
+  const [draftRuleId] = useState(() => props.initialDraft?.draftRuleId ?? existingRule?.id ?? `personal_rule_${Crypto.randomUUID()}`);
+  const [expectedUpdatedAt] = useState(() => props.initialDraft
+    ? props.initialDraft.expectedUpdatedAt
+    : existingRule ? existingRule.lastUpdated ?? 'unversioned' : null);
   const suggestion = useMemo(() => suggestedDraft(props.params, draftRuleId), [draftRuleId, props.params]);
   const [targets, setTargets] = useState<RuleTargets>({
-    selectedApps: existingRule?.selectedApps ?? props.params.selectedApps ?? [],
-    selectedCategories: existingRule?.selectedCategories ?? props.params.selectedCategories ?? [],
+    selectedApps: props.initialDraft?.targets.selectedApps ?? existingRule?.selectedApps ?? props.params.selectedApps ?? [],
+    selectedCategories: props.initialDraft?.targets.selectedCategories ?? existingRule?.selectedCategories ?? props.params.selectedCategories ?? [],
   });
-  const [appsConfirmed, setAppsConfirmed] = useState(!!existingRule);
-  const [enabled, setEnabled] = useState(existingRule?.enabled ?? true);
-  const [connector, setConnector] = useState<PersonalRuleConnector>(existingRule?.connector ?? 'all');
-  const [outcome, setOutcome] = useState<PersonalRuleOutcome>(existingRule?.outcome ?? suggestion.outcome);
-  const [conditions, setConditions] = useState<PersonalRuleCondition[]>(existingRule?.conditions ?? suggestion.conditions);
+  const [appsConfirmed, setAppsConfirmed] = useState(!!existingRule || !!props.initialDraft);
+  const [enabled, setEnabled] = useState(props.initialDraft?.enabled ?? existingRule?.enabled ?? true);
+  const [connector, setConnector] = useState<PersonalRuleConnector>(props.initialDraft?.connector ?? existingRule?.connector ?? 'all');
+  const [outcome, setOutcome] = useState<PersonalRuleOutcome>(props.initialDraft?.outcome ?? existingRule?.outcome ?? suggestion.outcome);
+  const [conditions, setConditions] = useState<PersonalRuleCondition[]>(props.initialDraft?.conditions ?? existingRule?.conditions ?? suggestion.conditions);
   const [drawer, setDrawer] = useState<Drawer>(null);
-  const [activeConditionId, setActiveConditionId] = useState<string | null>(null);
+  const [activeConditionId, setActiveConditionId] = useState<string | null>(props.initialDraft?.activeConditionId ?? null);
   const [durationDraft, setDurationDraft] = useState(15);
   const [timeDraft, setTimeDraft] = useState(() => new Date(2026, 0, 1, 17, 0));
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
   const [budgets, setBudgets] = useState<MoneyCategory[]>([]);
+  const [budgetLoadState, setBudgetLoadState] = useState<'loading' | 'ready' | 'error'>('ready');
+  const budgetRequestRef = useRef(0);
   const [budgetDraft, setBudgetDraft] = useState<Pick<Extract<PersonalRuleCondition, { type: 'budget' }>, 'categorySourceId' | 'categoryName'> | null>(null);
   const authorizationConfirmedRef = useRef(false);
+  const budgetDetourIdRef = useRef(props.params.budgetSetupResumeId);
+  const closeEditor = () => {
+    if (budgetDetourIdRef.current) clearScreenTimeBudgetSetup(budgetDetourIdRef.current);
+    props.onClose();
+  };
 
   const count = targets.selectedApps.length + targets.selectedCategories.length;
   const label = targetLabel(targets);
@@ -188,7 +205,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       setAppsConfirmed(false);
       return;
     }
-    props.onClose();
+    closeEditor();
   };
 
   const confirmAuthorization = async () => {
@@ -271,15 +288,45 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     return false;
   };
 
+  const loadBudgets = async () => {
+    const request = ++budgetRequestRef.current;
+    setBudgetLoadState('loading');
+    setDrawer('budget');
+    try {
+      const snapshot = await createMoneyRepository().loadSnapshot();
+      if (request !== budgetRequestRef.current) return;
+      setBudgets(snapshot.categories.filter((category) => category.planRole !== 'protected'));
+      setBudgetLoadState('ready');
+    } catch {
+      if (request === budgetRequestRef.current) setBudgetLoadState('error');
+    }
+  };
+
+  useEffect(() => {
+    if (props.initialDraft) void loadBudgets();
+    // Resume only on this editor instance's mount, not after every draft edit.
+  }, []);
+
+  const setUpMoney = () => {
+    const userId = useAppStore.getState().authIdentity?.userId;
+    if (!userId) return;
+    const id = beginScreenTimeBudgetSetup(userId, props.params, {
+      draftRuleId, expectedUpdatedAt, targets, enabled, connector, outcome, conditions, activeConditionId,
+    });
+    budgetDetourIdRef.current = id;
+    setDrawer(null);
+    navigateWhenReady('Money', { screen: 'MoneyEntry', params: {
+      requestedPlace: 'MoneySummary', source: 'empty-state', mode: 'setup', screenTimeBudgetSetupId: id,
+    } });
+  };
+
   const openConditionField = async (condition: PersonalRuleCondition) => {
     setActiveConditionId(condition.id);
     if (condition.type !== 'budget') {
       setDrawer('condition');
       return;
     }
-    const snapshot = await createMoneyRepository().loadSnapshot().catch(() => null);
-    setBudgets(snapshot?.categories.filter((category) => category.planRole !== 'protected') ?? []);
-    setDrawer('budget');
+    await loadBudgets();
   };
 
   const chooseConditionType = async (type: PersonalRuleCondition['type']) => {
@@ -288,9 +335,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       if (!requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_choose_condition')) return;
     }
     if (type === 'budget') {
-      const snapshot = await createMoneyRepository().loadSnapshot().catch(() => null);
-      setBudgets(snapshot?.categories.filter((category) => category.planRole !== 'protected') ?? []);
-      setDrawer('budget');
+      await loadBudgets();
       return;
     }
     if (activeConditionId) {
@@ -399,11 +444,15 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       }
       await savePersonalCompositeScreenTimeRule({
         rule,
-        expectedUpdatedAt: existingRule ? existingRule.lastUpdated ?? 'unversioned' : null,
+        expectedUpdatedAt,
         confirmed: true,
       }, createPersonalCompositeRuleActionBoundary());
     } catch (error) {
       setSaving(false);
+      if (error instanceof Error && error.message === 'screen_time_composite_rule_stale') {
+        Alert.alert('This rule changed', 'Close and reopen this rule to review its latest settings before saving.');
+        return;
+      }
       if (error instanceof Error && error.message === 'screen_time_advanced_rule_pro_required') {
         requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule');
         return;
@@ -428,7 +477,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       rule: 'composite',
     });
     await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-    props.onClose();
+    closeEditor();
   };
 
   const deleteRule = () => {
@@ -452,7 +501,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
           Alert.alert('Couldn’t delete this rule', 'Kwilt could not turn off its Screen Time restriction. Nothing was changed.');
           return;
         }
-        props.onClose();
+        closeEditor();
       })() },
     ]);
   };
@@ -570,6 +619,9 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
             </View>
           </View>
 
+          {conditions.some((condition) => condition.type === 'real_step_complete') ? (
+            <Text style={styles.conditionExplanation}>{realStepExplanation(normalized.meaningfulFirst)}</Text>
+          ) : null}
           <View style={styles.action}>
             <Button fullWidth size="lg" variant="primary" disabled={!valid} loading={saving} loadingLabel="Saving…" onPress={() => void saveRule()}>
               {isEditing ? 'Save changes' : 'Add rule'}
@@ -591,7 +643,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
             <SettingsGroup>
               {conditionTypes.map((item) => {
                 const selected = activeCondition?.type === item.type;
-                const alreadyUsed = item.type !== 'budget' && !selected && conditions.some((condition) => condition.type === item.type);
+                const supportsMultiple = item.type === 'budget' || item.type === 'time_of_day';
+                const alreadyUsed = !supportsMultiple && !selected && conditions.some((condition) => condition.type === item.type);
                 return <View key={item.type}>
                   <SettingsChoiceRow disabled={alreadyUsed} selected={selected} title={item.label} onPress={() => void chooseConditionType(item.type)} />
                 </View>;
@@ -599,7 +652,21 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
               {activeConditionId ? <><SettingsDivider /><Pressable accessibilityRole="button" onPress={removeCondition} style={styles.drawerDestructive}><Text style={styles.deleteText}>Remove condition</Text></Pressable></> : null}
             </SettingsGroup>
           ) : drawer === 'budget' ? (
-            <SettingsGroup>
+            budgetLoadState === 'loading' ? <Text accessibilityLiveRegion="polite">Loading your budgets…</Text>
+            : budgetLoadState === 'error' ? <View style={{ gap: spacing.md }}>
+              <Text>Couldn’t load your budgets.</Text>
+              <Button onPress={() => void loadBudgets()}>Try again</Button>
+            </View>
+            : budgets.length === 0 ? <View style={{ gap: spacing.md }}>
+              <Text style={typography.titleSm}>A budget comes first.</Text>
+              <Text>Budget-based limits use a budget in Money. Set that up, then return to this rule—or start with a daily limit.</Text>
+              <Button onPress={setUpMoney}>Set up Money</Button>
+              {conditions.length === 0 ? <Button variant="ghost" onPress={() => {
+                setOutcome('pause');
+                void chooseConditionType('daily_usage');
+              }}>Use a daily limit instead</Button> : <Button variant="ghost" onPress={() => setDrawer('condition')}>Choose another condition</Button>}
+            </View>
+            : <SettingsGroup>
               {budgets.map((category) => <SettingsChoiceRow key={category.sourceId} selected={activeCondition?.type === 'budget' && activeCondition.categorySourceId === category.sourceId}
                 title={category.name} onPress={() => chooseBudget(category)} />)}
             </SettingsGroup>
@@ -662,6 +729,7 @@ const styles = StyleSheet.create({
   addCondition: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xs },
   addConditionText: { ...typography.bodySm, fontFamily: fonts.semibold, color: colors.textPrimary },
   action: { marginTop: spacing.xl },
+  conditionExplanation: { ...typography.bodySm, color: colors.textSecondary, marginTop: spacing.md },
   deleteText: { ...typography.body, color: colors.destructive },
   pressed: { opacity: 0.65 },
   drawerContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },

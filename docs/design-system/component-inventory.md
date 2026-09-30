@@ -36,6 +36,8 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 
 ## General Primitives
 
+`ChoicePill` (`src/ui/ChoicePill.tsx`): reusable navigation-choice control; owner-adopted design direction on 2026-09-28, Candidate implementation pending native visual/accessibility evidence. Current scope is first-launch capability path selection only. Anatomy: decorative leading icon, wrapping regular sentence with optional semibold phrase, neutral filled pill, whole-control action with full accessible name/hint and focus/pressed/disabled states. No caller appearance overrides. Uses owned HapticPressable, Icon, Text and theme tokens. It is not a primary action button, radio, toggle, or global replacement for cards. Group choreography belongs to the host. See the onboarding choice pattern in the atlas.
+
 | Component | Strongest Source | Status | Why |
 | --- | --- | --- | --- |
 | `Card` | `src/ui/Card.tsx` | Canonical | Use only for a meaningful surface or interaction boundary, not default grouping. |
@@ -75,6 +77,8 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | `SettingsPage` | `src/ui/SettingsSurface.tsx` | Canonical | Canonical for the current unified native app; other platforms keep their own shell. |
 
 ## Layout And Surfaces
+
+`AtmosphericInvitationScreen` (`src/features/capability-onboarding/AtmosphericInvitationScreen.tsx`) is the local implementation of the owner-adopted atmospheric landing/invitation direction. Maturity: Candidate pending native visual/accessibility proof. Promise requires an identity line; invitation permits only a single message. It owns copy layout, quiet staged reveal, logo and canonical action dock; callers supply semantic text/action and returning state, not styling/timing overrides. Keep `OnboardingShorelineBackdrop` mounted outside page changes. No new capability or authentication steps are implied. See [adoption and delivery evidence](references/origin-mobile/first-run-2026-09/landing-trial.md).
 
 | Component | Strongest Source | Status | Why |
 | --- | --- | --- | --- |

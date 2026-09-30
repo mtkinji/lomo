@@ -361,9 +361,11 @@ export async function executeServerScreenTimeTool({
         : list ? 'open_personal_screen_time_rules' : 'open_personal_screen_time_rule',
       targetType: list || setup || limit ? 'personal_screen_time_device' : 'personal_screen_time_rule',
       targetId: list || setup || limit ? 'self' : ruleId,
-      title: setup ? 'Set up My Screen Time' : limit ? 'Review personal app limit'
+      title: setup ? 'Set up My Screen Time' : limit ? 'Choose apps for this daily limit'
         : list ? 'Open My Screen Time rules' : 'Review personal Screen Time rule',
-      consequenceSummary: call.toolId.endsWith('.delete')
+      consequenceSummary: limit
+        ? "Apple's picker will appear over Chat on the signed-in iPhone. Tapping Done turns on the reviewed daily limit and returns to the conversation."
+        : call.toolId.endsWith('.delete')
         ? 'Kwilt will open this rule. It stays active until you confirm deletion on that device.'
         : 'Kwilt will open this Screen Time review on the signed-in device. You still finish Apple authorization and confirm the rule there.',
       payload: { ...call.arguments },

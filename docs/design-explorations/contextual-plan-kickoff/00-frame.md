@@ -1,5 +1,7 @@
 # Frame: Contextual Plan Kickoff
 
+> Updated direction, 2026-09-24: Andrew expanded the scope to app-wide activation and retention through notifications and guides. The [app-wide engagement strategy](03-app-wide-engagement-strategy.md) supersedes the narrow Plan-placement framing below. Capability-local tasks retain attention, while relevant cross-capability invitations remain important for discovery. This original frame is retained as exploration history.
+
 ## What the user said
 
 > The Explore guide should win because the user is inside Explore. If there were a bottom guide in another capability and the user is not in Plan, that other guide should probably appear in place of Plan. The daily planning prompt might only appear inside Plan, or become a notification the user can tap to enter planning.

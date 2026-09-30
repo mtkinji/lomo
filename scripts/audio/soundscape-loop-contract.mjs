@@ -4,7 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ALLOWED_BUNDLED_KEYS = new Set(['deep-work-drift', 'canyon-spring', 'mountain-overlook']);
+const ALLOWED_BUNDLED_KEYS = new Set([
+  'deep-work-drift',
+  'canyon-spring',
+  'mountain-overlook',
+  'bishop-lakes',
+]);
 const SOUNDSCAPE_IDS = new Set([
   'default',
   'focusFlowState',
@@ -16,6 +21,7 @@ const SOUNDSCAPE_IDS = new Set([
   'quietRain',
   'canyonSpring',
   'mountainOverlook',
+  'bishopLakes',
   'oceanWaves',
   'fireplace',
 ]);

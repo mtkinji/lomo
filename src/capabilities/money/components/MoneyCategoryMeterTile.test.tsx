@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { colors } from '../../../theme';
 import type { MoneyCategory } from '../data/moneySnapshot';
@@ -54,13 +54,13 @@ describe('Money category inventory presentations', () => {
   });
 
   it('rounds dollars left without repeating category arithmetic in the list', () => {
-    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} periodElapsedPercent={75} />);
+    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} periodElapsedPercent={75} showMeter />);
     expect(screen.getByText('$5 over')).toBeTruthy();
     expect(screen.queryByText('$375.95 / $400')).toBeNull();
   });
 
   it('uses destructive text and pace color for every actual overage', () => {
-    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -116 }} onPress={jest.fn()} periodElapsedPercent={75} />);
+    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -116 }} onPress={jest.fn()} periodElapsedPercent={75} showMeter />);
 
     expect(getCategoryListStatus({ ...category, remainingCents: -116 })).toEqual({ label: null, tone: 'danger' });
     expect(StyleSheet.flatten(screen.getByText('$1 over').props.style).color).toBe(colors.destructive);
@@ -69,7 +69,7 @@ describe('Money category inventory presentations', () => {
   });
 
   it('uses a compact warning indicator instead of persistent projection copy', () => {
-    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} />);
+    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} showMeter />);
 
     expect(screen.queryByText('Projected to go over')).toBeNull();
     expect(screen.getByTestId('money-category-projected-warning', { includeHiddenElements: true })).toBeTruthy();
@@ -78,7 +78,7 @@ describe('Money category inventory presentations', () => {
   });
 
   it('shows category use against elapsed month pace', () => {
-    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} />);
+    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} showMeter />);
 
     expect(screen.getByTestId('money-category-pace-used', { includeHiddenElements: true })).toHaveStyle({ width: '94%' });
     expect(screen.getByTestId('money-category-pace-elapsed', { includeHiddenElements: true })).toHaveStyle({ left: '75%' });
@@ -96,8 +96,18 @@ describe('Money category inventory presentations', () => {
     expect(getCategoryListStatus({ ...category, forecast: { status: 'steady' } } as MoneyCategory)).toEqual({ label: null, tone: 'neutral' });
   });
 
+  it('keeps the basic list free of meters while preserving status and category navigation', () => {
+    const onPress = jest.fn();
+    const screen = render(<MoneyCategoryListRow category={category} onPress={onPress} periodElapsedPercent={75} />);
+    expect(screen.queryByTestId('money-category-pace-used', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByTestId('money-category-pace-elapsed', { includeHiddenElements: true })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Open Shopping category, $24 left, Projected to go over' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
   it('maps each menu choice to a renderable layout and value mode', () => {
     expect(resolveCategoryPresentation('meters')).toEqual({ layout: 'meters', valueMode: 'percent_used' });
+    expect(resolveCategoryPresentation('bars')).toEqual({ layout: 'bars', valueMode: 'dollars_left' });
     expect(resolveCategoryPresentation('list')).toEqual({ layout: 'list', valueMode: 'dollars_left' });
   });
 });

@@ -33,3 +33,7 @@ Before promoting a component into the canonical native layer, check:
 - Theming: semantic colors, typography, radii, spacing, elevation, and motion sourced from tokens or app theme bridges.
 - Documentation: Storybook examples that show the supported variants and expected usage boundaries.
 - Composition: at least one approved pattern-atlas use that proves the primitive works in a coherent surface, not only in isolation.
+
+## Capture, audit, and apply
+
+Use the [inspiration workflow](inspiration-workflow.md) to turn screenshots and observations into scoped design rules and applied audits. The [coverage map](coverage.md) includes components, groups, pages and flows, with remaining gaps explicit. The installed `$operating-design-system` skill operates this workflow.

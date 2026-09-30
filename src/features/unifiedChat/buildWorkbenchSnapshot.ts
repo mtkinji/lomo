@@ -140,6 +140,19 @@ function humanizeDevicePreference(value: string): string {
 function clientActionConsequenceSummary(
   action: NonNullable<UnifiedChatThreadAggregate['clientActions']>[number],
 ): string {
+  if (action.status === 'completed'
+    && action.actionType === 'open_personal_screen_time_limit'
+    && action.result?.outcome === 'created_personal_screen_time_limit') {
+    const limitMinutes = Number(action.result.limitMinutes);
+    const targetLabels = Array.isArray(action.result.targetLabels)
+      ? action.result.targetLabels.filter((label): label is string => (
+        typeof label === 'string' && label.trim().length > 0 && label.length <= 80
+      ))
+      : [];
+    if (Number.isInteger(limitMinutes) && limitMinutes >= 1 && limitMinutes <= 1440) {
+      return `${limitMinutes}-minute daily limit is on${targetLabels.length > 0 ? ` for ${targetLabels.join(', ')}` : ''}.`;
+    }
+  }
   if (action.status !== 'completed' || action.actionType !== 'read_appearance_preference') {
     return action.consequenceSummary;
   }

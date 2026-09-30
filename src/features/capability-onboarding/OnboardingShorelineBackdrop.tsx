@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState, Image, StyleSheet, View } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme';
 import { useAccessibilityPreferences } from '../../ui/hooks/useAccessibilityPreferences';
 
@@ -12,7 +13,10 @@ export function OnboardingShorelineBackdrop({ active, tone = 'light' }: { active
     <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
       <Image source={require('../../../assets/onboarding/shoreline-poster.jpg')} resizeMode="cover" style={styles.media} testID="onboarding.shoreline.poster" />
       {!reduceMotionEnabled && !failed ? <ShorelineVideo active={active} onFailure={() => setFailed(true)} /> : null}
-      <View style={[styles.scrim, tone === 'dark' && styles.darkScrim]} />
+      {tone === 'dark' ? <LinearGradient
+        colors={[`${colors.textPrimary}66`, `${colors.textPrimary}A3`, `${colors.textPrimary}A3`, `${colors.textPrimary}73`]}
+        locations={[0, 0.4, 0.66, 1]} style={StyleSheet.absoluteFill} />
+        : <View style={styles.scrim} />}
     </View>
   );
 }
@@ -50,5 +54,4 @@ const styles = StyleSheet.create({
   waiting: { opacity: 0 },
   // A constant neutral veil keeps Sumi readable even over the darkest wave frame.
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.parchment, opacity: 0.82 },
-  darkScrim: { backgroundColor: colors.textPrimary, opacity: 0.55 },
 });

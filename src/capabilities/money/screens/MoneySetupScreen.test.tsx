@@ -6,6 +6,7 @@ import { resetAllStores } from '../../../test/storeFixtures';
 import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { usePaywallStore } from '../../../store/usePaywallStore';
 import { useToastStore } from '../../../store/useToastStore';
+import { useAppStore } from '../../../store/useAppStore';
 import { KWILT_REFRESH_COMPLETION_MS, KwiltLoader } from '../../../ui/KwiltLoader';
 import { buildMoneyOnboardingFollowThrough } from '../domain/moneyOnboardingFollowThrough';
 import {
@@ -29,6 +30,10 @@ import {
 const mockUseMoneyData = jest.fn();
 const mockPrepareMoneyPlaidLink = jest.fn();
 const mockCapture = jest.fn();
+const mockReturnToRule = jest.fn((..._args: unknown[]) => false);
+jest.mock('../../../features/screen-time/rule-builder/returnFromScreenTimeBudgetSetup', () => ({
+  returnFromScreenTimeBudgetSetup: (...args: unknown[]) => mockReturnToRule(...args),
+}));
 jest.mock('../../../features/capability-onboarding/OnboardingShorelineBackdrop', () => ({ OnboardingShorelineBackdrop: () => null }));
 jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useIsFocused: () => true }));
 
@@ -51,6 +56,22 @@ describe('MoneySetupExperience entry resolution', () => {
     resetAllStores();
     mockPrepareMoneyPlaidLink.mockReset();
     mockCapture.mockReset();
+    mockReturnToRule.mockReset().mockReturnValue(false);
+  });
+
+  it.each([
+    ['setup', 'Close Money setup'], ['automatic', 'Go back from Budget'],
+  ] as const)('lets the app-limit detour return while Money is loading in %s mode', (mode, action) => {
+    useAppStore.setState({ authIdentity: { userId: 'rule-owner' } });
+    mockUseMoneyData.mockReturnValue({ error: null, reconcileConnectedActivity: jest.fn(), refresh: jest.fn(), snapshot: null, status: 'loading' });
+    mockReturnToRule.mockReturnValue(true);
+    const navigation = { replace: jest.fn() };
+    const screen = renderWithProviders(<MoneySetupExperience mode={mode} navigation={navigation as never}
+      requestedPlace="MoneySummary" source="empty-state" screenTimeBudgetSetupId="draft-return" />);
+    fireEvent.press(screen.getByRole('button', { name: action }));
+    expect(mockReturnToRule).toHaveBeenCalledWith('draft-return', 'rule-owner');
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(mockPrepareMoneyPlaidLink).not.toHaveBeenCalled();
   });
 
   it('keeps onboarding hidden while existing Money state is still loading', () => {

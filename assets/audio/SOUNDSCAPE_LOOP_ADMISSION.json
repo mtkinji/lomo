@@ -80,6 +80,14 @@
     "channels": 2
   },
   {
+    "id": "bishopLakes",
+    "assetKey": "bishop-lakes-ambient-8a991dc42b54",
+    "source": { "kind": "bundled", "key": "bishop-lakes" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
     "id": "oceanWaves",
     "assetKey": "ocean-waves-1bc54848be4d",
     "source": { "kind": "remote", "id": "focus.ocean-waves" },

@@ -9,6 +9,7 @@ import type { MoneyAppControlPreset } from '../../../capabilities/money/domain/m
 
 export type PersonalScreenTimeRuleBuilderParams = {
   entry: 'inventory' | 'contextual';
+  budgetSetupResumeId?: string;
   authorizationMember?: 'individual' | 'child';
   ruleId?: string;
   selectedApps?: ScreenTimeToken[];

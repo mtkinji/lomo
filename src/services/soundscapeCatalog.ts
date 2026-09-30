@@ -12,10 +12,15 @@ export type SoundscapeId =
   | 'quietRain'
   | 'canyonSpring'
   | 'mountainOverlook'
+  | 'bishopLakes'
   | 'oceanWaves'
   | 'fireplace';
 
-export type BundledSoundscapeKey = 'deep-work-drift' | 'canyon-spring' | 'mountain-overlook';
+export type BundledSoundscapeKey =
+  | 'deep-work-drift'
+  | 'canyon-spring'
+  | 'mountain-overlook'
+  | 'bishop-lakes';
 
 export type SoundscapeLoopAdmission = {
   id: SoundscapeId;
@@ -29,7 +34,10 @@ export type SoundscapeLoopAdmission = {
 };
 
 export type Soundscape = { id: SoundscapeId; title: string; loop: SoundscapeLoopAdmission };
-export type FocusVideoEnvironmentId = Extract<SoundscapeId, 'canyonSpring' | 'mountainOverlook'>;
+export type FocusVideoEnvironmentId = Extract<
+  SoundscapeId,
+  'canyonSpring' | 'mountainOverlook' | 'bishopLakes'
+>;
 
 type SerializedAdmission = Omit<SoundscapeLoopAdmission, 'source'> & {
   source:
@@ -41,6 +49,7 @@ const BUNDLED_SOUNDSCAPE_MODULES: Record<BundledSoundscapeKey, number> = {
   'deep-work-drift': require('../../assets/audio/soundscapes/deep-work-drift-loop-c24a34f97230.mp3'),
   'canyon-spring': require('../../assets/audio/soundscapes/canyon-spring-stream-7e21d76f632c.mp3'),
   'mountain-overlook': require('../../assets/audio/soundscapes/mountain-overlook-wind-5c273d4ddf9f.mp3'),
+  'bishop-lakes': require('../../assets/audio/soundscapes/bishop-lakes-ambient-8a991dc42b54.m4a'),
 };
 
 const admissions = admissionsJson as SerializedAdmission[];
@@ -73,6 +82,7 @@ export const SOUND_SCAPES: Soundscape[] = [
   { id: 'quietRain', title: 'Quiet Rain', loop: admitted('quietRain') },
   { id: 'canyonSpring', title: 'Canyon Spring', loop: admitted('canyonSpring') },
   { id: 'mountainOverlook', title: 'Mountain Overlook', loop: admitted('mountainOverlook') },
+  { id: 'bishopLakes', title: 'Bishop Lakes', loop: admitted('bishopLakes') },
   { id: 'oceanWaves', title: 'Ocean Waves', loop: admitted('oceanWaves') },
   { id: 'fireplace', title: 'Fireplace', loop: admitted('fireplace') },
 ];
@@ -91,7 +101,9 @@ export function normalizeSoundscapeId(value: unknown): SoundscapeId {
 }
 
 export function normalizeFocusVideoEnvironmentId(value: unknown): FocusVideoEnvironmentId | null {
-  return value === 'canyonSpring' || value === 'mountainOverlook' ? value : null;
+  return value === 'canyonSpring' || value === 'mountainOverlook' || value === 'bishopLakes'
+    ? value
+    : null;
 }
 
 export function isFocusVideoEnvironmentId(value: unknown): value is FocusVideoEnvironmentId {

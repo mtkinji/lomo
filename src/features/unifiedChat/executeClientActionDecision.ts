@@ -7,6 +7,13 @@ type Repository = {
   transitionClientAction: (input: TransitionUnifiedChatClientActionInput) => Promise<UnifiedChatClientAction>;
 };
 
+export class ClientActionPresentationCancelledError extends Error {
+  constructor() {
+    super('client_action_presentation_cancelled');
+    this.name = 'ClientActionPresentationCancelledError';
+  }
+}
+
 export async function executeClientActionDecision({
   clientAction,
   decision,
@@ -48,6 +55,7 @@ export async function executeClientActionDecision({
       presentedAt: presenting.presentedAt, completedAt,
     });
   } catch (error) {
+    if (error instanceof ClientActionPresentationCancelledError) return;
     const message = error instanceof Error ? error.message : 'The native review surface could not be opened.';
     await repository.transitionClientAction({
       actionId: presenting.id, fromStatus: 'presenting', toStatus: 'failed',

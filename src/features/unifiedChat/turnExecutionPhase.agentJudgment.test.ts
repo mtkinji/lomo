@@ -58,20 +58,20 @@ test('grounds the job and exposes only judgment-selected tools', () => {
   ]);
 });
 
-test('self-directed Screen Time requests cannot receive child-control tools', () => {
+test('protects clear self-directed Screen Time requests without treating benefactive language as the subject', () => {
   const screenTimeTools = UNIFIED_CHAT_TOOL_CATALOG.filter((tool) =>
     tool.capabilityId === 'screenTime' || tool.id === 'money.app_control.review');
 
   expect(selectSubjectSafeRuntimeTools(
     screenTimeTools,
-    'Set up Screen Time controls for me.',
+    'Set up Screen Time controls on my phone.',
   ).map((tool) => tool.id)).toEqual(expect.arrayContaining([
     'screen_time.personal.setup.open',
     'money.app_control.review',
   ]));
   const selfDirectedTools = selectSubjectSafeRuntimeTools(
     screenTimeTools,
-    'Set up Screen Time controls for me.',
+    'Set up Screen Time controls on my phone.',
   ).map((tool) => tool.id);
   expect(selfDirectedTools).not.toContain('screen_time.read');
   expect(selfDirectedTools).not.toEqual(expect.arrayContaining([
@@ -89,6 +89,12 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
     'screen_time.device.setup.open',
     'screen_time.override.allow',
   ]));
+
+  const familyRuleTools = selectSubjectSafeRuntimeTools(
+    screenTimeTools,
+    'Create a Screen Time rule for me: Charlie uses Gospel Library for 10 minutes before Games.',
+  ).map((tool) => tool.id);
+  expect(familyRuleTools).toContain('screen_time.agreement.create');
 });
 
 test('grounds evidence-linked reasoning and no-change truth without capability-specific wording', () => {

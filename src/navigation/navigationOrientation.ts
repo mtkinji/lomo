@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
-const followDeviceDuringVideoFocus = () => Platform.OS === 'ios'
+const followDeviceDuringFocus = () => Platform.OS === 'ios'
   ? ScreenOrientation.lockPlatformAsync({
       screenOrientationArrayIOS: [
         ScreenOrientation.Orientation.PORTRAIT_UP,
@@ -14,9 +14,9 @@ const followDeviceDuringVideoFocus = () => Platform.OS === 'ios'
 
 export function applyNavigationOrientation(
   routeName: string | undefined,
-  context: { focusVideoActive?: boolean } = {},
+  context: { focusActive?: boolean } = {},
 ) {
-  if (context.focusVideoActive) return followDeviceDuringVideoFocus();
+  if (context.focusActive) return followDeviceDuringFocus();
   return routeName === 'Food' || routeName === 'RecipeCookMode'
     ? ScreenOrientation.unlockAsync()
     : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
@@ -25,7 +25,7 @@ export function applyNavigationOrientation(
 type NavigationOrientationPolicy = {
   ready: boolean;
   routeName: string | undefined;
-  focusVideoActive: boolean;
+  focusActive: boolean;
 };
 
 /**
@@ -36,7 +36,7 @@ type NavigationOrientationPolicy = {
 export function useNavigationOrientationPolicy({
   ready,
   routeName,
-  focusVideoActive,
+  focusActive,
 }: NavigationOrientationPolicy) {
   const pendingRequestRef = useRef<Promise<void>>(Promise.resolve());
   const hasRequestedRef = useRef(false);
@@ -44,7 +44,7 @@ export function useNavigationOrientationPolicy({
   useEffect(() => {
     if (!ready) return;
 
-    const applyPolicy = () => applyNavigationOrientation(routeName, { focusVideoActive })
+    const applyPolicy = () => applyNavigationOrientation(routeName, { focusActive })
       .catch(() => undefined);
 
     if (!hasRequestedRef.current) {
@@ -54,5 +54,5 @@ export function useNavigationOrientationPolicy({
     }
 
     pendingRequestRef.current = pendingRequestRef.current.then(applyPolicy, applyPolicy);
-  }, [focusVideoActive, ready, routeName]);
+  }, [focusActive, ready, routeName]);
 }

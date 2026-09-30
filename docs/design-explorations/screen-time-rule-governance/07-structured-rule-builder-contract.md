@@ -254,8 +254,10 @@ The section title carries the fixed connector:
 
 Selecting a condition that needs configuration opens one conventional drawer
 or owner route. The builder shows the saved compact value on return. At least one
-valid criterion is required. Duplicate condition types are not allowed unless a
-future definition explicitly permits instances.
+valid criterion is required. Time of day may repeat to express bounded daily
+windows, and budget conditions may repeat for distinct budgets. Other
+condition types remain single-instance unless their definition explicitly
+permits repetition.
 
 Initial compatible definitions:
 

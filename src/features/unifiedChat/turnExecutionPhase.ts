@@ -104,13 +104,17 @@ export function selectAgentJudgmentTools(
 }
 
 const SELF_DIRECTED_DEVICE_PATTERN =
-  /\b(?:for me|myself|my (?:phone|device)|on this (?:phone|device)|allow(?:s|ed|ing)? me to|let(?:s|ting)? me(?: to)?|i (?:can|may|want to|need to) use)\b/i;
+  /\b(?:myself|my (?:phone|device)|on this (?:phone|device)|allow(?:s|ed|ing)? me to|let(?:s|ting)? me(?: to)?|i (?:can|may|want to|need to) use)\b/i;
+const SELF_DIRECTED_CORRECTION_PATTERN =
+  /\bnot for (?:him|her|them|my (?:child|son|daughter)|[A-Z][\p{L}'’-]*),?\s+for me\b/iu;
 
 export function selectSubjectSafeRuntimeTools(
   tools: readonly AgentToolDefinition[],
   prompt: string,
 ): AgentToolDefinition[] {
-  if (!SELF_DIRECTED_DEVICE_PATTERN.test(prompt)) return [...tools];
+  if (!SELF_DIRECTED_DEVICE_PATTERN.test(prompt) && !SELF_DIRECTED_CORRECTION_PATTERN.test(prompt)) {
+    return [...tools];
+  }
   return tools.filter((tool) =>
     tool.capabilityId !== 'screenTime' ||
     tool.id === 'screen_time.personal.setup.open' ||

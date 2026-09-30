@@ -231,21 +231,14 @@ test('family Screen Time setup refuses a handoff without exact Household context
   })).toBeNull();
 });
 
-test('personal Screen Time limit opens the canonical builder with typed intent', () => {
+test('personal Screen Time limit stays in Chat for the inline Apple picker', () => {
   expect(resolveClientActionOpenInstruction({
     ...action('open_personal_screen_time_limit', 'self'),
     capabilityId: 'screenTime', targetType: 'personal_screen_time_device',
     payload: {
       subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
     },
-  })).toEqual({
-    kind: 'navigate', name: 'Settings', params: {
-      screen: 'SettingsScreenTimeRuleBuilder', params: {
-        entry: 'contextual', suggestedKind: 'daily_limit', suggestedLimitMinutes: 10,
-        suggestedAppLabel: 'Instagram', setupIntent: 'settings_discovery', entrySurface: 'settings',
-      },
-    },
-  });
+  })).toBeNull();
 });
 
 test('an external personal rule handoff opens the exact native rule editor', () => {

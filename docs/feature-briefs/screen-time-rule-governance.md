@@ -199,10 +199,16 @@ state.
 - Personal conditions include Focus, real step, a device-local daily usage
   allowance, time of day, and Money-owned budget truth. Existing personal records derive their mode, so adding the allowance
   kind requires no rewrite of older records. Chat may carry a self subject,
-  suggested app label, bounded minute allowance, and daily reset into the same
-  native builder; Apple token selection and save remain native-only.
-- A saved personal aggregate contains at most one condition of each current
-  device-monitoring type. A qualifying real-step or Focus event refreshes host
+  suggested app label, bounded minute allowance, and daily reset into one
+  reviewed Chat action. On the signed-in iPhone, that action presents Apple's
+  FamilyActivityPicker temporarily over the conversation. Tapping Done applies
+  the reviewed rule on-device and returns a token-free receipt to the same
+  thread; it does not navigate to the Screen Time builder. Apple selection
+  tokens and personal-rule persistence remain device-local.
+- A saved personal aggregate may contain repeated time-of-day conditions so one rule
+  can express a bounded daily window such as after 8:00 AM and before 4:00 PM.
+  Other device-monitoring condition types remain single-instance. A qualifying
+  real-step or Focus event refreshes host
   truth for every enabled aggregate that references it; time and usage truth
   remain device-local.
 - Household Add rule retains the child-specific authority path, then opens the

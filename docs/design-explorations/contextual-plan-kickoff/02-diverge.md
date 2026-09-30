@@ -1,5 +1,7 @@
 # Diverge: Contextual Plan Kickoff
 
+> Historical alternatives. Andrew's 2026-09-24 feedback establishes proactive activation and cross-capability discovery as central requirements. See the [app-wide engagement strategy](03-app-wide-engagement-strategy.md) for the revised recommendation; Plan-only presentation is not the selected direction.
+
 ## Fixed frame
 
 Help Marcus notice a useful moment to plan and enter Plan intentionally, while preserving the capability context and purpose that brought him into Kwilt.

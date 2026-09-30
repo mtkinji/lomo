@@ -864,8 +864,8 @@ export function createDeviceToolProvider({
       return stage({
         capabilityId: 'screenTime', actionType: 'open_personal_screen_time_limit',
         targetType: 'personal_screen_time_device', targetId: 'self',
-        title: `Review ${limitMinutes}-minute app limit`,
-        consequenceSummary: 'Kwilt will open the rule on this device. You still choose the apps and save it there.',
+        title: `Choose apps for a ${limitMinutes}-minute limit`,
+        consequenceSummary: "Apple's picker will appear over Chat. When you tap Done, Kwilt will turn on this daily limit and return here.",
         payload: {
           subject: { kind: 'self' }, limitMinutes, reset: 'daily',
           ...(suggestedAppLabel ? { suggestedAppLabel } : {}),
@@ -1021,5 +1021,19 @@ export function createDeviceToolProvider({
     return stage(definitions[call.toolId]);
   };
 
-  return { execute, actions: (): readonly StagedUnifiedChatClientAction[] => [...staged] };
+  return {
+    execute,
+    actions: (): readonly StagedUnifiedChatClientAction[] => {
+      const hasSpecificPersonalLimit = staged.some((action) =>
+        action.actionType === 'open_personal_screen_time_limit'
+        && action.targetType === 'personal_screen_time_device'
+        && action.targetId === 'self');
+      return staged.filter((action) => !(
+        hasSpecificPersonalLimit
+        && action.actionType === 'configure_screen_time'
+        && action.targetType === 'personal_screen_time_device'
+        && action.targetId === 'self'
+      ));
+    },
+  };
 }

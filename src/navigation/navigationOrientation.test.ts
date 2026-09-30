@@ -46,8 +46,8 @@ describe('navigation orientation', () => {
     expect(mockUnlockAsync).not.toHaveBeenCalled();
   });
 
-  it('lets active video Focus follow the device in portrait or landscape', async () => {
-    await applyNavigationOrientation('Today', { focusVideoActive: true });
+  it('lets every active Focus session follow the device in portrait or landscape', async () => {
+    await applyNavigationOrientation('Today', { focusActive: true });
 
     expect(mockLockPlatformAsync).toHaveBeenCalledWith({
       screenOrientationArrayIOS: ['PORTRAIT_UP', 'LANDSCAPE_LEFT', 'LANDSCAPE_RIGHT'],
@@ -61,18 +61,18 @@ describe('navigation orientation', () => {
       resolveInitialPortrait = resolve;
     }));
 
-    const { rerender } = renderHook<void, { focusVideoActive: boolean }>(
-      ({ focusVideoActive }) => useNavigationOrientationPolicy({
+    const { rerender } = renderHook<void, { focusActive: boolean }>(
+      ({ focusActive }) => useNavigationOrientationPolicy({
         ready: true,
         routeName: 'Today',
-        focusVideoActive,
+        focusActive,
       }),
-      { initialProps: { focusVideoActive: false } },
+      { initialProps: { focusActive: false } },
     );
 
     expect(mockLockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
 
-    rerender({ focusVideoActive: true });
+    rerender({ focusActive: true });
     expect(mockLockPlatformAsync).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -80,7 +80,7 @@ describe('navigation orientation', () => {
     });
     await waitFor(() => expect(mockLockPlatformAsync).toHaveBeenCalledTimes(1));
 
-    rerender({ focusVideoActive: false });
+    rerender({ focusActive: false });
     await waitFor(() => expect(mockLockAsync).toHaveBeenCalledTimes(2));
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
   });

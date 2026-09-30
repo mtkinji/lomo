@@ -971,7 +971,9 @@ function normalizeIntroPrice(product: any): ProStoreProductOffer['introPrice'] |
   }
   return {
     priceString: intro.priceString,
-    type: typeof intro.type === 'string' ? intro.type : undefined,
+    // RevenueCat PurchasesIntroPrice has a numeric price, not a trial type.
+    // Do not infer free access from a localized price string or missing data.
+    type: intro.price === 0 ? 'FREE_TRIAL' : undefined,
     cycles: typeof intro.cycles === 'number' ? intro.cycles : undefined,
     periodUnit: typeof intro.periodUnit === 'string' ? intro.periodUnit : undefined,
     periodNumberOfUnits:

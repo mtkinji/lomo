@@ -96,6 +96,26 @@ export function openPaywallInterstitial(params: {
   // but Free capabilities must never be blocked while those call sites age out.
   if (isRetiredPaywallReason(params.reason)) return;
 
+  // Money's invitation already explains the value. Go straight to the offer,
+  // without opening the older contextual interstitial or starting Plaid.
+  if (params.source === 'money_onboarding_add_institution' && rootNavigationRef.isReady()) {
+    const requestedAtMs = Date.now();
+    usePaywallStore.setState({
+      visible: false,
+      reason: null,
+      source: null,
+      currentResumeIntent: null,
+      readyResumeIntent: null,
+      upsellReason: params.reason,
+      upsellSource: params.source,
+      directEntrySource: null,
+      upsellTappedAtMs: requestedAtMs,
+      pendingResumeIntent: params.resumeIntent ? { ...params.resumeIntent, requestedAtMs } : null,
+    });
+    openPaywallPurchaseEntry();
+    return;
+  }
+
   // Preferred UX: open an in-context full-height drawer (no navigation jump).
   try {
     usePaywallStore.getState().open(params);
