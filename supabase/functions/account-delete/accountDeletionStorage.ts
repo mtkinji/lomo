@@ -53,3 +53,16 @@ export async function removeStorageManifest(
   }
   return removedCount;
 }
+
+/** Shared account identity owns Journal originals as well as Kwilt attachments. */
+export function accountStorageTargets(userId: string, personId?: string): AccountStorageTarget[] {
+  const targets = [
+    { bucket: 'activity_attachments', prefix: userId },
+    { bucket: 'home-moments', prefix: userId },
+    { bucket: 'hero_images', prefix: userId },
+    { bucket: 'household-avatars', prefix: `account/${userId}` },
+    { bucket: 'journal-voice', prefix: userId },
+  ];
+  if (personId) targets.push({ bucket: 'recipe-import-artifacts', prefix: personId });
+  return targets;
+}

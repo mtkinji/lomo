@@ -57,3 +57,13 @@ Deno.test('storage removal failure propagates instead of reporting success', asy
   deps.remove = async () => { throw new Error('remove failed'); };
   await assertRejects(() => removeStorageManifest([target], deps), Error, 'remove failed');
 });
+
+Deno.test('account cleanup includes original journal voice and never another account prefix', async () => {
+  const { accountStorageTargets } = await import('../accountDeletionStorage.ts');
+  const targets = accountStorageTargets('user-1');
+  const voice = targets.filter((item) => item.bucket === 'journal-voice');
+  assertEquals(voice, [{ bucket: 'journal-voice', prefix: 'user-1' }]);
+  const { deps, removed } = dependencies(['user-1/entry/device/a.caf', 'user-1/entry/conversation/b.mp3', 'user-2/entry/device/c.caf']);
+  assertEquals(await removeStorageManifest(voice, deps), 2);
+  assertEquals(removed.flat().some((path) => path.startsWith('user-2/')), false);
+});

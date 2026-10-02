@@ -1,10 +1,11 @@
+import { removeJournalNarration } from './journalNarrationCleanup.ts';
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { decryptToken, type EncryptedToken } from '../_shared/calendarUtils.ts';
 import { assertPlaidEnvironmentAllowedForSupabase, plaidPost } from '../_shared/plaid.ts';
 import { AccountDeletionError, deleteKwiltAccount, type AccountDeletionDependencies, type AccountDeletionErrorCode, type AccountDeletionStage } from './accountDeletion.ts';
 import { removeAccountProviders, type ProviderCleanupDependencies, type ProviderDeletionOutcome, type ProviderDeletionTarget } from './accountDeletionProviders.ts';
-import { removeStorageManifest, type AccountStorageDependencies } from './accountDeletionStorage.ts';
+import { accountStorageTargets, removeStorageManifest, type AccountStorageDependencies } from './accountDeletionStorage.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 const corsHeaders: Record<string, string> = {
@@ -214,15 +215,13 @@ async function removeAccountStorage(admin: AdminClient, userId: string) {
       assertNoError(error, 'storage_remove_failed');
     },
   };
-  const targets = [
-    { bucket: 'activity_attachments', prefix: userId },
-    { bucket: 'home-moments', prefix: userId },
-    { bucket: 'hero_images', prefix: userId },
-    { bucket: 'household-avatars', prefix: `account/${userId}` },
-  ];
-  if (binding?.person_id) {
-    targets.push({ bucket: 'recipe-import-artifacts', prefix: String(binding.person_id) });
-  }
+  // Stop late provider transfers before removing the private voice objects.
+  // Deploy after the Journal voice archive migration.
+  const { error: voiceEntryError } = await admin.from('journal_voice_entries').update({ deleted: true }).eq('user_id', userId);
+  assertNoError(voiceEntryError, 'journal_voice_tombstone_failed');
+  const { error: voiceJobError } = await admin.from('journal_voice_jobs').update({ status: 'deleted' }).eq('user_id', userId);
+  assertNoError(voiceJobError, 'journal_voice_job_cancel_failed');
+  const targets = accountStorageTargets(userId, binding?.person_id ? String(binding.person_id) : undefined);
   await removeStorageManifest(targets, storage);
 }
 
@@ -246,7 +245,28 @@ function deletionDependencies(admin: AdminClient): AccountDeletionDependencies {
       assertNoError(insertError, 'deletion_operation_create_failed');
       return { completed: [] };
     },
-    removeProviders: (userId) => removeAccountProviders(userId, providerDependencies(admin, userId)).then(() => undefined),
+    removeProviders: async (userId) => {
+      await removeJournalNarration(userId, {
+        profile: async (owner) => {
+          const { data, error } = await admin.from('journal_narration_voices').select('state,voice_id').eq('user_id', owner).maybeSingle();
+          assertNoError(error, 'journal_narration_inventory_failed');
+          return data;
+        },
+        removeVoice: async (voiceID) => {
+          const key = Deno.env.get('JOURNAL_ELEVENLABS_API_KEY');
+          if (!key) throw Error('journal_narration_cleanup_unavailable');
+          const response = await fetch('https://api.elevenlabs.io/v1/voices/' + encodeURIComponent(voiceID), {
+            method: 'DELETE', headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok && response.status !== 404) throw Error('journal_narration_cleanup_failed');
+        },
+        removeProfile: async (owner) => {
+          const { error } = await admin.from('journal_narration_voices').delete().eq('user_id', owner);
+          assertNoError(error, 'journal_narration_profile_cleanup_failed');
+        },
+      });
+      await removeAccountProviders(userId, providerDependencies(admin, userId));
+    },
     removeStorage: (userId) => removeAccountStorage(admin, userId),
     async prepareDatabase(userId, operationId) {
       const { error } = await admin.rpc('prepare_kwilt_account_deletion', { p_user_id: userId, p_operation_id: operationId });
