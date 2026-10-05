@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { MoneyDataProvider, useMoneyData } from './MoneyDataContext';
 import type { MoneyRepository } from './moneyRepository';
+import { MoneyTransactionUnavailableError } from './moneyRepository';
 import type { MoneySnapshot } from './moneySnapshot';
 import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
 import { reconcileConnectedMoneyActivity } from '../runtime/reconcileConnectedMoneyActivity';
@@ -69,6 +70,20 @@ function ReorderProbe() {
   );
 }
 
+function CategoryRecoveryProbe() {
+  const { assignTransactionCategory, snapshot: current, reviewingTransactionId, error } = useMoneyData();
+  const [outcome, setOutcome] = useState('idle');
+  return <View>
+    <Text>{current?.transactions.map((transaction) => transaction.id).join(',')}</Text>
+    <Text>{reviewingTransactionId ? 'saving' : outcome}</Text>
+    <Text>{error ?? 'no-error'}</Text>
+    <Pressable onPress={() => {
+      void assignTransactionCategory('transaction-1', 'category-1')
+        .then(() => setOutcome('saved'), () => setOutcome('not-saved'));
+    }}><Text>Assign category</Text></Pressable>
+  </View>;
+}
+
 function NoteProbe() {
   const { reviewingTransactionId, setTransactionNote, snapshot: currentSnapshot } = useMoneyData();
   return (
@@ -110,6 +125,23 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
   beforeEach(() => {
     jest.mocked(reconcileConnectedMoneyActivity).mockReset();
     setProEntitlement(true);
+  });
+
+  it.each([false, true])('refreshes after a removed pending transaction without claiming a save (refresh fails: %s)', async (refreshFails) => {
+    const loadSnapshot = jest.fn().mockResolvedValueOnce(snapshot);
+    if (refreshFails) loadSnapshot.mockRejectedValueOnce(new Error('Offline'));
+    else loadSnapshot.mockResolvedValueOnce({ ...snapshot, transactions: [{ id: 'posted-transaction' }] });
+    const assignTransactionCategory = jest.fn().mockRejectedValue(new MoneyTransactionUnavailableError());
+    const repository = { loadSnapshot, assignTransactionCategory } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><CategoryRecoveryProbe /></MoneyDataProvider>);
+    await screen.findByText('transaction-1');
+    fireEvent.press(screen.getByText('Assign category'));
+    await screen.findByText('not-saved');
+    expect(loadSnapshot).toHaveBeenCalledTimes(2);
+    expect(assignTransactionCategory).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('saved')).toBeNull();
+    expect(screen.getByText(refreshFails ? 'transaction-1' : 'posted-transaction')).toBeTruthy();
+    expect(screen.getByText(new MoneyTransactionUnavailableError().message)).toBeTruthy();
   });
 
   it('finishes a persisted transaction review before the governed-plan reconciliation completes', () => {

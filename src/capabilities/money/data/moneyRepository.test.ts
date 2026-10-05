@@ -13,7 +13,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; functionResult?: unknown } = {}) {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; rpcError?: { code: string; message: string }; functionResult?: unknown } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -71,7 +71,7 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
-      return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: null });
+      return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: options.rpcError ?? null });
     },
     functions: {
       invoke(name: string, invokeOptions: { body: Record<string, unknown> }) {
@@ -84,6 +84,23 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
 }
 
 describe('createMoneyRepository transaction review', () => {
+  it('identifies an unavailable transaction so the caller can refresh without retrying a rejected write', async () => {
+    const { client, calls, rpcCalls } = createClient({ rpcError: {
+      code: '42501', message: 'One or more transactions are unavailable.',
+    } });
+    await expect(createMoneyRepository(client).assignTransactionCategory('old-pending-id', 'category-1'))
+      .rejects.toMatchObject({ name: 'MoneyTransactionUnavailableError' });
+    expect(rpcCalls).toHaveLength(1);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('keeps other permission rejections distinct from an unavailable transaction', async () => {
+    const { client } = createClient({ rpcError: {
+      code: '42501', message: 'An active adult household membership is required.',
+    } });
+    await expect(createMoneyRepository(client).assignTransactionCategory('transaction-1', 'category-1'))
+      .rejects.toMatchObject({ name: 'Error', message: expect.stringContaining('active adult') });
+  });
   it('persists a normalized household note without changing financial fields', async () => {
     const { client, calls } = createClient();
 

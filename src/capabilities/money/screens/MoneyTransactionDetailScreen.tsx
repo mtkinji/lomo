@@ -375,6 +375,10 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         <View style={styles.unavailable}>
           <Text style={styles.emptyTitle}>{status === 'loading' ? 'Loading transaction…' : 'This transaction is unavailable'}</Text>
           <Text style={styles.emptyCopy}>{status === 'loading' ? 'Loading the latest Money details.' : 'It may have changed since the last successful Money sync.'}</Text>
+          {reviewError ? <Text style={styles.emptyCopy}>{reviewError}</Text> : null}
+          {status !== 'loading' ? (
+            <Button onPress={() => navigation.popTo('MoneyTransactions', undefined)}>View transactions</Button>
+          ) : null}
         </View>
       </AppShell>
     );

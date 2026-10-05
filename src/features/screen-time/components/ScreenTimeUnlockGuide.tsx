@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, useWindowDimensions } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { BottomDrawerScrollView } from '../../../ui/BottomDrawer';
@@ -5,7 +6,7 @@ import { BottomGuide } from '../../../ui/BottomGuide';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { VStack } from '../../../ui/Stack';
 import { Text } from '../../../ui/Typography';
-import type { BottomDrawerFooterConfig } from '../../../ui/layout/BottomDrawerSemanticFooter';
+import { BottomDrawerSemanticFooter, type BottomDrawerFooterConfig } from '../../../ui/layout/BottomDrawerSemanticFooter';
 import type { ScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import { useWorkflowFeedbackInlineSlot } from '../../workflow-feedback/WorkflowFeedbackInlineSlot';
@@ -38,22 +39,14 @@ export function ScreenTimeUnlockGuide(props: {
   onOpenRequirement: () => void;
   onManageRules: () => void;
 }) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const layout = getScreenTimeGuideLayout(fontScale);
   const feedback = useWorkflowFeedbackInlineSlot(props.feedbackSourceKey);
   const count = props.rules.length + props.unresolvedCount;
   const title = count > 1
     ? `${count} rules are keeping this app paused.`
     : 'This app is paused.';
-  const body = props.actions.requiresCaregiver
-    ? 'A caregiver can change this rule.'
-    : props.actions.resolutionKind === 'actionable'
-      ? 'Complete the rule’s requirement to continue.'
-      : props.actions.resolutionKind === 'mixed'
-        ? 'Each active rule must be satisfied before this app is available.'
-        : props.actions.resolutionKind === 'unresolved'
-          ? 'Open Screen Time to review the active boundary.'
-          : 'This rule stays in place until its condition changes.';
   const footer: BottomDrawerFooterConfig | undefined = (
     props.actions.requirementAction || props.actions.canManageRules
   ) ? {
@@ -81,12 +74,17 @@ export function ScreenTimeUnlockGuide(props: {
       dynamicSizing={layout.dynamicSizing}
       scrim="light"
       showDragHandle={false}
-      footer={footer}
+      contentExtendsIntoBottomSafeArea
       contentStyle={!layout.dynamicSizing ? styles.guideBody : undefined}
     >
       <BottomDrawerScrollView
         underlapsHandle={false}
-        style={!layout.dynamicSizing ? styles.scroller : undefined}
+        // Bound intrinsic measurement so long rule lists remain reachable.
+        style={layout.dynamicSizing
+          ? { maxHeight: (height - insets.top) * 0.72 }
+          : styles.scroller}
+        bounces={false}
+        alwaysBounceVertical={false}
         contentContainerStyle={styles.content}
       >
         <VStack space={spacing.xs}>
@@ -97,7 +95,9 @@ export function ScreenTimeUnlockGuide(props: {
             closeAccessibilityLabel="Close Screen Time guide"
             containerStyle={{ paddingBottom: 0 }}
           />
-          <Text tone="secondary">{body}</Text>
+          {props.actions.requiresCaregiver ? (
+            <Text tone="secondary">A caregiver can change this rule.</Text>
+          ) : null}
         </VStack>
 
         <VStack space={spacing.sm}>
@@ -120,6 +120,7 @@ export function ScreenTimeUnlockGuide(props: {
         </VStack>
 
         {feedback}
+        {footer ? <BottomDrawerSemanticFooter {...footer} /> : null}
       </BottomDrawerScrollView>
     </BottomGuide>
   );

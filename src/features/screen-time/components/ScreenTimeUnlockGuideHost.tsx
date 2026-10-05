@@ -24,6 +24,7 @@ import {
 } from '../../workflow-feedback';
 
 type LoadedContext = {
+  handoff: NonNullable<ReturnType<typeof useScreenTimeHandoffStore.getState>['pending']>;
   actor: ScreenTimeActor;
   household: HouseholdSnapshot | null;
   familySnapshots: FamilyScreenTimeSnapshot[];
@@ -75,7 +76,7 @@ export function ScreenTimeUnlockGuideHost() {
         household = null;
       }
       if (cancelled) return;
-      setContext({ actor: resolveScreenTimeActor(household), household, familySnapshots });
+      setContext({ handoff, actor: resolveScreenTimeActor(household), household, familySnapshots });
       capture(AnalyticsEvent.ScreenTimeGuideShown, {
         rule_count: handoff.restrictions.length,
         has_family_rule: handoff.restrictions.some((restriction) => restriction.reason === 'family_prerequisite'),
@@ -156,7 +157,9 @@ export function ScreenTimeUnlockGuideHost() {
 
   if (!handoff) return null;
   return <ScreenTimeUnlockGuide
-    visible={visible}
+    // Resolve this handoff's authority before measuring/animating the card.
+    // Otherwise the management action arrives mid-entrance and raises it again.
+    visible={visible && context?.handoff === handoff}
     rules={projection.rules}
     unresolvedCount={projection.unresolvedRestrictions.length}
     actions={actions}

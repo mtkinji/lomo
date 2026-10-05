@@ -35,6 +35,13 @@ import { normalizeTransactionNote } from '../domain/transactionNote';
 
 type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
+export class MoneyTransactionUnavailableError extends Error {
+  constructor() {
+    super('This transaction is no longer available. Your change was not saved. Reopen it from the latest transaction list and try again.');
+    this.name = 'MoneyTransactionUnavailableError';
+  }
+}
+
 type MoneyReadQuery = PromiseLike<ReadResult> & {
   eq(column: string, value: unknown): MoneyReadQuery;
   in(column: string, values: unknown[]): MoneyReadQuery;
@@ -317,6 +324,9 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       return parseTransactionReviewReceipt(data, normalizedIds, update);
     }
     if (!isMissingRpcError(error, 'replace_budget_transaction_review')) {
+      if (error.code === '42501' && error.message === 'One or more transactions are unavailable.') {
+        throw new MoneyTransactionUnavailableError();
+      }
       throw new Error(`Money could not save the transaction review: ${error.message || 'Unknown database error'}`);
     }
     const updatedRows = await readPart<Array<{ id: string }>>('transaction review', db

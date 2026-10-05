@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   createMoneyRepository,
+  MoneyTransactionUnavailableError,
   type ConfirmedCategoryWrite,
   type ConfirmedMerchantRuleWrite,
   type ConfirmedTransactionWrite,
@@ -275,13 +276,25 @@ export function MoneyDataProvider({
         refreshInBackground(version);
       }
     } catch (error) {
+      if (error instanceof MoneyTransactionUnavailableError) {
+        // Plaid can replace a pending row while an older snapshot is open.
+        // Reload authoritative rows, but never guess a replacement or replay the write.
+        const version = ++mutationVersionRef.current;
+        try {
+          const snapshot = await resolvedRepository.loadSnapshot();
+          if (mutationVersionRef.current === version) acceptSnapshot(snapshot);
+        } catch {
+          // Keep the original failed-write message, including when offline.
+        }
+        if (mutationVersionRef.current !== version) throw error;
+      }
       const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
       dispatch({ type: 'failure', message });
       throw error;
     } finally {
       setReviewingTransactionId(null);
     }
-  }, [refreshInBackground, repository, state.snapshot]);
+  }, [acceptSnapshot, refreshInBackground, repository, resolvedRepository, state.snapshot]);
 
   const reviewBroadTransaction = useCallback(async (
     transactionId: string,

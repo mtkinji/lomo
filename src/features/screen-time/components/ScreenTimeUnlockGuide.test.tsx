@@ -1,10 +1,11 @@
 import React from 'react';
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { projectScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import { getScreenTimeGuideLayout, ScreenTimeUnlockGuide } from './ScreenTimeUnlockGuide';
 
+const mockScrollProps: Array<Record<string, unknown>> = [];
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
 jest.mock('../../../ui/BottomDrawer', () => {
@@ -14,7 +15,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
       mockBottomDrawerProps.push(props as Record<string, unknown>);
       return props.visible ? props.children : null;
     },
-    BottomDrawerScrollView: ScrollView,
+    BottomDrawerScrollView: (props: Record<string, unknown>) => { mockScrollProps.push(props); return <ScrollView {...props} />; },
   };
 });
 
@@ -54,6 +55,19 @@ describe('ScreenTimeUnlockGuide', () => {
     expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
   });
 
+  it('keeps short content still and preserves explicit dismissal', () => {
+    const onDismiss = jest.fn();
+    renderWithProviders(<ScreenTimeUnlockGuide
+      visible rules={[familyRule]} unresolvedCount={0}
+      actions={projectScreenTimeGuideActions({ actor: { kind: 'household_owner' }, activeRules: [familyRule] })}
+      onDismiss={onDismiss} onOpenRequirement={jest.fn()} onManageRules={jest.fn()}
+    />);
+    expect(mockScrollProps.at(-1)?.bounces).toBe(false);
+    expect(mockScrollProps.at(-1)?.alwaysBounceVertical).toBe(false);
+    fireEvent.press(screen.getByLabelText('Close Screen Time guide'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
   it('renders feedback inline inside the existing drawer', () => {
     renderWithProviders(<ScreenTimeUnlockGuide
       visible rules={[familyRule]} unresolvedCount={0}
@@ -83,13 +97,8 @@ describe('ScreenTimeUnlockGuide', () => {
       actions={projectScreenTimeGuideActions({ actor: { kind: 'household_caregiver', childMembershipIds: ['child-1'] }, activeRules: [familyRule] })}
       onDismiss={jest.fn()} onOpenRequirement={jest.fn()} onManageRules={onManageRules}
     />);
-    const footer = mockBottomDrawerProps.at(-1)?.footer as {
-      primaryAction?: { label: string; onPress: () => void };
-      secondaryAction?: { label: string; onPress: () => void; variant: string };
-    };
-    expect(footer.primaryAction).toBeUndefined();
-    expect(footer.secondaryAction).toMatchObject({ label: 'Manage rules ›', variant: 'link' });
-    footer.secondaryAction?.onPress();
+    expect(mockBottomDrawerProps.at(-1)?.footer).toBeUndefined();
+    fireEvent.press(screen.getByText('Manage rules ›'));
     expect(onManageRules).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/Open for 20/)).toBeNull();
   });
@@ -107,13 +116,9 @@ describe('ScreenTimeUnlockGuide', () => {
       actions={projectScreenTimeGuideActions({ actor: { kind: 'self_adult' }, activeRules: [rule] })}
       onDismiss={jest.fn()} onOpenRequirement={onOpenRequirement} onManageRules={jest.fn()}
     />);
-    const footer = mockBottomDrawerProps.at(-1)?.footer as {
-      primaryAction?: { label: string; onPress: () => void };
-      secondaryAction?: { label: string };
-    };
-    expect(footer.primaryAction?.label).toBe('Return to Focus');
-    expect(footer.secondaryAction?.label).toBe('Manage rules ›');
-    footer.primaryAction?.onPress();
+    expect(mockBottomDrawerProps.at(-1)?.footer).toBeUndefined();
+    expect(screen.getByText('Manage rules ›')).toBeTruthy();
+    fireEvent.press(screen.getByText('Return to Focus'));
     expect(onOpenRequirement).toHaveBeenCalledTimes(1);
   });
 
