@@ -227,6 +227,13 @@ async function removeAccountStorage(admin: AdminClient, userId: string) {
 
 function deletionDependencies(admin: AdminClient): AccountDeletionDependencies {
   return {
+    async assertStoriesReady(userId) {
+      const { data, error } = await admin.rpc('stories_account_deletion_preflight', { p_actor: userId });
+      if (error || data?.ready !== true) {
+        throw new AccountDeletionError('stories_cleanup_required', 409, true,
+          'Account deletion needs Stories cleanup before it can continue. Your account has not been deleted.');
+      }
+    },
     async beginOrResume({ userId, operationId }) {
       const hash = await subjectHash(userId);
       const { data: existing, error } = await admin.from('kwilt_account_deletion_operations').select('operation_id,user_id,subject_hash,status,completed_stages,attempt_count').eq('operation_id', operationId).maybeSingle();

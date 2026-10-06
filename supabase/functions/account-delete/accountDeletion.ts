@@ -6,6 +6,7 @@ export type AccountDeletionStage =
   | 'auth_user';
 
 export type AccountDeletionDependencies = {
+  assertStoriesReady(userId: string): Promise<void>;
   beginOrResume(input: {
     userId: string;
     operationId: string;
@@ -21,6 +22,7 @@ export type AccountDeletionDependencies = {
 };
 
 export type AccountDeletionErrorCode =
+  | 'stories_cleanup_required'
   | 'invalid_request'
   | 'deletion_in_progress'
   | 'provider_cleanup_failed'
@@ -76,6 +78,9 @@ export async function deleteKwiltAccount(
   if (!UUID_PATTERN.test(input.userId) || !UUID_PATTERN.test(input.operationId) || !input.jwt.trim()) {
     throw new AccountDeletionError('invalid_request', 400, false, 'Invalid account deletion request.');
   }
+
+  // Recheck on every resume; a prior stage receipt cannot bypass Stories.
+  await dependencies.assertStoriesReady(input.userId);
 
   const operation = await dependencies.beginOrResume({
     userId: input.userId,

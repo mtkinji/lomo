@@ -9,6 +9,7 @@ import {
 function dependencies(completed: AccountDeletionStage[] = []) {
   const calls: string[] = [];
   const deps: AccountDeletionDependencies = {
+    assertStoriesReady: async () => {},
     beginOrResume: async () => ({ completed }),
     removeProviders: async () => { calls.push('providers'); },
     removeStorage: async () => { calls.push('storage'); },
@@ -72,4 +73,13 @@ Deno.test('invalid identifiers fail before dependencies run', async () => {
     'Invalid account deletion request',
   );
   assertEquals(calls, []);
+});
+
+Deno.test('Stories cleanup must be ready before any other account deletion stage, including resumed requests', async () => {
+  for (const completed of [[], ['providers', 'storage']] as AccountDeletionStage[][]) {
+    const { deps, calls } = dependencies(completed);
+    Object.assign(deps, { assertStoriesReady: async () => { throw new AccountDeletionError('stories_cleanup_required', 409, true, 'Your stories are still being removed.'); } });
+    await assertRejects(() => deleteKwiltAccount(input, deps), AccountDeletionError, 'stories are still');
+    assertEquals(calls, []);
+  }
 });
