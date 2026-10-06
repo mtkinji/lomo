@@ -1,3 +1,4 @@
+import { prepareStoriesAccountDeletion } from './storiesAccountCleanup.ts';
 import { removeJournalNarration } from './journalNarrationCleanup.ts';
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -228,11 +229,11 @@ async function removeAccountStorage(admin: AdminClient, userId: string) {
 function deletionDependencies(admin: AdminClient): AccountDeletionDependencies {
   return {
     async assertStoriesReady(userId) {
-      const { data, error } = await admin.rpc('stories_account_deletion_preflight', { p_actor: userId });
-      if (error || data?.ready !== true) {
-        throw new AccountDeletionError('stories_cleanup_required', 409, true,
-          'Account deletion needs Stories cleanup before it can continue. Your account has not been deleted.');
-      }
+      await prepareStoriesAccountDeletion(userId, async (name, body) => {
+        const { data, error } = await admin.rpc(name, body);
+        if (error) throw Error('Stories cleanup unavailable');
+        return data;
+      });
     },
     async beginOrResume({ userId, operationId }) {
       const hash = await subjectHash(userId);
