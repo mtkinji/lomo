@@ -35,3 +35,10 @@ it('keeps family safety-reducing actions Free', () => {
   expect(classifyFamilyScreenTimeAction('tighten')).toBe('requires_pro');
   expect(classifyFamilyScreenTimeAction('override')).toBe('requires_pro');
 });
+
+
+it('treats weekday schedules consistently with time schedules', () => {
+  const days = { id: 'days', type: 'day_of_week' as const, operator: 'is' as const, days: [1, 2, 3, 4, 5] };
+  expect(conditionRequiresPro(days)).toBe(true);
+  expect(classifyPersonalRuleAccess({ conditions: [days] })).toBe('pro_advanced');
+});

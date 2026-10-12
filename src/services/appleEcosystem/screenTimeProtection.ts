@@ -1,3 +1,4 @@
+import { buildPersonalRuleHostEvidence } from '../../features/screen-time/domain/personalRuleEvidence';
 import { NativeModules, Platform } from 'react-native';
 import {
   normalizeScreenTimeProtectionSettings,
@@ -323,20 +324,21 @@ export async function applyPersonalCompositeScreenTimeRule(
       return [];
     }));
     const result = await native.applyPersonalCompositeRule(JSON.stringify({
-      version: 2,
+      version: 3,
       ruleId: rule.id,
       selectionId: rule.selectionId,
       activeRuleIds: [...new Set([...(context?.activeCompositeRuleIds ?? []), rule.id])],
       connector: rule.connector,
       outcome: rule.outcome,
       conditions: rule.conditions,
+      ...(rule.expression ? { expression: rule.expression } : {}),
       conditionExplanations: buildPersonalCompositeConditionExplanations(rule).map((explanation) => ({
         conditionId: explanation.conditionId,
         whenMatched: explanation.whenMatched.slice(0, 160),
         whenUnmatched: explanation.whenUnmatched.slice(0, 160),
       })),
       restrictionLabel: restrictionLabel.slice(0, 80),
-      ...(Object.keys(hostTruth).length > 0 ? { hostTruth } : {}),
+      hostEvidence: buildPersonalRuleHostEvidence(rule.conditions, hostTruth, Date.now()),
     }));
     if (result === true || (result && typeof result === 'object' && result.ok === true)) {
       lastPersonalCompositeActivationFailure = null;

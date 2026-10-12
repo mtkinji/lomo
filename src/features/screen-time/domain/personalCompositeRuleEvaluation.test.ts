@@ -95,3 +95,29 @@ describe('evaluatePersonalCompositeRule', () => {
     expect(resolvePersonalRuleCondition({ id: 'real', type: 'real_step_complete', operator: 'is_not' }, context)).toBe(false);
   });
 });
+
+
+describe('weekday rules', () => {
+  const weekdays: PersonalCompositeScreenTimeRule = { ...rule, outcome: 'pause', conditions: [
+    { id: 'days', type: 'day_of_week', operator: 'is', days: [1, 2, 3, 4, 5] },
+  ] };
+  const context = { minuteOfDay: 600, dailyUsageMinutes: null, focusActive: null, realStepComplete: null };
+  it.each([1, 2, 3, 4, 5, 6, 7])('blocks only Monday through Friday: day %i', (dayOfWeek) => {
+    expect(evaluatePersonalCompositeRuleAtContext(weekdays, { ...context, dayOfWeek }).status)
+      .toBe(dayOfWeek <= 5 ? 'paused' : 'available');
+  });
+  it('requires both the day and time when joined with AND', () => {
+    const timed: PersonalCompositeScreenTimeRule = { ...weekdays, conditions: [...weekdays.conditions,
+      { id: 'time', type: 'time_of_day', operator: 'before', minuteOfDay: 960 },
+    ] };
+    expect(evaluatePersonalCompositeRuleAtContext(timed, { ...context, dayOfWeek: 5 }).status).toBe('paused');
+    expect(evaluatePersonalCompositeRuleAtContext(timed, { ...context, dayOfWeek: 6 }).status).toBe('available');
+    expect(evaluatePersonalCompositeRuleAtContext(timed, { ...context, dayOfWeek: 5, minuteOfDay: 960 }).status).toBe('available');
+    expect(evaluatePersonalCompositeRuleAtContext({ ...timed, connector: 'any' }, { ...context, dayOfWeek: 6 }).status).toBe('paused');
+  });
+  it('supports exclusion, allow outcomes, and unknown local dates', () => {
+    expect(resolvePersonalRuleCondition({ id: 'days', type: 'day_of_week', operator: 'is_not', days: [6, 7] }, { ...context, dayOfWeek: 1 })).toBe(true);
+    expect(evaluatePersonalCompositeRuleAtContext({ ...weekdays, outcome: 'available' }, { ...context, dayOfWeek: 7 }).status).toBe('paused');
+    expect(evaluatePersonalCompositeRuleAtContext(weekdays, context).status).toBe('unknown');
+  });
+});

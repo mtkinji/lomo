@@ -1,3 +1,5 @@
+import { flatRuleExpression, decisiveRuleConditionIds, type PersonalRuleExpression } from './personalRuleExpression';
+import { personalRuleDaysLabel } from './personalCompositeScreenTimeRule';
 import { evaluatePersonalCompositeRule } from './personalCompositeRuleEvaluation';
 import type { PersonalRuleConditionTruth } from './personalCompositeRuleEvaluation';
 import type {
@@ -42,6 +44,10 @@ export function personalCompositeConditionRulePhrase(condition: PersonalRuleCond
     return condition.operator === 'below'
       ? `while daily use is under ${pluralizedMinutes(condition.minutes)}`
       : `when daily use reaches ${pluralizedMinutes(condition.minutes)}`;
+  }
+  if (condition.type === 'day_of_week') {
+    if (condition.days.length === 7) return condition.operator === 'is' ? 'every day' : 'on no days';
+    return `${condition.operator === 'is' ? 'on' : 'except on'} ${personalRuleDaysLabel(condition.days)}`;
   }
   if (condition.type === 'budget') return budgetRulePhrase(condition);
   return `${condition.operator === 'before' ? 'before' : 'after'} ${timeLabel(condition.minuteOfDay)}`;
@@ -126,6 +132,13 @@ function explainCondition(
         : `It's before ${time}. Try again after ${time}.`,
     };
   }
+  if (condition.type === 'day_of_week') {
+    const included = `Today is one of the selected days (${personalRuleDaysLabel(condition.days)}).`;
+    const excluded = `Today is outside the selected days (${personalRuleDaysLabel(condition.days)}).`;
+    return { conditionId: condition.id,
+      whenMatched: condition.operator === 'is' ? included : excluded,
+      whenUnmatched: condition.operator === 'is' ? excluded : included };
+  }
   return { conditionId: condition.id, ...budgetExplanation(condition) };
 }
 
@@ -144,7 +157,9 @@ export function selectPersonalCompositeBlockingDetails(params: {
     buildPersonalCompositeConditionExplanations(params.rule)
       .map((explanation) => [explanation.conditionId, explanation]),
   );
+  const decisive = new Set(decisiveRuleConditionIds(params.rule.expression ?? flatRuleExpression(params.rule.connector, params.rule.conditions.map(c => c.id)), params.truth));
   return params.rule.conditions.flatMap((condition) => {
+    if (!decisive.has(condition.id)) return [];
     const value = params.truth[condition.id] ?? 'unknown';
     if (value === 'unknown') return [];
     const causesPause = params.rule.outcome === 'pause' ? value : !value;
@@ -153,4 +168,15 @@ export function selectPersonalCompositeBlockingDetails(params: {
     if (!explanation) return [];
     return [value ? explanation.whenMatched : explanation.whenUnmatched];
   });
+}
+
+
+export function personalRuleExpressionPhrase(node: PersonalRuleExpression, conditions: PersonalRuleCondition[], nested = false): string {
+  if (node.type === 'condition') {
+    const condition = conditions.find(c => c.id === node.conditionId);
+    return condition ? personalCompositeConditionRulePhrase(condition) : 'unknown condition';
+  }
+  const phrase = node.children.map(child => personalRuleExpressionPhrase(child, conditions, true))
+    .join(node.connector === 'all' ? ' and ' : ' or ');
+  return nested && node.children.length > 1 ? `(${phrase})` : phrase;
 }

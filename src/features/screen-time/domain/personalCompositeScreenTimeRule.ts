@@ -1,3 +1,5 @@
+import catalog from './personalRuleConditionCatalog.json';
+import { validRuleExpression, type PersonalRuleGroup } from './personalRuleExpression';
 import type {
   PersonalScreenTimeRule,
   ScreenTimeToken,
@@ -12,6 +14,7 @@ export type PersonalRuleCondition =
   | { id: string; type: 'focus_active'; operator: 'is' | 'is_not'; value: true }
   | { id: string; type: 'daily_usage'; operator: 'below' | 'reaches'; minutes: number }
   | { id: string; type: 'time_of_day'; operator: 'after' | 'before'; minuteOfDay: number }
+  | { id: string; type: 'day_of_week'; operator: 'is' | 'is_not'; days: number[] }
   | { id: string; type: 'budget'; categorySourceId: string; categoryName: string; preset: MoneyAppControlPreset };
 
 export type PersonalCompositeScreenTimeRule = {
@@ -24,6 +27,7 @@ export type PersonalCompositeScreenTimeRule = {
   connector: PersonalRuleConnector;
   outcome: PersonalRuleOutcome;
   conditions: PersonalRuleCondition[];
+  expression?: PersonalRuleGroup;
   temporaryOpenUntilIso?: string | null;
   lastUpdated: string | null;
   monetizationState?: 'active' | 'inactive_subscription_ended' | 'deactivation_pending';
@@ -40,7 +44,8 @@ export type PersonalCompositeRuleValidationIssue =
   | 'condition_ids'
   | 'condition_type'
   | 'condition_operator'
-  | 'condition_value';
+  | 'condition_value'
+  | 'expression';
 
 export type PersonalCompositeRuleValidation = {
   valid: boolean;
@@ -68,6 +73,24 @@ function normalizeTokens(value: unknown): ScreenTimeToken[] {
   });
 }
 
+/** ISO weekdays, independent of locale: Monday = 1, Sunday = 7. */
+export const PERSONAL_RULE_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+function validDays(days: unknown): days is number[] {
+  return Array.isArray(days) && days.length > 0 && days.length <= 7
+    && days.every(day => Number.isInteger(day) && day >= 1 && day <= 7)
+    && new Set(days).size === days.length;
+}
+
+export function personalRuleDaysLabel(days: number[]): string {
+  const sorted = [...days].sort((a, b) => a - b);
+  const key = sorted.join(',');
+  if (key === '1,2,3,4,5') return 'Mon–Fri';
+  if (key === '6,7') return 'Sat–Sun';
+  if (key === '1,2,3,4,5,6,7') return 'Every day';
+  return sorted.map(day => PERSONAL_RULE_DAYS[day - 1]?.slice(0, 3)).join(', ');
+}
+
 function normalizeCondition(value: unknown): PersonalRuleCondition | null {
   if (!isRecord(value)) return null;
   const id = cleanId(value.id);
@@ -91,6 +114,10 @@ function normalizeCondition(value: unknown): PersonalRuleCondition | null {
     const minuteOfDay = Number(value.minuteOfDay);
     if ((value.operator !== 'after' && value.operator !== 'before') || !Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay > 1439) return null;
     return { id, type: 'time_of_day', operator: value.operator, minuteOfDay };
+  }
+  if (value.type === 'day_of_week') {
+    if ((value.operator !== 'is' && value.operator !== 'is_not') || !validDays(value.days)) return null;
+    return { id, type: 'day_of_week', operator: value.operator, days: [...value.days].sort((a, b) => a - b) };
   }
   if (value.type === 'budget') {
     const categorySourceId = cleanId(value.categorySourceId);
@@ -129,12 +156,15 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
       else if (ids.has(id)) issues.add('condition_ids');
       else ids.add(id);
 
-      if (!['real_step_complete', 'focus_active', 'daily_usage', 'time_of_day', 'budget'].includes(String(candidate.type))) {
+      if (!Object.prototype.hasOwnProperty.call(catalog, String(candidate.type))) {
         issues.add('condition_type');
         return;
       }
-      const conditionType = String(candidate.type);
-      if (conditionType !== 'budget' && conditionType !== 'time_of_day' && types.has(conditionType)) {
+      const conditionType = String(candidate.type) as PersonalRuleCondition['type'];
+      const allowedOperators: readonly string[] = catalog[conditionType].operators;
+      const operator = conditionType === 'budget' ? candidate.preset : candidate.operator ?? (conditionType === 'real_step_complete' ? 'is' : undefined);
+      if (!allowedOperators.includes(String(operator))) issues.add('condition_operator');
+      if (!catalog[conditionType].repeatable && types.has(conditionType)) {
         issues.add('condition_type');
       } else {
         types.add(conditionType);
@@ -155,12 +185,18 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
         const minuteOfDay = Number(candidate.minuteOfDay);
         if (!Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay > 1439) issues.add('condition_value');
       }
+      if (candidate.type === 'day_of_week') {
+        if (candidate.operator !== 'is' && candidate.operator !== 'is_not') issues.add('condition_operator');
+        if (!validDays(candidate.days)) issues.add('condition_value');
+      }
       if (candidate.type === 'budget') {
         if (!cleanId(candidate.categorySourceId) || !cleanId(candidate.categoryName)) issues.add('condition_value');
         if (!['always_review', 'when_hot', 'at_95_percent', 'when_over', 'needs_review'].includes(String(candidate.preset))) issues.add('condition_operator');
       }
     });
   }
+  if (value.expression !== undefined && (!validRuleExpression(value.expression, Array.isArray(value.conditions) ? value.conditions.map(c => isRecord(c) ? String(c.id) : '') : [])
+    || value.expression.connector !== value.connector)) issues.add('expression');
   return { valid: issues.size === 0, issues: [...issues] };
 }
 
@@ -182,6 +218,7 @@ export function normalizePersonalCompositeScreenTimeRule(value: unknown): Person
     connector: value.connector as PersonalRuleConnector,
     outcome: value.outcome as PersonalRuleOutcome,
     conditions: (value.conditions as unknown[]).map(normalizeCondition).filter((condition): condition is PersonalRuleCondition => !!condition),
+    ...(value.expression ? { expression: JSON.parse(JSON.stringify(value.expression)) as PersonalRuleGroup } : {}),
     temporaryOpenUntilIso: typeof value.temporaryOpenUntilIso === 'string'
       && Number.isFinite(Date.parse(value.temporaryOpenUntilIso))
       ? new Date(value.temporaryOpenUntilIso).toISOString()

@@ -1,3 +1,4 @@
+import { isRunningFocusSessionExpired } from '../features/activities/focusSessionLifecycle';
 import { useAppStore } from '../store/useAppStore';
 import {
   clearScreenTimeRestrictions,
@@ -13,6 +14,19 @@ import type { PersonalCompositeScreenTimeRule } from '../features/screen-time/do
 import type { MoneySnapshot } from '../capabilities/money/data/moneySnapshot';
 import { createMoneyRepository } from '../capabilities/money/data/moneyRepository';
 import { evaluateMoneyBudgetCondition } from '../capabilities/money/domain/moneyAppControl';
+
+function currentFocusTruth(now: Date): boolean | undefined {
+  // Avoid initializing Focus/analytics while the shared app store is still loading.
+  const { useFocusSessionStore } = require('../features/activities/focusSessionStore') as typeof import('../features/activities/focusSessionStore');
+  const session = useFocusSessionStore.getState().activeSession;
+  if (session) return session.mode === 'running' && !isRunningFocusSessionExpired(session, now.getTime());
+  return useFocusSessionStore.persist.hasHydrated() ? false : undefined;
+}
+
+function currentRealStepTruth(settings: ScreenTimeProtectionSettings, now: Date): boolean {
+  const until = settings.meaningfulFirst.currentUnlockUntilIso;
+  return !!until && Number.isFinite(Date.parse(until)) && now.getTime() < Date.parse(until);
+}
 
 async function resolveBudgetConditionTruth(rule: PersonalCompositeScreenTimeRule, suppliedSnapshot?: MoneySnapshot): Promise<Record<string, boolean>> {
   const budgetConditions = rule.conditions.filter((condition) => condition.type === 'budget');
@@ -35,8 +49,9 @@ export async function activatePersonalCompositeScreenTimeRule(params: {
   if (!params.rule.enabled) return true;
   const budgetConditionTruth = await resolveBudgetConditionTruth(params.rule).catch(() => ({}));
   return applyPersonalCompositeScreenTimeRule(params.rule, {
-    focusActive: params.focusSessionActive ?? false,
-    realStepComplete: params.realStepComplete ?? false,
+    focusActive: params.focusSessionActive ?? currentFocusTruth(new Date()),
+    realStepComplete: params.realStepComplete ?? (useAppStore.persist.hasHydrated()
+      ? currentRealStepTruth(normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection), new Date()) : undefined),
     budgetConditionTruth,
     activeCompositeRuleIds: normalizeScreenTimeProtectionSettings(
       useAppStore.getState().screenTimeProtection,
@@ -53,7 +68,7 @@ export async function deactivatePersonalCompositeScreenTimeRule(
 type ScreenTimeProtectionBridge = {
   clear?: () => Promise<boolean>;
   applyComposite?: (rule: PersonalCompositeScreenTimeRule, context: {
-    focusActive: boolean;
+    focusActive: boolean | undefined;
     realStepComplete: boolean;
     budgetConditionTruth?: Record<string, boolean>;
   }) => Promise<boolean>;
@@ -62,7 +77,7 @@ type ScreenTimeProtectionBridge = {
 
 export async function reconcileScreenTimeRestrictionsForSettings(params: {
   settings: ScreenTimeProtectionSettings;
-  focusSessionActive: boolean;
+  focusSessionActive: boolean | undefined;
   now?: Date;
   bridge: ScreenTimeProtectionBridge;
   budgetConditionTruthByRule?: Record<string, Record<string, boolean>>;
@@ -70,9 +85,7 @@ export async function reconcileScreenTimeRestrictionsForSettings(params: {
   const settings = normalizeScreenTimeProtectionSettings(params.settings);
   if (settings.personalCompositeRules.length > 0 && params.bridge.applyComposite) {
     const now = params.now ?? new Date();
-    const unlockUntil = settings.meaningfulFirst.currentUnlockUntilIso;
-    const realStepComplete = !!unlockUntil && Number.isFinite(Date.parse(unlockUntil))
-      && now.getTime() < Date.parse(unlockUntil);
+    const realStepComplete = currentRealStepTruth(settings, now);
     await Promise.all(settings.personalCompositeRules.map(async (rule) => {
       const temporaryOpenUntilMs = rule.temporaryOpenUntilIso ? Date.parse(rule.temporaryOpenUntilIso) : Number.NaN;
       const temporarilyOpen = Number.isFinite(temporaryOpenUntilMs) && now.getTime() < temporaryOpenUntilMs;
@@ -93,7 +106,7 @@ export async function reconcileScreenTimeRestrictionsForSettings(params: {
 }
 
 export async function reconcileScreenTimeRestrictions(params: {
-  focusSessionActive: boolean;
+  focusSessionActive: boolean | undefined;
   now?: Date;
   moneySnapshot?: MoneySnapshot;
 }): Promise<ScreenTimeRestrictionReason[]> {
@@ -107,7 +120,7 @@ export async function reconcileScreenTimeRestrictions(params: {
   ));
   return reconcileScreenTimeRestrictionsForSettings({
     settings,
-    focusSessionActive: params.focusSessionActive,
+    focusSessionActive: currentFocusTruth(params.now ?? new Date()),
     now: params.now,
     budgetConditionTruthByRule,
     bridge: {

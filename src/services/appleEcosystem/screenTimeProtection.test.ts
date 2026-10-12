@@ -110,7 +110,8 @@ describe('Screen Time shield handoff bridge', () => {
       activeCompositeRuleIds: ['existing-rule', 'social-rule'],
     })).resolves.toBe(true);
     expect(JSON.parse(mockApplyPersonalCompositeRule.mock.calls[0][0])).toEqual({
-      version: 2,
+      version: 3,
+      hostEvidence: {},
       ruleId: 'social-rule', selectionId: 'social-selection', connector: 'all', outcome: 'available',
       conditions: [
         { id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 },
@@ -173,7 +174,7 @@ describe('Screen Time shield handoff bridge', () => {
     })).resolves.toBe(true);
     expect(JSON.parse(mockApplyPersonalCompositeRule.mock.calls[0][0])).toEqual(expect.objectContaining({
       conditions: [expect.objectContaining({ type: 'budget', categorySourceId: 'category-shopping', preset: 'at_95_percent' })],
-      hostTruth: { 'shopping-budget': true },
+      hostEvidence: { 'shopping-budget': { value: true, observedAtMs: expect.any(Number), expiresAtMs: expect.any(Number) } },
     }));
   });
 

@@ -1,3 +1,4 @@
+const { PERSONAL_RULE_CORE_SWIFT } = require('./personalRuleCore');
 const PREREQUISITE_CONFIGURATION_SWIFT = `
 #if canImport(DeviceActivity) && canImport(FamilyControls)
 private struct KwiltPrerequisiteMonitorConfiguration: Codable {
@@ -18,16 +19,7 @@ private struct KwiltPersonalUsageLimitConfiguration: Codable {
   let restrictionLabel: String
 }
 
-private struct KwiltPersonalCompositeCondition: Codable {
-  let id: String
-  let type: String
-  let \`operator\`: String?
-  let minutes: Int?
-  let minuteOfDay: Int?
-  let categorySourceId: String?
-  let categoryName: String?
-  let preset: String?
-}
+${PERSONAL_RULE_CORE_SWIFT}
 
 private struct KwiltPersonalCompositeConditionExplanation: Codable {
   let conditionId: String
@@ -43,9 +35,11 @@ private struct KwiltPersonalCompositeRulePayload: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let expression: KwiltRuleExpression?
   let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
   let hostTruth: [String: Bool]?
+  let hostEvidence: [String: KwiltRuleEvidence]?
 }
 
 private struct KwiltPersonalCompositeRuleConfiguration: Codable {
@@ -56,6 +50,7 @@ private struct KwiltPersonalCompositeRuleConfiguration: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let expression: KwiltRuleExpression?
   let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
 }
@@ -159,18 +154,22 @@ const PREREQUISITE_HELPERS_SWIFT = `
   @available(iOS 16.0, *)
   private func evaluatePersonalCompositeRule(_ configuration: KwiltPersonalCompositeRuleConfiguration) {
     guard let shared = UserDefaults(suiteName: appGroupIdentifier) else { return }
-    let values = configuration.conditions.map { condition -> Bool in
-      let stored = shared.bool(forKey: personalCompositeTruthKey(
-        ruleId: configuration.ruleId, conditionId: condition.id
-      ))
-      if condition.type == "daily_usage" {
-        return condition.operator == "below" ? !stored : stored
-      }
-      return condition.operator == "is_not" ? !stored : stored
+    let values: [Bool?] = configuration.conditions.map { condition in
+      let key = personalCompositeTruthKey(ruleId: configuration.ruleId, conditionId: condition.id)
+      let evidence = shared.data(forKey: key + ".evidence").flatMap { try? JSONDecoder().decode(KwiltRuleEvidence.self, from: $0) }
+      return KwiltPersonalRuleCore.truth(condition, evidence: evidence,
+        usageReached: shared.object(forKey: key) as? Bool, usageDay: shared.string(forKey: key + ".day"))
     }
-    let matched = configuration.connector == "all"
-      ? values.allSatisfy { $0 }
-      : values.contains(true)
+    let truth = Dictionary(uniqueKeysWithValues: zip(configuration.conditions, values).compactMap { condition, value -> (String, Bool)? in
+      guard let value = value else { return nil }; return (condition.id, value)
+    })
+    let decision = configuration.expression.map { KwiltPersonalRuleCore.evaluate($0, truth: truth) }
+      ?? KwiltPersonalRuleCore.combine(configuration.connector, values)
+    guard let matched = decision else {
+      // Unknown holds the existing store; explain why instead of asserting stale facts.
+      KwiltRestrictionLedger.markWaitingForEvidence(id: "personal_composite.\\(configuration.ruleId)")
+      return
+    }
     let shouldPause = configuration.outcome == "available" ? !matched : matched
     let managedStore = personalCompositeStore(for: configuration.ruleId)
     let ledgerId = "personal_composite.\\(configuration.ruleId)"
@@ -197,12 +196,17 @@ const PREREQUISITE_HELPERS_SWIFT = `
   @available(iOS 16.0, *)
   private func personalCompositeBlockingDetails(
     configuration: KwiltPersonalCompositeRuleConfiguration,
-    values: [Bool]
+    values: [Bool?]
   ) -> [String] {
     let explanations = Dictionary(
       uniqueKeysWithValues: (configuration.conditionExplanations ?? []).map { ($0.conditionId, $0) }
     )
+    let truth = Dictionary(uniqueKeysWithValues: zip(configuration.conditions, values).compactMap { condition, value -> (String, Bool)? in
+      guard let value = value else { return nil }; return (condition.id, value)
+    })
+    let decisive = configuration.expression.map { KwiltPersonalRuleCore.decisiveIds($0, truth: truth) }
     return zip(configuration.conditions, values).compactMap { condition, value -> String? in
+      guard let value = value, decisive?.contains(condition.id) ?? true else { return nil }
       let causesPause = configuration.outcome == "pause" ? value : !value
       guard causesPause, let explanation = explanations[condition.id] else { return nil }
       return value ? explanation.whenMatched : explanation.whenUnmatched
@@ -496,7 +500,7 @@ const PREREQUISITE_METHODS_SWIFT = `
       }
       guard let data = json.data(using: .utf8),
             let payload = try? JSONDecoder().decode(KwiltPersonalCompositeRulePayload.self, from: data),
-            payload.version == 2, !payload.conditions.isEmpty,
+            (payload.version == 2 || payload.version == 3), !payload.conditions.isEmpty,
             payload.connector == "all" || payload.connector == "any",
             payload.outcome == "available" || payload.outcome == "pause",
             let shared = UserDefaults(suiteName: appGroupIdentifier) else {
@@ -509,8 +513,12 @@ const PREREQUISITE_METHODS_SWIFT = `
       // truncated to a different UserDefaults key during enforcement.
       let selectionId = selectionIdentifier(payload.selectionId)
       let conditionIds = Set(payload.conditions.map { personalCompositeConditionIdentifier($0.id) })
+      var uniqueTypes = Set<String>()
       let conditionsAreValid = conditionIds.count == payload.conditions.count
         && payload.conditions.allSatisfy { condition in
+          guard let operators = KwiltPersonalRuleCore.operators[condition.type],
+            operators.contains((condition.type == "budget" ? condition.preset : condition.operator) ?? "") else { return false }
+          if !KwiltPersonalRuleCore.repeatableTypes.contains(condition.type) && !uniqueTypes.insert(condition.type).inserted { return false }
           if condition.type == "real_step_complete" {
             return condition.operator == "is" || condition.operator == "is_not"
           }
@@ -525,6 +533,11 @@ const PREREQUISITE_METHODS_SWIFT = `
             return (condition.operator == "after" || condition.operator == "before")
               && minute >= 0 && minute <= 1439
           }
+          if condition.type == "day_of_week", let days = condition.days {
+            return (condition.operator == "is" || condition.operator == "is_not")
+              && !days.isEmpty && days.count <= 7 && Set(days).count == days.count
+              && days.allSatisfy { $0 >= 1 && $0 <= 7 }
+          }
           if condition.type == "budget" {
             let presets = ["always_review", "when_hot", "at_95_percent", "when_over", "needs_review"]
             return !(condition.categorySourceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
@@ -533,7 +546,10 @@ const PREREQUISITE_METHODS_SWIFT = `
           }
           return false
         }
-      guard conditionsAreValid else {
+      let expressionIsValid = payload.expression.map {
+        KwiltPersonalRuleCore.validExpression($0, conditionIds: payload.conditions.map { $0.id }, connector: payload.connector)
+      } ?? true
+      guard conditionsAreValid && expressionIsValid else {
         resolve(["ok": false, "code": "invalid_conditions"])
         return
       }
@@ -544,8 +560,8 @@ const PREREQUISITE_METHODS_SWIFT = `
         return
       }
       let configuration = KwiltPersonalCompositeRuleConfiguration(
-        version: 2, ruleId: ruleId, selectionId: selectionId, targetSelection: selection,
-        connector: payload.connector, outcome: payload.outcome, conditions: payload.conditions,
+        version: 3, ruleId: ruleId, selectionId: selectionId, targetSelection: selection,
+        connector: payload.connector, outcome: payload.outcome, conditions: payload.conditions, expression: payload.expression,
         conditionExplanations: payload.conditionExplanations,
         restrictionLabel: String(payload.restrictionLabel.prefix(80))
       )
@@ -573,21 +589,33 @@ const PREREQUISITE_METHODS_SWIFT = `
       }
       let configurationKey = "\\(personalCompositeConfigPrefix)\\(ruleId)"
       let configurationChanged = shared.data(forKey: configurationKey) != configurationData
-      shared.set(configurationData, forKey: configurationKey)
-      let current = Calendar.current.dateComponents([.hour, .minute], from: Date())
-      let currentMinute = (current.hour ?? 0) * 60 + (current.minute ?? 0)
-      configuration.conditions.forEach { condition in
-        if condition.type == "time_of_day", let threshold = condition.minuteOfDay {
-          let truth = condition.operator == "before" ? currentMinute < threshold : currentMinute >= threshold
-          shared.set(truth, forKey: personalCompositeTruthKey(ruleId: ruleId, conditionId: condition.id))
+      let previousConfiguration = shared.data(forKey: configurationKey).flatMap {
+        try? JSONDecoder().decode(KwiltPersonalCompositeRuleConfiguration.self, from: $0)
+      }
+      let sameUsageTargets = previousConfiguration?.targetSelection.applicationTokens == selection.applicationTokens
+        && previousConfiguration?.targetSelection.categoryTokens == selection.categoryTokens
+        && previousConfiguration?.targetSelection.webDomainTokens == selection.webDomainTokens
+      configuration.conditions.filter { $0.type == "daily_usage" }.forEach { condition in
+        let previousCondition = previousConfiguration?.conditions.first { $0.id == condition.id && $0.type == "daily_usage" }
+        if !sameUsageTargets || previousCondition?.minutes != condition.minutes {
+          let key = personalCompositeTruthKey(ruleId: ruleId, conditionId: condition.id)
+          shared.removeObject(forKey: key)
+          shared.removeObject(forKey: key + ".day")
         }
       }
-      payload.hostTruth?.forEach { conditionId, truth in
-        shared.set(truth, forKey: personalCompositeTruthKey(ruleId: ruleId, conditionId: conditionId))
+      shared.set(configurationData, forKey: configurationKey)
+      // Missing host evidence explicitly invalidates the previous observation.
+      configuration.conditions.filter { KwiltPersonalRuleCore.hostMaxAgeMs[$0.type] != nil }.forEach { condition in
+        let key = personalCompositeTruthKey(ruleId: ruleId, conditionId: condition.id) + ".evidence"
+        if let evidence = payload.hostEvidence?[condition.id], let data = try? JSONEncoder().encode(evidence) {
+          shared.set(data, forKey: key)
+        } else {
+          shared.removeObject(forKey: key)
+        }
       }
 
       let expectedActivities = configuration.conditions
-        .filter { $0.type == "time_of_day" || $0.type == "daily_usage" }
+        .filter { $0.type == "time_of_day" || $0.type == "daily_usage" || $0.type == "day_of_week" }
         .map { personalCompositeActivityName(ruleId: ruleId, conditionId: $0.id) }
       let obsoleteCurrentRuleActivities = center.activities.filter { activity in
         personalCompositeRuleId(from: activity) == ruleId && !expectedActivities.contains(activity)
@@ -602,13 +630,18 @@ const PREREQUISITE_METHODS_SWIFT = `
         || expectedActivities.contains { !center.activities.contains($0) }
       if monitoringChanged {
         var activities: [DeviceActivityName] = []
-        for condition in configuration.conditions where condition.type == "time_of_day" || condition.type == "daily_usage" {
+        for condition in configuration.conditions where condition.type == "time_of_day" || condition.type == "daily_usage" || condition.type == "day_of_week" {
           let activity = personalCompositeActivityName(ruleId: ruleId, conditionId: condition.id)
           activities.append(activity)
           shared.set(configurationData, forKey: "\\(personalCompositeMonitorConfigPrefix)\\(activity.rawValue)")
           let schedule: DeviceActivitySchedule
           var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-          if condition.type == "time_of_day", let minuteOfDay = condition.minuteOfDay {
+          if condition.type == "day_of_week" {
+            schedule = DeviceActivitySchedule(
+              intervalStart: DateComponents(hour: 0, minute: 0),
+              intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true
+            )
+          } else if condition.type == "time_of_day", let minuteOfDay = condition.minuteOfDay {
             let threshold = DateComponents(hour: minuteOfDay / 60, minute: minuteOfDay % 60)
             schedule = condition.operator == "before"
               ? DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0), intervalEnd: threshold, repeats: true)
@@ -710,12 +743,15 @@ const PREREQUISITE_METHODS_SWIFT = `
       if let data = shared?.data(forKey: "\\(personalCompositeConfigPrefix)\\(ruleId)"),
          let configuration = try? JSONDecoder().decode(KwiltPersonalCompositeRuleConfiguration.self, from: data) {
         let activities = configuration.conditions
-          .filter { $0.type == "time_of_day" || $0.type == "daily_usage" }
+          .filter { $0.type == "time_of_day" || $0.type == "daily_usage" || $0.type == "day_of_week" }
           .map { personalCompositeActivityName(ruleId: ruleId, conditionId: $0.id) }
         DeviceActivityCenter().stopMonitoring(activities)
         activities.forEach { shared?.removeObject(forKey: "\\(personalCompositeMonitorConfigPrefix)\\($0.rawValue)") }
         configuration.conditions.forEach {
-          shared?.removeObject(forKey: personalCompositeTruthKey(ruleId: ruleId, conditionId: $0.id))
+          let key = personalCompositeTruthKey(ruleId: ruleId, conditionId: $0.id)
+          shared?.removeObject(forKey: key)
+          shared?.removeObject(forKey: key + ".day")
+          shared?.removeObject(forKey: key + ".evidence")
         }
       }
       shared?.removeObject(forKey: "\\(personalCompositeConfigPrefix)\\(ruleId)")

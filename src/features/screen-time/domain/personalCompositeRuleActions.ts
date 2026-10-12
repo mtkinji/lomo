@@ -1,3 +1,4 @@
+import { flatRuleExpression, type PersonalRuleExpression } from './personalRuleExpression';
 import {
   getPersonalCompositeScreenTimeRuleById,
   normalizeScreenTimeProtectionSettings,
@@ -54,9 +55,13 @@ function summarize(rule: PersonalCompositeScreenTimeRule): PersonalCompositeRule
 }
 
 function fingerprint(rule: PersonalCompositeScreenTimeRule): string {
+  const expressionShape = (node: PersonalRuleExpression): unknown => node.type === 'condition'
+    ? { condition: rule.conditions.findIndex(condition => condition.id === node.conditionId) }
+    : { connector: node.connector, children: node.children.map(expressionShape) };
   return JSON.stringify({
     targets: [...rule.selectedApps.map(({ token }) => `app:${token}`), ...rule.selectedCategories.map(({ token }) => `category:${token}`)].sort(),
     connector: rule.connector,
+    expression: expressionShape(rule.expression ?? flatRuleExpression(rule.connector, rule.conditions.map(c => c.id))),
     outcome: rule.outcome,
     conditions: rule.conditions.map(({ id: _id, ...condition }) => condition),
   });
@@ -83,7 +88,7 @@ export async function savePersonalCompositeScreenTimeRule(input: {
 
   if (normalized.enabled) boundary.requireProForRule?.(normalized);
 
-  if (prior?.enabled && !(await boundary.deactivateRule(prior))) {
+  if (prior?.enabled && !normalized.enabled && !(await boundary.deactivateRule(prior))) {
     throw new Error('screen_time_composite_rule_deactivation_failed');
   }
   if (normalized.enabled && !(await boundary.activateRule(normalized))) {

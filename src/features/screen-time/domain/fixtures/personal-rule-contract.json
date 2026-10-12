@@ -1,0 +1,1568 @@
+{
+  "expressions": [
+    {
+      "name": "weekday morning",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "true",
+        "early": "true",
+        "late": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "weekend evening",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "false",
+        "early": "false",
+        "late": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "weekday midday",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "true",
+        "early": "false",
+        "late": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "unknown hours",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "true",
+        "early": "unknown",
+        "late": "false"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "weekend unknown hours",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "false",
+        "early": "unknown",
+        "late": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "known late overrides unknown early",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "days",
+        "early",
+        "late"
+      ],
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "days"
+          },
+          {
+            "type": "group",
+            "id": "hours",
+            "connector": "any",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "early"
+              },
+              {
+                "type": "condition",
+                "conditionId": "late"
+              }
+            ]
+          }
+        ]
+      },
+      "truth": {
+        "days": "true",
+        "early": "unknown",
+        "late": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all pause true/true",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all pause true/false",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all pause true/unknown",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "all pause false/true",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all pause false/false",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all pause false/unknown",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "unknown"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all pause unknown/true",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "true"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "all pause unknown/false",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all pause unknown/unknown",
+      "connector": "all",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "all available true/true",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "all available true/false",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all available true/unknown",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "all available false/true",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all available false/false",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all available false/unknown",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "unknown"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all available unknown/true",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "true"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "all available unknown/false",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "all available unknown/unknown",
+      "connector": "all",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any pause true/true",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any pause true/false",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any pause true/unknown",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "unknown"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any pause false/true",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any pause false/false",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any pause false/unknown",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any pause unknown/true",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "true"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any pause unknown/false",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "false"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any pause unknown/unknown",
+      "connector": "any",
+      "outcome": "pause",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any available true/true",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any available true/false",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "false"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any available true/unknown",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "true",
+        "b": "unknown"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any available false/true",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any available false/false",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "false"
+      },
+      "expected": "paused"
+    },
+    {
+      "name": "any available false/unknown",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "false",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any available unknown/true",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "true"
+      },
+      "expected": "available"
+    },
+    {
+      "name": "any available unknown/false",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "false"
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "any available unknown/unknown",
+      "connector": "any",
+      "outcome": "available",
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "truth": {
+        "a": "unknown",
+        "b": "unknown"
+      },
+      "expected": "unknown"
+    }
+  ],
+  "signals": [
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "missing",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": null,
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "false",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": {
+        "value": false,
+        "observedAtMs": 1791590399999,
+        "expiresAtMs": 1791590400100
+      },
+      "expected": "false"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "fresh",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399999,
+        "expiresAtMs": 1791590400100
+      },
+      "expected": "true"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "expired",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399900,
+        "expiresAtMs": 1791590400000
+      },
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "future",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590400001,
+        "expiresAtMs": 1791590400100
+      },
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "unbounded",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is",
+        "value": true
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590400000,
+        "expiresAtMs": 1791591300001
+      },
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "negated missing is still unknown",
+      "condition": {
+        "id": "focus",
+        "type": "focus_active",
+        "operator": "is_not",
+        "value": true
+      },
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "weekend excludes weekdays",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "false"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "midnight time boundary",
+      "condition": {
+        "id": "time",
+        "type": "time_of_day",
+        "operator": "before",
+        "minuteOfDay": 0
+      },
+      "expected": "false"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "yesterday usage",
+      "condition": {
+        "id": "usage",
+        "type": "daily_usage",
+        "operator": "reaches",
+        "minutes": 15
+      },
+      "usageDay": "1-2026-10-9",
+      "usageReached": true,
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "current usage",
+      "condition": {
+        "id": "usage",
+        "type": "daily_usage",
+        "operator": "reaches",
+        "minutes": 15
+      },
+      "usageDay": "1-2026-10-10",
+      "usageReached": true,
+      "expected": "true"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "known below",
+      "condition": {
+        "id": "usage",
+        "type": "daily_usage",
+        "operator": "reaches",
+        "minutes": 15
+      },
+      "usageDay": "1-2026-10-10",
+      "usageReached": false,
+      "expected": "false"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "missing usage",
+      "condition": {
+        "id": "usage",
+        "type": "daily_usage",
+        "operator": "reaches",
+        "minutes": 15
+      },
+      "usageDay": null,
+      "usageReached": null,
+      "expected": "unknown"
+    },
+    {
+      "name": "local weekday 5",
+      "nowMs": 1791180000000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 1,
+      "localDay": "1-2026-10-5",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "local weekday 6",
+      "nowMs": 1791266400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 2,
+      "localDay": "1-2026-10-6",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "local weekday 7",
+      "nowMs": 1791352800000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 3,
+      "localDay": "1-2026-10-7",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "local weekday 8",
+      "nowMs": 1791439200000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 4,
+      "localDay": "1-2026-10-8",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "local weekday 9",
+      "nowMs": 1791525600000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 5,
+      "localDay": "1-2026-10-9",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "local weekday 10",
+      "nowMs": 1791612000000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "false"
+    },
+    {
+      "name": "local weekday 11",
+      "nowMs": 1791698400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 7,
+      "localDay": "1-2026-10-11",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "false"
+    },
+    {
+      "name": "local weekday 12",
+      "nowMs": 1791784800000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 1,
+      "localDay": "1-2026-10-12",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "DST local Sunday 3/8 1",
+      "nowMs": 1772956800000,
+      "minuteOfDay": 60,
+      "dayOfWeek": 7,
+      "localDay": "1-2026-3-8",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is_not",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "DST local Sunday 3/8 3",
+      "nowMs": 1772960400000,
+      "minuteOfDay": 180,
+      "dayOfWeek": 7,
+      "localDay": "1-2026-3-8",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is_not",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "DST local Sunday 11/1 1",
+      "nowMs": 1793516400000,
+      "minuteOfDay": 60,
+      "dayOfWeek": 7,
+      "localDay": "1-2026-11-1",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is_not",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "name": "DST local Sunday 11/1 2",
+      "nowMs": 1793523600000,
+      "minuteOfDay": 120,
+      "dayOfWeek": 7,
+      "localDay": "1-2026-11-1",
+      "timeZone": "America/Denver",
+      "condition": {
+        "id": "days",
+        "type": "day_of_week",
+        "operator": "is_not",
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": "true"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "real_step_complete False",
+      "condition": {
+        "id": "host",
+        "type": "real_step_complete",
+        "operator": "is_not"
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399900,
+        "expiresAtMs": 1791590400100
+      },
+      "expected": "false"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "real_step_complete True",
+      "condition": {
+        "id": "host",
+        "type": "real_step_complete",
+        "operator": "is_not"
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399900,
+        "expiresAtMs": 1791590400000
+      },
+      "expected": "unknown"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "budget False",
+      "condition": {
+        "id": "host",
+        "type": "budget",
+        "categoryName": "Shopping",
+        "categorySourceId": "shopping",
+        "preset": "when_over"
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399900,
+        "expiresAtMs": 1791590400100
+      },
+      "expected": "true"
+    },
+    {
+      "nowMs": 1791590400000,
+      "minuteOfDay": 0,
+      "dayOfWeek": 6,
+      "localDay": "1-2026-10-10",
+      "timeZone": "UTC",
+      "name": "budget True",
+      "condition": {
+        "id": "host",
+        "type": "budget",
+        "categoryName": "Shopping",
+        "categorySourceId": "shopping",
+        "preset": "when_over"
+      },
+      "evidence": {
+        "value": true,
+        "observedAtMs": 1791590399900,
+        "expiresAtMs": 1791590400000
+      },
+      "expected": "unknown"
+    }
+  ],
+  "validation": [
+    {
+      "name": "valid",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          },
+          {
+            "type": "condition",
+            "conditionId": "b"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "connector": "all",
+      "valid": true
+    },
+    {
+      "name": "empty",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": []
+      },
+      "conditionIds": [],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "missing reference",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          },
+          {
+            "type": "condition",
+            "conditionId": "b"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "repeated reference",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          },
+          {
+            "type": "condition",
+            "conditionId": "a"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "lost condition",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "mismatched connector",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          },
+          {
+            "type": "condition",
+            "conditionId": "b"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a",
+        "b"
+      ],
+      "connector": "any",
+      "valid": false
+    },
+    {
+      "name": "duplicate group id",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "all",
+        "children": [
+          {
+            "type": "group",
+            "id": "root",
+            "connector": "all",
+            "children": [
+              {
+                "type": "condition",
+                "conditionId": "a"
+              }
+            ]
+          }
+        ]
+      },
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "excess nesting",
+      "expression": {
+        "type": "group",
+        "id": "g4",
+        "connector": "all",
+        "children": [
+          {
+            "type": "group",
+            "id": "g3",
+            "connector": "all",
+            "children": [
+              {
+                "type": "group",
+                "id": "g2",
+                "connector": "all",
+                "children": [
+                  {
+                    "type": "group",
+                    "id": "g1",
+                    "connector": "all",
+                    "children": [
+                      {
+                        "type": "group",
+                        "id": "g0",
+                        "connector": "all",
+                        "children": [
+                          {
+                            "type": "condition",
+                            "conditionId": "a"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "unsupported operator",
+      "expression": {
+        "type": "group",
+        "id": "root",
+        "connector": "sometimes",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          }
+        ]
+      },
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "valid": false
+    },
+    {
+      "name": "group IDs cannot collide with condition IDs",
+      "conditionIds": [
+        "a"
+      ],
+      "connector": "all",
+      "expression": {
+        "type": "group",
+        "id": "a",
+        "connector": "all",
+        "children": [
+          {
+            "type": "condition",
+            "conditionId": "a"
+          }
+        ]
+      },
+      "valid": false
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+import catalog from '../domain/personalRuleConditionCatalog.json';
+import { flatRuleExpression, reconcileRuleExpression, groupRuleNodes, ungroupRuleNode, mapRuleGroup, ruleNodeKey, type PersonalRuleGroup } from '../domain/personalRuleExpression';
+import { personalRuleExpressionPhrase } from '../domain/personalCompositeRuleExplanation';
+import { PersonalRuleExpressionEditor } from './PersonalRuleExpressionEditor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -25,7 +29,7 @@ import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { Pressable } from '../../../ui/HapticPressable';
 import { Text } from '../../../ui/Typography';
-import { SettingsChoiceRow, SettingsDivider, SettingsGroup, SettingsPage } from '../../../ui/SettingsSurface';
+import { SettingsChoiceRow, SettingsToggleRow, SettingsDivider, SettingsGroup, SettingsPage } from '../../../ui/SettingsSurface';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,13 +45,13 @@ import {
   savePersonalCompositeScreenTimeRule,
 } from '../domain/personalCompositeRuleActions';
 import {
+  PERSONAL_RULE_DAYS,
   type PersonalCompositeScreenTimeRule,
   type PersonalRuleCondition,
   type PersonalRuleConnector,
   type PersonalRuleOutcome,
 } from '../domain/personalCompositeScreenTimeRule';
 import { createPersonalCompositeRuleActionBoundary } from '../runtime/personalScreenTimeRuleActionBoundary';
-import { PersonalRuleConditionRow } from './PersonalRuleConditionRow';
 import { RuleSentencePickerField } from './RuleSentencePickerField';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
 import { beginScreenTimeBudgetSetup, clearScreenTimeBudgetSetup, getScreenTimeBudgetSetup, type ScreenTimeBudgetDraft } from './screenTimeBudgetSetupSession';
@@ -70,7 +74,7 @@ import {
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type RuleTargets = { selectedApps: ScreenTimeToken[]; selectedCategories: ScreenTimeToken[] };
-type Drawer = 'condition' | 'budget' | 'budgetPreset' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | null;
+type Drawer = 'condition' | 'budget' | 'budgetPreset' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | 'days' | 'group' | null;
 
 const MINUTE_OPTIONS = Array.from({ length: 288 }, (_, index) => (index + 1) * 5);
 
@@ -111,6 +115,7 @@ function conditionDefault(type: PersonalRuleCondition['type'], id: string): Pers
   if (type === 'real_step_complete') return { id, type, operator: 'is' };
   if (type === 'focus_active') return { id, type, operator: 'is', value: true };
   if (type === 'daily_usage') return { id, type, operator: 'below', minutes: 15 };
+  if (type === 'day_of_week') return { id, type, operator: 'is', days: [1, 2, 3, 4, 5] };
   if (type === 'time_of_day') return { id, type, operator: 'after', minuteOfDay: 17 * 60 };
   throw new Error('A budget condition requires a selected budget.');
 }
@@ -177,9 +182,15 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
   const [connector, setConnector] = useState<PersonalRuleConnector>(props.initialDraft?.connector ?? existingRule?.connector ?? 'all');
   const [outcome, setOutcome] = useState<PersonalRuleOutcome>(props.initialDraft?.outcome ?? existingRule?.outcome ?? suggestion.outcome);
   const [conditions, setConditions] = useState<PersonalRuleCondition[]>(props.initialDraft?.conditions ?? existingRule?.conditions ?? suggestion.conditions);
+  const [expressionState, setExpression] = useState<PersonalRuleGroup | undefined>(props.initialDraft?.expression ?? existingRule?.expression);
+  const expression = useMemo(() => reconcileRuleExpression(expressionState ?? flatRuleExpression(connector, conditions.map(c => c.id)), conditions.map(c => c.id), connector), [expressionState, connector, conditions]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [groupSelection, setGroupSelection] = useState<string[]>([]);
+  const [groupConnector, setGroupConnector] = useState<PersonalRuleConnector>('any');
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [activeConditionId, setActiveConditionId] = useState<string | null>(props.initialDraft?.activeConditionId ?? null);
   const [durationDraft, setDurationDraft] = useState(15);
+  const [daysDraft, setDaysDraft] = useState<number[]>([1, 2, 3, 4, 5]);
   const [timeDraft, setTimeDraft] = useState(() => new Date(2026, 0, 1, 17, 0));
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -312,6 +323,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     if (!userId) return;
     const id = beginScreenTimeBudgetSetup(userId, props.params, {
       draftRuleId, expectedUpdatedAt, targets, enabled, connector, outcome, conditions, activeConditionId,
+      ...(expressionState ? { expression } : {}),
     });
     budgetDetourIdRef.current = id;
     setDrawer(null);
@@ -384,7 +396,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     setConditions((current) => current.map((condition) => {
       if (condition.id !== activeConditionId) return condition;
       if (condition.type === 'real_step_complete') return { ...condition, operator: operator as 'is' | 'is_not' };
-      if (condition.type === 'focus_active') return { ...condition, operator: operator as 'is' | 'is_not' };
+      if (condition.type === 'focus_active' || condition.type === 'day_of_week') return { ...condition, operator: operator as 'is' | 'is_not' };
       if (condition.type === 'daily_usage') return { ...condition, operator: operator as 'below' | 'reaches' };
       if (condition.type === 'time_of_day') return { ...condition, operator: operator as 'after' | 'before' };
       return condition;
@@ -400,6 +412,9 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     } else if (condition.type === 'time_of_day') {
       setTimeDraft(new Date(2026, 0, 1, Math.floor(condition.minuteOfDay / 60), condition.minuteOfDay % 60));
       setDrawer('time');
+    } else if (condition.type === 'day_of_week') {
+      setDaysDraft(condition.days);
+      setDrawer('days');
     } else if (condition.type === 'budget') {
       setBudgetDraft({ categorySourceId: condition.categorySourceId, categoryName: condition.categoryName });
       setDrawer('budgetPreset');
@@ -410,6 +425,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     if (!activeConditionId) return;
     setConditions((current) => current.map((condition) => {
       if (condition.id !== activeConditionId) return condition;
+      if (condition.type === 'day_of_week') return { ...condition, days: [...daysDraft].sort((a, b) => a - b) };
       if (condition.type === 'daily_usage') return { ...condition, minutes: durationDraft };
       if (condition.type === 'time_of_day') return { ...condition, minuteOfDay: timeDraft.getHours() * 60 + timeDraft.getMinutes() };
       return condition;
@@ -423,6 +439,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       id: draftRuleId, selectionId: draftRuleId,
       selectedApps: targets.selectedApps, selectedCategories: targets.selectedCategories,
       enabled, setupCompleted: true, connector, outcome, conditions,
+      ...(expressionState ? { expression } : {}),
       temporaryOpenUntilIso: existingRule?.temporaryOpenUntilIso ?? null,
       lastUpdated: new Date().toISOString(),
     };
@@ -558,13 +575,22 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     </DropdownMenu>
   ) : null;
 
-  const conditionTypes: Array<{ type: PersonalRuleCondition['type']; label: string }> = [
-    { type: 'time_of_day', label: 'Time of day' },
-    { type: 'daily_usage', label: 'Daily use' },
-    { type: 'focus_active', label: 'Focus' },
-    { type: 'real_step_complete', label: 'Real step' },
-    { type: 'budget', label: 'Budget' },
-  ];
+  const conditionTypes = (Object.keys(catalog) as PersonalRuleCondition['type'][]).map(type => ({ type, label: catalog[type].label }));
+  const findGroup = (root: PersonalRuleGroup, id: string | null): PersonalRuleGroup | undefined => root.id === id ? root
+    : root.children.filter((node): node is PersonalRuleGroup => node.type === 'group').map(node => findGroup(node, id)).find(Boolean);
+  const activeConnector = findGroup(expression, activeGroupId)?.connector ?? connector;
+  const changeGroupConnector = (value: PersonalRuleConnector) => {
+    if (!activeGroupId || activeGroupId === expression.id) setConnector(value);
+    else setExpression(mapRuleGroup(expression, activeGroupId, group => ({ ...group, connector: value })));
+    setDrawer(null);
+  };
+  const createGroup = () => {
+    const grouped = groupRuleNodes(expression, groupSelection, `group_${Crypto.randomUUID()}`, groupConnector);
+    if (!grouped) { Alert.alert('Group is too deeply nested', 'Ungroup an existing group before adding another level.'); return; }
+    setExpression(grouped);
+    setDrawer(null);
+  };
+
 
   const budgetPresets: Array<{ preset: MoneyAppControlPreset; label: string }> = [
     { preset: 'always_review', label: 'This budget needs review' },
@@ -604,18 +630,18 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
             <Text style={styles.sectionTitle}>When</Text>
             <View style={styles.conditionWell}>
               <View testID="rule-conditions" style={styles.conditionsStack}>
-                {conditions.map((condition, index) => (
-                  <View key={condition.id} style={styles.conditionBlock}>
-                    {index > 0 ? <RuleSentencePickerField accessibilityLabel={`Change ${connector === 'all' ? 'AND' : 'OR'} connector`}
-                      onPress={() => { if (requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule')) setDrawer('connector'); }} value={connector === 'all' ? 'AND' : 'OR'} style={styles.connectorField} /> : null}
-                    <PersonalRuleConditionRow condition={condition} onEditField={() => void openConditionField(condition)}
-                      onEditOperator={() => openOperator(condition)} onEditValue={() => openValue(condition)} />
-                  </View>
-                ))}
+                <PersonalRuleExpressionEditor group={expression} conditions={conditions}
+                  onConnector={id => { if (requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule')) { setActiveGroupId(id); setDrawer('connector'); } }}
+                  onUngroup={id => setExpression(ungroupRuleNode(expression, id))}
+                  onField={condition => void openConditionField(condition)} onOperator={openOperator} onValue={openValue} />
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel="＋ Add condition" onPress={() => openCondition()} style={styles.addCondition}>
                 <Text style={styles.addConditionText}>＋ Add condition</Text>
               </Pressable>
+              {expression.children.length > 1 ? <Button variant="ghost" onPress={() => {
+                if (!requestAdvancedRuleAccess('screen_time_rule_builder', 'screen_time_review_rule')) return;
+                setGroupSelection([]); setGroupConnector('any'); setDrawer('group');
+              }}>Group conditions</Button> : null}
             </View>
           </View>
 
@@ -631,19 +657,19 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       )}
 
       <BottomDrawer visible={drawer !== null} onClose={() => setDrawer(null)}
-        snapPoints={[drawer === 'duration' || drawer === 'time' ? '54%' : '48%']} keyboardAvoidanceEnabled={false}
-        footer={drawer === 'duration' || drawer === 'time' ? { primaryAction: { label: 'Done', onPress: commitValue } } : undefined}>
+        snapPoints={[drawer === 'group' || drawer === 'days' ? '75%' : drawer === 'duration' || drawer === 'time' ? '54%' : '48%']} keyboardAvoidanceEnabled={false}
+        footer={drawer === 'group' ? { primaryAction: { label: 'Create group', onPress: createGroup, disabled: groupSelection.length < 2 } } : drawer === 'days' || drawer === 'duration' || drawer === 'time' ? { primaryAction: { label: 'Done', onPress: commitValue } } : undefined}>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader title={drawer === 'condition' ? (activeConditionId ? 'Condition' : 'Add condition')
             : drawer === 'budget' ? 'Choose a budget' : drawer === 'budgetPreset' ? 'Budget condition'
               : drawer === 'connector' ? 'Match conditions' : drawer === 'outcome' ? 'Access'
-              : drawer === 'operator' ? 'Operator' : drawer === 'duration' ? 'Daily use' : 'Time of day'}
+              : drawer === 'group' ? 'Group conditions' : drawer === 'days' ? 'Days of the week' : drawer === 'operator' ? 'Operator' : drawer === 'duration' ? 'Daily use' : 'Time of day'}
             variant="withClose" onClose={() => setDrawer(null)} closeAccessibilityLabel="Close" />
           {drawer === 'condition' ? (
             <SettingsGroup>
               {conditionTypes.map((item) => {
                 const selected = activeCondition?.type === item.type;
-                const supportsMultiple = item.type === 'budget' || item.type === 'time_of_day';
+                const supportsMultiple = catalog[item.type].repeatable;
                 const alreadyUsed = !supportsMultiple && !selected && conditions.some((condition) => condition.type === item.type);
                 return <View key={item.type}>
                   <SettingsChoiceRow disabled={alreadyUsed} selected={selected} title={item.label} onPress={() => void chooseConditionType(item.type)} />
@@ -677,15 +703,29 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
             </SettingsGroup>
           ) : drawer === 'connector' ? (
             <SettingsGroup>
-              <SettingsChoiceRow selected={connector === 'all'} title="All conditions (AND)" onPress={() => { setConnector('all'); setDrawer(null); }} />
-              <SettingsDivider /><SettingsChoiceRow selected={connector === 'any'} title="Any condition (OR)" onPress={() => { setConnector('any'); setDrawer(null); }} />
+              <SettingsChoiceRow selected={activeConnector === 'all'} title="All conditions (AND)" onPress={() => changeGroupConnector('all')} />
+              <SettingsDivider /><SettingsChoiceRow selected={activeConnector === 'any'} title="Any condition (OR)" onPress={() => changeGroupConnector('any')} />
             </SettingsGroup>
+          ) : drawer === 'group' ? (
+            <View style={{ gap: spacing.md }}>
+              <SettingsGroup title="Match within this group">
+                <SettingsChoiceRow title="All conditions (AND)" selected={groupConnector === 'all'} onPress={() => setGroupConnector('all')} />
+                <SettingsChoiceRow title="Any condition (OR)" selected={groupConnector === 'any'} onPress={() => setGroupConnector('any')} />
+              </SettingsGroup>
+              <SettingsGroup title="Select at least two">
+                {expression.children.map(node => {
+                  const key = ruleNodeKey(node);
+                  return <SettingsToggleRow key={key} title={personalRuleExpressionPhrase(node, conditions)} enabled={groupSelection.includes(key)}
+                    onPress={() => setGroupSelection(current => current.includes(key) ? current.filter(id => id !== key) : [...current, key])} />;
+                })}
+              </SettingsGroup>
+            </View>
           ) : drawer === 'outcome' ? (
             <SettingsGroup>
               <SettingsChoiceRow selected={outcome === 'available'} title="Allow access" onPress={() => { setOutcome('available'); setDrawer(null); }} />
               <SettingsDivider /><SettingsChoiceRow selected={outcome === 'pause'} title="Pause access" onPress={() => { setOutcome('pause'); setDrawer(null); }} />
             </SettingsGroup>
-          ) : drawer === 'operator' && (activeCondition?.type === 'real_step_complete' || activeCondition?.type === 'focus_active') ? (
+          ) : drawer === 'operator' && (activeCondition?.type === 'real_step_complete' || activeCondition?.type === 'focus_active' || activeCondition?.type === 'day_of_week') ? (
             <SettingsGroup><SettingsChoiceRow selected={activeCondition.operator === 'is'} title="is" onPress={() => setOperator('is')} />
               <SettingsDivider /><SettingsChoiceRow selected={activeCondition.operator === 'is_not'} title="is not" onPress={() => setOperator('is_not')} /></SettingsGroup>
           ) : drawer === 'operator' && activeCondition?.type === 'daily_usage' ? (
@@ -694,6 +734,18 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
           ) : drawer === 'operator' && activeCondition?.type === 'time_of_day' ? (
             <SettingsGroup><SettingsChoiceRow selected={activeCondition.operator === 'after'} title="is after" onPress={() => setOperator('after')} />
               <SettingsDivider /><SettingsChoiceRow selected={activeCondition.operator === 'before'} title="is before" onPress={() => setOperator('before')} /></SettingsGroup>
+          ) : drawer === 'days' ? (
+            <SettingsGroup>
+              {PERSONAL_RULE_DAYS.map((day, index) => {
+                const value = index + 1;
+                const selected = daysDraft.includes(value);
+                return <SettingsToggleRow key={day} title={day} enabled={selected}
+                  disabled={selected && daysDraft.length === 1}
+                  onPress={() => setDaysDraft(current => current.includes(value)
+                    ? current.length > 1 ? current.filter(dayValue => dayValue !== value) : current
+                    : [...current, value])} />;
+              })}
+            </SettingsGroup>
           ) : drawer === 'duration' ? (
             <DurationPicker valueMinutes={durationDraft} onChangeMinutes={setDurationDraft} optionsMinutes={MINUTE_OPTIONS}
               accessibilityLabel="Select daily use" iosWheelHeight={180} showHelperText={false} iosUseEdgeFades={false} />

@@ -25,6 +25,17 @@ describe('personalCompositeScreenTimeRule', () => {
     lastUpdated: '2026-08-27T23:00:00.000Z',
   };
 
+  it('preserves selected weekdays in a saved rule', () => {
+    const candidate = { ...composite, conditions: [{ id: 'days', type: 'day_of_week', operator: 'is', days: [1, 2, 3, 4, 5] }] };
+    expect(normalizePersonalCompositeScreenTimeRule(candidate)).toEqual(candidate);
+  });
+
+  it.each([[], [0], [8], [1.5], ['1'], [1, 1], null].map(days => [days]))('rejects invalid weekday selections %j', (days) => {
+    expect(validatePersonalCompositeScreenTimeRule({ ...composite,
+      conditions: [{ id: 'days', type: 'day_of_week', operator: 'is', days }],
+    }).issues).toContain('condition_value');
+  });
+
   it('normalizes a complete two-condition aggregate', () => {
     expect(normalizePersonalCompositeScreenTimeRule(composite)).toEqual(composite);
     expect(validatePersonalCompositeScreenTimeRule(composite)).toEqual({ valid: true, issues: [] });

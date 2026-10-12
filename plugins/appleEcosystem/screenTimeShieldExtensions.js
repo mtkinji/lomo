@@ -1,3 +1,4 @@
+const { PERSONAL_RULE_CORE_SWIFT } = require('./personalRuleCore');
 const { withXcodeProject } = require('@expo/config-plugins');
 const { addBuildSourceFileToGroup, addResourceFileToGroup, ensureGroupRecursively } = require('@expo/config-plugins/build/ios/utils/Xcodeproj');
 const fs = require('fs');
@@ -75,6 +76,21 @@ private enum KwiltRestrictionLedger {
       applicationTokenKeys: applicationTokenKeys,
       categoryTokenKeys: categoryTokenKeys,
       webDomainTokenKeys: webDomainTokenKeys
+    )
+    guard let data = try? JSONEncoder().encode(entry) else { return }
+    defaults()?.set(data, forKey: "\\(entryPrefix)\\(safeIdentifier(id))")
+  }
+
+  static func markWaitingForEvidence(id: String) {
+    guard let previous = entries().first(where: { $0.id == id }) else { return }
+    let entry = KwiltRestrictionLedgerEntry(
+      id: previous.id, ruleId: previous.ruleId, selectionId: previous.selectionId,
+      reason: previous.reason, label: previous.label,
+      details: ["Waiting for current rule information. The previous restriction is still in effect. Open Kwilt to refresh."],
+      appliedAtMs: previous.appliedAtMs,
+      applicationTokenKeys: previous.applicationTokenKeys,
+      categoryTokenKeys: previous.categoryTokenKeys,
+      webDomainTokenKeys: previous.webDomainTokenKeys
     )
     guard let data = try? JSONEncoder().encode(entry) else { return }
     defaults()?.set(data, forKey: "\\(entryPrefix)\\(safeIdentifier(id))")
@@ -502,13 +518,7 @@ private struct KwiltPersonalUsageLimitConfiguration: Codable {
   let restrictionLabel: String
 }
 
-private struct KwiltPersonalCompositeCondition: Codable {
-  let id: String
-  let type: String
-  let \`operator\`: String?
-  let minutes: Int?
-  let minuteOfDay: Int?
-}
+${PERSONAL_RULE_CORE_SWIFT}
 
 private struct KwiltPersonalCompositeConditionExplanation: Codable {
   let conditionId: String
@@ -524,6 +534,7 @@ private struct KwiltPersonalCompositeRuleConfiguration: Codable {
   let connector: String
   let outcome: String
   let conditions: [KwiltPersonalCompositeCondition]
+  let expression: KwiltRuleExpression?
   let conditionExplanations: [KwiltPersonalCompositeConditionExplanation]?
   let restrictionLabel: String
 }
@@ -601,25 +612,43 @@ private enum KwiltPersonalCompositeRuleRuntime {
   }
 
   static func setTruth(_ truth: Bool, conditionId: String, configuration: KwiltPersonalCompositeRuleConfiguration) {
-    defaults()?.set(truth, forKey: truthKey(ruleId: configuration.ruleId, conditionId: conditionId))
+    let key = truthKey(ruleId: configuration.ruleId, conditionId: conditionId)
+    defaults()?.set(truth, forKey: key)
+    defaults()?.set(KwiltPersonalRuleCore.dayKey(Date()), forKey: key + ".day")
+  }
+
+  static func beginUsageInterval(conditionId: String, configuration: KwiltPersonalCompositeRuleConfiguration) {
+    let key = truthKey(ruleId: configuration.ruleId, conditionId: conditionId)
+    // Restarting unchanged monitoring must not erase a threshold already reached today.
+    if defaults()?.string(forKey: key + ".day") == KwiltPersonalRuleCore.dayKey(Date()),
+      defaults()?.object(forKey: key) is Bool { return }
+    setTruth(false, conditionId: conditionId, configuration: configuration)
   }
 
   static func evaluate(configuration: KwiltPersonalCompositeRuleConfiguration) {
-    let values = configuration.conditions.map { condition -> Bool in
-      let stored = defaults()?.bool(forKey: truthKey(ruleId: configuration.ruleId, conditionId: condition.id)) ?? false
-      if condition.type == "daily_usage" {
-        return condition.operator == "below" ? !stored : stored
-      }
-      return condition.operator == "is_not" ? !stored : stored
+    let values: [Bool?] = configuration.conditions.map { condition in
+      let key = truthKey(ruleId: configuration.ruleId, conditionId: condition.id)
+      let evidence = defaults()?.data(forKey: key + ".evidence").flatMap { try? JSONDecoder().decode(KwiltRuleEvidence.self, from: $0) }
+      return KwiltPersonalRuleCore.truth(condition, evidence: evidence,
+        usageReached: defaults()?.object(forKey: key) as? Bool, usageDay: defaults()?.string(forKey: key + ".day"))
     }
-    let matched = configuration.connector == "all"
-      ? values.allSatisfy { $0 }
-      : configuration.connector == "any" && values.contains(true)
+    let truth = Dictionary(uniqueKeysWithValues: zip(configuration.conditions, values).compactMap { condition, value -> (String, Bool)? in
+      guard let value = value else { return nil }; return (condition.id, value)
+    })
+    let decision = configuration.expression.map { KwiltPersonalRuleCore.evaluate($0, truth: truth) }
+      ?? KwiltPersonalRuleCore.combine(configuration.connector, values)
+    guard let matched = decision else {
+      // Unknown holds the existing store; explain why instead of asserting stale facts.
+      KwiltRestrictionLedger.markWaitingForEvidence(id: "personal_composite.\\(configuration.ruleId)")
+      return
+    }
     let shouldPause = configuration.outcome == "available" ? !matched : matched
     let explanations = Dictionary(
       uniqueKeysWithValues: (configuration.conditionExplanations ?? []).map { ($0.conditionId, $0) }
     )
+    let decisive = configuration.expression.map { KwiltPersonalRuleCore.decisiveIds($0, truth: truth) }
     let blockingDetails = zip(configuration.conditions, values).compactMap { condition, value -> String? in
+      guard let value = value, decisive?.contains(condition.id) ?? true else { return nil }
       let causesPause = configuration.outcome == "pause" ? value : !value
       guard causesPause, let explanation = explanations[condition.id] else { return nil }
       return value ? explanation.whenMatched : explanation.whenUnmatched
@@ -748,7 +777,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
         activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier($0.id))
       }) {
         if condition.type == "daily_usage" {
-          KwiltPersonalCompositeRuleRuntime.setTruth(false, conditionId: condition.id, configuration: composite)
+          KwiltPersonalCompositeRuleRuntime.beginUsageInterval(conditionId: condition.id, configuration: composite)
         } else if condition.type == "time_of_day" {
           KwiltPersonalCompositeRuleRuntime.setTruth(true, conditionId: condition.id, configuration: composite)
         }
@@ -793,7 +822,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
        let condition = composite.conditions.first(where: {
          activity.rawValue.hasSuffix(KwiltPrerequisiteMonitorRuntime.personalCompositeConditionIdentifier($0.id))
        }) {
-      KwiltPersonalCompositeRuleRuntime.setTruth(false, conditionId: condition.id, configuration: composite)
+      // Clock truth is derived directly; usage resets only at the next interval start.
       KwiltPersonalCompositeRuleRuntime.evaluate(configuration: composite)
       return
     }

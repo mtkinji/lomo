@@ -6,7 +6,7 @@ import type {
   PersonalCompositeScreenTimeRule,
   PersonalRuleCondition,
 } from './personalCompositeScreenTimeRule';
-import { personalCompositeConditionRulePhrase } from './personalCompositeRuleExplanation';
+import { personalCompositeConditionRulePhrase, personalRuleExpressionPhrase } from './personalCompositeRuleExplanation';
 
 export type ScreenTimeRuleInventoryRow = {
   id: string;
@@ -36,7 +36,8 @@ export function personalCompositeConditionLabel(condition: PersonalRuleCondition
 
 export function personalCompositeRuleDetail(rule: PersonalCompositeScreenTimeRule): string {
   const connector = rule.connector === 'all' ? ' and ' : ' or ';
-  const conditions = rule.conditions.map(personalCompositeConditionLabel).join(connector);
+  const conditions = rule.expression ? personalRuleExpressionPhrase(rule.expression, rule.conditions)
+    : rule.conditions.map(personalCompositeConditionLabel).join(connector);
   const sentence = `${rule.outcome === 'available' ? 'Available' : 'Pause'} ${conditions}.`;
   return sentence.replace(/\.\.$/, '.');
 }

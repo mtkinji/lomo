@@ -107,3 +107,16 @@ describe('personal composite rule explanations', () => {
     ]);
   });
 });
+
+
+it('names custom days and distinguishes inclusion from exclusion', () => {
+  const condition = { id: 'days', type: 'day_of_week' as const, operator: 'is' as const, days: [1, 2, 3, 4, 5] };
+  expect(personalCompositeConditionRulePhrase(condition)).toBe('on Mon–Fri');
+  expect(personalCompositeConditionRulePhrase({ ...condition, operator: 'is_not', days: [6, 7] })).toBe('except on Sat–Sun');
+  expect(personalCompositeConditionRulePhrase({ ...condition, days: [5, 1, 3] })).toBe('on Mon, Wed, Fri');
+  expect(personalCompositeConditionRulePhrase({ ...condition, days: [1, 2, 3, 4, 5, 6, 7] })).toBe('every day');
+  expect(personalCompositeConditionRulePhrase({ ...condition, operator: 'is_not', days: [1, 2, 3, 4, 5, 6, 7] })).toBe('on no days');
+  const [included] = buildPersonalCompositeConditionExplanations({ ...rule, conditions: [condition] });
+  const [excluded] = buildPersonalCompositeConditionExplanations({ ...rule, conditions: [{ ...condition, operator: 'is_not' }] });
+  expect(excluded.whenMatched).toBe(included.whenUnmatched);
+});

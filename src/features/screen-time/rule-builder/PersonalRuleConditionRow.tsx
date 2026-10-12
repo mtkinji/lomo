@@ -1,3 +1,4 @@
+import { personalRuleDaysLabel } from '../domain/personalCompositeScreenTimeRule';
 import { StyleSheet, View } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Text } from '../../../ui/Typography';
@@ -26,6 +27,9 @@ export function personalRuleConditionParts(condition: PersonalRuleCondition): {
   }
   if (condition.type === 'daily_usage') {
     return { field: 'Daily use', operator: condition.operator === 'below' ? 'is below' : 'reaches', value: `${condition.minutes} min`, operatorEditable: true, valueEditable: true };
+  }
+  if (condition.type === 'day_of_week') {
+    return { field: 'Day', operator: condition.operator === 'is' ? 'is' : 'is not', value: personalRuleDaysLabel(condition.days), operatorEditable: true, valueEditable: true };
   }
   if (condition.type === 'budget') {
     const value = condition.preset === 'always_review' ? 'needs review'

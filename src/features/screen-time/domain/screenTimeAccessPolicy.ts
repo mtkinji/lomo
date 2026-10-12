@@ -14,7 +14,8 @@ export function classifyPersonalRuleAccess(input: Pick<PersonalCompositeScreenTi
 }
 
 export function conditionRequiresPro(condition: Pick<PersonalRuleCondition, 'type'>): boolean {
-  return condition.type === 'time_of_day'
+  return condition.type === 'day_of_week'
+    || condition.type === 'time_of_day'
     || condition.type === 'real_step_complete'
     || condition.type === 'budget';
 }

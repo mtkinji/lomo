@@ -127,6 +127,72 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     useEntitlementsStore.setState({ isPro: true });
   });
 
+  it('saves custom days, keeps a nonempty selection, and restores them for editing', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'social', label: 'Social' }], selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByText('Rule behavior');
+    fireEvent.press(screen.getByRole('button', { name: 'Rule outcome: Allow access' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pause access' }));
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Day of week' }));
+    expect(screen.getByRole('button', { name: 'Value: Mon–Fri' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Value: Mon–Fri' }));
+    for (const name of ['Monday', 'Tuesday', 'Wednesday', 'Thursday']) {
+      fireEvent.press(screen.getAllByRole('switch', { name })[0]);
+    }
+    expect(screen.getAllByRole('switch', { name: 'Friday' })[0].props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getAllByRole('switch', { name: 'Saturday' })[0]);
+    fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+    await waitFor(() => expect(activatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({
+      rule: expect.objectContaining({ outcome: 'pause', conditions: [expect.objectContaining({ type: 'day_of_week', days: [5, 6] })] }),
+    })));
+    const saved = useAppStore.getState().screenTimeProtection.personalCompositeRules[0];
+    screen.unmount();
+    mockRouteParams = { entry: 'inventory', ruleId: saved.id };
+    const edit = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(edit.getByRole('button', { name: 'Value: Fri, Sat' }));
+    expect(edit.getAllByRole('switch', { name: 'Friday' })[0].props.accessibilityState.checked).toBe(true);
+    expect(edit.getAllByRole('switch', { name: 'Saturday' })[0].props.accessibilityState.checked).toBe(true);
+    expect(edit.getAllByRole('switch', { name: 'Monday' })[0].props.accessibilityState.checked).toBe(false);
+  });
+
+  it('saves weekdays AND an OR group, reopens it, and can ungroup it', async () => {
+    const days = { id: 'days', type: 'day_of_week' as const, operator: 'is' as const, days: [1,2,3,4,5] };
+    const early = { id: 'early', type: 'time_of_day' as const, operator: 'before' as const, minuteOfDay: 540 };
+    const late = { id: 'late', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 };
+    useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+      authorizationStatus: 'approved', personalCompositeRules: [{
+        id: 'group-rule', selectionId: 'group-rule', selectedApps: [{ token: 'app' }], selectedCategories: [],
+        enabled: true, setupCompleted: true, connector: 'all', outcome: 'pause', conditions: [days, early, late], lastUpdated: null,
+      }],
+    } });
+    mockRouteParams = { entry: 'inventory', ruleId: 'group-rule' };
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Group conditions' }));
+    fireEvent.press(screen.getAllByRole('switch', { name: 'before 9:00 AM' })[0]);
+    fireEvent.press(screen.getAllByRole('switch', { name: 'after 5:00 PM' })[0]);
+    fireEvent.press(screen.getByRole('button', { name: 'Create group' }));
+    expect(screen.getByText('Any of these')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(activatePersonalCompositeScreenTimeRule).toHaveBeenCalledWith(expect.objectContaining({
+      rule: expect.objectContaining({ expression: expect.objectContaining({ connector: 'all', children: [
+        { type: 'condition', conditionId: 'days' }, expect.objectContaining({ connector: 'any', children: [
+          { type: 'condition', conditionId: 'early' }, { type: 'condition', conditionId: 'late' },
+        ] }),
+      ] }) }),
+    })));
+    screen.unmount();
+    const edit = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    expect(edit.getByText('Any of these')).toBeTruthy();
+    fireEvent.press(edit.getByRole('button', { name: /Ungroup group_/ }));
+    expect(edit.queryByText('Any of these')).toBeNull();
+    expect(edit.getAllByRole('button', { name: 'Condition: Time' })).toHaveLength(2);
+  });
+
   it('starts with one self-explanatory app-selection action and no setup helper copy', () => {
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     expect(screen.getByText('Which apps should this rule manage?')).toBeTruthy();

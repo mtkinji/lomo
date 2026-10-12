@@ -37,10 +37,10 @@ describe('personalCompositeRuleActions', () => {
     await savePersonalCompositeScreenTimeRule({
       rule: next, expectedUpdatedAt: prior.lastUpdated, confirmed: true,
     }, boundary);
-    expect(boundary.deactivateRule).toHaveBeenCalledWith(prior);
+    expect(boundary.deactivateRule).not.toHaveBeenCalled();
     expect(boundary.activateRule).toHaveBeenCalledWith(next);
     expect(boundary.persistSettings).toHaveBeenCalledWith(expect.objectContaining({ personalCompositeRules: [next] }));
-    expect(boundary.deactivateRule.mock.invocationCallOrder[0]).toBeLessThan(boundary.persistSettings.mock.invocationCallOrder[0]);
+    expect(boundary.activateRule.mock.invocationCallOrder[0]).toBeLessThan(boundary.persistSettings.mock.invocationCallOrder[0]);
   });
 
   it('restores prior enforcement when replacement activation fails', async () => {
@@ -95,4 +95,17 @@ describe('personalCompositeRuleActions', () => {
     expect(boundary.deactivateRule).toHaveBeenCalledWith(unversioned);
     expect(boundary.persistSettings).toHaveBeenCalledWith(expect.objectContaining({ personalCompositeRules: [next] }));
   });
+});
+
+
+it('rejects a duplicate grouped rule even when its node IDs differ', async () => {
+  const boundary = makeBoundary();
+  const grouped = { ...prior, expression: { type: 'group' as const, id: 'root', connector: 'all' as const,
+    children: [{ type: 'condition' as const, conditionId: prior.conditions[0].id }] } };
+  const settings = boundary.readSettings();
+  boundary.readSettings.mockReturnValue({ ...settings, personalCompositeRules: [grouped] });
+  await expect(savePersonalCompositeScreenTimeRule({ rule: { ...grouped, id: 'duplicate',
+    conditions: [{ ...prior.conditions[0], id: 'other-condition' }],
+    expression: { ...grouped.expression, id: 'other-root', children: [{ type: 'condition', conditionId: 'other-condition' }] },
+  }, expectedUpdatedAt: null, confirmed: true }, boundary)).rejects.toThrow('duplicate_personal_screen_time_rule');
 });

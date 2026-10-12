@@ -1,3 +1,4 @@
+import type { PersonalRuleGroup } from '../domain/personalRuleExpression';
 import type { ScreenTimeToken } from '../../../services/screenTimeProtection';
 import type { PersonalRuleCondition, PersonalRuleConnector, PersonalRuleOutcome } from '../domain/personalCompositeScreenTimeRule';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
@@ -10,6 +11,7 @@ export type ScreenTimeBudgetDraft = {
   connector: PersonalRuleConnector;
   outcome: PersonalRuleOutcome;
   conditions: PersonalRuleCondition[];
+  expression?: PersonalRuleGroup;
   activeConditionId: string | null;
 };
 type Session = { id: string; userId: string; params: PersonalScreenTimeRuleBuilderParams; draft: ScreenTimeBudgetDraft };

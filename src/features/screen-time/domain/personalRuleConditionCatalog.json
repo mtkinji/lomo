@@ -1,0 +1,8 @@
+{
+  "time_of_day": { "label": "Time of day", "operators": ["after", "before"], "repeatable": true, "source": "local_clock", "refresh": "time_boundary", "maxAgeMs": 0 },
+  "day_of_week": { "label": "Day of week", "operators": ["is", "is_not"], "repeatable": false, "source": "local_clock", "refresh": "local_day_boundary", "maxAgeMs": 0 },
+  "daily_usage": { "label": "Daily use", "operators": ["below", "reaches"], "repeatable": false, "source": "device_activity", "refresh": "usage_threshold_and_local_day", "maxAgeMs": 0 },
+  "focus_active": { "label": "Focus", "operators": ["is", "is_not"], "repeatable": false, "source": "host", "refresh": "domain_change_and_reconciliation", "maxAgeMs": 900000 },
+  "real_step_complete": { "label": "Real step", "operators": ["is", "is_not"], "repeatable": false, "source": "host", "refresh": "domain_change_and_reconciliation", "maxAgeMs": 900000 },
+  "budget": { "label": "Budget", "operators": ["always_review", "when_hot", "at_95_percent", "when_over", "needs_review"], "repeatable": true, "source": "host", "refresh": "domain_change_and_reconciliation", "maxAgeMs": 900000 }
+}

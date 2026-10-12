@@ -240,3 +240,86 @@ state.
 
 - Which child responsibility collection supplies `complete today` truth?
 - Do school hours come from a stored family schedule or a named rule preset?
+
+## Day-of-week conditions — October 10, 2026
+
+The personal rule composer gains `Day of week` alongside `Time of day`. This
+bounded extension serves the existing rule-governance job: a person can protect
+weekday attention without manually turning the rule off each weekend.
+
+- UI contract: preserve the existing sentence editor, target selection, AND/OR,
+  and Save action. `Day | is | Mon–Fri` is the default new day condition. The value
+  opens the existing BottomDrawer with seven SettingsToggleRows and Done. At
+  least one day must remain selected. Close discards picker edits; Done updates
+  the draft; Save persists the rule. `is not` supports excluding selected days.
+- System fit: extend the canonical composite condition union, normalizer,
+  explanations, and native generators. No separate scheduling model or route.
+  Weekdays use ISO numbering (Monday 1 through Sunday 7), evaluated against the
+  device's current local calendar. Existing rules remain unchanged.
+- Alternatives considered: a separate schedule section would hide the AND/OR
+  relationship; weekday/weekend-only presets would prevent custom workweeks.
+  Individual day selection within a normal condition is the smallest complete
+  addition. Broader calendar dates, holidays, and nested condition groups are
+  outside this slice.
+- Accepted behavior: Pause + Day is Mon–Fri pauses weekdays. Adding Time before
+  4 PM with AND pauses only weekday mornings/afternoons before 4. OR keeps its
+  existing meaning: either condition can activate the rule. Allow keeps its
+  existing inverse behavior. Other rules may independently block the same app.
+- Native contract: the host and monitor decode the day list, validate selections,
+  evaluate the current local date, and register a repeating daily activity to
+  reevaluate at day changes without opening Kwilt. Day conditions participate in
+  monitor cleanup. The existing advanced-schedule entitlement policy applies.
+- Verification: regression-first model/evaluation tests, editor save/reopen and
+  nonempty-selection coverage, generated native schedule/cleanup checks, and
+  execution of the actual generated weekday evaluator through Swift for local
+  midnight and DST weekends. Simulator UI/build and physical-device callback
+  timing are separate evidence boundaries.
+- Learning release: local development only until a physical iPhone demonstrates
+  Friday-to-Saturday release and Sunday-to-Monday activation while Kwilt is
+  closed. Observe whether custom selections and AND/OR are understood before
+  considering presets or richer calendar logic. No new telemetry is needed.
+- Spec refinement: no user decision is needed for this bounded extension. Keep
+  one day condition per aggregate, matching the existing uniqueness rule for
+  non-time conditions. Runtime evidence remains distinct from source tests;
+  this section does not claim a shipped release or change job-flow scores.
+
+Local evidence: the iPhone 17 Pro / iOS 26.5 Debug Simulator build compiled and
+installed from the normal checkout (`main`, base `399e26e3`, with this change).
+Native generated weekday evaluator tests pass for all seven days, midnight
+transitions, exclusions, and DST weekends. The Simulator inspection tool could
+capture the app but rejected interaction with `noWindowsAvailable`, so the new
+picker's rendered state and interactive native acceptance remain unverified.
+No physical-device, TestFlight, or production delivery is claimed.
+
+
+## Grouped rule contract — October 11, 2026
+
+The existing composer now supports nested ALL/ANY groups, such as weekday AND
+(before 9 AM OR after 5 PM). The condition inventory remains flat; an optional
+validated expression references each condition exactly once. Legacy records keep
+their flat meaning. Groups have at most four levels and can be ungrouped in the
+editor. Save, reopen, condition changes, and the Money setup detour preserve the
+expression. Inventory summaries retain parentheses.
+
+The condition catalog declares supported operators, multiplicity, signal owner,
+and freshness. Host and monitor embed the same Foundation-only Swift core.
+JavaScript and Swift execute the same fixtures for grouped logic, known/unknown
+truth, inversion, malformed expressions, weekdays, DST, and stale observations.
+False dominates ALL; true dominates ANY; otherwise unknown remains unknown.
+Unknown holds previous native enforcement and explains the wait in an existing
+restriction; a new rule with unknown truth imposes no new restriction.
+
+Host observations have a 15-minute maximum lifetime, refreshed on domain changes
+and app reconciliation. This bounds reuse at evaluation; it does not guarantee
+background refresh while the app is closed. Clock/day conditions read the current
+local calendar directly. Usage evidence belongs to a local day, threshold, and
+selection; changing thresholds or targets invalidates it, while equivalent
+same-day monitoring restarts preserve reached state. Production Focus truth comes
+from the Focus store rather than generic refresh callers' default false values.
+
+This provides extensible composition of supported conditions, not arbitrary
+sensors/actions or cross-rule allow priorities. Native callback timing, past-use
+replay after changing a usage limit, overlapping rules, app-closed host freshness,
+and Friday/Saturday transitions still require physical-iPhone verification.
+Editor interaction tests and native compilation do not replace that gate. This
+slice remains local and does not claim TestFlight or production delivery.

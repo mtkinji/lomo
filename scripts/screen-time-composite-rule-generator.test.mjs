@@ -43,3 +43,29 @@ test('generated monitor combines time and usage truth before changing one aggreg
   assert.match(rendered, /conditionExplanations: \[KwiltPersonalCompositeConditionExplanation\]\?/);
   assert.match(rendered, /details: blockingDetails/);
 });
+
+
+test('weekday conditions survive native decoding and get a daily wakeup and cleanup', () => {
+  const host = buildScreenTimeProtectionSwift('group.test.kwilt');
+  const monitor = buildDeviceActivityMonitorSwift('group.test.kwilt');
+  for (const source of [host, monitor]) {
+    assert.match(source, /let days: \[Int\]\?/);
+    assert.match(source, /calendar.component\(\.weekday, from: now\)/);
+    assert.match(source, /days.contains\(weekday\)/);
+    assert.match(source, /KwiltPersonalRuleCore.truth\(condition/);
+  }
+  assert.match(host, /days.allSatisfy/);
+  assert.equal((host.match(/\$0.type == "day_of_week"/g) ?? []).length, 2, 'schedule and cleanup both include weekday conditions');
+  assert.match(host, /if condition.type == "day_of_week" \{\s+schedule = DeviceActivitySchedule/);
+});
+
+test('usage evidence belongs to the same threshold and targets and survives unrelated same-day restarts', () => {
+  const host = buildScreenTimeProtectionSwift('group.test.kwilt');
+  const monitor = buildDeviceActivityMonitorSwift('group.test.kwilt');
+  assert.match(host, /previousCondition\?\.minutes != condition.minutes/);
+  assert.match(host, /previousConfiguration\?\.targetSelection.applicationTokens == selection.applicationTokens/);
+  assert.match(host, /shared.removeObject\(forKey: key \+ "\.day"\)/);
+  assert.match(monitor, /static func beginUsageInterval/);
+  assert.match(monitor, /string\(forKey: key \+ "\.day"\) == KwiltPersonalRuleCore.dayKey\(Date\(\)\)/);
+  assert.match(monitor, /KwiltPersonalCompositeRuleRuntime.beginUsageInterval/);
+});
