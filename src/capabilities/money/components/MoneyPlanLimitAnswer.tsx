@@ -74,7 +74,7 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onA
         </View>
         {explanationOpen ? (
           <Text style={styles.conceptExplanation}>
-            Spending you can adjust month to month, after bills and money set aside.
+            Your flexible category budgets, including carried-over reserves, minus spending in those categories.
           </Text>
         ) : null}
       </View> : null}
@@ -157,7 +157,7 @@ function compactAnswer(answer: Answer, fallback: { headline: string; support: st
 } {
   const { facts } = answer;
   if (answer.state === 'no_flexible_room') {
-    return { label: 'Flexible spending', amount: '$0', status: 'left', support: 'Protected costs use your full living limit', surfaceTone: 'watch' };
+    return { label: 'Flexible spending', amount: '$0', status: 'left', support: 'No flexible category budget this month', surfaceTone: 'watch' };
   }
   if (answer.state === 'needs_one_answer' || answer.state === 'insufficient_meaning') {
     return { label: 'Monthly plan this month', amount: 'Update unavailable', status: null, support: fallback.support, surfaceTone: 'neutral' };

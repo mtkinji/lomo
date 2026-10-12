@@ -50,7 +50,7 @@ describe('projectMoneyPlanProjection', () => {
     ]);
     expect(result.snapshot.totals.plannedCents).toBe(65000);
     expect(result.snapshot.livingLimitAnswer).toMatchObject({
-      state: 'over_limit',
+      state: 'supported',
       facts: { planVersionId: 'version-2', livingLimitCents: 60000, protectedPlanCents: 35000 },
     });
     expect(result.snapshot.monthlyPlan).toEqual({
@@ -70,7 +70,7 @@ describe('projectMoneyPlanProjection', () => {
       totals: { plannedCents: 60000, spentCents: 0, remainingCents: 60000, needsReviewCount: 0 },
       forecast: { projectedSpendCents: 0, projectionRangeLowCents: 0, projectionRangeHighCents: 0, projectedRemainingCents: 60000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
       outsidePlan: { spentCents: 0, transactionCount: 0 },
-      categories: [category('housing', 20000, 0), category('food', 40000, 0)], accounts: [],
+      categories: [category('housing', 20000, 0), category('food', 40000, 10000)], accounts: [],
       transactions: [
         moneyTransaction('current', '2026-07-20', 10000),
         moneyTransaction('historical', '2026-06-20', 50000),
@@ -274,6 +274,41 @@ describe('projectMoneyPlanProjection', () => {
         countedFlexibleSpendCents: 5000,
       },
     });
+  });
+
+  it.each([
+    { targetCents: 740_800, reserveCents: 0, spentCents: 95_000, expectedLeft: 215_700 },
+    { targetCents: 1_000_000, reserveCents: 0, spentCents: 95_000, expectedLeft: 215_700 },
+    { targetCents: 740_800, reserveCents: 50_000, spentCents: 95_000, expectedLeft: 265_700 },
+    { targetCents: 740_800, reserveCents: 0, spentCents: 350_000, expectedLeft: -39_300 },
+  ])('totals category balances independently of the income target: %j', ({ targetCents, reserveCents, spentCents, expectedLeft }) => {
+    const snapshot = {
+      lastSyncedAt: '2026-07-24T10:00:00Z',
+      categories: [category('housing', 640_300, 650_000), category('shopping', 300_000, spentCents), category('food', 10_700, 0)],
+      transactions: [
+        { ...moneyTransaction('shop', '2026-07-20', spentCents), categoryId: 'shopping' },
+        { ...moneyTransaction('uncategorized', '2026-07-20', 12_000), categoryId: null },
+      ],
+    } as MoneySnapshot;
+    const plan = {
+      ...activePlan(), targetCents, plannedCents: 951_000,
+      overTargetCents: Math.max(0, 951_000 - targetCents),
+      allocations: [allocation('housing', 640_300),
+        { ...allocation('shopping', 300_000), fundingRhythm: 'reserve' as const, priorReserveCents: reserveCents },
+        allocation('food', 10_700)],
+    };
+    const result = projectMoneyPlanProjection(snapshot, plan, evidence, new Date('2026-07-24T12:00:00Z')).snapshot;
+    expect(result.livingLimitAnswer?.facts).toMatchObject({
+      flexibleCapacityCents: 310_700 + reserveCents,
+      countedFlexibleSpendCents: spentCents,
+      flexibleRoomCents: expectedLeft,
+      overLimitCents: Math.max(0, 951_000 - targetCents),
+      unresolvedInScopeCents: 12_000,
+    });
+    expect(result.livingLimitAnswer?.facts.flexibleRoomCents).toBe(
+      result.categories.filter((row) => row.planRole !== 'protected').reduce((sum, row) => sum + row.remainingCents, 0),
+    );
+    expect(result.livingLimitAnswer?.state).toBe(expectedLeft < 0 ? 'over_flexible_room' : 'supported');
   });
 
   it('rejects an active projection that is not the version returned by the commit', async () => {

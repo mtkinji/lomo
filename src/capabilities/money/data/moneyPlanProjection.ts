@@ -119,6 +119,7 @@ export function projectMoneyPlanProjection(
     active: active.periodId === currentPeriodId ? active : { ...active, periodId: currentPeriodId },
     evidence,
     reconciliation,
+    categories,
     freshness,
     protectedPlanCents: protectedRequirement.protectedPlanCents,
     protectedOverageCents: protectedRequirement.protectedOverageCents,

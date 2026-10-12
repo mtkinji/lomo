@@ -149,24 +149,23 @@ export function projectExternalMcpWriteResult(input: {
       object_type: typeof first.kind === 'string' ? first.kind : 'action',
       object_id: typeof first.id === 'string' ? first.id : receiptId ?? requestId,
       result_summary: summary,
-      structured: { ...base, receipt_id: receiptId, result_references: refs, summary },
+      structured: { ...base, receipt_id: receiptId, result_references: refs, summary,
+        ...(receipt.replayed === true ? { idempotent_replay: true } : {}) },
     };
   }
   if (result.status === 'proposed') {
-    const proposal = record(result.proposal);
-    const proposalId = typeof proposal.id === 'string' ? proposal.id : requestId;
-    const summary = `${tool.annotations.title} is ready for your review in Kwilt.`;
+    const summary = `${tool.annotations.title} could not execute in this conversation. No completion is confirmed.`;
     return {
-      object_type: 'proposal', object_id: proposalId, result_summary: summary,
-      structured: { ...base, confirmation: { required: true, state: 'pending', proposal_id: proposalId }, summary },
+      object_type: 'action', object_id: requestId, result_summary: summary,
+      structured: { ...base, status: 'unavailable', summary },
     };
   }
   if (result.status === 'pending_client_action') {
-    const summary = `${tool.annotations.title} is ready for you in Kwilt.`;
+    const summary = `${tool.annotations.title} requires a device or provider interaction that this connection cannot perform.`;
     return {
-      object_type: 'client_action', object_id: requestId, result_summary: summary,
+      object_type: 'action', object_id: requestId, result_summary: summary,
       structured: {
-        ...base, handoff: { required: true, provider: result.provider, request: result.request as JsonObject }, summary,
+        ...base, status: 'unavailable', summary,
       },
     };
   }

@@ -47,8 +47,8 @@ compatibility, but are not advertised to new clients.
 
 Read and write tools are separated, owner-scoped, and filtered by the granted
 `life`, `household`, `money`, and `food` read/write scopes. Device- or
-provider-owned outcomes return a truthful native handoff instead of claiming
-that ChatGPT completed the underlying action.
+provider-owned outcomes return an explicit unavailable result when this connection
+cannot perform them. MCP never creates an in-app review or a mobile handoff task.
 
 Write tools create the same domain rows as the Kwilt app. Delete tools use the
 same recoverable soft-delete model (`is_deleted`, `deleted_at`, `data: {}`).
@@ -56,11 +56,31 @@ Origin is recorded in `kwilt_external_capture_log`, not stamped onto the object.
 Schemas live in `_shared/externalMcp.ts` and write helpers live in
 `_shared/externalMcpWrite.ts`.
 
-`capture_activity` and `update_activity` support Activity steps via a `steps`
-array. Each step accepts `title` plus optional `id`, `completed_at`,
-`is_optional`, and `order_index`. On update, `steps` replaces the full checklist
-only when provided; omitting `steps` preserves the existing checklist, and
-passing `steps: []` clears it.
+### Authorization stays in the originating conversation
+
+A caller may write only the exact action the user requested or confirmed in its
+conversation. OAuth scopes grant access, not intent. Do not infer permission from
+questions, suggestions or hypotheticals. Any necessary clarification or confirmation
+happens in that conversation, with no second review inside Kwilt.
+
+The external adapter uses canonical validators and plans operations in memory.
+Arcs and Goals create/update/delete, To-do capture/update/delete, repeat/reminder/
+focus-date updates, step operations, and Chapter-note updates execute through
+`execute_kwilt_external_life_operations`. Ownership and target versions are checked
+again in the transaction. Domain writes and a durable receipt commit together;
+deletes retain before-state snapshots. Device notification delivery is not implied
+by saving a reminder time. Existing server-owned executors retain their checks.
+Operations with only a mobile executor return `unavailable` without staging a review.
+Catalog exposure alone is not proof of server execution support.
+
+Activity steps use the dedicated create/update/complete/delete/reorder tools.
+The former whole-checklist replacement arguments are not supported.
+
+Retries with an identical request ID and arguments return the same receipt, even
+after deleting a target. Changed arguments require a new ID. When an old pending
+request is successfully retried, only its matching old proposal is superseded so
+it cannot later execute again in the app. A completed result, not an audit-log
+`success` flag or proposal, is the evidence that an action happened.
 
 ## Storage
 
@@ -70,7 +90,8 @@ State lives in tables created by
 - `kwilt_external_oauth_clients` — DCR registrations
 - `kwilt_external_oauth_authorization_codes` — short-lived auth codes
 - `kwilt_external_oauth_tokens` — access tokens (with optional refresh hash)
-- `kwilt_external_capture_log` — per-tool audit trail, including write object ids and idempotency hashes
+- `kwilt_external_capture_log` — per-tool audit trail, including write object ids, idempotency hashes, and the structured outcome
+- `kwilt_external_execution_receipts` — service-only atomic Life-write receipts and recovery snapshots, added by `20261012051853_external_mcp_direct_execution.sql`
 
 Every table is service-role only; only `kwilt_external_capture_log` exposes an
 owner-scoped `SELECT` policy.

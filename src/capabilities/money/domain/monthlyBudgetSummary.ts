@@ -26,7 +26,7 @@ export function projectMonthlyBudgetSummary(input: {
   monthlyPlan: Pick<MonthlyHouseholdPlanStatement, 'committedPlanCents' | 'flexiblePlanCents'>;
   answer: MoneyPlanLimitAnswer | null;
 }): MonthlyBudgetSummary {
-  const planAccountedCents = projectPlanAccountedCents(input.answer);
+  const planAccountedCents = projectPlanAccountedCents(input.answer, input.audit);
   const incomeReceivedCents = Math.max(0, Math.round(input.audit.incomeReceivedCents));
   const totalSpendingCents = Math.max(0, Math.round(input.audit.totalSpendingCents));
   const committedPlanCents = Math.max(0, Math.round(input.monthlyPlan.committedPlanCents));
@@ -85,11 +85,11 @@ export function projectMonthlyBudgetSummary(input: {
   };
 }
 
-function projectPlanAccountedCents(answer: MoneyPlanLimitAnswer | null): number | null {
+function projectPlanAccountedCents(answer: MoneyPlanLimitAnswer | null, audit: MoneyPlanAudit): number | null {
   if (!answer) return null;
   const { countedFlexibleSpendCents, protectedPlanCents, protectedOverageCents } = answer.facts;
   if (countedFlexibleSpendCents == null || protectedPlanCents == null) return null;
   return Math.max(0, Math.round(
-    protectedPlanCents + protectedOverageCents + countedFlexibleSpendCents,
+    protectedPlanCents + protectedOverageCents + audit.countedFlexibleSpendCents,
   ));
 }

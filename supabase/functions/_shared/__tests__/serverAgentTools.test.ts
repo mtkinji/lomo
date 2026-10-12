@@ -1225,3 +1225,18 @@ test.each([
   expect(stageProposal).not.toHaveBeenCalled();
   expect(client.from).not.toHaveBeenCalled();
 });
+
+
+test('executes an explicitly authorized MCP relationship write without a second mobile review', async () => {
+  const rpc = jest.fn(async () => ({ data: { status: 'applied', personId: 'person-1', receiptId: 'receipt-1', recordIds: [] }, error: null }));
+  const relationshipTool = tool('relationships.remember');
+  await expect(executeServerAgentTool({
+    client: { from: jest.fn(), rpc }, userId: 'user-1', actionSource: 'mcp',
+    call: { id: 'remember', toolId: relationshipTool.id, arguments: {
+      personName: 'Lily', aliases: [], memories: [{ kind: 'note', text: 'likes dragons' }], events: [], cadences: [],
+    } },
+    tool: { ...relationshipTool, reversible: false }, stageDeviceAction: jest.fn(),
+    writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
+  })).resolves.toMatchObject({ status: 'completed' });
+  expect(rpc).toHaveBeenCalledWith('remember_kwilt_agent_relationship', expect.objectContaining({ p_user_id: 'user-1' }));
+});

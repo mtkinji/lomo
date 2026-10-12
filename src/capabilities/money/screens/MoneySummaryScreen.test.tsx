@@ -360,7 +360,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getAllByText('Saved transaction history').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'What’s included?' })).toBeNull();
     fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
-    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.getByText('Your flexible category budgets, including carried-over reserves, minus spending in those categories.')).toBeTruthy();
     expect(screen.queryByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeNull();
     fireEvent.press(monthSummary);
     expect(screen.getByText('SPENDING')).toBeTruthy();
@@ -495,6 +495,7 @@ describe('MoneySummaryScreen living limit answer', () => {
   it('keeps flexible and committed variances separate before totaling the month', () => {
     mockSnapshot = {
       ...initialSnapshot,
+      transactions: [transaction('flexible-spending', 622_515, { planRoleOverride: 'flexible', reviewState: 'assigned' })],
       livingLimitAnswer: {
         ...mockAnswer,
         state: 'over_flexible_room',
@@ -689,7 +690,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     const flexibleInfo = screen.getAllByRole('button', { name: 'About flexible spending' })[0];
     expect(flexibleInfo.props.accessibilityHint).toBe('Explains flexible spending.');
     fireEvent.press(flexibleInfo);
-    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.getByText('Your flexible category budgets, including carried-over reserves, minus spending in those categories.')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'About flexible spending' })[0].props.accessibilityState).toMatchObject({ expanded: true });
 
     const committedInfo = screen.getAllByRole('button', { name: 'About committed spending' })[0];

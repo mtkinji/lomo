@@ -15,6 +15,24 @@ last_updated: 2026-09-02
 
 # Money Living-Limit Answer
 
+## Current category-total contract (2026-10-12)
+
+Andy confirmed that Flexible spending must total the visible flexible category
+balances. This supersedes the target-based headline arithmetic described below.
+The headline equals category funding (monthly budgets plus carried-in reserves)
+minus counted category spending. Overspent categories contribute negative
+balances. Changing the income target must not change this total.
+
+The income percentage target and plan-over-target notice remain separate.
+Uncategorized transactions remain visible in review and in the monthly plan
+accounting, but do not silently reduce the category total. The monthly statement
+continues to reconcile transaction economic roles and saved-money coverage;
+its whole-plan result is distinct from the flexible category balance.
+
+Source regression coverage includes above/below-target plans, reserves,
+category overspending, zero-budget spending, and uncategorized accounting.
+Connected-device and TestFlight proof remain separate release gates.
+
 ## Context
 
 Kwilt Money already stores a chosen living percentage, builds a versioned plan,

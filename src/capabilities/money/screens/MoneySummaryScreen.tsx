@@ -762,7 +762,7 @@ function SummaryMonthPanel({
           <CategoryConceptHeader
             label="Flexible spending"
             accessibilityLabel="About flexible spending"
-            explanation="Spending you can adjust month to month, after bills and money set aside."
+            explanation="Your flexible category budgets, including carried-over reserves, minus spending in those categories."
           />
         </View> : null}
         {answer ? (
@@ -978,6 +978,16 @@ function MonthlySummaryFacts({
         />
       </StatementSection>
 
+      {answer ? (
+        <StatementRow
+          label="Flexible categories"
+          value={answer.facts.countedFlexibleSpendCents == null
+            ? 'Not available'
+            : `${formatMoney(answer.facts.countedFlexibleSpendCents)} spent`}
+          support={flexibleSupport}
+        />
+      ) : null}
+
       <StatementSection label="CURRENT PLAN">
         {answer ? (
           <>
@@ -988,10 +998,7 @@ function MonthlySummaryFacts({
             />
             <StatementRow
               label={audit.unclearSpendingCents > 0 ? 'Flexible and uncategorized spending' : 'Flexible spending from plan'}
-              value={answer.facts.countedFlexibleSpendCents == null
-                ? 'Not available'
-                : formatStatementOutflow(answer.facts.countedFlexibleSpendCents)}
-              support={flexibleSupport}
+              value={formatStatementOutflow(audit.countedFlexibleSpendCents)}
             />
           </>
         ) : null}

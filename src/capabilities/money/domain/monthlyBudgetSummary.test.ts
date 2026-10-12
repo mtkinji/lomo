@@ -5,7 +5,7 @@ import { projectMonthlyBudgetSummary } from './monthlyBudgetSummary';
 describe('projectMonthlyBudgetSummary', () => {
   it('keeps actual income and spending separate from the plan comparison', () => {
     const result = projectMonthlyBudgetSummary({
-      audit: audit({ incomeReceivedCents: 1_106_456, totalSpendingCents: 1_043_768 }),
+      audit: audit({ incomeReceivedCents: 1_106_456, totalSpendingCents: 1_043_768, countedFlexibleSpendCents: 622_515 }),
       monthlyPlan: { committedPlanCents: 400_000, flexiblePlanCents: 400_000 },
       answer: answer({
         resourceBasisCents: 1_106_456,
@@ -44,6 +44,7 @@ describe('projectMonthlyBudgetSummary', () => {
         totalSpendingCents: 100_000,
         savedResourceSpendingCents: 20_000,
         outsidePlanSpendingCents: 10_000,
+        countedFlexibleSpendCents: 70_000,
       }),
       monthlyPlan: { committedPlanCents: 20_000, flexiblePlanCents: 60_000 },
       answer: answer({ protectedPlanCents: 0, protectedOverageCents: 0, countedFlexibleSpendCents: 70_000 }),
@@ -56,6 +57,16 @@ describe('projectMonthlyBudgetSummary', () => {
     expect(result.planAccountedCents).toBe(70_000);
     expect(result.spendingOutsideCurrentPlanCents).toBe(30_000);
     expect(result.planResult).toEqual({ status: 'left', amountCents: 10_000 });
+  });
+
+  it('retains uncategorized spending in monthly accounting when the headline totals categories only', () => {
+    const result = projectMonthlyBudgetSummary({
+      audit: audit({ countedFlexibleSpendCents: 45_000, unclearSpendingCents: 5_000 }),
+      monthlyPlan: { committedPlanCents: 20_000, flexiblePlanCents: 60_000 },
+      answer: answer({ protectedPlanCents: 20_000, countedFlexibleSpendCents: 40_000 }),
+    });
+    expect(result.planAccountedCents).toBe(65_000);
+    expect(result.planResult).toEqual({ status: 'left', amountCents: 15_000 });
   });
 
   it('keeps the plan result unavailable when the supported plan arithmetic is unavailable', () => {

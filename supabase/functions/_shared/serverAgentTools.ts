@@ -955,7 +955,7 @@ async function executeServerAgentToolHandler({
   if (planAvailabilityResult) return planAvailabilityResult;
   const planCalendarResult = await executeServerPlanCalendarTool({ call, stageDeviceAction });
   if (planCalendarResult) return planCalendarResult;
-  if (tool.capabilityId === 'relationships') {
+  if (tool.capabilityId === 'relationships' && actionSource !== 'mcp') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,
       explicitRequest: true,
@@ -1452,6 +1452,13 @@ async function executeServerAgentToolHandler({
     const payload = normalizeActivityCapture(call.arguments, timeZone);
     if (!payload) {
       return { status: 'failed', code: 'invalid_activity_patch', message: 'A valid Activity title and supported fields are required.', retryable: false };
+    }
+    if (actionSource === 'mcp' && stageProposal) {
+      return stageServerProposal(stageProposal, {
+        capabilityId: 'todos', title: `Create ${payload.title}`, body: 'Creates the explicitly requested To-do.',
+        operation: { type: 'create_activity', targetType: 'activity', targetId: null,
+          summary: `Create To-do ${payload.title}`, payload: { ...payload, expectedUpdatedAt: null } },
+      });
     }
     if (!writeContext || !client.rpc) {
       return { status: 'unavailable', reason: 'server_write_context_unavailable', retryable: false };

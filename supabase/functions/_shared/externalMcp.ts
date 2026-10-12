@@ -543,7 +543,9 @@ const EXTERNAL_STRUCTURED_OUTPUT_SCHEMA: JsonObject = {
 function canonicalExternalTool(action: (typeof projectedActions)[number]): ExternalMcpToolDefinition {
   return {
     name: action.canonicalName,
-    description: action.description,
+    description: action.effect === 'write'
+      ? `${action.description} Call only for the exact action the user requested or confirmed in this conversation. Supported server actions execute immediately; device-only or unsupported actions return unavailable. No in-app review is created.`
+      : action.description,
     scope: action.effect === 'write' ? 'write' as const : 'read' as const,
     inputSchema: action.effect === 'write'
       ? requireStableWriteRequestId(strictExternalSchema(action.inputSchema as JsonObject))

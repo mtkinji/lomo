@@ -19,6 +19,7 @@ import { usePaywallStore } from '../../store/usePaywallStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
 import { canCreateGoalInArc } from '../../domain/limits';
 import { Button, IconButton } from '../../ui/Button';
+import { ButtonLabel } from '../../ui/Typography';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import {
@@ -500,6 +501,20 @@ export function GoalsScreen() {
           </DropdownMenu>
         }
       />
+      {hasGoals ? (
+        <View style={styles.creationActionRow}>
+          <Button
+            testID="e2e.goals.create"
+            accessibilityLabel="Create a new goal"
+            onPress={handlePressNewGoal}
+          >
+            <HStack alignItems="center" space="xs">
+              <Icon name="plus" size={18} color={colors.aiForeground} />
+              <ButtonLabel tone="inverse">New goal</ButtonLabel>
+            </HStack>
+          </Button>
+        </View>
+      ) : null}
       <CanvasScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -1712,6 +1727,10 @@ export function GoalCoachDrawer({
 // recommendation + adoption UI.
 
 const styles = StyleSheet.create({
+  creationActionRow: {
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
   scroll: {
     flex: 1,
   },

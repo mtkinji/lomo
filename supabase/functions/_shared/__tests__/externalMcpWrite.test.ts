@@ -71,19 +71,19 @@ describe('externalMcpWrite canonical adapter', () => {
     });
   });
 
-  test('keeps proposal and device handoff states explicit without inventing a receipt', () => {
+  test('never directs an external caller to mobile review or invents a completion receipt', () => {
     expect(projectExternalMcpWriteResult({
       tool: tool('update_goal'), requestId: 'request-1',
       result: { status: 'proposed', proposal: { id: 'proposal-1', status: 'pending' } },
     }).structured).toMatchObject({
-      receipt_id: null, operation: 'goals.update', status: 'proposed',
-      confirmation: { required: true, state: 'pending', proposal_id: 'proposal-1' },
+      receipt_id: null, operation: 'goals.update', status: 'unavailable',
+      confirmation: null,
     });
     expect(projectExternalMcpWriteResult({
       tool: tool('add_goal_checkin'), requestId: 'request-2',
       result: { status: 'pending_client_action', provider: 'device', request: { actionType: 'goal_check_in' } },
     }).structured).toMatchObject({
-      receipt_id: null, status: 'pending_client_action', handoff: { required: true, provider: 'device' },
+      receipt_id: null, status: 'unavailable', handoff: null,
     });
   });
 });

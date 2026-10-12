@@ -24,10 +24,17 @@ import {
 import {
   executeExternalMcpWrite,
   externalMcpIdempotencyMaterial,
+  prepareExternalMcpAction,
+  projectExternalMcpWriteResult,
   type ExternalWriteResult,
 } from '../_shared/externalMcpWrite.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
 import { executeServerAgentTool } from '../_shared/serverAgentTools.ts';
+import { projectExternalAuditReplay } from '../_shared/externalMcpReplay.ts';
+import {
+  EXTERNAL_DIRECT_LIFE_TOOLS, applyExternalLifeOperations, executeExternalAuthorizedTool,
+  readExternalExecutionReceipt,
+} from '../_shared/externalMcpExecution.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
 import type { ServerAgentToolCall, ServerAgentToolResult } from '../_shared/agentRuntime.ts';
 import { serverResponsesToolCatalogHash } from '../_shared/serverAgentResponses.ts';
@@ -316,6 +323,7 @@ async function auditToolCall(
     idempotencyKeyHash?: string | null;
     resultStatus?: 'success' | 'error' | 'idempotent_replay' | null;
     resultSummary?: string | null;
+    structuredResult?: JsonObject | null;
   },
 ) {
   try {
@@ -336,6 +344,7 @@ async function auditToolCall(
       scope_used: params.scopeUsed,
       result_status: params.resultStatus ?? (params.success ? 'success' : 'error'),
       result_summary: params.resultSummary ?? null,
+      structured_result: params.structuredResult ?? null,
     });
   } catch {
     // Audit is best-effort; tool behavior should not fail because logging failed.
@@ -525,36 +534,31 @@ async function findIdempotentWrite(
   context: ExternalTokenContext,
   tool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
   idempotencyKeyHash: string,
+  args: unknown,
 ): Promise<JsonObject | null> {
+  if (EXTERNAL_DIRECT_LIFE_TOOLS.has(tool.toolId)) {
+    const call = prepareExternalMcpAction(tool, args, `mcp-${idempotencyKeyHash.slice(0, 64)}`);
+    const receipt = await readExternalExecutionReceipt({
+      client: admin, userId: context.userId, clientId: context.clientId, call,
+    });
+    if (receipt) return {
+      ...projectExternalMcpWriteResult({ tool, requestId: call.id, result: receipt }).structured,
+      idempotent_replay: true,
+    };
+  }
   const { data } = await admin
     .from('kwilt_external_capture_log')
-    .select('object_type,object_id,result_summary,result_status')
+    .select('object_type,object_id,result_summary,result_status,input_hash,structured_result')
     .eq('user_id', context.userId)
     .eq('oauth_client_id', context.clientId)
     .eq('idempotency_key_hash', idempotencyKeyHash)
     .eq('success', true)
     .maybeSingle();
   const row = data as any;
-  if (!row?.object_type || !row?.object_id) return null;
-  const objectType = String(row.object_type);
-  const objectId = String(row.object_id);
-  const status = objectType === 'proposal' ? 'proposed'
-    : objectType === 'client_action' ? 'pending_client_action'
-      : 'completed';
-  const summary = asString(row.result_summary) ?? 'Already completed.';
-  return {
-    receipt_id: null,
-    operation: tool.operationId,
-    status,
-    result_references: status === 'completed' ? [{ kind: objectType, id: objectId }] : [],
-    confirmation: status === 'proposed' ? { required: true, state: 'pending', proposal_id: objectId } : null,
-    handoff: status === 'pending_client_action' ? { required: true, provider: 'device' } : null,
-    summary,
-    idempotent_replay: true,
-    object_type: objectType,
-    object_id: objectId,
-    result_summary: summary,
-  };
+  if (row?.input_hash && row.input_hash !== await sha256Hex(JSON.stringify(args ?? {}))) {
+    throw new Error('idempotency_key_conflict');
+  }
+  return projectExternalAuditReplay(row, tool.operationId);
 }
 
 async function executeCanonicalExternalTool(
@@ -595,6 +599,26 @@ async function executeCanonicalExternalTool(
     return { status: 'refused', reason: authorization.reason ?? 'conversational_control_refused' };
   }
   await audit({ event: authorization.replayed ? 'replayed' : 'requested', resultStatus: null });
+  // External authorization belongs to the caller's conversation, never a hidden
+  // mobile thread. Direct Life writes have their own atomic mutation receipts.
+  if (EXTERNAL_DIRECT_LIFE_TOOLS.has(call.toolId)) {
+    const execution = { client: admin, userId: context.userId, clientId: context.clientId, call };
+    const replay = await readExternalExecutionReceipt(execution);
+    const result = replay ?? await executeExternalAuthorizedTool({
+      execute: (planning) => executeServerAgentTool({
+        client: admin, userId: context.userId, call, tool, actionSource: 'mcp',
+        stageDeviceAction: async () => { throw new Error('unexpected_device_action'); },
+        ...planning,
+      }),
+      apply: (proposals) => applyExternalLifeOperations(execution, proposals),
+    });
+    await audit({
+      event: replay ? 'replayed' : conversationalControlEventForResult(result), resultStatus: result.status,
+      receiptId: result.status === 'completed' ? String(result.receipt?.receiptId ?? '') : null,
+      errorCode: result.status === 'failed' ? result.code : null,
+    });
+    return result;
+  }
   const persistence = createServiceAgentRunPersistence({ admin, userId: context.userId });
   const request = {
     channel: 'external' as const,
@@ -610,17 +634,23 @@ async function executeCanonicalExternalTool(
   if (run.replayed) throw new Error('external_action_in_progress_or_completed');
   const activeVersion = await persistence.start(run, request);
   try {
-    const result = await executeServerAgentTool({
+    const result = await executeExternalAuthorizedTool({
+      execute: (planning) => executeServerAgentTool({
       client: admin,
       userId: context.userId,
       call,
       tool,
       writeContext: { threadId: run.threadId, runId: run.runId, messageId: run.messageId },
       actionSource: 'mcp',
-      stageDeviceAction: (action) => persistence.stageClientAction({ run, callId: call.id, action }),
-      stageProposal: (proposal) => persistence.stageProposal({ run, callId: call.id, proposal }),
-      stageProposals: (proposals) => persistence.stageProposals({ run, callId: call.id, proposals }),
+      // Device-only operations return an explicit limitation to the originating
+      // conversation; do not stage an unreachable mobile approval task.
+      stageDeviceAction: async () => undefined,
+      ...planning,
       timeZone: 'UTC',
+      }),
+      apply: (proposals) => applyExternalLifeOperations({
+        client: admin, userId: context.userId, clientId: context.clientId, call,
+      }, proposals),
     });
     await persistence.complete({
       run,
@@ -993,7 +1023,8 @@ async function handleMcp(req: Request) {
     return json(200, rpcResult(id, {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: { tools: {} },
-      serverInfo: { name: 'Kwilt', version: '0.1.0' },
+      serverInfo: { name: 'Kwilt', version: '0.2.0' },
+      instructions: 'Keep authorization and any needed clarification or confirmation in this conversation. Call write tools only for the exact action explicitly requested or confirmed by the user; OAuth scope alone is not intent. Authorized server writes execute immediately and return receipts. Never send the user to in-app review. Device-only or unimplemented server actions return unavailable without creating review tasks. Reuse the same idempotency_key only for the identical request, and claim completion only from a completed result.',
     } as JsonObject));
   }
 
@@ -1044,7 +1075,7 @@ async function handleMcp(req: Request) {
       ? await sha256Hex(externalMcpIdempotencyMaterial(externalTool, idempotencyKey))
       : null;
     const replay = idempotencyKeyHash
-      ? await findIdempotentWrite(auth.admin, auth.context, externalTool, idempotencyKeyHash)
+      ? await findIdempotentWrite(auth.admin, auth.context, externalTool, idempotencyKeyHash, args)
       : null;
     const writeResult = toolScope === 'write' && !replay
       ? await handleWriteTool(
@@ -1073,6 +1104,7 @@ async function handleMcp(req: Request) {
       idempotencyKeyHash: replay ? null : idempotencyKeyHash,
       resultStatus: replay ? 'idempotent_replay' : 'success',
       resultSummary: writeResult?.result_summary ?? (replay ? asString(replay.result_summary) : null),
+      structuredResult: toolScope === 'write' ? writeResult?.structured ?? replay : null,
     });
     await capturePosthogEvent({
       distinctId: auth.context.userId,

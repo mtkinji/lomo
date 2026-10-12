@@ -48,10 +48,10 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(explanation.props.accessibilityState).toMatchObject({ expanded: false });
     fireEvent.press(explanation);
     expect(onExplain).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.getByText('Your flexible category budgets, including carried-over reserves, minus spending in those categories.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'About flexible spending' }).props.accessibilityState).toMatchObject({ expanded: true });
     fireEvent.press(screen.getByRole('button', { name: 'About flexible spending' }));
-    expect(screen.queryByText('Spending you can adjust month to month, after bills and money set aside.')).toBeNull();
+    expect(screen.queryByText('Your flexible category budgets, including carried-over reserves, minus spending in those categories.')).toBeNull();
     expect(onExplain).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'See calculation' })).toBeNull();
     expect(screen.queryByText(/left for flexible spending this month/i)).toBeNull();
@@ -195,7 +195,7 @@ describe('MoneyPlanLimitAnswer', () => {
     />);
 
     expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$0 left');
-    expect(screen.getByText('Protected costs use your full living limit')).toBeTruthy();
+    expect(screen.getByText('No flexible category budget this month')).toBeTruthy();
     expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ borderWidth: 0 }),
       expect.objectContaining({ backgroundColor: colors.fieldFill }),

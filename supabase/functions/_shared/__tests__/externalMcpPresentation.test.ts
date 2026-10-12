@@ -9,11 +9,11 @@ describe('external MCP conversation presentation', () => {
       .toBe('Requested in ChatGPT: Open Kwilt Capability.');
   });
 
-  test('uses the staged action title for a device handoff summary', () => {
+  test('reports the device limitation without claiming a mobile review task is ready', () => {
     expect(externalMcpRunSummary('Open Kwilt Capability', {
       status: 'pending_client_action',
       provider: 'device',
       request: { title: 'Open To-dos' },
-    })).toBe('Open To-dos is ready in Kwilt.');
+    })).toBe('Open To-dos requires a device or provider interaction that this connection cannot perform.');
   });
 });

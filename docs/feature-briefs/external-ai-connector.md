@@ -114,10 +114,10 @@ Designed against [Anthropic's review criteria](https://claude.com/docs/connector
 | Tool | Hints | Notes |
 |---|---|---|
 | `capture_activity`, `mark_activity_done`, `set_focus_today` | `readOnlyHint: false`, `destructiveHint: false`, `openWorldHint: false` | Low-risk Life writes; capture remains capture-first. |
-| `create_*`, `update_*`, Activity step tools, Chapter-note update | `readOnlyHint: false` | Use canonical server actions and their confirmation policy. |
-| `delete_arc`, `delete_goal`, `delete_activity`, `delete_activity_step` | `destructiveHint: true` | Recoverable where the capability supports recovery and always subject to consequential review policy. |
+| `create_*`, `update_*`, Activity step tools, Chapter-note update | `readOnlyHint: false` | Use canonical server validation; authorization stays in the originating conversation. |
+| `delete_arc`, `delete_goal`, `delete_activity`, `delete_activity_step` | `destructiveHint: true` | Recoverable where supported; require an exact user request or confirmation in the originating conversation. |
 
-Every write schema requires an `idempotency_key`: a stable request ID that the caller reuses only when retrying the same intended operation. Compatibility tool names remain aliases for one contract version; the generated catalog binds every alias to a canonical operation, registered server handler, exact scopes, consequence, confirmation, and redaction policy. Canonical tools extend this surface without multiplying legacy aliases. Device-owned writes are advertised only when the server can durably stage the exact native handoff; their result is pending native action, never remote completion.
+Every write schema requires an `idempotency_key`: a stable request ID that the caller reuses only when retrying the same intended operation. Compatibility tool names remain aliases for one contract version; the generated catalog binds every alias to a canonical operation, registered server handler, exact scopes, consequence, confirmation, and redaction policy. Canonical tools extend this surface without multiplying legacy aliases. Device-owned writes return an explicit unavailable boundary when the MCP connection lacks a provider; they do not create in-app review or handoff tasks.
 
 Implementation checkpoint (2026-08-27): the generated MCP catalog exposes 118 scoped operations. In addition to the compatibility slice above, it covers Plan reads and reviewed scheduling, Relationship memory, To-do get/search/schedule/chunks/reminder/repeat, Chapter list/reflect, Profile update, Goal and To-do sharing handoffs, Focus, Plan preferences, notifications, search, relevant Account surfaces, Money, Screen Time's truthful cross-device boundary, and the Activity-backed Chores operation set. The corrected 233-operation ledger currently classifies 118 as externally exposed, 106 as pending a provider, two as deliberately excluded capabilities, five as explicit safety boundaries, and two internal answer/synthesis operations as non-applicable because ChatGPT performs its own synthesis over callable tools. The native-surface audit and complete intent mapping are recorded in [`2026-08-27-ui-parity-inventory.md`](../delivery-evidence/unified-chat/2026-08-27-ui-parity-inventory.md).
 
@@ -125,19 +125,27 @@ Notably absent: no `set_streak`, no tool that returns a composite "growth score,
 
 ### Core capability coverage contract
 
-The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, an actionable in-surface review continuation, a pending native/device handoff, or an explicit temporary boundary.
+The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, clarification in the originating conversation, or an explicit temporary boundary. MCP must never require a second review in the Kwilt app.
 
 Core coverage obligations are Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions. Navigation and notification actions are supporting controls. Games and Explore are explicitly excluded from external conversational control for this program; their absence must not be confused with an accidental catalog gap. AI can never attest publishing rights, complete retailer checkout or payment without provider authority, bypass native device authorization, or silently perform destructive/shared/financial actions.
 
-The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority. A reviewed operation may be externally exposed only when its immutable proposal has a registered server-owned inspect/apply/reject continuation; catalog validation must reject reviewed operations without that continuation.
+The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority. Explicit conversational authorization must reach a registered server executor. Where only a mobile executor exists, return an explicit unavailable boundary without creating a review task.
 
 Implementation checkpoint (2026-09-16): external backing threads are locally classified out of the visible Chat list, and Home has a completed-write projection over the existing external audit trail. The catalog-wide reviewed-operation continuation is still incomplete: many proposal decisions remain implemented only by mobile capability executors. Do not deploy the thread-visibility migration as a complete MCP fix until those exposed reviewed operations can finish in the originating agentic surface or are temporarily withdrawn from the external catalog.
+
+Implementation checkpoint (2026-10-11): the MCP adapter now plans canonical operations
+in memory and executes supported Life writes with atomic receipts. It no longer
+persists mobile proposals or device handoff tasks. Existing server executors continue
+to operate; mobile-only providers return unavailable. This is not full server parity
+for every catalog entry. Ownership, scopes, stale-target checks, and idempotency remain
+required. The former September continuation plan is superseded by this conversational
+authorization contract. Deployed as MCP version 80; [live verification](../delivery-evidence/unified-chat/2026-10-11-mcp-direct-execution.md) confirms Goal creation and duplicate-free retry.
 
 ### Authorization and review contract
 
 - Supported scopes are `life.read`, `life.write`, `household.read`, `household.write`, `money.read`, `money.write`, `food.read`, and `food.write`. A capability write grant implies only its matching read grant.
 - The server advertises and accepts only tools whose complete required-scope set is present on the token. A scope may exist before a safe server tool is exposed; it never causes a manifest-only or device-only action to appear.
-- Questions, suggestions, hypotheticals, and ambiguous requests do not become writes because a token has write access. The canonical action policy either answers, persists a review proposal, executes, or returns a native handoff.
+- Questions, suggestions, hypotheticals, and ambiguous requests do not become writes because a token has write access. The caller answers or clarifies in the same conversation; an authorized tool call executes or returns an explicit unavailable boundary. It never persists a mobile review proposal.
 - Legacy broad grants are explicitly policy version 1, expire on 2026-11-30, and map only to `life.read` or `life.read life.write`. They never inherit Household, Money, or Food access.
 
 ### Relationship to Phone Agent action tools
@@ -150,7 +158,7 @@ MCP should not grow a separate action model from Phone Agent / Text Coach. The s
 | Log Activity outcome | User asks external AI to mark something done | User replies `done` to a follow-up |
 | Snooze or pause follow-up | User asks external AI to defer a prompt | User replies `snooze 2d`, `pause`, or `not relevant` |
 | Draft message | User asks Claude/ChatGPT for a draft using Kwilt context | Kwilt offers a draft at the moment follow-through is due |
-| Propose Goal | External AI proposes and deep-links to confirmation | Text Coach proposes only when strongly supported; confirmation required |
+| Create Goal | External AI executes the user-requested creation in the originating conversation | Text Coach proposes only when strongly supported; confirmation required |
 
 The distinction is **who initiates**. MCP is pull-based: the user is already in an external chat and asks for something. Phone Agent is Kwilt-owned: the user texts or calls Kwilt directly, and Kwilt can later carry a previously captured intention across time through SMS prompts. Both must write to the same audit/action log so the app, Chapters, and user settings can explain what happened.
 

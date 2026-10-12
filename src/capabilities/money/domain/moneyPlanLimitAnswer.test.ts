@@ -1,7 +1,7 @@
 import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyPlanLimitEvidence } from '../data/moneyPlanLimitEvidence';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
-import { formatMoneyPlanLimitAnswer, projectMoneyPlanCapacity, projectMoneyPlanLimitAnswer } from './moneyPlanLimitAnswer';
+import { formatMoneyPlanLimitAnswer, projectMoneyPlanCapacity, projectMoneyPlanLimitAnswer as projectAnswer } from './moneyPlanLimitAnswer';
 
 const evidence: MoneyPlanLimitEvidence = {
   resourceBasisKind: 'detected_income',
@@ -39,8 +39,15 @@ function reconciliation(overrides: Partial<MoneyEconomicRoleReconciliation['tota
   };
 }
 
+function projectMoneyPlanLimitAnswer(input: Omit<Parameters<typeof projectAnswer>[0], 'categories'>) {
+  const protectedCents = input.protectedPlanCents ?? input.active.allocations.reduce((sum, row) => sum + row.fixedCents, 0);
+  const budgetCents = input.active.allocations.reduce((sum, row) => sum + row.amountCents, 0) - protectedCents;
+  const spentCents = input.reconciliation.totals.flexibleSpendingCents;
+  return projectAnswer({ ...input, categories: [{ planRole: 'flexible', spentCents, remainingCents: budgetCents - spentCents }] });
+}
+
 describe('projectMoneyPlanLimitAnswer', () => {
-  it('projects the exact supported flexible room inside the selected living limit', () => {
+  it('projects the exact supported flexible room against the flexible category budget', () => {
     const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: reconciliation(), freshness: 'fresh' });
 
     expect(answer.facts).toMatchObject({
@@ -106,7 +113,7 @@ describe('projectMoneyPlanLimitAnswer', () => {
   it.each([
     ['missing_income_basis', active(), { ...evidence, resourceBasisKind: 'unknown' as const }, reconciliation(), 'fresh' as const],
     ['stale', active(), evidence, reconciliation(), 'stale' as const],
-    ['over_limit', active({ plannedCents: 358400, overTargetCents: 8400 }), evidence, reconciliation(), 'fresh' as const],
+    ['supported', active({ plannedCents: 358400, overTargetCents: 8400 }), evidence, reconciliation(), 'fresh' as const],
   ])('uses state priority for %s', (state, plan, planEvidence, rows, freshness) => {
     expect(projectMoneyPlanLimitAnswer({ active: plan, evidence: planEvidence, reconciliation: rows, freshness }).state).toBe(state);
   });
@@ -129,7 +136,7 @@ describe('projectMoneyPlanLimitAnswer', () => {
         { categoryId: 'home', amountCents: 350000, fixedCents: 350000, overrideCents: 0, flexibleCents: 0, exposureCents: 0, source: 'fixed', fundingRhythm: 'monthly', priorReserveCents: 0, expectedNeed: null },
       ],
     });
-    expect(projectMoneyPlanLimitAnswer({ active: noRoom, evidence, reconciliation: reconciliation(), freshness: 'fresh' }).state)
+    expect(projectMoneyPlanLimitAnswer({ active: noRoom, evidence, reconciliation: reconciliation({ flexibleSpendingCents: 0 }), freshness: 'fresh' }).state)
       .toBe('no_flexible_room');
 
     const overspent = projectMoneyPlanLimitAnswer({
@@ -138,9 +145,16 @@ describe('projectMoneyPlanLimitAnswer', () => {
     expect(overspent.state).toBe('over_flexible_room');
     expect(overspent.headlineAmountCents).toBe(8400);
     expect(formatMoneyPlanLimitAnswer(overspent)).toEqual({
-      headline: 'Flexible spending is $84 beyond the room in your living limit',
+      headline: 'Flexible spending is $84 over its category budget',
       support: '$1,584 of $1,500 used',
     });
+  });
+
+  it('shows overspending even when the flexible budget is zero', () => {
+    const result = projectAnswer({ active: active(), evidence, reconciliation: reconciliation(), freshness: 'fresh',
+      categories: [{ planRole: 'flexible', spentCents: 5000, remainingCents: -5000 }] });
+    expect(result.state).toBe('over_flexible_room');
+    expect(result.headlineAmountCents).toBe(5000);
   });
 
   it('keeps committed overspending separate from the fixed flexible plan', () => {
@@ -165,7 +179,7 @@ describe('projectMoneyPlanLimitAnswer', () => {
     expect(projected.headlineAmountCents).toBe(8_400);
   });
 
-  it('counts unresolved ordinary outflows conservatively instead of asking the customer to classify them', () => {
+  it('keeps unresolved outflows separate from the category total', () => {
     const rows = reconciliation({ flexibleSpendingCents: 145000, unresolvedInScopeCents: 9000 });
     rows.rows = [
       { transactionId: 'small', disposition: 'unresolved', amountCents: 1000, monthlyPlanCents: 1000, savedResourceCents: 0, contributions: [] },
@@ -175,22 +189,23 @@ describe('projectMoneyPlanLimitAnswer', () => {
 
     const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: rows, freshness: 'fresh' });
 
-    expect(answer.state).toBe('over_flexible_room');
-    expect(answer.headlineAmountCents).toBe(4000);
-    expect(answer.facts.countedFlexibleSpendCents).toBe(154000);
-    expect(answer.facts.flexibleRoomCents).toBe(-4000);
+    expect(answer.state).toBe('supported');
+    expect(answer.headlineAmountCents).toBe(5000);
+    expect(answer.facts.countedFlexibleSpendCents).toBe(145000);
+    expect(answer.facts.flexibleRoomCents).toBe(5000);
+    expect(answer.facts.unresolvedInScopeCents).toBe(9000);
     expect(answer.reviewTransactionIds).toEqual([]);
   });
 
-  it('returns one exact conservative answer when unresolved category placement remains', () => {
+  it('does not reduce category balances for unresolved category placement', () => {
     const projected = projectMoneyPlanLimitAnswer({
       active: active(), evidence,
       reconciliation: reconciliation({ flexibleSpendingCents: 115704, unresolvedInScopeCents: 2000 }),
       freshness: 'fresh',
     });
     expect(projected.state).toBe('supported');
-    expect(projected.headlineAmountCents).toBe(32296);
-    expect(projected.facts.flexibleRoomLowCents).toBe(32296);
-    expect(projected.facts.flexibleRoomHighCents).toBe(32296);
+    expect(projected.headlineAmountCents).toBe(34296);
+    expect(projected.facts.flexibleRoomLowCents).toBe(34296);
+    expect(projected.facts.flexibleRoomHighCents).toBe(34296);
   });
 });
