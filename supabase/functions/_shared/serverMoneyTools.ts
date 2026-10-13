@@ -1,3 +1,4 @@
+import { projectCategoryRollover, type RolloverPolicy } from '../../../src/capabilities/money/domain/categoryRolloverMath.ts';
 import type { ServerAgentToolCall, ServerAgentToolResult } from './agentRuntime.ts';
 import type { ServerDeviceActionRequest } from './serverDeviceHandoffs.ts';
 import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
@@ -39,7 +40,7 @@ type MoneyCategoryRow = {
   sort_order: number; updated_at?: string | null;
 };
 type MoneyPlanRow = {
-  category_id: string; base_budget_cents: number; rollover_enabled?: boolean;
+  category_id: string; base_budget_cents: number; rollover_enabled?: boolean; rollover_policy?: RolloverPolicy | null;
   forecast_mode?: 'paced' | 'scheduled' | 'hybrid' | 'manual' | null;
   manual_projected_spend_cents?: number | null; scheduled_amount_cents?: number | null;
   scheduled_due_day?: number | null; funding_rhythm?: 'monthly' | 'reserve' | null;
@@ -101,7 +102,7 @@ async function loadServerMoneyRows(client: MoneyReadClient, userId: string, now:
       .select('id,slug,legacy_budget_id,name,sort_order,updated_at')
       .eq('user_id', userId).eq('status', 'active').order('sort_order', { ascending: true })),
     readAllMoneyRows<MoneyPlanRow>('plans', client.from('budget_plans')
-      .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,reserve_balance_cents,expected_need_cents,expected_need_due_month,updated_at')
+      .select('category_id,base_budget_cents,rollover_enabled,rollover_policy,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,reserve_balance_cents,expected_need_cents,expected_need_due_month,updated_at')
       .eq('user_id', userId).eq('status', 'active').order('category_id', { ascending: true })),
     readAllMoneyRows<MoneyConnectionRow>('connections', client.from('budget_financial_connections')
       .select('last_synced_at')
@@ -114,7 +115,7 @@ async function loadServerMoneyRows(client: MoneyReadClient, userId: string, now:
       .order('transaction_id', { ascending: true }).order('budget_id', { ascending: true })),
     readAllMoneyRows<MoneyTransactionRow>('transactions', client.from('budget_transactions')
       .select('id,amount_cents,direction,date,pending,budget_id,budget_match_source,money_meaning,saved_resource_cents,personal_finance_category_detailed')
-      .eq('user_id', userId).gte('date', `${month}-01`).lt('date', `${nextMoneyMonth(month)}-01`)
+      .eq('user_id', userId).lt('date', `${nextMoneyMonth(month)}-01`)
       .order('date', { ascending: false }).order('id', { ascending: false })),
   ]);
 }
@@ -163,7 +164,7 @@ function buildServerMoneySnapshot(
     let outflowCents = 0;
     let creditCents = 0;
     const transactionIds = new Set<string>();
-    transactions.forEach((transaction) => {
+    transactions.filter((transaction) => transaction.date.startsWith(month)).forEach((transaction) => {
       const allocations = allocationsByTransaction.get(transaction.id);
       if (allocations) {
         const allocation = allocations.find((value) => categoryByAlias.get(value.budget_id)?.id === category.id);
@@ -197,21 +198,35 @@ function buildServerMoneySnapshot(
       expectedNeed: plan?.expected_need_cents != null && plan.expected_need_due_month
         ? { amountCents: cents(plan.expected_need_cents), dueMonth: plan.expected_need_due_month } : null,
     });
+    const rollover = plan?.rollover_policy && (plan.rollover_enabled || fundingRhythm === 'reserve')
+      ? projectCategoryRollover({ id: category.id, sourceId: category.id, plannedCents }, plan.rollover_policy,
+        transactions.map((transaction) => ({
+          date: transaction.date, pending: transaction.pending, amountCents: cents(transaction.amount_cents),
+          direction: transaction.direction, categoryId: transaction.budget_id ? categoryByAlias.get(transaction.budget_id)?.id ?? null : null,
+          moneyMeaning: transaction.budget_match_source === 'excluded' ? 'not_counted' : transaction.money_meaning,
+          savedResourceCents: cents(transaction.saved_resource_cents),
+          providerCategoryDetailed: transaction.personal_finance_category_detailed,
+          allocations: allocationsByTransaction.get(transaction.id)?.map((part) => ({
+            categoryId: categoryByAlias.get(part.budget_id)!.id, sourceCategoryId: categoryByAlias.get(part.budget_id)!.id, amountCents: cents(part.amount_cents),
+          })),
+        })), month, spentCents)
+      : null;
     const forecast = projectCategoryForecast({
       periodStartIso: `${month}-01`, periodEndIso: periodEnd, todayIso: now.toISOString().slice(0, 10),
-      plannedCents, spentCents, mode: plan?.forecast_mode,
+      plannedCents: plannedCents + (rollover?.carriedInCents ?? 0), spentCents, mode: plan?.forecast_mode,
       manualProjectedSpendCents: plan?.manual_projected_spend_cents,
       scheduledAmountCents: plan?.scheduled_amount_cents, scheduledDueDay: plan?.scheduled_due_day,
-      fundingRhythm, reserveAvailableCents: funding.availableCents, fundingCoverage: funding.coverage,
+      fundingRhythm, reserveAvailableCents: rollover?.availableCents ?? funding.availableCents, fundingCoverage: funding.coverage,
     });
     return {
       id: category.id, name: category.name.trim() || category.slug, plannedCents, spentCents,
-      remainingCents: funding.availableCents,
+      remainingCents: rollover?.availableCents ?? funding.availableCents,
       percentUsed: plannedCents > 0 ? Math.round(spentCents / plannedCents * 100) : 0,
       transactionCount: transactionIds.size, updatedAt: plan?.updated_at ?? category.updated_at ?? observedAt, forecast,
     };
   });
   const outsidePlan = transactions.filter((transaction) => {
+    if (!transaction.date.startsWith(month)) return false;
     if (allocationsByTransaction.has(transaction.id) || transaction.budget_match_source === 'excluded') return false;
     const assigned = transaction.budget_id ? categoryByAlias.has(transaction.budget_id) : false;
     return !assigned && isCommittedOutflow({
@@ -221,6 +236,7 @@ function buildServerMoneySnapshot(
   });
   const plannedCents = categories.reduce((sum, category) => sum + category.plannedCents, 0);
   const spentCents = categories.reduce((sum, category) => sum + category.spentCents, 0);
+  const availableBudgetCents = categories.reduce((sum, category) => sum + category.remainingCents + category.spentCents, 0);
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
   const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
@@ -232,10 +248,10 @@ function buildServerMoneySnapshot(
   return {
     month, periodLabel: new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(now),
     observedAt, lastSyncedAt: synced[0] ?? null,
-    totals: { plannedCents, spentCents, remainingCents: plannedCents - spentCents, needsReviewCount: outsidePlan.length },
+    totals: { plannedCents, spentCents, remainingCents: categories.reduce((sum, category) => sum + category.remainingCents, 0), needsReviewCount: outsidePlan.length },
     forecast: { projectedSpendCents, projectionRangeLowCents, projectionRangeHighCents,
-      projectedRemainingCents: Math.max(0, plannedCents - projectedSpendCents),
-      projectedOverageCents: Math.max(0, projectedSpendCents - plannedCents), confidence,
+      projectedRemainingCents: Math.max(0, availableBudgetCents - projectedSpendCents),
+      projectedOverageCents: Math.max(0, projectedSpendCents - availableBudgetCents), confidence,
       atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length },
     outsidePlan: { spentCents: outsidePlan.reduce((sum, transaction) => sum + planCoveredCents(transaction), 0),
       transactionCount: outsidePlan.length },

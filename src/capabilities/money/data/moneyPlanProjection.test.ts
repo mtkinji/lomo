@@ -370,3 +370,19 @@ function category(id: string, plannedCents: number, spentCents: number): MoneyCa
 function allocation(categoryId: string, amountCents: number): LivingPlanAllocation {
   return { categoryId, amountCents, fixedCents: 0, overrideCents: amountCents, flexibleCents: 0, exposureCents: 0, source: 'user_override', fundingRhythm: 'monthly', priorReserveCents: 0, expectedNeed: null };
 }
+
+it('preserves rollover in governed allocations and the flexible-room answer', () => {
+  const food = { ...category('food', 40000, 10000), rolloverEnabled: true, rolloverPolicy: {
+    startMonth: '2026-06', startingBalanceCents: -5000, monthlyAmounts: { '2026-06': 30000 }, timeZone: 'America/Denver',
+  } };
+  const snapshot = {
+    periodLabel: 'July 2026', generatedAt: '2026-07-24T12:00:00Z', lastSyncedAt: '2026-07-24T12:00:00Z',
+    categories: [food], transactions: [], accounts: [], outsidePlan: { spentCents: 0, transactionCount: 0 },
+    totals: { plannedCents: 40000, spentCents: 10000, remainingCents: 30000, needsReviewCount: 0 }, forecast: food.forecast,
+  } as unknown as MoneySnapshot;
+  const active = { ...activePlan(), allocations: [allocation('food', 40000)] };
+  const result = projectMoneyPlanProjection(snapshot, active, evidence, new Date(2026, 6, 24));
+  expect(result.snapshot.categories[0].remainingCents).toBe(55000);
+  expect(result.snapshot.totals.remainingCents).toBe(55000);
+  expect(result.snapshot.livingLimitAnswer?.headlineAmountCents).toBe(55000);
+});

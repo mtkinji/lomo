@@ -108,3 +108,20 @@ describe('confirmed Money patches', () => {
     });
   });
 });
+
+it('removes carried money and its forecast immediately when rollover is disabled', () => {
+  const prior = { ...snapshot, categories: [{ ...snapshot.categories[0], rolloverEnabled: true, rolloverCarriedInCents: 90000,
+    rolloverPolicy: { startMonth: '2026-01', startingBalanceCents: 90000, monthlyAmounts: { '2026-01': 10000 }, timeZone: 'America/Denver' },
+    forecast: { ...snapshot.categories[0].forecast, projectedRemainingCents: 97500 },
+  }] };
+  const result = applyConfirmedCategoryPatch(prior, { categorySourceId: 'category-uuid', rolloverEnabled: false, rolloverPolicy: null });
+  expect(result.categories[0]).toMatchObject({ remainingCents: 7500, rolloverCarriedInCents: 0 });
+  expect(result.categories[0].forecast.projectedRemainingCents).toBeLessThanOrEqual(10000);
+});
+
+ it('clears reserve display after a confirmed switch to monthly even if refresh fails', () => {
+  const prior = { ...snapshot, categories: [{ ...snapshot.categories[0], fundingRhythm: 'reserve' as const, reserveAvailableCents: 97500, reserveAvailabilityKnown: true }] };
+  const result = applyConfirmedCategoryPatch(prior, { categorySourceId: 'category-uuid', fundingRhythm: 'monthly' });
+  expect(result.categories[0]).toMatchObject({ fundingRhythm: 'monthly', remainingCents: 7500, reserveAvailableCents: 0, fundingCoverage: { status: 'none' } });
+  expect(result.categories[0].forecast.projectedRemainingCents).toBeLessThanOrEqual(10000);
+});

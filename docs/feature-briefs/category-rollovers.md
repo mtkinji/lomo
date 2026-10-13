@@ -84,3 +84,28 @@ Clear enough to implement with three product assumptions:
 1. First release uses one visible policy, `Roll over month to month`, carrying both positive and negative differences.
 2. Manual rollover adjustments, transfers, caps, and expiration are deferred.
 3. Rollover applies to monthly categories only until cadence behavior is explicitly designed.
+
+## Accepted refinement — October 13, 2026
+
+This refinement supersedes the earlier UI distinction between Monthly and Reserve.
+The category settings surface presents one **Rollover** switch. Start month,
+signed starting balance and current-month calculation preview appear only when
+it is enabled. Start defaults to the current local month, with a January-this-year
+shortcut and month picker. Save changes commits the draft; closing discards it.
+
+Backdating exposes the monthly budget used for earlier months and requires the
+user to review imported spending. Months with no imported posted activity do not
+silently count as zero: offer starting this month with a known opening balance,
+or importing the missing history. Presence of transactions is not proof of
+complete bank coverage; user review remains explicit.
+
+The opening balance precedes both the first selected month's contribution and
+spending. Both positive and negative carry are supported. A durable effective-month
+amount schedule preserves earlier contributions when later budgets change.
+Summary, category detail, governed-plan projection and server Money reads use
+the same rollover arithmetic. Existing reserve categories retain expected-need
+coverage, exposed beneath the rollover controls; this is not a destructive
+conversion of their saved balances. Annual reset remains deferred.
+
+Delivery evidence and deployment/native boundaries are recorded in
+`docs/superpowers/plans/2026-10-13-category-rollover-start.md`.

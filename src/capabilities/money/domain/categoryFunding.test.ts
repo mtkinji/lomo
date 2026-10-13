@@ -128,3 +128,9 @@ describe('projectReserveAvailabilityFromAnchor', () => {
     })).toBeNull();
   });
 });
+
+it('keeps reserve overspending in the next month instead of erasing the deficit', () => {
+  const result = projectCategoryFunding({ rhythm: 'reserve', monthlyContributionCents: 40000, priorReserveCents: -10000, countedSpendCents: 5000, periodId: '2026-10', expectedNeed: { amountCents: 30000, dueMonth: '2026-10' } });
+  expect(result.availableCents).toBe(25000);
+  expect(result.coverage).toMatchObject({ status: 'shortfall', shortfallCents: 5000 });
+});

@@ -38,7 +38,7 @@ export function projectCategoryFunding(input: {
 }): CategoryFundingProjection {
   const contributionCents = cents(input.monthlyContributionCents);
   const countedSpendCents = cents(input.countedSpendCents);
-  const carriedInCents = input.rhythm === 'reserve' ? cents(input.priorReserveCents) : 0;
+  const carriedInCents = input.rhythm === 'reserve' && Number.isFinite(input.priorReserveCents) ? Math.round(input.priorReserveCents) : 0;
   const availableCents = carriedInCents + contributionCents - countedSpendCents;
 
   return {

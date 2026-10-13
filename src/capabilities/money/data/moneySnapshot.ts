@@ -1,3 +1,4 @@
+import { applyCategoryRollover, type RolloverPolicy } from '../domain/categoryRollover';
 import {
   projectCategoryForecast,
   type MoneyCategoryForecast,
@@ -35,6 +36,7 @@ export type MoneyPlanRow = {
   category_id: string;
   base_budget_cents: number;
   rollover_enabled: boolean;
+  rollover_policy?: RolloverPolicy | null;
   forecast_mode?: MoneyForecastMode | null;
   manual_projected_spend_cents?: number | null;
   scheduled_amount_cents?: number | null;
@@ -134,6 +136,8 @@ export type MoneyCategory = {
   percentUsed: number;
   transactionCount: number;
   rolloverEnabled: boolean;
+  rolloverPolicy?: RolloverPolicy | null;
+  rolloverCarriedInCents?: number;
   fundingRhythm: CategoryFundingRhythm;
   fundingPolicyVersion: string | null;
   starterWeight: number;
@@ -403,7 +407,8 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
           ...categoryTransactions.map((transaction) => transaction.id),
           ...allocatedTransactions.map(({ transaction }) => transaction.id),
         ]).size,
-        rolloverEnabled: fundingRhythm === 'monthly' && plan?.rollover_enabled === true,
+        rolloverEnabled: plan?.rollover_enabled === true,
+        rolloverPolicy: plan?.rollover_policy ?? null,
         fundingRhythm,
         fundingPolicyVersion: plan?.funding_policy_version ?? null,
         starterWeight: validWeight(plan?.starter_weight ?? 0),
@@ -425,10 +430,10 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
         updatedAt: plan?.updated_at ?? now.toISOString(),
       };
-      return {
+      return applyCategoryRollover({
         ...projectedCategory,
         planRole: inferMoneyCategoryPlanRole(projectedCategory),
-      };
+      }, transactions, monthKey);
     });
 
   const accountTransactions = new Map<string, MoneyTransactionRow[]>();
@@ -483,6 +488,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       && !allocationsByTransactionId.has(transaction.id)
       && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
   );
+  const availableBudgetCents = categories.reduce((sum, category) => sum + category.remainingCents + category.spentCents, 0);
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
   const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
@@ -495,15 +501,15 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
     totals: {
       plannedCents,
       spentCents,
-      remainingCents: plannedCents - spentCents,
+      remainingCents: categories.reduce((sum, category) => sum + category.remainingCents, 0),
       needsReviewCount,
     },
     forecast: {
       projectedSpendCents,
       projectionRangeLowCents,
       projectionRangeHighCents,
-      projectedRemainingCents: Math.max(0, plannedCents - projectedSpendCents),
-      projectedOverageCents: Math.max(0, projectedSpendCents - plannedCents),
+      projectedRemainingCents: Math.max(0, availableBudgetCents - projectedSpendCents),
+      projectedOverageCents: Math.max(0, projectedSpendCents - availableBudgetCents),
       confidence,
       atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length,
     },

@@ -1,3 +1,4 @@
+import { validateRolloverPolicy, type RolloverPolicy } from '../domain/categoryRollover';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
@@ -85,6 +86,8 @@ export type ConfirmedCategoryWrite = {
   changes: {
     name?: string;
     rolloverEnabled?: boolean;
+    rolloverPolicy?: RolloverPolicy | null;
+    fundingRhythm?: CategoryFundingRhythm;
     forecastMode?: MoneyForecastMode;
     manualProjectedSpendCents?: number | null;
     scheduledAmountCents?: number | null;
@@ -169,6 +172,7 @@ export interface MoneyRepository {
   updateCategoryPlan(categoryId: string, input: {
     budgetCents?: number;
     rolloverEnabled?: boolean;
+    rolloverPolicy?: RolloverPolicy | null;
     forecastMode?: MoneyForecastMode;
     manualProjectedSpendCents?: number | null;
     scheduledAmountCents?: number | null;
@@ -593,6 +597,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         update.base_budget_cents = input.budgetCents;
       }
       if (input.rolloverEnabled != null) update.rollover_enabled = input.rolloverEnabled;
+      if ('rolloverPolicy' in input) update.rollover_policy = input.rolloverPolicy == null ? null : validateRolloverPolicy(input.rolloverPolicy);
       if (input.planRole != null) update.plan_role = input.planRole;
       if (input.forecastMode != null) update.forecast_mode = input.forecastMode;
       if ('manualProjectedSpendCents' in input) {
@@ -647,7 +652,9 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
         categoryId: normalizedCategoryId,
         changes: {
+          ...(input.fundingRhythm != null ? { fundingRhythm: input.fundingRhythm } : null),
           ...(input.rolloverEnabled != null ? { rolloverEnabled: input.rolloverEnabled } : null),
+          ...('rolloverPolicy' in input ? { rolloverPolicy: update.rollover_policy as RolloverPolicy | null } : null),
           ...(input.forecastMode != null ? { forecastMode: input.forecastMode } : null),
           ...('manualProjectedSpendCents' in input ? { manualProjectedSpendCents: input.manualProjectedSpendCents ?? null } : null),
           ...('scheduledAmountCents' in input ? { scheduledAmountCents: input.scheduledAmountCents ?? null } : null),
@@ -763,6 +770,13 @@ function parseConnectionDisconnectReceipt(
 }
 
 async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
+  const withRollover = await db.from('budget_plans')
+    .select('category_id,base_budget_cents,rollover_enabled,rollover_policy,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
+    .eq('status', 'active');
+  if (!withRollover.error) return (withRollover.data ?? []) as MoneyPlanRow[];
+  if (withRollover.error.code !== 'PGRST204' && withRollover.error.code !== '42703') {
+    throw new Error(`Money could not read plans: ${withRollover.error.message || 'Unknown database error'}`);
+  }
   const expanded = await db
     .from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')

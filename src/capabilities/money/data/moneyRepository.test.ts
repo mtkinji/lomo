@@ -614,3 +614,18 @@ describe('createMoneyRepository transaction review', () => {
       .rejects.toThrow('could not confirm the category plan');
   });
 });
+
+describe('rollover policy persistence', () => {
+  const rolloverPolicy = { startMonth: '2026-01', startingBalanceCents: -5000, monthlyAmounts: { '2026-01': 40000 }, timeZone: 'America/Denver' };
+  it('writes the switch and complete policy together and returns a confirmed policy', async () => {
+    const { client, calls } = createClient();
+    const result = await createMoneyRepository(client).updateCategoryPlan('category-1', { rolloverEnabled: true, rolloverPolicy });
+    expect(calls.find((call) => call.update)?.update).toEqual({ rollover_enabled: true, rollover_policy: rolloverPolicy });
+    expect(result.changes).toMatchObject({ rolloverEnabled: true, rolloverPolicy });
+  });
+  it('rejects an invalid policy before any database write', async () => {
+    const { client, calls } = createClient();
+    await expect(createMoneyRepository(client).updateCategoryPlan('category-1', { rolloverPolicy: { ...rolloverPolicy, startMonth: '2026-13' } })).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+});

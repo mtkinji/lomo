@@ -195,3 +195,12 @@ describe('projectMoneyCategoryPeriodView', () => {
     expect(projectMoneyCategoryPeriodView(snapshot, 'missing', 0, new Date(2026, 6, 24))).toBeNull();
   });
 });
+
+it('shows the same carried balance in the historical category and period total', () => {
+  const withRollover = { ...snapshot, categories: [{ ...snapshot.categories[0], rolloverEnabled: true, rolloverPolicy: {
+    startMonth: '2026-05', startingBalanceCents: -5000, monthlyAmounts: { '2026-05': 50000 }, timeZone: 'America/Denver',
+  } }] };
+  const history = projectMoneyPeriodView(withRollover, -1, new Date(2026, 6, 24));
+  expect(history.categories[0].remainingCents).toBe(75000);
+  expect(history.totals.remainingCents).toBe(75000);
+});

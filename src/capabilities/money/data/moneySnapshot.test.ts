@@ -551,3 +551,15 @@ describe('projectMoneySnapshot', () => {
     ]);
   });
 });
+
+describe('rollover start integration', () => {
+  it('reconciles summary totals with category carry including negative opening balances', () => {
+    const snapshot = projectMoneySnapshot({
+      categories, plans: [{ ...plans[0], rollover_enabled: true, rollover_policy: {
+        startMonth: '2026-01', startingBalanceCents: -5000, monthlyAmounts: { '2026-01': 40000 }, timeZone: 'America/Denver',
+      } }], transactions: [], accounts: [], connections: [],
+    }, new Date(2026, 9, 13));
+    expect(snapshot.categories[0]).toMatchObject({ rolloverCarriedInCents: 355000, remainingCents: 415000, plannedCents: 60000 });
+    expect(snapshot.totals.remainingCents).toBe(snapshot.categories.reduce((sum, category) => sum + category.remainingCents, 0));
+  });
+});

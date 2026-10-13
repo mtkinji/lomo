@@ -1,3 +1,4 @@
+import { applyCategoryRollover } from './categoryRollover';
 import type { MoneyCategory, MoneySnapshot, MoneyTransaction } from '../data/moneySnapshot';
 import { projectCategoryForecast } from './moneyForecast';
 import { projectCategoryFunding, projectReserveAvailabilityFromAnchor } from './categoryFunding';
@@ -53,7 +54,7 @@ export function projectMoneyPeriodView(
     totals: {
       plannedCents,
       spentCents,
-      remainingCents: plannedCents - spentCents,
+      remainingCents: categories.reduce((sum, category) => sum + category.remainingCents, 0),
       percentUsed: plannedCents > 0 ? Math.round((spentCents / plannedCents) * 100) : 0,
     },
   };
@@ -103,6 +104,10 @@ function projectCategoryForMonth(
   now: Date,
 ): MoneyCategory {
   const monthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
+  if (category.rolloverPolicy && monthKey >= category.rolloverPolicy.startMonth) {
+    const effective = Object.keys(category.rolloverPolicy.monthlyAmounts).sort().filter((start) => start <= monthKey).pop();
+    if (effective) category = { ...category, plannedCents: category.rolloverPolicy.monthlyAmounts[effective] };
+  }
   const transactions = projectMoneyTransactionsForCategory(
     snapshot.transactions.filter((transaction) => transaction.date.startsWith(monthKey) && !transaction.pending),
     category,
@@ -130,7 +135,7 @@ function projectCategoryForMonth(
     fundingCoverage: funding.coverage,
   });
 
-  return {
+  return applyCategoryRollover({
     ...category,
     spentCents,
     remainingCents: funding.availableCents,
@@ -142,7 +147,7 @@ function projectCategoryForMonth(
     fundingCoverage: funding.coverage,
     reserveAvailabilityKnown: funding.known,
     forecast,
-  };
+  }, snapshot.transactions, monthKey);
 }
 
 function projectFundingForSelectedPeriod(

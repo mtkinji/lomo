@@ -1,3 +1,6 @@
+import { projectCategoryForecast } from '../domain/moneyForecast';
+import { applyCategoryRollover, type RolloverPolicy } from '../domain/categoryRollover';
+import { getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import type { MoneySnapshot, MoneyTransaction } from './moneySnapshot';
 import type { MoneyCategoryCover } from '../domain/moneyCategoryCover';
 import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
@@ -14,6 +17,8 @@ export type ConfirmedCategoryPatch = {
   categorySourceId: string;
   name?: string;
   rolloverEnabled?: boolean;
+  rolloverPolicy?: RolloverPolicy | null;
+  fundingRhythm?: MoneySnapshot['categories'][number]['fundingRhythm'];
   coverImage?: MoneyCategoryCover | null;
 };
 
@@ -94,18 +99,47 @@ export function applyConfirmedCategoryPatch(
   patch: ConfirmedCategoryPatch,
 ): MoneySnapshot {
   if (!snapshot.categories.some((category) => category.sourceId === patch.categorySourceId)) return snapshot;
-  return {
+  const result = {
     ...snapshot,
     generatedAt: new Date().toISOString(),
     categories: snapshot.categories.map((category) => category.sourceId === patch.categorySourceId
       ? {
           ...category,
           ...(patch.name != null ? { name: patch.name } : null),
+          ...(patch.fundingRhythm != null ? { fundingRhythm: patch.fundingRhythm } : null),
+          ...(patch.fundingRhythm === 'monthly' ? { reserveAvailableCents: 0, reserveAvailabilityKnown: false, expectedNeed: null, fundingCoverage: { status: 'none' as const } } : null),
           ...(patch.rolloverEnabled != null ? { rolloverEnabled: patch.rolloverEnabled } : null),
+          ...('rolloverPolicy' in patch ? { rolloverPolicy: patch.rolloverPolicy ?? null } : null),
           ...('coverImage' in patch ? { coverImage: patch.coverImage ?? null } : null),
         }
       : category),
   };
+  if ('rolloverPolicy' in patch || patch.rolloverEnabled != null || patch.fundingRhythm != null) {
+    result.categories = result.categories.map((category) => {
+      if (category.sourceId !== patch.categorySourceId) return category;
+      const now = new Date();
+      const month = getLocalMoneyPeriodId(now);
+      const base = {
+        ...category, remainingCents: category.plannedCents - category.spentCents, rolloverCarriedInCents: 0,
+        forecast: projectCategoryForecast({
+          periodStartIso: `${month}-01`, periodEndIso: `${month}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`,
+          todayIso: `${month}-${String(now.getDate()).padStart(2, '0')}`,
+          plannedCents: category.plannedCents, spentCents: category.spentCents,
+          mode: category.forecastSettings?.mode ?? category.forecast.mode,
+          manualProjectedSpendCents: category.forecastSettings?.manualProjectedSpendCents,
+          scheduledAmountCents: category.forecastSettings?.scheduledAmountCents,
+          scheduledDueDay: category.forecastSettings?.scheduledDueDay,
+          fundingRhythm: category.fundingRhythm, reserveAvailableCents: category.reserveAvailableCents,
+          fundingCoverage: category.fundingCoverage,
+        }),
+      };
+      return applyCategoryRollover(base, result.transactions, getLocalMoneyPeriodId(new Date()));
+    });
+    result.totals = { ...result.totals, remainingCents: result.categories.reduce((sum, category) => sum + category.remainingCents, 0) };
+    // The governed answer is refreshed from evidence; never retain its old balance after a policy edit.
+    result.livingLimitAnswer = null;
+  }
+  return result;
 }
 
 export function applyConfirmedMerchantRulePatch(

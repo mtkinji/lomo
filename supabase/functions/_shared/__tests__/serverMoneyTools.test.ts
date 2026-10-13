@@ -277,3 +277,18 @@ test('returns null for tools outside Money', async () => {
     stageDeviceAction: jest.fn(),
   })).resolves.toBeNull();
 });
+
+test('money.read includes historical rollover without counting historical spending again this month', async () => {
+  const { client } = moneyReadClient({
+    budget_categories: [{ id: 'category-1', slug: 'shopping', name: 'Shopping', sort_order: 1 }],
+    budget_plans: [{ category_id: 'category-1', base_budget_cents: 40000, rollover_enabled: true, rollover_policy: {
+      startMonth: '2026-01', startingBalanceCents: 0, monthlyAmounts: { '2026-01': 40000 }, timeZone: 'America/Denver',
+    } }],
+    budget_transactions: [
+      { id: 'old', date: '2026-01-15', amount_cents: 295000, direction: 'outflow', pending: false, budget_id: 'shopping' },
+      { id: 'current', date: '2026-10-12', amount_cents: 12000, direction: 'outflow', pending: false, budget_id: 'shopping' },
+    ],
+  });
+  const result = await executeServerMoneyTool({ client, userId: 'user-1', call: { id: 'rollover', toolId: 'money.read', arguments: {} }, stageDeviceAction: jest.fn(), now: new Date('2026-10-13T12:00:00Z') });
+  expect(result).toMatchObject({ status: 'completed', output: { money: { totals: { spentCents: 12000, remainingCents: 93000 }, categories: [{ remainingCents: 93000 }] } } });
+});

@@ -42,6 +42,7 @@ export function MoneyDetailMeter({
   const [chartWidth, setChartWidth] = useState(320);
   const forecast = category.forecast;
   const isReserve = category.fundingRhythm === 'reserve';
+  const availableBudgetCents = category.plannedCents + (category.rolloverCarriedInCents ?? 0);
   const projectedSpendCents = monthOffset === 0 ? forecast.projectedSpendCents : category.spentCents;
   const expectedSpendCents = Math.round(category.plannedCents * periodElapsedPercent / 100);
   const paceDeltaCents = category.spentCents - expectedSpendCents;
@@ -50,7 +51,7 @@ export function MoneyDetailMeter({
     : monthOffset === 0 && forecast.status === 'watch'
       ? colors.turmeric600
       : colors.pine700;
-  const projectionColor = projectedSpendCents > category.plannedCents ? colors.madder600 : colors.pine700;
+  const projectionColor = projectedSpendCents > availableBudgetCents ? colors.madder600 : colors.pine700;
   const series = useMemo(() => buildCumulativeSpendSeries(transactions, periodStartIso, periodEndIso), [periodEndIso, periodStartIso, transactions]);
   const historicalAverage = useMemo(() => buildHistoricalAverageSpendSeries({
     transactions: historicalTransactions,
@@ -63,7 +64,7 @@ export function MoneyDetailMeter({
       <View style={styles.instrumentHeader}>
         <View style={styles.amountRow}>
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={styles.amount}>{formatMoney(isReserve ? category.reserveAvailableCents : category.spentCents)}</Text>
-          <Text numberOfLines={1} style={styles.limit}>{isReserve ? 'available' : `spent / ${formatMoney(category.plannedCents)}`}</Text>
+          <Text numberOfLines={1} style={styles.limit}>{isReserve ? 'available' : `spent / ${formatMoney(availableBudgetCents)}`}</Text>
         </View>
         <View style={styles.signalStack}>
           {isReserve ? (
@@ -114,7 +115,7 @@ export function MoneyDetailMeter({
           <View onLayout={(event) => setChartWidth(Math.max(240, Math.round(event.nativeEvent.layout.width)))} style={styles.chart}>
             <MoneySpendChart
               accentColor={statusColor}
-              budgetCents={category.plannedCents}
+              budgetCents={Math.max(0, availableBudgetCents)}
               elapsedPercent={periodElapsedPercent}
               height={184}
               historicalAverage={historicalAverage}

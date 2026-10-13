@@ -1,3 +1,4 @@
+import { applyCategoryRollover } from '../domain/categoryRollover';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectCategoryFunding } from '../domain/categoryFunding';
 import { inferMoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
@@ -71,7 +72,7 @@ export function projectMoneyPlanProjection(
       reserveAvailableCents: funding.availableCents,
       fundingCoverage: funding.coverage,
     });
-    return {
+    return applyCategoryRollover({
       ...category,
       planRole: inferMoneyCategoryPlanRole(category),
       plannedCents: allocation.amountCents,
@@ -85,10 +86,11 @@ export function projectMoneyPlanProjection(
       expectedNeed: allocation.expectedNeed,
       fundingCoverage: funding.coverage,
       forecast,
-    };
+    }, snapshot.transactions, currentPeriodId);
   });
   const plannedCents = categories.reduce((sum, category) => sum + category.plannedCents, 0);
   const spentCents = categories.reduce((sum, category) => sum + category.spentCents, 0);
+  const availableBudgetCents = categories.reduce((sum, category) => sum + category.remainingCents + category.spentCents, 0);
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
   const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
@@ -143,14 +145,14 @@ export function projectMoneyPlanProjection(
         derivation: evidence.resourceBasisKind,
       },
       categories,
-      totals: { ...snapshot.totals, plannedCents, spentCents, remainingCents: plannedCents - spentCents },
+      totals: { ...snapshot.totals, plannedCents, spentCents, remainingCents: categories.reduce((sum, category) => sum + category.remainingCents, 0) },
       forecast: {
         ...snapshot.forecast,
         projectedSpendCents,
         projectionRangeLowCents,
         projectionRangeHighCents,
-        projectedRemainingCents: Math.max(0, plannedCents - projectedSpendCents),
-        projectedOverageCents: Math.max(0, projectedSpendCents - plannedCents),
+        projectedRemainingCents: Math.max(0, availableBudgetCents - projectedSpendCents),
+        projectedOverageCents: Math.max(0, projectedSpendCents - availableBudgetCents),
         confidence: lowestConfidence(categories.map((category) => category.forecast.confidence)),
         atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length,
       },

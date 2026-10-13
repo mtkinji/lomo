@@ -1,3 +1,5 @@
+import { MoneyRolloverSettings } from '../components/MoneyRolloverSettings';
+import { initialRolloverDraft, reviewRolloverDraft, type RolloverDraft } from '../domain/rolloverDraft';
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIsFocused, type NavigationProp } from '@react-navigation/native';
@@ -25,7 +27,6 @@ import {
   SettingsGroup,
   SettingsRow,
   SettingsTextInputRow,
-  SettingsToggleRow,
 } from '../../../ui/SettingsSurface';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
@@ -96,6 +97,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [rebalanceFeedbackPending, setRebalanceFeedbackPending] = useState(false);
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
+  const [rolloverDraft, setRolloverDraft] = useState<RolloverDraft>({ enabled: false, startMonth: getLocalMoneyPeriodId(new Date()), balance: '0.00', historicalAmount: '0.00', historyReviewed: false });
   const [fundingRhythmDraft, setFundingRhythmDraft] = useState<CategoryFundingRhythm>('monthly');
   const [planRoleDraft, setPlanRoleDraft] = useState<MoneyCategoryPlanRole>('flexible');
   const [expectedNeedDraft, setExpectedNeedDraft] = useState('');
@@ -121,6 +123,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
   const category = view?.category;
+  const settingsCategory = snapshot?.categories.find((item) => item.sourceId === category?.sourceId) ?? category;
+  const currentMonth = getLocalMoneyPeriodId(new Date());
+  const rolloverReview = settingsCategory ? reviewRolloverDraft(settingsCategory, rolloverDraft, categoryAmountDraft, snapshot?.transactions ?? [], currentMonth) : null;
   const rebalanceAnswer = useMemo(() => (
     category && planImpact?.outcome === 'ready'
       ? projectMoneyRebalanceAnswer(planImpact, category.id)
@@ -162,29 +167,30 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   });
 
   useEffect(() => {
-    if (!category) return;
-    setCategoryNameDraft(category.name);
-    setCategoryAmountDraft((category.plannedCents / 100).toFixed(2));
-    setFundingRhythmDraft(category.fundingRhythm);
-    setPlanRoleDraft(category.planRole ?? 'flexible');
-    setExpectedNeedDraft(formatCentsInput(category.expectedNeed?.amountCents));
-    setExpectedNeedDueMonthDraft(category.expectedNeed?.dueMonth ?? '');
+    if (!settingsCategory || settingsOpen) return;
+    setRolloverDraft(initialRolloverDraft(settingsCategory, currentMonth));
+    setCategoryNameDraft(settingsCategory.name);
+    setCategoryAmountDraft((settingsCategory.plannedCents / 100).toFixed(2));
+    setFundingRhythmDraft(settingsCategory.fundingRhythm);
+    setPlanRoleDraft(settingsCategory.planRole ?? 'flexible');
+    setExpectedNeedDraft(formatCentsInput(settingsCategory.expectedNeed?.amountCents));
+    setExpectedNeedDueMonthDraft(settingsCategory.expectedNeed?.dueMonth ?? '');
     setPlanImpact(null);
     setShowPlanChanges(false);
-    setForecastModeDraft(category.forecastSettings?.mode ?? category.forecast.mode);
-    setManualForecastDraft(formatCentsInput(category.forecastSettings?.manualProjectedSpendCents));
-    setScheduledAmountDraft(formatCentsInput(category.forecastSettings?.scheduledAmountCents));
-    setScheduledDueDayDraft(category.forecastSettings?.scheduledDueDay?.toString() ?? '');
+    setForecastModeDraft(settingsCategory.forecastSettings?.mode ?? settingsCategory.forecast.mode);
+    setManualForecastDraft(formatCentsInput(settingsCategory.forecastSettings?.manualProjectedSpendCents));
+    setScheduledAmountDraft(formatCentsInput(settingsCategory.forecastSettings?.scheduledAmountCents));
+    setScheduledDueDayDraft(settingsCategory.forecastSettings?.scheduledDueDay?.toString() ?? '');
     setCategoryError(null);
-  }, [category?.expectedNeed, category?.forecast.mode, category?.forecastSettings, category?.fundingRhythm, category?.name, category?.planRole, category?.plannedCents, category?.sourceId]);
+  }, [settingsOpen, settingsCategory?.rolloverPolicy, settingsCategory?.rolloverEnabled, currentMonth, settingsCategory?.expectedNeed, settingsCategory?.forecast.mode, settingsCategory?.forecastSettings, settingsCategory?.fundingRhythm, settingsCategory?.name, settingsCategory?.planRole, settingsCategory?.plannedCents, settingsCategory?.sourceId]);
 
   const previewMonthlyAmount = async () => {
-    if (!category) return null;
+    if (!settingsCategory) return null;
     try {
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const expectedNeedDueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
       if ((expectedNeedCents == null) !== (expectedNeedDueMonth == null)) throw new Error('Enter both an expected amount and due month.');
-      const preview = await previewCategoryPlanAmount(category.sourceId, parseMonthlyAmount(categoryAmountDraft), {
+      const preview = await previewCategoryPlanAmount(settingsCategory.sourceId, parseMonthlyAmount(categoryAmountDraft), {
         fundingRhythm: fundingRhythmDraft,
         expectedNeedCents,
         expectedNeedDueMonth,
@@ -199,24 +205,26 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   };
 
   const saveCategorySettings = async () => {
-    if (!category) return;
+    if (!settingsCategory) return;
     const startedAtMs = Date.now();
     setCategoryError(null);
     try {
+      const rollover = reviewRolloverDraft(settingsCategory, rolloverDraft, categoryAmountDraft, snapshot?.transactions ?? [], currentMonth);
+      if (rollover.error) throw new Error(rollover.error);
       const name = parseCategoryName(categoryNameDraft);
       const budgetCents = parseMonthlyAmount(categoryAmountDraft);
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const dueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
       if ((expectedNeedCents == null) !== (dueMonth == null)) throw new Error('Enter both an expected amount and due month.');
 
-      const planChanged = budgetCents !== category.plannedCents
-        || fundingRhythmDraft !== category.fundingRhythm
-        || expectedNeedCents !== (category.expectedNeed?.amountCents ?? null)
-        || dueMonth !== (category.expectedNeed?.dueMonth ?? null);
-      const roleChanged = planRoleDraft !== category.planRole;
+      const planChanged = budgetCents !== settingsCategory.plannedCents
+        || fundingRhythmDraft !== settingsCategory.fundingRhythm
+        || expectedNeedCents !== (settingsCategory.expectedNeed?.amountCents ?? null)
+        || dueMonth !== (settingsCategory.expectedNeed?.dueMonth ?? null);
+      const roleChanged = planRoleDraft !== settingsCategory.planRole;
 
       if (planChanged) {
-        const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
+        const preview = planImpact ?? await previewCategoryPlanAmount(settingsCategory.sourceId, budgetCents, {
           fundingRhythm: fundingRhythmDraft,
           expectedNeedCents,
           expectedNeedDueMonth: dueMonth,
@@ -224,15 +232,18 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         if (preview && preview.outcome !== 'ready' && preview.outcome !== 'no_op') {
           throw new Error('Kwilt needs current account evidence before it can check this amount against your living target.');
         }
-        await updateCategoryPlan(category.sourceId, {
+        await updateCategoryPlan(settingsCategory.sourceId, {
           budgetCents,
           fundingRhythm: fundingRhythmDraft,
           expectedNeedCents,
           expectedNeedDueMonth: dueMonth,
         }, preview?.outcome === 'ready' ? preview : undefined);
       }
-      if (roleChanged) await updateCategoryPlan(category.sourceId, { planRole: planRoleDraft });
-      if (name !== category.name) await renameCategory(category.sourceId, name);
+      if (rolloverDraft.enabled !== settingsCategory.rolloverEnabled || JSON.stringify(rollover.policy) !== JSON.stringify(settingsCategory.rolloverPolicy ?? null)) {
+        await updateCategoryPlan(settingsCategory.sourceId, { rolloverEnabled: rolloverDraft.enabled, rolloverPolicy: rollover.policy });
+      }
+      if (roleChanged) await updateCategoryPlan(settingsCategory.sourceId, { planRole: planRoleDraft });
+      if (name !== settingsCategory.name) await renameCategory(settingsCategory.sourceId, name);
       setSettingsOpen(false);
       if (rebalanceAnswer) {
         capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
@@ -270,19 +281,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     }
   };
 
-  const toggleRollover = async () => {
-    if (!category) return;
-    const nextValue = !category.rolloverEnabled;
-    signalMoneyToggle(nextValue);
-    setCategoryError(null);
-    try {
-      await updateCategoryPlan(category.sourceId, { rolloverEnabled: nextValue });
-      signalMoneyMutationOutcome('succeeded');
-    } catch (error) {
-      setMutationError(error);
-      signalMoneyMutationOutcome('failed');
-    }
-  };
 
   if (!view || !category) {
     return (
@@ -510,7 +508,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         keyboardBehavior="resize"
         bottomAccessory={(
           <Button
-            disabled={savingCategory}
+            disabled={savingCategory || !!rolloverReview?.error}
             fullWidth
             loading={savingCategory}
             loadingLabel="Saving…"
@@ -553,28 +551,26 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             <SettingsChoiceRow disabled={savingCategory} selected={planRoleDraft === 'flexible'} description="Count spending here against flexible room." title="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
           </SettingsGroup>
 
-          <SettingsGroup title="FUNDING RHYTHM">
-            <SettingsChoiceRow disabled={savingCategory} selected={fundingRhythmDraft === 'monthly'} description="Use this amount for the month. Rollover stays separate." title="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
-            <SettingsDivider />
-            <SettingsChoiceRow disabled={savingCategory} selected={fundingRhythmDraft === 'reserve'} description="Build available money across months for lumpy needs." title="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
-          </SettingsGroup>
-
-          {fundingRhythmDraft === 'reserve' ? (
+          {rolloverReview ? <MoneyRolloverSettings
+            draft={rolloverDraft} review={rolloverReview} currentMonth={currentMonth}
+            monthlyAmountCents={Math.round(Number(categoryAmountDraft) * 100) || 0}
+            spentCents={settingsCategory?.spentCents ?? category.spentCents}
+            disabled={savingCategory}
+            onChange={(draft) => {
+              if (draft.enabled !== rolloverDraft.enabled) signalMoneyToggle(draft.enabled);
+              setRolloverDraft(draft);
+              if (!draft.enabled) setFundingRhythmDraft('monthly');
+              else setFundingRhythmDraft(category.fundingRhythm);
+              setPlanImpact(null);
+            }}
+          /> : null}
+          {rolloverDraft.enabled && fundingRhythmDraft === 'reserve' ? (
             <SettingsGroup title="EXPECTED NEED" footer={reserveCoverageCopy(category, categoryAmountDraft, expectedNeedDraft, expectedNeedDueMonthDraft)}>
               <SettingsTextInputRow editable={!savingCategory} keyboardType="decimal-pad" label="Amount" onChangeText={(value) => { setExpectedNeedDraft(value); setPlanImpact(null); }} value={expectedNeedDraft} />
               <SettingsDivider />
               <SettingsTextInputRow autoCapitalize="none" editable={!savingCategory} label="Due month" accessibilityHint="Enter a month in YYYY-MM format" onChangeText={(value) => { setExpectedNeedDueMonthDraft(value); setPlanImpact(null); }} value={expectedNeedDueMonthDraft} />
             </SettingsGroup>
-          ) : (
-            <SettingsGroup footer="Unused or overspent amounts carry into the next month." title="ROLLOVER">
-              <SettingsToggleRow
-              disabled={savingCategory}
-              enabled={category.rolloverEnabled}
-              onPress={() => void toggleRollover()}
-              title="Carry unused money forward"
-              />
-            </SettingsGroup>
-          )}
+          ) : null}
           {planImpact?.outcome === 'ready' && rebalanceAnswer ? (
             <SettingsGroup title="PLAN IMPACT">
               <View style={styles.settingsSummary}>

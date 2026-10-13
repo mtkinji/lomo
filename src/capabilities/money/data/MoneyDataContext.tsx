@@ -507,7 +507,9 @@ export function MoneyDataProvider({
         patch: {
           categorySourceId: result.categoryId,
           ...(result.changes.name != null ? { name: result.changes.name } : null),
+          ...(result.changes.fundingRhythm != null ? { fundingRhythm: result.changes.fundingRhythm } : null),
           ...(result.changes.rolloverEnabled != null ? { rolloverEnabled: result.changes.rolloverEnabled } : null),
+          ...('rolloverPolicy' in result.changes ? { rolloverPolicy: result.changes.rolloverPolicy ?? null } : null),
           ...('coverImage' in result.changes ? { coverImage: result.changes.coverImage ?? null } : null),
         },
       });
@@ -598,7 +600,7 @@ export function MoneyDataProvider({
           }
           if (!state.snapshot) throw new Error('Money must finish loading before the plan can be updated.');
           if (!result.versionId) throw new Error('The updated Money plan did not return a confirmed version.');
-          const projection = await loadMoneyPlanProjection(client, state.snapshot, result.versionId);
+          const projection = await loadMoneyPlanProjection(client, await resolvedRepository.loadSnapshot(), result.versionId);
           if (!projection) throw new Error('The updated Money plan is unavailable.');
           ++mutationVersionRef.current;
           dispatch({
