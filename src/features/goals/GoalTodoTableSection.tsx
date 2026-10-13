@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Pressable } from '../../ui/HapticPressable';
 import type { Activity, GoalTodoTable } from '../../domain/types';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   heading: { marginBottom: spacing.sm },
   helper: { ...typography.bodySm, color: colors.textSecondary },
   editButton: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  editLabel: { ...typography.bodySm, color: colors.accent, fontFamily: fonts.medium },
+  editLabel: { ...typography.bodySm, color: colors.textPrimary, fontFamily: fonts.medium },
   tableSurface: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxCompleted: { backgroundColor: colors.accent, borderColor: colors.accent },
+  checkboxCompleted: { backgroundColor: colors.textPrimary, borderColor: colors.textPrimary },
   cell: { ...typography.bodySm, color: colors.textPrimary, flex: 1, minWidth: 0 },
   headerCell: { color: colors.textSecondary, fontFamily: fonts.medium },
   completedCell: { color: colors.textSecondary },
