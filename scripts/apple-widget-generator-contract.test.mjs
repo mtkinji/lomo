@@ -194,6 +194,19 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.doesNotMatch(categoryView, /moneyFreshnessLabel|Updated/);
 });
 
+test('Flexible Money keeps readable ink on its fixed cream background in dark appearance', () => {
+  for (const source of [moneyWidgetTemplate, generatedWidgetSwift]) {
+    const card = source.slice(
+      source.indexOf('struct FlexibleMoneyAnswerCard'),
+      source.indexOf('struct FlexibleMoneyWidgetView'),
+    );
+    assert.doesNotMatch(card, /return \.primary|foregroundStyle\(\.(primary|secondary)\)/);
+    assert.match(card, /Text\(meaning\)[\s\S]*?foregroundStyle\(MoneyWidgetPalette\.flexibleSecondary\)/);
+    assert.match(card, /KwiltWidgetTypography\.emphasis\)[\s\S]*?foregroundStyle\(MoneyWidgetPalette\.flexiblePrimary\)/);
+    assert.match(card, /KwiltWidgetTypography\.meta\)[\s\S]*?foregroundStyle\(MoneyWidgetPalette\.flexibleSecondary\)/);
+  }
+});
+
 test('Money widgets use the same semantic colors as the in-app budget surfaces', () => {
   const palette = moneyWidgetTemplate.slice(
     moneyWidgetTemplate.indexOf('struct MoneyWidgetPalette'),
@@ -210,7 +223,7 @@ test('Money widgets use the same semantic colors as the in-app budget surfaces',
   assert.match(palette, /categoryPrimary = Color\(red: 28\/255, green: 26\/255, blue: 25\/255\)/);
   assert.match(palette, /categorySecondary = Color\(red: 87\/255, green: 83\/255, blue: 78\/255\)/);
   assert.match(palette, /inactive = MoneyWidgetPalette\.categoryPrimary\.opacity\(0\.16\)/);
-  assert.match(flexibleAnswerCard, /if state == "over" \|\| state == "plan_over" \{ return MoneyWidgetPalette\.over \}[\s\S]*?return \.primary/);
+  assert.match(flexibleAnswerCard, /if state == "over" \|\| state == "plan_over" \{ return MoneyWidgetPalette\.over \}[\s\S]*?return MoneyWidgetPalette\.flexiblePrimary/);
 });
 
 test('Budget Category rounds dollars and compacts thousands before rendering', () => {

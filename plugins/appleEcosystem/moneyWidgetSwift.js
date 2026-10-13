@@ -12,6 +12,9 @@ struct MoneyWidgetPalette {
   // to the Home Screen color scheme (where .primary/.secondary can turn white).
   static let categoryPrimary = Color(red: 28/255, green: 26/255, blue: 25/255)
   static let categorySecondary = Color(red: 87/255, green: 83/255, blue: 78/255)
+  // Flexible Money also keeps a fixed light surface in dark appearance.
+  static let flexiblePrimary = categoryPrimary
+  static let flexibleSecondary = categorySecondary
   static let inactive = MoneyWidgetPalette.categoryPrimary.opacity(0.16)
 
   static func category(_ status: String) -> Color {
@@ -229,9 +232,9 @@ struct FlexibleMoneyAnswerCard: View {
   let entry: FlexibleMoneyEntry
 
   private var tone: Color {
-    guard let state = entry.flexibleMoney?.state else { return .primary }
+    guard let state = entry.flexibleMoney?.state else { return MoneyWidgetPalette.flexiblePrimary }
     if state == "over" || state == "plan_over" { return MoneyWidgetPalette.over }
-    return .primary
+    return MoneyWidgetPalette.flexiblePrimary
   }
 
   private var value: String? {
@@ -281,14 +284,14 @@ struct FlexibleMoneyAnswerCard: View {
             .minimumScaleFactor(0.52)
           Text(meaning)
             .font(KwiltWidgetTypography.body)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(MoneyWidgetPalette.flexibleSecondary)
             .lineLimit(1)
         } else {
           Text(entry.hasMoneySnapshot
             ? "Open Kwilt to finish your monthly plan."
             : "Open Kwilt to view Money.")
             .font(KwiltWidgetTypography.emphasis)
-            .foregroundStyle(.primary)
+            .foregroundStyle(MoneyWidgetPalette.flexiblePrimary)
             .lineLimit(3)
         }
         Spacer(minLength: 4)
@@ -302,7 +305,7 @@ struct FlexibleMoneyAnswerCard: View {
           }
         }
         .font(KwiltWidgetTypography.meta)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(MoneyWidgetPalette.flexibleSecondary)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
       .padding(16)
