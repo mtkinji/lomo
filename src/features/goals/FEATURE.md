@@ -32,9 +32,11 @@ Helps Marcus keep the few commitments worth carrying visible and actionable, wit
 - `GoalSharingSettingsSection.tsx` - shows pending and active Goal access in the existing Sharing settings surface, with review, decline, revoke, remove, and leave actions.
 - `JoinSharedGoalDrawerHost.tsx` and `JoinSharedGoalScreen.tsx` - accept shared-goal invitations.
 - `CheckinComposer.tsx` - captures accountability/progress signals on a Goal.
+- `GoalTodoTableSection.tsx` - renders a Goal-owned custom-column table over its To-dos while keeping Activity completion authoritative.
 
 ## Notes
 
 The core goals surface serves Marcus' focus job; the share and join surfaces extend the folder into private accountability. The shared-goal pieces must preserve the same canvas-first posture: sharing deepens a Goal, it does not turn Kwilt into a social feed.
 
 Known Friends and authenticated Household members can be selected in the existing Goal share drawer. Selection creates a recipient-bound pending invitation only after an explicit Goal-only visibility preview; the relationship itself still grants no access. Generic Text, Email, and Copy Link sharing remain available and unchanged.
+Goal To-do tables are a view of the Plan, not a second progress system. Column definitions belong to the Goal; custom cell values and completion belong to each Activity.

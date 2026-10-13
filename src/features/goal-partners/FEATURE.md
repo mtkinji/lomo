@@ -7,8 +7,10 @@ job_flow: job-flow-david-invite-the-right-people-in
 serves:
   - jtbd-invite-the-right-people-in
   - jtbd-carry-intentions-into-action
+  - jtbd-move-the-few-things-that-matter
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - goal-progress-table
   - goal-partners-post-share-experience
   - friends-sharing
 status: shipping
@@ -26,6 +28,7 @@ Helps David manage the private support circle attached to a goal without turning
 - `src/features/goals/CheckinApprovalSheet.tsx` - action-triggered approval moment for user-approved check-ins.
 - `src/features/goals/PendingCheckinDraftCard.tsx` - recoverable draft card in the Partners sheet `Check-ins` tab.
 - `src/features/goals/GoalFeedSection.tsx` - renders user-authored check-ins as the hero feed item and quiets automatic progress signals.
+- `src/features/goals/GoalTodoTableSection.tsx` - keeps a shared Goal's custom-column To-dos visible together, including completed rows, without creating a separate completion contract.
 - `src/services/checkinDrafts.ts` and `src/store/useCheckinDraftStore.ts` - policy layer and persistent store for the per-goal draft queue.
 
 ## Notes
