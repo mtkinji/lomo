@@ -1,4 +1,6 @@
+import type { ExploredCell } from '../domain/types';
 import { applyBackgroundSamples } from './exploreBackgroundPolicy';
+import * as mutations from '../domain/exploreState';
 import { beginExploreSession, createEmptyExploreData } from '../domain/exploreState';
 import { destinationCoordinate } from '../domain/exploreGeometry';
 
@@ -14,6 +16,29 @@ const sample = (minute: number, latitude = 40.5) => ({
 });
 
 describe('Explore background policy', () => {
+  it('copies existing territory once for a batch instead of once per accepted point', () => {
+    const enumerate = jest.fn((target: Record<string, ExploredCell>) => Reflect.ownKeys(target));
+    // Instrument intermediate immutable maps too, so repeated copies cannot hide
+    // behind replacement of the original object after the first accepted point.
+    const append = mutations.appendExplorePoint;
+    const appendSpy = jest.spyOn(mutations, 'appendExplorePoint').mockImplementation((data, point) => {
+      const next = append(data, point);
+      return { ...next, exploredCells: new Proxy(next.exploredCells, { ownKeys: enumerate }) };
+    });
+    const exploredCells = new Proxy<Record<string, ExploredCell>>({}, { ownKeys: enumerate });
+    const state = beginExploreSession({ ...createEmptyExploreData(), exploredCells }, 'session-1', sample(0).recordedAt);
+    const result = applyBackgroundSamples(state, [sample(0), sample(5, 40.505), sample(10, 40.51)]);
+    expect(result.data.activeSession?.points).toHaveLength(3);
+    expect(enumerate).toHaveBeenCalledTimes(1);
+    expect(state.activeSession?.points).toEqual([]);
+    expect(Object.keys(exploredCells)).toEqual([]);
+    const sequential = [sample(0), sample(5, 40.505), sample(10, 40.51)]
+      .reduce((current, observation) => applyBackgroundSamples(current, [observation]).data, state);
+    expect(result.data.exploredCells).toEqual(sequential.exploredCells);
+    expect(result.data.tracking).toEqual(sequential.tracking);
+    appendSpy.mockRestore();
+  });
+
   it('keeps recording credible movement without ending the outing', () => {
     const state = beginExploreSession(createEmptyExploreData(), 'session-1', sample(0).recordedAt);
     const result = applyBackgroundSamples(state, [sample(0), sample(5, 40.505), sample(10, 40.51)]);

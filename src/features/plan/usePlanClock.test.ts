@@ -3,13 +3,19 @@ import { AppState } from 'react-native';
 import { usePlanClock } from './usePlanClock';
 
 let mockFocus: () => void;
+let mockFocused = true;
 jest.mock('@react-navigation/native', () => ({
-  useFocusEffect: (callback: () => void) => { mockFocus = callback; },
+  useFocusEffect: (callback: () => void) => {
+    mockFocus = callback;
+    require('react').useEffect(() => mockFocused ? callback() : undefined, [callback, mockFocused]);
+  },
 }));
 
 describe('usePlanClock', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockFocused = true;
+    AppState.currentState = 'active';
     jest.setSystemTime(new Date('2026-09-08T11:05:00-06:00'));
   });
   afterEach(() => {
@@ -36,4 +42,20 @@ describe('usePlanClock', () => {
     act(() => mockFocus());
     expect(result.current).toEqual(new Date('2026-09-08T13:05:00-06:00'));
   });
+  it('does not regenerate Plan while hidden or backgrounded, and catches up on focus', () => {
+    const { result, rerender } = renderHook(() => usePlanClock());
+    const original = result.current;
+    mockFocused = false;
+    rerender({});
+    act(() => jest.advanceTimersByTime(90_000));
+    expect(result.current).toBe(original);
+    mockFocused = true;
+    rerender({});
+    expect(result.current.getTime()).toBe(original.getTime() + 90_000);
+    const resumed = result.current;
+    AppState.currentState = 'background';
+    act(() => jest.advanceTimersByTime(60_000));
+    expect(result.current).toBe(resumed);
+  });
+
 });

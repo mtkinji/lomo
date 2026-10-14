@@ -15,7 +15,7 @@ import {
   View,
   type ViewToken,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Button, EmptyState, HStack, Text, VStack } from "../../ui/primitives";
 import { KwiltLoader } from "../../ui/KwiltLoader";
 import { spacing, typography } from "../../theme";
@@ -138,7 +138,8 @@ function SignedInSharedLife({
   externalReceiptPreview?: ExternalActionReceipt[];
   renderFrame: FeedFrame;
 }) {
-  const life = useSharedLife(userId, previewRepository);
+  const focused = useIsFocused();
+  const life = useSharedLife(userId, previewRepository, focused);
   const liveRecommendations = useHomeRecommendations(
     userId,
     !previewRepository,
@@ -266,9 +267,8 @@ function SignedInSharedLife({
   }, []);
   useFocusEffect(
     useCallback(() => {
-      void life.revalidate();
       void externalActionReceipts.refresh();
-    }, [externalActionReceipts.refresh, life.revalidate]),
+    }, [externalActionReceipts.refresh]),
   );
   useEffect(() => {
     if (request?.userId === userId && !life.loading && !life.error) {

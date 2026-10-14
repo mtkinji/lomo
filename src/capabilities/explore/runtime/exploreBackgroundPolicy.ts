@@ -1,4 +1,4 @@
-import { appendExplorePoint } from '../domain/exploreState';
+import { appendExplorePoints } from '../domain/exploreState';
 import {
   shouldClearFogForMovement,
   transitionExploreTracking,
@@ -9,7 +9,7 @@ import {
   sanitizeLocationSample,
   type ExploreLocationSample,
 } from '../domain/explorePointPolicy';
-import type { ExploreData } from '../domain/types';
+import type { ExploreData, ExplorePoint } from '../domain/types';
 
 export type ExploreTrackingAction = 'none' | 'active' | 'soft-sleep' | 'deep-sleep';
 
@@ -21,12 +21,13 @@ export function applyBackgroundSamples(
     return { data: state, completedSessionId: null, trackingAction: 'none' };
   }
   let next = state;
+  let previous = state.activeSession.points.at(-1) ?? null;
+  const acceptedPoints: ExplorePoint[] = [];
   let trackingAction: ExploreTrackingAction = 'none';
   samples.forEach((sample, index) => {
     if (!next.activeSession) return;
     const trackingPolicy = next.activeSession.trackingPolicy;
     const sanitized = sanitizeLocationSample(sample);
-    const previous = next.activeSession.points.at(-1) ?? null;
     const previousTracking = next.tracking;
     const tracking = transitionExploreTracking(previousTracking, previous, sanitized);
     if (tracking.phase !== previousTracking.phase) {
@@ -43,13 +44,15 @@ export function applyBackgroundSamples(
     };
     if (!shouldClearFogForMovement(tracking.movement)) return;
     if (!acceptExplorePoint(previous, sanitized, trackingPolicy).accepted) return;
-    next = appendExplorePoint(next, explorePointFromSample(
+    const point = explorePointFromSample(
       `background-${sanitized.recordedAt}-${index}`,
       sanitized,
-    ));
+    );
+    acceptedPoints.push(point);
+    previous = point;
   });
   return {
-    data: next,
+    data: appendExplorePoints(next, acceptedPoints),
     completedSessionId: null,
     trackingAction,
   };

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { beginExploreSession, completeExploreSession, createEmptyExploreData } from '../domain/exploreState';
+import { appendExplorePoint, beginExploreSession, completeExploreSession, createEmptyExploreData } from '../domain/exploreState';
 import type { ExploreData, ExploreSession } from '../domain/types';
 import {
   EXPLORE_INDEX_STORAGE_KEY,
@@ -31,6 +31,99 @@ describe('Explore sharded persistence', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await AsyncStorage.clear();
+  });
+
+  it('does not scan explored territory when only preferences change', async () => {
+    const readCell = jest.fn(() => ({
+      id: 'cell-1', center: { latitude: 40, longitude: -105 },
+      firstExploredAt: '2026-10-14T12:00:00Z', lastExploredAt: '2026-10-14T12:00:00Z',
+    }));
+    const state = { ...history(), exploredCells: { get 'cell-1'() { return readCell(); } } };
+    const storage = createExploreShardedStorage();
+    await storage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state });
+    readCell.mockClear();
+    const updated = { ...state, preferences: { ...state.preferences } };
+    await storage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: updated });
+    expect(readCell).not.toHaveBeenCalled();
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(updated);
+  });
+
+  it('preserves changed and deleted territory after reusing the index, including a failed commit', async () => {
+    const cell = (id: string, lastExploredAt = '2026-10-14T12:00:00Z') => ({
+      id, center: { latitude: 40, longitude: -105 },
+      firstExploredAt: '2026-10-14T12:00:00Z', lastExploredAt,
+    });
+    let failCommit = false;
+    const writer = createExploreShardedStorage({ storage: {
+      getItem: AsyncStorage.getItem, removeItem: AsyncStorage.removeItem,
+      multiRemove: AsyncStorage.multiRemove,
+      setItem: async (key, value) => {
+        if (failCommit && key === EXPLORE_INDEX_STORAGE_KEY) throw new Error('interrupted commit');
+        await AsyncStorage.setItem(key, value);
+      },
+    } });
+    const initial = { ...history(), exploredCells: { a: cell('a'), b: cell('b') } };
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: initial });
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: { ...initial, preferences: { ...initial.preferences } } });
+    const changed = { ...initial, exploredCells: { a: cell('a', '2026-10-14T13:00:00Z'), c: cell('c') } };
+    failCommit = true;
+    await expect(writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: changed })).rejects.toThrow('interrupted commit');
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state.exploredCells).toEqual(initial.exploredCells);
+    failCommit = false;
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: changed });
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state.exploredCells).toEqual(changed.exploredCells);
+    await writer.removeItem(EXPLORE_LEGACY_STORAGE_KEY);
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: changed });
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(changed);
+  });
+
+  it('persists a recorded point without re-reading all previously explored cells', async () => {
+    const readId = jest.fn();
+    const exploredCells = Object.fromEntries(Array.from({ length: 1_000 }, (_, index) => {
+      const id = `old-cell-${index}`;
+      return [id, { get id() { readId(); return id; }, center: { latitude: 40, longitude: -105 },
+        firstExploredAt: '2026-10-14T12:00:00Z', lastExploredAt: '2026-10-14T12:00:00Z' }];
+    }));
+    const state = beginExploreSession({ ...history(), exploredCells }, 'active', '2026-10-14T12:00:00Z');
+    const storage = createExploreShardedStorage();
+    await storage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state });
+    const next = appendExplorePoint(state, { id: 'p', latitude: 40, longitude: -105,
+      altitudeM: null, horizontalAccuracyM: 5, altitudeAccuracyM: null, speedMps: 2, courseDeg: 0,
+      recordedAt: '2026-10-14T12:01:00Z' });
+    readId.mockClear();
+    await storage.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: next });
+    // Only the touched storage buckets may serialize old cells (64 buckets).
+    expect(readId.mock.calls.length).toBeLessThan(100);
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(next);
+  });
+
+  it('retains every dirty cell across coalesced points and retries after index failure', async () => {
+    let fail = false;
+    const writer = createExploreShardedStorage({ storage: {
+      getItem: AsyncStorage.getItem, removeItem: AsyncStorage.removeItem, multiRemove: AsyncStorage.multiRemove,
+      setItem: async (key, value) => {
+        if (fail && key === EXPLORE_INDEX_STORAGE_KEY) throw new Error('suspended');
+        await AsyncStorage.setItem(key, value);
+      },
+    } });
+    const initial = beginExploreSession(history(), 'active', '2026-10-14T12:00:00Z', 'presence');
+    const point = (longitude: number) => ({ id: String(longitude), latitude: 40, longitude,
+      altitudeM: null, horizontalAccuracyM: 5, altitudeAccuracyM: null, speedMps: 2, courseDeg: 0,
+      recordedAt: '2026-10-14T12:01:00Z' });
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: initial });
+    const one = appendExplorePoint(initial, point(-105));
+    const two = appendExplorePoint(one, point(-104));
+    fail = true;
+    await expect(writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: two })).rejects.toThrow('suspended');
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(initial);
+    const three = appendExplorePoint(two, point(-103));
+    fail = false;
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: three });
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(three);
+    // A divergent update must fall back to a full diff, removing the other branch.
+    const branch = appendExplorePoint(one, point(-102));
+    await writer.setItem(EXPLORE_LEGACY_STORAGE_KEY, { state: branch });
+    expect((await createExploreShardedStorage().getItem(EXPLORE_LEGACY_STORAGE_KEY))?.state).toEqual(branch);
   });
 
   it('migrates the whole-history record into an index and independently addressable trips', async () => {

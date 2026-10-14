@@ -1,3 +1,4 @@
+import { changedExploreCellIds } from '../domain/exploreCellChanges';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PersistStorage, StorageValue } from 'zustand/middleware';
 import type { ExploreData, ExploredCell, ExploreSession } from '../domain/types';
@@ -104,6 +105,8 @@ export function createExploreShardedStorage(
   let lastActiveSession: ExploreSession | null = null;
   let lastSessions = new Map<string, ExploreSession>();
   let lastCells = new Map<string, ExploredCell>();
+  let lastCellRecord: ExploreData['exploredCells'] | null = null;
+  let lastCellBuckets = new Map<number, Record<string, ExploredCell>>();
   let lastIndex: ExploreStorageIndex | null = null;
 
   const readLegacy = async (): Promise<StorageValue<ExploreData> | null> =>
@@ -157,28 +160,60 @@ export function createExploreShardedStorage(
       ),
     ));
 
-    const nextCells = new Map(Object.values(state.exploredCells).map((cell) => [cell.id, cell]));
-    const changedCellBuckets = new Set<number>();
-    nextCells.forEach((cell, id) => {
-      if (lastCells.get(id) !== cell) changedCellBuckets.add(cellBucket(id));
-    });
-    lastCells.forEach((_cell, id) => {
-      if (!nextCells.has(id)) changedCellBuckets.add(cellBucket(id));
-    });
+    let nextCells = lastCells;
+    let nextCellBuckets = lastCellBuckets;
+    const changedIds = lastCellRecord ? changedExploreCellIds(lastCellRecord, state.exploredCells) : null;
+    let cellBucketEntries = lastIndex?.cellBuckets ?? [];
     const cellsByChangedBucket = new Map<number, Record<string, ExploredCell>>();
-    changedCellBuckets.forEach((bucket) => cellsByChangedBucket.set(bucket, {}));
-    nextCells.forEach((cell, id) => {
-      const bucket = cellBucket(id);
-      const cells = cellsByChangedBucket.get(bucket);
-      if (cells) cells[id] = cell;
-    });
-    const nextCellBuckets = [...new Set([...nextCells.keys()].map(cellBucket))].sort((left, right) => left - right);
-    const cellBucketEntries = nextCellBuckets.map((bucket) => ({
-      bucket,
-      key: changedCellBuckets.has(bucket) || !lastCellKeys.has(bucket)
-        ? exploreCellStorageKey(bucket, generation)
-        : lastCellKeys.get(bucket)!,
-    }));
+    // Preferences and tracking often change without any territory change. Reuse
+    // the durable bucket index instead of rehashing the entire explored world.
+    if (state.exploredCells !== lastCellRecord && changedIds !== null) {
+      nextCellBuckets = new Map(lastCellBuckets);
+      for (const id of changedIds) {
+        const bucket = cellBucket(id);
+        if (!cellsByChangedBucket.has(bucket)) {
+          cellsByChangedBucket.set(bucket, { ...lastCellBuckets.get(bucket) });
+        }
+        const cells = cellsByChangedBucket.get(bucket)!;
+        if (state.exploredCells[id]) cells[id] = state.exploredCells[id];
+        else delete cells[id];
+      }
+      const keys = new Map(lastCellKeys);
+      for (const [bucket, cells] of cellsByChangedBucket) {
+        if (Object.keys(cells).length) {
+          nextCellBuckets.set(bucket, cells);
+          keys.set(bucket, exploreCellStorageKey(bucket, generation));
+        } else {
+          nextCellBuckets.delete(bucket);
+          keys.delete(bucket);
+        }
+      }
+      cellBucketEntries = [...keys].sort(([a], [b]) => a - b).map(([bucket, key]) => ({ bucket, key }));
+    } else if (state.exploredCells !== lastCellRecord) {
+      nextCells = new Map(Object.values(state.exploredCells).map((cell) => [cell.id, cell]));
+      const changedCellBuckets = new Set<number>();
+      nextCells.forEach((cell, id) => {
+        if (lastCells.get(id) !== cell) changedCellBuckets.add(cellBucket(id));
+      });
+      lastCells.forEach((_cell, id) => {
+        if (!nextCells.has(id)) changedCellBuckets.add(cellBucket(id));
+      });
+      nextCellBuckets = new Map();
+      nextCells.forEach((cell, id) => {
+        const bucket = cellBucket(id);
+        let cells = nextCellBuckets.get(bucket);
+        if (!cells) { cells = {}; nextCellBuckets.set(bucket, cells); }
+        cells[id] = cell;
+      });
+      changedCellBuckets.forEach(bucket => cellsByChangedBucket.set(bucket, nextCellBuckets.get(bucket) ?? {}));
+      const bucketIds = [...nextCellBuckets.keys()].sort((left, right) => left - right);
+      cellBucketEntries = bucketIds.map((bucket) => ({
+        bucket,
+        key: changedCellBuckets.has(bucket) || !lastCellKeys.has(bucket)
+          ? exploreCellStorageKey(bucket, generation)
+          : lastCellKeys.get(bucket)!,
+      }));
+    }
     const cellEntryByBucket = new Map(cellBucketEntries.map((entry) => [entry.bucket, entry]));
 
     await Promise.all([
@@ -217,7 +252,17 @@ export function createExploreShardedStorage(
     ].filter((key) => !liveKeys.has(key));
     lastActiveSession = state.activeSession;
     lastSessions = nextSessions;
+    // Publish bookkeeping only after the new index is durable. A failed commit
+    // must retry against the old cells/buckets, including skipped intermediate states.
+    if (changedIds !== null) {
+      for (const id of changedIds) {
+        if (state.exploredCells[id]) nextCells.set(id, state.exploredCells[id]);
+        else nextCells.delete(id);
+      }
+    }
     lastCells = nextCells;
+    lastCellBuckets = nextCellBuckets;
+    lastCellRecord = state.exploredCells;
     lastIndex = index;
     if (staleKeys.length) await storage.multiRemove(staleKeys).catch(() => undefined);
     await storage.removeItem(EXPLORE_LEGACY_STORAGE_KEY).catch(() => undefined);
@@ -290,6 +335,8 @@ export function createExploreShardedStorage(
       lastActiveSession = activeSession;
       lastSessions = new Map(sessions.map((session) => [session.id, session]));
       lastCells = new Map(Object.values(exploredCells).map((cell) => [cell.id, cell]));
+      lastCellBuckets = new Map(index.cellBuckets.map((entry, offset) => [entry.bucket, cellGroups[offset]]));
+      lastCellRecord = exploredCells;
       lastIndex = index;
       return { state, version: index.persistVersion };
     },
@@ -313,6 +360,8 @@ export function createExploreShardedStorage(
       lastActiveSession = null;
       lastSessions = new Map();
       lastCells = new Map();
+      lastCellBuckets = new Map();
+      lastCellRecord = null;
       lastIndex = null;
     },
     flushPendingWrites: () => pendingWrite,

@@ -1,3 +1,4 @@
+import { recordExploreCellChanges } from './exploreCellChanges';
 import { exploreCellForCoordinate, exploreCellsForRecordedStep } from './exploreGeometry';
 import { displayPointsForExploreSession } from './explorePathReconstruction';
 import { createExploreTrackingState } from './exploreAdaptiveTracking';
@@ -49,26 +50,37 @@ export function beginExploreSession(
 }
 
 export function appendExplorePoint(state: ExploreData, point: ExplorePoint): ExploreData {
-  if (!state.activeSession) return state;
-  const previousPoint = state.activeSession.points.at(-1);
-  const cells = state.activeSession.trackingPolicy === 'presence'
-    ? [exploreCellForCoordinate(point)]
-    : exploreCellsForRecordedStep(previousPoint ?? null, point);
+  return appendExplorePoints(state, [point]);
+}
+
+/** Preserve sequential geometry while copying growing history only once per batch. */
+export function appendExplorePoints(state: ExploreData, points: readonly ExplorePoint[]): ExploreData {
+  if (!state.activeSession || points.length === 0) return state;
+  let previousPoint = state.activeSession.points.at(-1);
   const exploredCells = { ...state.exploredCells };
-  cells.forEach((cell) => {
-    const currentCell = exploredCells[cell.id];
-    exploredCells[cell.id] = {
-      id: cell.id,
-      center: cell.center,
-      firstExploredAt: currentCell?.firstExploredAt ?? point.recordedAt,
-      lastExploredAt: point.recordedAt,
-    };
-  });
+  const changedIds = new Set<string>();
+  for (const point of points) {
+    const cells = state.activeSession.trackingPolicy === 'presence'
+      ? [exploreCellForCoordinate(point)]
+      : exploreCellsForRecordedStep(previousPoint ?? null, point);
+    for (const cell of cells) {
+      changedIds.add(cell.id);
+      const currentCell = exploredCells[cell.id];
+      exploredCells[cell.id] = {
+        id: cell.id,
+        center: cell.center,
+        firstExploredAt: currentCell?.firstExploredAt ?? point.recordedAt,
+        lastExploredAt: point.recordedAt,
+      };
+    }
+    previousPoint = point;
+  }
+  recordExploreCellChanges(state.exploredCells, exploredCells, changedIds);
   return {
     ...state,
     activeSession: {
       ...state.activeSession,
-      points: [...state.activeSession.points, point],
+      points: [...state.activeSession.points, ...points],
     },
     exploredCells,
   };

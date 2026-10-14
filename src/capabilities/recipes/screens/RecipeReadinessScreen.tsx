@@ -12,7 +12,7 @@ import { Heading, Text } from '../../../ui/Typography';
 import type { RecipeVersion } from '../domain/recipeContracts';
 import type { RecipeEditorialEnrichment } from '../data/recipeEditorialEnrichment';
 import { useRecipeStore } from '../runtime/useRecipeStore';
-import { STARTER_RECIPE_PROJECTIONS, getStarterRecipeEnrichment } from '../data/starterRecipeCatalog';
+import { getStarterRecipeProjections, getStarterRecipeEnrichment } from '../data/starterRecipeCatalog';
 import { resolveAvailableRecipe } from '../data/resolveAvailableRecipe';
 import { cookModeEducationCache } from '../data/cookModeEducationCache';
 import { useAppStore } from '../../../store/useAppStore';
@@ -66,7 +66,7 @@ export function RecipeReadinessScreen({ navigation, route }: Props) {
     });
     return () => { cancelled = true; };
   }, [identityId, route.params.source]);
-  const projection = resolveAvailableRecipe(personalRecipes, route.params.recipeId, STARTER_RECIPE_PROJECTIONS);
+  const projection = resolveAvailableRecipe(personalRecipes, route.params.recipeId, getStarterRecipeProjections());
   if (!projection) return <AppShell><PageHeader title="Before you begin" onPressBack={() => navigation.goBack()} /><View style={styles.center}><Text>This recipe is not available.</Text></View></AppShell>;
   const items = deriveRecipeReadiness(
     projection.currentVersion,

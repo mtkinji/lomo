@@ -209,6 +209,20 @@ describe('domainSync account transitions', () => {
     stopDomainSync();
   });
 
+  it('keeps inventory references stable when a repeated remote pull changes nothing', async () => {
+    const remote = { arcs: [arc()], goals: [goal()], activities: [activity()] };
+    queueRemote(remote);
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a' } as any);
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+    const previous = useAppStore.getState();
+    queueRemote(remote);
+    await retryDomainPull();
+    expect(useAppStore.getState().arcs).toBe(previous.arcs);
+    expect(useAppStore.getState().goals).toBe(previous.goals);
+    expect(useAppStore.getState().activities).toBe(previous.activities);
+  });
+
   it('switching from user A to user B isolates domain data', async () => {
     const arcA = arc({ id: 'arc-a', name: 'Arc A' });
     const arcB = arc({ id: 'arc-b', name: 'Arc B' });
@@ -307,6 +321,34 @@ describe('domainSync account transitions', () => {
       mockUpserts.some((entry) => entry.table === 'kwilt_activities'),
     );
     expect(mockUpserts.filter((entry) => entry.table === 'kwilt_activities')).toHaveLength(1);
+  });
+
+  it('serializes each inventory record only once for a completed push', async () => {
+    queueRemote({});
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+    await waitForStore(() => mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'));
+    mockUpserts.length = 0;
+    const items = Array.from({ length: 1_000 }, (_, index) => activity({ id: `bulk-${index}` }));
+    const itemSet = new Set(items);
+    const stringify = jest.spyOn(JSON, 'stringify');
+    try {
+      useAppStore.setState({ activities: items });
+      await waitForStore(() => mockUpserts.some((entry) => entry.table === 'kwilt_activities'));
+      // Resolve the successful write continuation before counting its bookkeeping.
+      await Promise.resolve();
+      expect(stringify.mock.calls.filter(([value]) => itemSet.has(value as Activity))).toHaveLength(1_000);
+      expect((mockUpserts.find((entry) => entry.table === 'kwilt_activities')?.rows as unknown[])).toHaveLength(1_000);
+      // Signatures are scoped to a single push, so even a reused object must be
+      // examined again after another inventory update.
+      items[0].title = 'Edited after first push';
+      useAppStore.setState({ activities: [...items] });
+      await waitForStore(() => mockUpserts.filter((entry) => entry.table === 'kwilt_activities').length === 2);
+      const nextWrite = mockUpserts.filter((entry) => entry.table === 'kwilt_activities')[1];
+      expect(nextWrite.rows).toEqual([expect.objectContaining({ id: items[0].id })]);
+    } finally {
+      stringify.mockRestore();
+    }
   });
 
   it('does not carry merge suppression into the next account', async () => {

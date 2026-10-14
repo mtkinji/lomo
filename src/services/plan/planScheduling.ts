@@ -149,13 +149,12 @@ export function proposeDailyPlan(params: {
   }
 
   const ranked = sortActivitiesByPriorityRanking({
-    activities,
+    activities: activities.filter(canConsiderActivity),
     goals,
     // For non-today days, anchor ranking to the target day (so "what's next" can vary by day).
     // Using midday avoids edge cases around midnight/timezone boundaries.
     now: isToday ? now : new Date(new Date(targetDate).setHours(12, 0, 0, 0)),
-  })
-    .filter(canConsiderActivity);
+  });
 
   function isDueOnTargetDay(activity: Activity): boolean {
     const raw = activity.scheduledDate ?? null;

@@ -1,3 +1,4 @@
+import { referenceCheckedStorage } from './referenceCheckedStorage';
 import { create } from 'zustand';
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -3495,7 +3496,7 @@ export const useAppStore = create<AppState>()(
     {
       // AsyncStorage namespace for the main kwilt app store.
       name: 'kwilt-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: referenceCheckedStorage(createJSONStorage(() => AsyncStorage)!),
       // Performance: don't persist huge domain object graphs (Activities/Goals/Arcs/tag history)
       // alongside lightweight UI prefs. Those are persisted separately per-user via getDomainStorageKey.
       partialize: (state) => {

@@ -4,6 +4,8 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
+  useLayoutEffect,
   useState,
 } from 'react';
 import { HapticsService } from '../services/HapticsService';
@@ -18,6 +20,8 @@ type CapabilityMenuActions = Pick<CapabilityMenuState, 'openMenu' | 'coverMenu'>
 
 const CapabilityMenuActionsContext = createContext<CapabilityMenuActions | null>(null);
 const CapabilityMenuOpenContext = createContext<boolean | null>(null);
+type MenuMotion = (open: boolean) => void;
+const CapabilityMenuMotionContext = createContext<((motion: MenuMotion) => () => void) | null>(null);
 
 export function CapabilityMenuStateProvider({
   children,
@@ -28,21 +32,33 @@ export function CapabilityMenuStateProvider({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const menuOpenRef = useRef(false);
+  const motionRef = useRef<MenuMotion | null>(null);
+
+  const registerMotion = useCallback((motion: MenuMotion) => {
+    motionRef.current = motion;
+    motion(menuOpenRef.current);
+    return () => {
+      if (motionRef.current === motion) motionRef.current = null;
+    };
+  }, []);
+
   const openMenu = useCallback(() => {
-    setMenuOpen((current) => {
-      if (current) return current;
-      void HapticsService.trigger('shell.nav.open');
-      onMenuOpened?.();
-      return true;
-    });
+    if (menuOpenRef.current) return;
+    menuOpenRef.current = true;
+    // Schedule UI-thread motion before React renders the menu or runs bookkeeping.
+    motionRef.current?.(true);
+    setMenuOpen(true);
+    void HapticsService.trigger('shell.nav.open');
+    onMenuOpened?.();
   }, [onMenuOpened]);
 
   const coverMenu = useCallback(() => {
-    setMenuOpen((current) => {
-      if (!current) return current;
-      void HapticsService.trigger('shell.nav.close');
-      return false;
-    });
+    if (!menuOpenRef.current) return;
+    menuOpenRef.current = false;
+    motionRef.current?.(false);
+    setMenuOpen(false);
+    void HapticsService.trigger('shell.nav.close');
   }, []);
 
   const actions = useMemo(() => ({ openMenu, coverMenu }), [coverMenu, openMenu]);
@@ -50,7 +66,9 @@ export function CapabilityMenuStateProvider({
   return (
     <CapabilityMenuActionsContext.Provider value={actions}>
       <CapabilityMenuOpenContext.Provider value={menuOpen}>
-        {children}
+        <CapabilityMenuMotionContext.Provider value={registerMotion}>
+          {children}
+        </CapabilityMenuMotionContext.Provider>
       </CapabilityMenuOpenContext.Provider>
     </CapabilityMenuActionsContext.Provider>
   );
@@ -76,4 +94,13 @@ export function useCapabilityMenuState(): CapabilityMenuState {
   const menuOpen = useCapabilityMenuOpen();
   const actions = useCapabilityMenuActions();
   return useMemo(() => ({ menuOpen, ...actions }), [actions, menuOpen]);
+}
+
+/** Register the shell's animation driver without subscribing screens to motion state. */
+export function useCapabilityMenuMotion(motion: MenuMotion): void {
+  const registerMotion = useContext(CapabilityMenuMotionContext);
+  if (!registerMotion) {
+    throw new Error('useCapabilityMenuMotion must be used within CapabilityMenuStateProvider');
+  }
+  useLayoutEffect(() => registerMotion(motion), [motion, registerMotion]);
 }

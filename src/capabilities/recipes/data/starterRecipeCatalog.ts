@@ -46,26 +46,22 @@ const enrichmentByRecipeId = new Map<string, RecipeEditorialEnrichment>(
   ]),
 );
 
-export const STARTER_RECIPE_PROJECTIONS: RecipeProjection[] =
-  STARTER_EDITORIAL_RECIPE_CATALOG.map((editorial) => {
-    const projection = compileEditorialRecipeProjection(
-      editorial,
-      enrichmentByRecipeId.get(`kwilt-recipe-${editorial.rosterId.toLowerCase()}`),
-    );
-    metadataById.set(projection.recipe.id, {
-      category: editorial.category,
-      cuisine: editorial.cuisine,
-      artworkIndex: editorial.artworkIndex,
-      tier: editorial.tier,
-      inactiveMinutes: editorial.inactiveMinutes,
-      totalMinutes:
-        editorial.prepMinutes +
-        editorial.cookMinutes +
-        editorial.inactiveMinutes,
-      featured: editorial.tier === "household-anchor",
-    });
-    return projection;
+// Metadata is cheap and used across the shell; detailed recipe graphs are not.
+for (const editorial of STARTER_EDITORIAL_RECIPE_CATALOG) {
+  metadataById.set(`kwilt-recipe-${editorial.rosterId.toLowerCase()}`, {
+    category: editorial.category, cuisine: editorial.cuisine,
+    artworkIndex: editorial.artworkIndex, tier: editorial.tier,
+    inactiveMinutes: editorial.inactiveMinutes,
+    totalMinutes: editorial.prepMinutes + editorial.cookMinutes + editorial.inactiveMinutes,
+    featured: editorial.tier === "household-anchor",
   });
+}
+let starterProjections: RecipeProjection[] | null = null;
+export function getStarterRecipeProjections(): RecipeProjection[] {
+  return starterProjections ??= STARTER_EDITORIAL_RECIPE_CATALOG.map((editorial) =>
+    compileEditorialRecipeProjection(editorial,
+      enrichmentByRecipeId.get(`kwilt-recipe-${editorial.rosterId.toLowerCase()}`)));
+}
 
 export const STARTER_RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   [
@@ -145,7 +141,7 @@ export function buildRecipeLibraryInventory(
   }
   const catalog = hostedCatalog.length
     ? hostedCatalog
-    : STARTER_RECIPE_PROJECTIONS.map(applyHostedCatalogMedia);
+    : getStarterRecipeProjections().map(applyHostedCatalogMedia);
   const personalIds = new Set(privateRecipes.map(({ recipe }) => recipe.id));
   return [
     ...privateRecipes,

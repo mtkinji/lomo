@@ -8,6 +8,14 @@ type KwiltSpotlightNativeModule = {
 
 const native: KwiltSpotlightNativeModule | undefined = (NativeModules as any)?.KwiltSpotlight;
 
+let lastIndexedJson: string | null = null;
+let indexQueue: Promise<unknown> = Promise.resolve();
+function enqueueIndexOperation(operation: () => Promise<boolean>): Promise<boolean> {
+  const next = indexQueue.then(operation);
+  indexQueue = next.catch(() => undefined);
+  return next;
+}
+
 export async function indexActivitiesForSpotlight(activities: Activity[]): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   if (!native?.indexActivitiesJson) return false;
@@ -18,23 +26,28 @@ export async function indexActivitiesForSpotlight(activities: Activity[]): Promi
     .slice(0, 200)
     .map((a) => ({ id: a.id, title: a.title }));
 
-  try {
-    await native.indexActivitiesJson(JSON.stringify(payload));
-    return true;
-  } catch {
-    return false;
-  }
+  const json = JSON.stringify(payload);
+  return enqueueIndexOperation(async () => {
+    if (lastIndexedJson === json) return true;
+    lastIndexedJson = null;
+    try {
+      await native.indexActivitiesJson(json);
+      lastIndexedJson = json;
+      return true;
+    } catch { return false; }
+  });
 }
 
 export async function clearSpotlightActivities(): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   if (!native?.clearActivities) return false;
-  try {
-    await native.clearActivities();
-    return true;
-  } catch {
-    return false;
-  }
+  return enqueueIndexOperation(async () => {
+    lastIndexedJson = null;
+    try {
+      await native.clearActivities();
+      return true;
+    } catch { return false; }
+  });
 }
 
 

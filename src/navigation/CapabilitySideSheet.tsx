@@ -1,5 +1,5 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors } from '../theme';
-import { useCapabilityMenuState } from './CapabilityMenuStateContext';
+import { useCapabilityMenuMotion, useCapabilityMenuState } from './CapabilityMenuStateContext';
 import {
   CAPABILITY_SIDE_SHEET_DURATION_MS,
   CAPABILITY_SIDE_SHEET_RADIUS,
@@ -58,14 +58,15 @@ export function CapabilitySideSheet({ menu, children }: CapabilitySideSheetProps
   const touchStartX = useSharedValue(0);
   const touchStartY = useSharedValue(0);
 
-  useEffect(() => {
-    menuOpenOnUI.value = menuOpen;
+  const animateMenu = useCallback((open: boolean) => {
+    menuOpenOnUI.value = open;
     reduceMotionOnUI.value = reduceMotion;
-    progress.value = withTiming(menuOpen ? 1 : 0, {
+    progress.value = withTiming(open ? 1 : 0, {
       duration: getCapabilitySideSheetDuration(reduceMotion),
       easing: Easing.out(Easing.cubic),
     });
-  }, [menuOpen, menuOpenOnUI, progress, reduceMotion, reduceMotionOnUI]);
+  }, [menuOpenOnUI, progress, reduceMotion, reduceMotionOnUI]);
+  useCapabilityMenuMotion(animateMenu);
 
   const closeGesture = useMemo(
     () =>

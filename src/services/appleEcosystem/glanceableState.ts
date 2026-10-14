@@ -167,7 +167,14 @@ async function performGlanceableStateMerge(
     ...partial,
   };
   const normalize = (state: GlanceableStateV1) =>
-    JSON.stringify({ ...state, updatedAtMs: 0 });
+    JSON.stringify({
+      ...state,
+      updatedAtMs: 0,
+      activitiesWidgetByViewId: state.activitiesWidgetByViewId == null
+        ? state.activitiesWidgetByViewId
+        : Object.fromEntries(Object.entries(state.activitiesWidgetByViewId)
+          .map(([id, payload]) => [id, { ...payload, updatedAtMs: 0 }])),
+    });
   const prevNormalized = prev ? normalize(prev) : null;
   const nextNormalized = normalize(mergedBase);
   if (prevNormalized === nextNormalized) return;

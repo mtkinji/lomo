@@ -30,3 +30,28 @@ describe('recommendation time choices', () => {
     expect(slots).toEqual([time(13), time(15), time(15, 15), time(15, 30), time(15, 45), time(16)].map(d => d.toISOString()));
   });
 });
+
+it('indexes busy intervals once instead of scanning them for each available start time', () => {
+  const reads = jest.fn();
+  const busy = Array.from({ length: 500 }, (_, index) => ({
+    get start() { reads(); return new Date(day.getTime() - (index + 1) * 86_400_000); },
+    end: new Date(day.getTime() - (index + 1) * 86_400_000 + 3_600_000),
+  }));
+  const expected = getPlanRecommendationSlots(options);
+  expect(getPlanRecommendationSlots({ ...options, busyIntervals: busy })).toEqual(expected);
+  expect(reads.mock.calls.length).toBeLessThanOrEqual(busy.length);
+});
+
+it('matches a direct overlap check for unsorted, nested, touching, and invalid calendar intervals', () => {
+  const intervals = Array.from({ length: 100 }, (_, index) => {
+    const minute = (index * 37) % 600;
+    return { start: time(8, minute), end: time(8, minute + (index % 5) * 7) };
+  });
+  intervals.push({ start: new Date(NaN), end: time(12) });
+  const expected = getPlanRecommendationSlots(options).filter(value => {
+    const start = new Date(value);
+    const end = new Date(start.getTime() + 60 * 60_000);
+    return !intervals.some(busy => busy.start < end && start < busy.end);
+  });
+  expect(getPlanRecommendationSlots({ ...options, busyIntervals: intervals.slice(0, 50), otherProposalIntervals: intervals.slice(50) })).toEqual(expected);
+});

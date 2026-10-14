@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { getSupabaseClient } from '../backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -423,7 +424,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
       }
       schedulePush(prev as StreakSlice | null);
     },
-    { fireImmediately: false } as any,
+    { fireImmediately: false, equalityFn: shallow },
   );
 }
 

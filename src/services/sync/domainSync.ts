@@ -72,9 +72,10 @@ function getDomainItemSignature(item: { id: string }): string {
 export function getChangedDomainItems<T extends { id: string }>(
   items: T[],
   previousSignatures: ReadonlyMap<string, string>,
+  currentSignatures?: ReadonlyMap<string, string>,
 ): T[] {
   return items.filter(
-    (item) => previousSignatures.get(item.id) !== getDomainItemSignature(item),
+    (item) => previousSignatures.get(item.id) !== (currentSignatures?.get(item.id) ?? getDomainItemSignature(item)),
   );
 }
 
@@ -253,11 +254,17 @@ function applyRemoteMerge(params: {
   applyRows<Goal>(params.goals, nextGoalsById as any);
   applyRows<Activity>(params.activities, nextActivitiesById as any);
 
-  const nextArcs = Array.from(nextArcsById.values());
-  const nextGoals = Array.from(nextGoalsById.values());
-  const nextActivities = Array.from(nextActivitiesById.values()).map((a) =>
+  // A realtime echo or refresh often changes no records. Preserve collection
+  // identity so it cannot trigger every inventory, widget and persistence subscriber.
+  const reuseUnchanged = <T,>(previous: T[], next: T[]): T[] =>
+    previous.length === next.length && previous.every((item, index) => item === next[index])
+      ? previous : next;
+  const nextArcs = reuseUnchanged(localArcs, Array.from(nextArcsById.values()));
+  const nextGoals = reuseUnchanged(localGoals, Array.from(nextGoalsById.values()));
+  const nextActivities = reuseUnchanged(localActivities, Array.from(nextActivitiesById.values()).map((a) =>
     normalizeActivity({ activity: a, nowIso })
-  );
+  ));
+  if (nextArcs === localArcs && nextGoals === localGoals && nextActivities === localActivities) return;
 
   // Prevent push loops only when the active subscriber can consume this merge.
   suppressNextPush = stopDomainSub !== null && state.domainHydrated === true;
@@ -417,11 +424,16 @@ async function pushNow(): Promise<void> {
     const removedGoalIds = Array.from(prevGoalIds).filter((id) => !nextGoalIds.has(id));
     const removedActivityIds = Array.from(prevActivityIds).filter((id) => !nextActivityIds.has(id));
 
-    const arcRows = buildUpsertRows(user, getChangedDomainItems(arcs, prevArcSignatures));
-    const goalRows = buildUpsertRows(user, getChangedDomainItems(goals, prevGoalSignatures));
+    // Compute once for this push and retain exactly the signatures we sent.
+    // Recompute next push: a long-lived identity cache could miss later edits.
+    const nextArcSignatures = new Map(arcs.map((item) => [item.id, getDomainItemSignature(item)]));
+    const nextGoalSignatures = new Map(goals.map((item) => [item.id, getDomainItemSignature(item)]));
+    const nextActivitySignatures = new Map(activities.map((item) => [item.id, getDomainItemSignature(item)]));
+    const arcRows = buildUpsertRows(user, getChangedDomainItems(arcs, prevArcSignatures, nextArcSignatures));
+    const goalRows = buildUpsertRows(user, getChangedDomainItems(goals, prevGoalSignatures, nextGoalSignatures));
     const activityRows = buildUpsertRows(
       user,
-      getChangedDomainItems(activities, prevActivitySignatures),
+      getChangedDomainItems(activities, prevActivitySignatures, nextActivitySignatures),
     );
 
     const arcTombstones = buildTombstones(user, removedArcIds);
@@ -445,7 +457,12 @@ async function pushNow(): Promise<void> {
     }
     if (pushGeneration !== enableGeneration || activeUser?.userId !== user.userId) return;
     prevProfileProjectionSignature = profileProjectionSignature;
-    seedPrevIdsFromSnapshot({ arcs, goals, activities });
+    prevArcIds = nextArcIds;
+    prevGoalIds = nextGoalIds;
+    prevActivityIds = nextActivityIds;
+    prevArcSignatures = nextArcSignatures;
+    prevGoalSignatures = nextGoalSignatures;
+    prevActivitySignatures = nextActivitySignatures;
   } catch (e) {
     if (__DEV__) {
       if (maybeDisableIfSchemaCacheMissingTable(e)) return;

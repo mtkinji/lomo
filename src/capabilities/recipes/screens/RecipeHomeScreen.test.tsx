@@ -10,7 +10,7 @@ import {
   RecipeHomeView,
 } from "./RecipeHomeScreen";
 import { deriveRecipeNextActions } from "../domain/recipeNextAction";
-import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
+import { getStarterRecipeProjections } from "../data/starterRecipeCatalog";
 
 jest.mock("../../../features/unifiedChat/UnifiedChatDrawer", () => ({
   UnifiedChatDrawer: () => null,
@@ -48,7 +48,7 @@ describe("Recipe Home", () => {
         route={{
           key: "recipe-home",
           name: "RecipeHome",
-          params: { recipeId: STARTER_RECIPE_PROJECTIONS[0].recipe.id },
+          params: { recipeId: getStarterRecipeProjections()[0].recipe.id },
         }}
       />,
     );

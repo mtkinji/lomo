@@ -42,7 +42,7 @@ import { playCookVoiceReceiptSound } from "../voice/cookVoiceReceiptSound";
 import { createCookVoiceSilenceDetector } from "../voice/cookVoiceSilenceDetector";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
-import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
+import { getStarterRecipeProjections } from "../data/starterRecipeCatalog";
 import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
 import { cookModeEducationCache } from "../data/cookModeEducationCache";
 import { KwiltLoader } from '../../../ui/KwiltLoader';
@@ -58,7 +58,7 @@ export function RecipeCookModeScreen({ navigation, route }: Props) {
   const projection = resolveAvailableRecipe(
     personalRecipes,
     route.params.recipeId,
-    STARTER_RECIPE_PROJECTIONS,
+    getStarterRecipeProjections(),
   );
   if (!cookModePreviewEnabled) return (
     <AppShell>

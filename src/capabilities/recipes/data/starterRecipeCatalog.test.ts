@@ -3,7 +3,7 @@ import {
   DEFAULT_RECIPE_INVENTORY_FILTERS,
   STARTER_RECIPE_CATEGORIES,
   STARTER_RECIPE_CUISINES,
-  STARTER_RECIPE_PROJECTIONS,
+  getStarterRecipeProjections,
   buildRecipeLibraryInventory,
   countActiveRecipeInventoryFilters,
   filterRecipeInventory,
@@ -19,11 +19,11 @@ import { getCuisineFamilyForCuisine } from "../domain/cuisineFamilies";
 
 describe("starter Recipe catalog", () => {
   it("ships exactly 600 unique, contract-valid independently authored recipes", () => {
-    expect(STARTER_RECIPE_PROJECTIONS).toHaveLength(600);
+    expect(getStarterRecipeProjections()).toHaveLength(600);
     expect(
-      new Set(STARTER_RECIPE_PROJECTIONS.map(({ recipe }) => recipe.id)).size,
+      new Set(getStarterRecipeProjections().map(({ recipe }) => recipe.id)).size,
     ).toBe(600);
-    for (const projection of STARTER_RECIPE_PROJECTIONS) {
+    for (const projection of getStarterRecipeProjections()) {
       expect(() => parseRecipeProjection(projection)).not.toThrow();
       expect(
         projection.currentVersion.ingredients.length,
@@ -35,7 +35,7 @@ describe("starter Recipe catalog", () => {
   });
 
   it("covers every approved meal role and broad cuisines with food artwork", () => {
-    const metadata = STARTER_RECIPE_PROJECTIONS.map(({ recipe }) =>
+    const metadata = getStarterRecipeProjections().map(({ recipe }) =>
       getStarterRecipeMetadata(recipe.id),
     );
     expect(new Set(metadata.map((item) => item?.category))).toEqual(
@@ -85,7 +85,7 @@ describe("starter Recipe catalog", () => {
       ...personal,
       recipe: {
         ...personal.recipe,
-        id: STARTER_RECIPE_PROJECTIONS[0].recipe.id,
+        id: getStarterRecipeProjections()[0].recipe.id,
       },
     };
     const inventory = buildRecipeLibraryInventory([personal, duplicate]);

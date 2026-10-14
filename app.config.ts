@@ -205,7 +205,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-      buildNumber: '132',
+      buildNumber: '133',
     // App-owned disclosures are source-controlled here because ios/ is generated.
     // Third-party SDK manifests are merged by Xcode into the archive privacy report.
     privacyManifests,
@@ -256,7 +256,7 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-      versionCode: 131,
+      versionCode: 133,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

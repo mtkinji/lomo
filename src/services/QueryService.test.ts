@@ -24,6 +24,17 @@ function activity(overrides: Partial<Activity> = {}): Activity {
 }
 
 describe('QueryService.applyActivityFilters', () => {
+  it('prepares a wildcard filter once instead of compiling it for every to-do', () => {
+    const list = Array.from({ length: 1_000 }, (_, index) => activity({ id: String(index), title: `Review item ${index}` }));
+    const construct = jest.spyOn(global, 'RegExp');
+    try {
+      expect(QueryService.applyActivityFilters(list, [{ logic: 'and', conditions: [
+        { id: 'pattern', field: 'title', operator: 'contains', value: 'review*' },
+      ] }])).toEqual(list);
+      expect(construct).toHaveBeenCalledTimes(1);
+    } finally { construct.mockRestore(); }
+  });
+
   it('returns input untouched when no groups provided', () => {
     const list = [activity({ id: 'a' }), activity({ id: 'b' })];
     expect(QueryService.applyActivityFilters(list, [])).toBe(list);
@@ -356,6 +367,22 @@ describe('QueryService.applyActivityFilters reminderAt date semantics', () => {
 });
 
 describe('QueryService.applyActivitySorts', () => {
+  it('reads and normalizes each date sort key once in a large inventory', () => {
+    const reads = jest.fn();
+    const list = Array.from({ length: 1000 }, (_, index) => {
+      const day = (index * 37) % 997;
+      const scheduledDate = new Date(Date.UTC(2026, 0, 1 + day)).toISOString();
+      const item = activity({ id: String(index), scheduledDate });
+      Object.defineProperty(item, 'scheduledDate', { get: () => { reads(); return scheduledDate; } });
+      return item;
+    });
+    const result = QueryService.applyActivitySorts(list, [{ field: 'scheduledDate', direction: 'asc' }]);
+    expect(reads).toHaveBeenCalledTimes(list.length);
+    expect(result.map((item) => item.id)).toEqual([...list].sort((a, b) =>
+      Date.parse(a.scheduledDate!) - Date.parse(b.scheduledDate!)).map((item) => item.id));
+    expect(list[0].id).toBe('0');
+  });
+
   it('returns input untouched when no sorts provided', () => {
     const list = [activity({ id: 'a' }), activity({ id: 'b' })];
     expect(QueryService.applyActivitySorts(list, [])).toBe(list);

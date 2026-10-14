@@ -20,7 +20,7 @@ import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { useRecipeStore } from "../runtime/useRecipeStore";
 import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
-import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
+import { getStarterRecipeProjections } from "../data/starterRecipeCatalog";
 
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeCookComplete">;
 
@@ -210,7 +210,7 @@ export function RecipeCookCompleteScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const personalRecipes = useRecipeStore((state) => state.recipes);
-  const projection = resolveAvailableRecipe(personalRecipes, route.params.recipeId, STARTER_RECIPE_PROJECTIONS);
+  const projection = resolveAvailableRecipe(personalRecipes, route.params.recipeId, getStarterRecipeProjections());
   useEffect(() => {
     if (userId) void recipeCookCache.read(userId).then(setSession);
   }, [userId]);

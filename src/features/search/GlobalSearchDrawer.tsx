@@ -73,7 +73,14 @@ type UnifiedResultRow =
   | { kind: "chapter"; chapter: ChapterRow }
   | { kind: "recipe"; recipe: RecipeProjection };
 
+// The native modal already unmounts immediately on close. Keep its expensive
+// subscriptions and result builders out of the app's hidden runtime as well.
 export function GlobalSearchDrawer() {
+  const open = useAppStore((s) => s.globalSearchOpen);
+  return open ? <OpenGlobalSearchDrawer /> : null;
+}
+
+function OpenGlobalSearchDrawer() {
   const open = useAppStore((s) => s.globalSearchOpen);
   const close = useAppStore((s) => s.closeGlobalSearch);
   const showScopeSelector = useAppStore(

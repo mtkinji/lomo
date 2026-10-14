@@ -1,5 +1,5 @@
 import { getAppGroupString, setAppGroupString } from './appGroup';
-import { setGlanceableFocusSession } from './glanceableState';
+import { mergeGlanceableState, setGlanceableFocusSession } from './glanceableState';
 import { scheduleWidgetReload } from './widgetCenter';
 
 jest.mock('./appGroup', () => ({
@@ -54,4 +54,21 @@ describe('glanceable Focus publication', () => {
       { immediate: true },
     );
   });
+});
+
+it('does not rewrite App Group storage or reload widgets for timestamp-only inventory snapshots', async () => {
+  let stored: string | null = null;
+  getAppGroupStringMock.mockImplementation(async () => stored);
+  setAppGroupStringMock.mockImplementation(async (_key: string, value: string) => { stored = value; return true; });
+  const payload = { viewId: 'all', viewName: 'All', totalCount: 1, rows: [{ activityId: 'a', title: 'Walk' }], updatedAtMs: 100 };
+  await mergeGlanceableState({ activitiesWidgetByViewId: { all: payload } });
+  setAppGroupStringMock.mockClear();
+  scheduleWidgetReloadMock.mockClear();
+  await mergeGlanceableState({ activitiesWidgetByViewId: { all: { ...payload, updatedAtMs: 200 } } });
+  expect(setAppGroupStringMock).not.toHaveBeenCalled();
+  expect(scheduleWidgetReloadMock).not.toHaveBeenCalled();
+  await mergeGlanceableState({ activitiesWidgetByViewId: { all: { ...payload, rows: [{ activityId: 'a', title: 'Run' }] } } });
+  expect(setAppGroupStringMock).toHaveBeenCalledTimes(1);
+  await mergeGlanceableState({ activitiesWidgetByViewId: {} });
+  expect(JSON.parse(stored!).activitiesWidgetByViewId).toEqual({});
 });

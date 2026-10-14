@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
 import { useSharedLifeDeliveries } from "./useSharedLifeDeliveries";
 import type { SharedLifeRepository } from "./sharedLifeRepository";
+let mockFocused = true;
 const mockList = jest.fn();
 const mockSubscribe = jest.fn();
 jest.mock("./sharedHomeRepository", () => ({
@@ -10,13 +11,14 @@ jest.mock("./sharedHomeRepository", () => ({
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
   useFocusEffect: (callback: () => void) =>
-    require("react").useEffect(callback, [callback]),
+    require("react").useEffect(() => mockFocused ? callback() : undefined, [callback, mockFocused]),
 }));
 let change: (state: AppStateStatus) => void;
 let invalidate: () => void;
 let listener: jest.SpyInstance;
 const note = { id: "note", body: "Private goal note" };
 beforeEach(() => {
+  mockFocused = true;
   AppState.currentState = "active";
   mockList.mockReset().mockResolvedValue([]);
   mockSubscribe.mockReset().mockImplementation((_user, callback) => {
@@ -87,5 +89,44 @@ it("refreshes source cards on realtime invalidation and polls goal notes", async
   const calls = command.mock.calls.length;
   await act(async () => jest.advanceTimersByTime(30_000));
   expect(command.mock.calls.length).toBeGreaterThan(calls);
+  unmount();
+});
+
+it("does no delivery polling or realtime refresh work while another screen is focused", async () => {
+  jest.useFakeTimers();
+  const command = jest.fn().mockResolvedValue([note]);
+  const repository = repo(command);
+  const { result, rerender, unmount } = renderHook(() =>
+    useSharedLifeDeliveries("reader", repository),
+  );
+  await act(async () => {});
+  mockFocused = false;
+  rerender({});
+  command.mockClear().mockResolvedValue([]);
+  mockList.mockClear();
+  await act(async () => {
+    jest.advanceTimersByTime(90_000);
+    invalidate();
+    transition("background");
+    transition("active");
+  });
+  expect(command).not.toHaveBeenCalled();
+  expect(mockList).not.toHaveBeenCalled();
+  mockFocused = true;
+  rerender({});
+  await act(async () => {});
+  expect(command).toHaveBeenCalledTimes(1);
+  expect(result.current.deliveries).toEqual([]);
+  unmount();
+});
+
+it("ignores delivery responses started before navigating away", async () => {
+  let finish!: (value: unknown) => void;
+  const repository = repo(jest.fn().mockReturnValue(new Promise(resolve => { finish = resolve; })));
+  const { result, rerender, unmount } = renderHook(() => useSharedLifeDeliveries("reader", repository));
+  mockFocused = false;
+  rerender({});
+  await act(async () => finish([note]));
+  expect(result.current.deliveries).toEqual([]);
   unmount();
 });

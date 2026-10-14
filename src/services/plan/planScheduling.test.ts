@@ -52,6 +52,21 @@ function profile(): UserProfile {
 }
 
 describe('planScheduling', () => {
+  it('does not score rich context for already scheduled inventory entries', () => {
+    const readNotes = jest.fn(() => 'Many notes about work, errands and a long project history');
+    const excluded = Array.from({ length: 1_000 }, (_, index) => {
+      const item = activity({ id: `scheduled-${index}`, priority: 1, scheduledAt: '2099-06-22T12:00:00Z' });
+      Object.defineProperty(item, 'notes', { get: readNotes });
+      return item;
+    });
+    const candidate = activity({ id: 'available' });
+    const options = { activities: [candidate], goals: [goal()], arcs: [], userProfile: profile(), targetDate: TARGET_DATE, busyIntervals: [], writeCalendarId: 'calendar-1' };
+    const expected = proposeDailyPlan(options);
+    const result = proposeDailyPlan({ ...options, activities: [...excluded, candidate] });
+    expect(result).toEqual(expected);
+    expect(readNotes).not.toHaveBeenCalled();
+  });
+
   it('keeps an unfinished recommendation visible after its previous block has passed', () => {
     const staleActivity = activity({
       id: 'stale-schedule',

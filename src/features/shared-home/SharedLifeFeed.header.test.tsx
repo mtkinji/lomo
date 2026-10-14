@@ -1,11 +1,17 @@
 // Native regression: a late recommendation must not be inserted above the viewport at scroll offset zero.
 // The matching populated-feed scenario is exercised in HomeConnectedPreview on iOS.
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import { FlatList } from "react-native";
 import { SharedLifeFeed } from "./SharedLifeFeed";
+import { useSharedLife } from "./useSharedLife";
+import { SharedLifePostCard } from "./SharedLifePostCard";
+import { SharedLifeConversation } from "./SharedLifeConversation";
+jest.mock("./SharedLifePostCard", () => ({ SharedLifePostCard: () => null }));
+jest.mock("./SharedLifeConversation", () => ({ SharedLifeConversation: () => null }));
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
   useFocusEffect: () => undefined,
+  useIsFocused: () => true,
 }));
 jest.mock("../safety/UgcReportDrawer", () => ({ UgcReportDrawer: () => null }));
 jest.mock("./useSharedLife", () => {
@@ -26,6 +32,26 @@ jest.mock("./useSharedLife", () => {
     setFilter: jest.fn(),
   };
   return { useSharedLife: () => life };
+});
+it("refreshes visible Home content immediately after a conversation edit", () => {
+  const life = useSharedLife("u");
+  life.posts.push({
+    id: "post", authorId: "u", authorName: "Andy", text: "Original",
+    audience: "household", householdId: null, householdName: null,
+    attachment: null, media: [], createdAt: "2026-10-14T12:00:00Z",
+    updatedAt: "2026-10-14T12:00:00Z", reactionCount: 0,
+    replyCount: 0, myReaction: null,
+  });
+  const ui = render(<SharedLifeFeed userId="u" />);
+  try {
+    act(() => ui.UNSAFE_getByType(SharedLifePostCard).props.onEdit());
+    jest.mocked(life.revalidate).mockClear();
+    act(() => ui.UNSAFE_getByType(SharedLifeConversation).props.onChanged());
+    expect(life.revalidate).toHaveBeenCalledTimes(1);
+  } finally {
+    ui.unmount();
+    life.posts.length = 0;
+  }
 });
 jest.mock("./useSharedLifeDeliveries", () => ({
   useSharedLifeDeliveries: () => ({

@@ -1,4 +1,4 @@
-import { STARTER_RECIPE_PROJECTIONS, buildRecipeLibraryInventory } from './starterRecipeCatalog';
+import { getStarterRecipeProjections, buildRecipeLibraryInventory } from './starterRecipeCatalog';
 import {
   parseHostedCatalogMediaRows,
   replaceHostedCatalogMedia,
@@ -8,7 +8,7 @@ describe('hosted catalog media overlay', () => {
   afterEach(() => replaceHostedCatalogMedia([], { allowEmpty: true }));
 
   it('maps approved HTTPS media by roster id without replacing bundled recipe identity or content', () => {
-    const original = STARTER_RECIPE_PROJECTIONS.find((item) => item.recipe.id === 'kwilt-recipe-br012')!;
+    const original = getStarterRecipeProjections().find((item) => item.recipe.id === 'kwilt-recipe-br012')!;
     replaceHostedCatalogMedia([{
       rosterId: 'BR012',
       media: {

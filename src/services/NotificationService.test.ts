@@ -748,6 +748,21 @@ describe('NotificationService focus-session cleanup', () => {
 
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('focus-stale-1');
 
+    // UI-only writes must not perform a full reminder snapshot/diff on the tap path.
+    const readTitle = jest.fn(() => 'A to-do');
+    const activities = Array.from({ length: 1000 }, (_, index) => ({
+      id: `perf-${index}`, get title() { return readTitle(); }, status: 'planned',
+    }));
+    const storeListener = (useAppStore.subscribe as jest.Mock).mock.calls.at(-1)?.[0];
+    const initial = useAppStore.getState();
+    const previous = { ...initial, activities, domainHydrated: true };
+    storeListener(previous, initial);
+    readTitle.mockClear();
+    storeListener({ ...previous, globalSearchOpen: true }, previous);
+    expect(readTitle).not.toHaveBeenCalled();
+    storeListener({ ...previous, activities: [...activities] }, previous);
+    expect(readTitle).toHaveBeenCalledTimes(1000);
+
     const listener = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock.calls[0]?.[0];
     listener({
       actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',

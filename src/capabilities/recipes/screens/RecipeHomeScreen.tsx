@@ -54,7 +54,7 @@ import {
   buildRecipeLibraryInventory,
   isCanonicalCatalogProjection,
   isStarterRecipe,
-  STARTER_RECIPE_PROJECTIONS,
+  getStarterRecipeProjections,
 } from "../data/starterRecipeCatalog";
 import type { RecipeEditorialEnrichment } from "../data/recipeEditorialEnrichment";
 import {
@@ -98,8 +98,9 @@ import {
   openAffiliateProductDetail,
 } from "../../groceries/providers/affiliateRetailerProvider";
 
-const STARTER_RECIPE_EQUIPMENT_USAGE_COUNTS = countRecipeEquipmentUsage({
-  recipes: STARTER_RECIPE_PROJECTIONS.map(({ currentVersion }) => ({
+let starterEquipmentUsage: ReturnType<typeof countRecipeEquipmentUsage> | null = null;
+const getStarterEquipmentUsage = () => starterEquipmentUsage ??= countRecipeEquipmentUsage({
+  recipes: getStarterRecipeProjections().map(({ currentVersion }) => ({
     equipmentRequirements: currentVersion.equipmentRequirements ?? [],
     instructions: currentVersion.instructions.map((step) => step.text),
   })),
@@ -465,7 +466,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const projection = resolveAvailableRecipe(
     personalRecipes,
     route.params.recipeId,
-    STARTER_RECIPE_PROJECTIONS,
+    getStarterRecipeProjections(),
   );
   const starterRecipe = projection
     ? isCanonicalCatalogProjection(projection)
@@ -523,7 +524,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     return resolveRecipeEditorialPicks({
       equipmentRequirements: projection.currentVersion.equipmentRequirements ?? [],
       instructions: projection.currentVersion.instructions.map((step) => step.text),
-      equipmentUsageCounts: STARTER_RECIPE_EQUIPMENT_USAGE_COUNTS,
+      equipmentUsageCounts: getStarterEquipmentUsage(),
     }).filter((pick) => Boolean(buildApprovedAffiliateProductDetail(
       'amazon',
       pick.retailerExternalProductId,

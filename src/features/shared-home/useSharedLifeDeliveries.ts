@@ -13,10 +13,11 @@ export function useSharedLifeDeliveries(
   const [deliveries, setDeliveries] = useState<SharedHomeDelivery[]>([]);
   const [deliveryError, setDeliveryError] = useState(false);
   const active = useRef(true);
+  const focused = useRef(false);
   const deliveryGeneration = useRef(0);
   const [sourceRepository] = useState(getSharedHomeRepository);
   const refreshDeliveries = useCallback(async () => {
-    if (!active.current || AppState.currentState !== "active") return;
+    if (!active.current || !focused.current || AppState.currentState !== "active") return;
     const generation = ++deliveryGeneration.current;
     if (preview) {
       setDeliveries([]);
@@ -72,8 +73,10 @@ export function useSharedLifeDeliveries(
   }, [refreshDeliveries, sourceRepository, userId, preview]);
   useFocusEffect(
     useCallback(() => {
+      focused.current = true;
       void refreshDeliveries();
       return () => {
+        focused.current = false;
         deliveryGeneration.current++;
       };
     }, [refreshDeliveries]),

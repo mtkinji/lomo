@@ -1724,7 +1724,21 @@ function attachStoreSubscription() {
   let prevLastShowUpDate = initial.lastShowUpDate;
   let prevStreakAndReactivationEnabled = initial.notificationPreferences.allowStreakAndReactivation;
 
-  useAppStore.subscribe((state) => {
+  useAppStore.subscribe((state, previousState) => {
+    // Navigation, composer and other UI writes do not change notification inputs.
+    // Avoid an inventory-wide snapshot/diff and native reschedule on those taps.
+    if (previousState &&
+      state.activities === previousState.activities &&
+      state.goals === previousState.goals &&
+      state.arcs === previousState.arcs &&
+      state.notificationPreferences === previousState.notificationPreferences &&
+      state.screenTimeProtection === previousState.screenTimeProtection &&
+      state.domainHydrated === previousState.domainHydrated &&
+      state.lastCompletedFocusSessionDate === previousState.lastCompletedFocusSessionDate &&
+      state.lastShowUpDate === previousState.lastShowUpDate &&
+      state.currentShowUpStreak === previousState.currentShowUpStreak
+    ) return;
+
     const nextActivities: ActivitySnapshotExtended[] = state.activities.map((activity) => ({
       id: activity.id,
       title: activity.title,

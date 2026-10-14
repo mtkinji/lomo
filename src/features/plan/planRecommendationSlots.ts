@@ -19,6 +19,25 @@ export function getPlanRecommendationSlots({
   const stepMinutes = 15;
   const candidates: Date[] = [];
   const earliestStart = now;
+  // Prefix maxima answer overlap queries without rescanning the calendar for
+  // every 15-minute candidate. Keep strict boundary comparisons unchanged.
+  const busy = [...busyIntervals, ...otherProposalIntervals]
+    .map(interval => ({ start: interval.start.getTime(), end: interval.end.getTime() }))
+    .filter(interval => Number.isFinite(interval.start) && Number.isFinite(interval.end))
+    .sort((a, b) => a.start - b.start);
+  const maxEnd: number[] = [];
+  busy.forEach((interval, index) => { maxEnd[index] = Math.max(maxEnd[index - 1] ?? -Infinity, interval.end); });
+  const conflictsWithCalendar = (start: number, end: number) => {
+    let low = 0;
+    let high = busy.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (busy[middle].start < end) low = middle + 1;
+      else high = middle;
+    }
+    return low > 0 && maxEnd[low - 1] > start;
+  };
+
 
   function roundUpToStep(d: Date): Date {
     const next = new Date(d);
@@ -39,9 +58,7 @@ export function getPlanRecommendationSlots({
     while (cursor <= latestStart) {
       const newStart = cursor;
       const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
-      const conflicts =
-        busyIntervals.some((b) => b.start < newEnd && newStart < b.end) ||
-        otherProposalIntervals.some((b) => b.start < newEnd && newStart < b.end);
+      const conflicts = conflictsWithCalendar(newStart.getTime(), newEnd.getTime());
       if (!conflicts && newStart >= earliestStart) {
         candidates.push(new Date(newStart));
       }

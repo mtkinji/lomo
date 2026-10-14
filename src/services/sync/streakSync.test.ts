@@ -108,6 +108,23 @@ describe('streakSync', () => {
     jest.useRealTimers();
   });
 
+  it('does not upload streak summaries for unrelated UI updates', async () => {
+    startStreakSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+    await waitFor(() => mockSummaryRows.has('user-a'));
+    await wait();
+    jest.useFakeTimers();
+    mockUpsertOptions.length = 0;
+    for (let index = 0; index < 20; index++) {
+      useAppStore.setState({ globalSearchOpen: Boolean(index % 2) });
+      await jest.advanceTimersByTimeAsync(5);
+    }
+    expect(mockUpsertOptions).toHaveLength(0);
+    useAppStore.setState({ currentShowUpStreak: 3, streakUpdatedAtIso: '2026-10-14T12:00:00Z' });
+    await jest.advanceTimersByTimeAsync(5);
+    expect(mockSummaryRows.get('user-a').current_show_up_streak).toBe(3);
+  });
+
   it('seeds cloud summary and ledger event when remote is empty', async () => {
     useAppStore.setState({
       lastShowUpDate: '2026-04-15',

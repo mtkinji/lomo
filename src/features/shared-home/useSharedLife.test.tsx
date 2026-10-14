@@ -74,7 +74,7 @@ it('drops late content when the account changes', async () => {
 });
 it('revalidates all previously loaded pages after backgrounding',async()=>{
  let change!:(state:AppStateStatus)=>void;
- const listener=jest.spyOn(AppState,'addEventListener').mockImplementation((_event,callback)=>{change=callback;return {remove:jest.fn()};});
+ const listener=jest.spyOn(AppState,'addEventListener').mockImplementation((_event,callback)=>{change=state=>{AppState.currentState=state;callback(state);};return {remove:jest.fn()};});
  const all=Array.from({length:60},(_,i)=>({id:String(i),createdAt:String(i)}));
  const repo={bootstrap:jest.fn().mockResolvedValue(bootstrap),list:jest.fn().mockResolvedValueOnce({posts:all.slice(0,30)}).mockResolvedValueOnce({posts:all.slice(30)}),command:jest.fn().mockResolvedValue({posts:all.filter(p=>p.id!=='12')})} as unknown as SharedLifeRepository;
  const {result,unmount}=renderHook(()=>useSharedLife('reader',repo));
@@ -103,4 +103,40 @@ it('does not refresh a cleared feed while backgrounded or interrupt foreground r
  await act(async()=>finish({posts:[{id:'old',createdAt:'old'}]}));
  expect(result.current.posts).toHaveLength(1);
  unmount();listener.mockRestore();AppState.currentState=previous;
+});
+
+it('suspends main-feed polling offscreen and preserves pages through background authorization on return', async () => {
+  jest.useFakeTimers();
+  const previous = AppState.currentState;
+  AppState.currentState = 'active';
+  let change!: (state: AppStateStatus) => void;
+  const listener = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+    change = state => { AppState.currentState = state; callback(state); };
+    return { remove: jest.fn() };
+  });
+  const posts = Array.from({ length: 60 }, (_, i) => ({ id: String(i), createdAt: String(i) }));
+  const list = jest.fn().mockResolvedValueOnce({ posts: posts.slice(0, 30) }).mockResolvedValueOnce({ posts: posts.slice(30) }).mockResolvedValue({ posts: posts.slice(0, 30) });
+  const command = jest.fn().mockResolvedValue({ posts: posts.filter(p => p.id !== '12') });
+  const repository = { bootstrap: jest.fn().mockResolvedValue(bootstrap), list, command } as unknown as SharedLifeRepository;
+  const { result, rerender, unmount } = renderHook<ReturnType<typeof useSharedLife>, { focused: boolean }>(({ focused }) => useSharedLife('reader', repository, focused), { initialProps: { focused: true } });
+  await act(async () => {});
+  await act(async () => result.current.refresh(true));
+  expect(result.current.posts).toHaveLength(60);
+  rerender({ focused: false });
+  list.mockClear();
+  await act(async () => { jest.advanceTimersByTime(90_000); });
+  expect(list).not.toHaveBeenCalled();
+  expect(command).not.toHaveBeenCalled();
+  act(() => change('background'));
+  expect(result.current.posts).toEqual([]);
+  await act(async () => change('active'));
+  expect(command).not.toHaveBeenCalled();
+  rerender({ focused: true });
+  await act(async () => {});
+  expect(command).toHaveBeenCalledWith('refresh_posts', { ids: posts.map(p => p.id) });
+  expect(result.current.posts).toHaveLength(59);
+  unmount();
+  listener.mockRestore();
+  AppState.currentState = previous;
+  jest.useRealTimers();
 });

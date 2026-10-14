@@ -7,6 +7,10 @@ import {
   FilterOperator,
 } from '../domain/types';
 
+const DATE_SORT_FIELDS = new Set(['scheduledDate', 'reminderAt', 'createdAt', 'updatedAt']);
+const titleCollator = typeof Intl !== 'undefined' && typeof Intl.Collator === 'function'
+  ? new Intl.Collator(undefined, { sensitivity: 'base' }) : null;
+
 /**
  * Service for applying structured filters and sorts to domain objects.
  * Currently focused on Activities.
@@ -127,20 +131,23 @@ export class QueryService {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  private static matchesWildcardPattern(args: { candidate: string; pattern: string }): boolean {
-    const candidate = args.candidate;
-    const pattern = args.pattern;
-    // Glob-style '*' wildcard matching (case-insensitive), anchored to whole string.
-    // Example: "Due *today*" -> /^Due .*today.*$/i
-    const escaped = this.escapeRegexLiteral(pattern);
-    const regexSource = `^${escaped.replace(/\\\*/g, '.*')}$`;
-    try {
-      const re = new RegExp(regexSource, 'i');
-      return re.test(candidate);
-    } catch {
-      // Fallback: treat as a simple substring.
-      return candidate.toLowerCase().includes(pattern.toLowerCase());
+  private static prepareCondition(condition: FilterCondition) {
+    const { field, operator, value } = condition;
+    const dateKey = (field === 'scheduledDate' || field === 'reminderAt')
+      ? this.normalizeDateFilterValueToDateKey(value) : null;
+    const pattern = String(value ?? '');
+    let wildcard: RegExp | null = null;
+    if (operator === 'contains' && this.hasWildcardPattern(pattern)) {
+      try {
+        wildcard = new RegExp(`^${this.escapeRegexLiteral(pattern).replace(/\\\*/g, '.*')}$`, 'i');
+      } catch { /* Preserve substring fallback for invalid patterns. */ }
     }
+    const lowerPattern = pattern.toLowerCase();
+    return {
+      dateKey,
+      contains: (candidate: string) => wildcard
+        ? wildcard.test(candidate) : candidate.toLowerCase().includes(lowerPattern),
+    };
   }
 
   /**
@@ -155,15 +162,19 @@ export class QueryService {
   ): Activity[] {
     if (!groups || groups.length === 0) return activities;
 
+    const prepared = new Map<FilterCondition, ReturnType<typeof QueryService.prepareCondition>>();
+    for (const group of groups) {
+      for (const condition of group.conditions ?? []) prepared.set(condition, this.prepareCondition(condition));
+    }
     return activities.filter((activity) => {
       const matchesGroup = (group: FilterGroup): boolean => {
         const { logic, conditions } = group;
         if (!conditions || conditions.length === 0) return true;
 
         if (logic === 'and') {
-          return conditions.every((condition) => this.matchesCondition(activity, condition));
+          return conditions.every((condition) => this.matchesCondition(activity, condition, prepared.get(condition)!));
         } else {
-          return conditions.some((condition) => this.matchesCondition(activity, condition));
+          return conditions.some((condition) => this.matchesCondition(activity, condition, prepared.get(condition)!));
         }
       };
 
@@ -183,21 +194,31 @@ export class QueryService {
   static applyActivitySorts(activities: Activity[], sorts: SortCondition[]): Activity[] {
     if (!sorts || sorts.length === 0) return activities;
 
-    const list = [...activities];
+    // Date parsing belongs outside the O(n log n) comparator. Keep the
+    // original objects and stable tie order while preparing each key once.
+    const list = activities.map((activity) => ({
+      activity,
+      values: sorts.map(({ field }) => {
+        const value = activity[field as keyof Activity];
+        return DATE_SORT_FIELDS.has(field)
+          ? value ? new Date(value as string).getTime() : Number.MAX_SAFE_INTEGER
+          : value;
+      }),
+    }));
 
     list.sort((a, b) => {
-      for (const sort of sorts) {
-        const result = this.compareActivities(a, b, sort);
+      for (let index = 0; index < sorts.length; index++) {
+        const result = this.compareSortValues(a.values[index], b.values[index], sorts[index]);
         if (result !== 0) return result;
       }
       // Final fallback: manual order/creation time
-      return this.compareManual(a, b);
+      return this.compareManual(a.activity, b.activity);
     });
 
-    return list;
+    return list.map(({ activity }) => activity);
   }
 
-  private static matchesCondition(activity: Activity, condition: FilterCondition): boolean {
+  private static matchesCondition(activity: Activity, condition: FilterCondition, prepared: ReturnType<typeof QueryService.prepareCondition>): boolean {
     const { field, operator, value } = condition;
     const activityValue = (activity as any)[field];
 
@@ -207,13 +228,13 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           // If the filter value is a relative token/date key, compare on normalized date keys.
           if (right !== null) return left === right;
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) return left === right;
         }
         return activityValue === value;
@@ -222,12 +243,12 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) return left !== right;
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) return left !== right;
         }
         return activityValue !== value;
@@ -236,21 +257,11 @@ export class QueryService {
         if (value === undefined || value === null || value === '') {
           return false;
         }
-        if (typeof activityValue === 'string') {
-          const pattern = String(value);
-          if (this.hasWildcardPattern(pattern)) {
-            return this.matchesWildcardPattern({ candidate: activityValue, pattern });
-          }
-          return activityValue.toLowerCase().includes(pattern.toLowerCase());
-        }
+        if (typeof activityValue === 'string') return prepared.contains(activityValue);
         if (Array.isArray(activityValue)) {
-          const pattern = String(value);
-          if (this.hasWildcardPattern(pattern)) {
-            return activityValue.some((v) =>
-              this.matchesWildcardPattern({ candidate: String(v ?? ''), pattern })
-            );
-          }
-          return activityValue.some((v) => String(v).toLowerCase().includes(pattern.toLowerCase()));
+          return activityValue.some((v) => prepared.contains(String(
+            this.hasWildcardPattern(String(value)) ? v ?? '' : v,
+          )));
         }
         return false;
       case 'gt':
@@ -258,7 +269,7 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             // Missing due dates should never satisfy comparisons like "before/after".
             if (left === null) return false;
@@ -267,7 +278,7 @@ export class QueryService {
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left > right;
@@ -279,7 +290,7 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left < right;
@@ -287,7 +298,7 @@ export class QueryService {
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left < right;
@@ -299,7 +310,7 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left >= right;
@@ -307,7 +318,7 @@ export class QueryService {
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left >= right;
@@ -319,7 +330,7 @@ export class QueryService {
           const left =
             this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
             (this.isDateKeyString(activityValue) ? activityValue : null);
-          const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left <= right;
@@ -327,7 +338,7 @@ export class QueryService {
         }
         if (field === 'reminderAt') {
           const left = this.normalizeReminderAtToDateKey(activityValue);
-          const right = this.normalizeDateFilterValueToDateKey(value);
+          const right = prepared.dateKey;
           if (right !== null) {
             if (left === null) return false;
             return left <= right;
@@ -364,19 +375,10 @@ export class QueryService {
     return 0;
   }
 
-  private static compareActivities(a: Activity, b: Activity, sort: SortCondition): number {
+  private static compareSortValues(valA: any, valB: any, sort: SortCondition): number {
     const { field, direction } = sort;
     const factor = direction === 'asc' ? 1 : -1;
-
-    let valA = (a as any)[field];
-    let valB = (b as any)[field];
-
-    // Special handling for due dates
-    if (field === 'scheduledDate' || field === 'reminderAt' || field === 'createdAt' || field === 'updatedAt') {
-      const timeA = valA ? new Date(valA).getTime() : Number.MAX_SAFE_INTEGER;
-      const timeB = valB ? new Date(valB).getTime() : Number.MAX_SAFE_INTEGER;
-      return (timeA - timeB) * factor;
-    }
+    if (DATE_SORT_FIELDS.has(field)) return (valA - valB) * factor;
 
     // Default comparison
     if (valA === valB) return 0;
@@ -384,7 +386,8 @@ export class QueryService {
     if (valB === null || valB === undefined) return -1;
 
     if (typeof valA === 'string' && typeof valB === 'string') {
-      return valA.localeCompare(valB, undefined, { sensitivity: 'base' }) * factor;
+      return (titleCollator ? titleCollator.compare(valA, valB)
+        : valA.localeCompare(valB, undefined, { sensitivity: 'base' })) * factor;
     }
 
     return (valA > valB ? 1 : -1) * factor;

@@ -19,11 +19,14 @@ const empty: HomeBootstrap = {
 export function useSharedLife(
   userId: string | null,
   provided?: SharedLifeRepository,
+  focused = true,
 ) {
   const repositoryRef = useRef<SharedLifeRepository | null>(null);
   if (!repositoryRef.current)
     repositoryRef.current = provided ?? getSharedLifeRepository();
   const repository = repositoryRef.current;
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
   const account = useRef(userId);
   account.current = userId;
   const generation = useRef(0);
@@ -51,7 +54,7 @@ export function useSharedLife(
   postsRef.current = state.posts;
   const refresh = useCallback(
     async (append = false) => {
-      if (!userId || AppState.currentState === "background" || AppState.currentState === "inactive" || (append && inFlight.current !== null)) return;
+      if (!focusedRef.current || !userId || AppState.currentState === "background" || AppState.currentState === "inactive" || (append && inFlight.current !== null)) return;
       if (!append) setIncoming([]);
       const request = ++generation.current;
       inFlight.current = request;
@@ -96,7 +99,7 @@ export function useSharedLife(
     [repository, userId, filterKey],
   );
   const revalidate = useCallback(async () => {
-    if (AppState.currentState !== "active" || inFlight.current !== null) return;
+    if (!focusedRef.current || AppState.currentState !== "active" || inFlight.current !== null) return;
     if (!postsRef.current.length) {
       await refresh();
       return;
@@ -133,6 +136,49 @@ export function useSharedLife(
         if (inFlight.current === request) inFlight.current = null;
       });
   }, [repository, userId, filterKey, refresh]);
+  const resume = useCallback(() => {
+    if (!focusedRef.current || AppState.currentState !== "active" || inFlight.current !== null) return;
+    const remembered = suspended.current;
+    if (!remembered?.length) {
+      void revalidate();
+      return;
+    }
+    const request = ++generation.current;
+    inFlight.current = request;
+    setState((old) => ({ ...old, loading: true }));
+    void Promise.all([
+      repository.command<{ posts: HomePost[] }>("refresh_posts", {
+        ids: remembered.map((p) => p.id),
+      }),
+      repository.bootstrap(),
+    ])
+      .then(([authorized, bootstrap]) => {
+        if (account.current !== userId || generation.current !== request)
+          return;
+        suspended.current = null;
+        setState((old) => ({
+          ...old,
+          posts: reconcileHomePosts(remembered, authorized.posts, []).posts,
+          bootstrap,
+          loading: false,
+          error: null,
+        }));
+      })
+      .catch(() => {
+        if (account.current === userId && generation.current === request)
+          setState((old) => ({
+            ...old,
+            posts: [],
+            bootstrap: empty,
+            loading: false,
+            error: "Reconnect to refresh these moments.",
+          }));
+      })
+      .finally(() => {
+        if (inFlight.current === request) inFlight.current = null;
+      });
+  }, [repository, userId, revalidate]);
+
   useEffect(() => {
     suspended.current = null;
     setIncoming([]);
@@ -147,45 +193,7 @@ export function useSharedLife(
     void refresh();
     const subscription = AppState.addEventListener("change", (status) => {
       if (status === "active") {
-        const remembered = suspended.current;
-        if (!remembered?.length) {
-          void refresh();
-          return;
-        }
-        const request = ++generation.current;
-        inFlight.current = request;
-        setState((old) => ({ ...old, loading: true }));
-        void Promise.all([
-          repository.command<{ posts: HomePost[] }>("refresh_posts", {
-            ids: remembered.map((p) => p.id),
-          }),
-          repository.bootstrap(),
-        ])
-          .then(([authorized, bootstrap]) => {
-            if (account.current !== userId || generation.current !== request)
-              return;
-            suspended.current = null;
-            setState((old) => ({
-              ...old,
-              posts: reconcileHomePosts(remembered, authorized.posts, []).posts,
-              bootstrap,
-              loading: false,
-              error: null,
-            }));
-          })
-          .catch(() => {
-            if (account.current === userId && generation.current === request)
-              setState((old) => ({
-                ...old,
-                posts: [],
-                bootstrap: empty,
-                loading: false,
-                error: "Reconnect to refresh these moments.",
-              }));
-          })
-          .finally(() => {
-            if (inFlight.current === request) inFlight.current = null;
-          });
+        void resume();
       } else {
         generation.current++;
         inFlight.current = null;
@@ -201,7 +209,17 @@ export function useSharedLife(
       subscription.remove();
       clearInterval(timer);
     };
-  }, [refresh, userId]);
+  }, [refresh, userId, resume, revalidate]);
+  useEffect(() => {
+    if (focused) {
+      resume();
+    } else {
+      // Retained screens must not consume network or publish late responses.
+      generation.current++;
+      inFlight.current = null;
+      setState(old => ({ ...old, loading: false }));
+    }
+  }, [focused, resume]);
   return {
     ...state,
     posts: state.owner === userId ? state.posts : [],
