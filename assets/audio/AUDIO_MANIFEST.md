@@ -17,6 +17,14 @@ Automated measurements do not establish perceived balance on phone speakers. Sim
 
 ## Bundled Focus fallback
 
+### Moss Falls addition — local candidate, 2026-10-15
+
+`soundscapes/moss-falls-ambient-f798358a4ae5.m4a` belongs to Focus (`focus.music`). Original stereo ambience from Andrew's `IMG_0759.MOV` (source SHA-256 `a839984e122879060339e122fb5fbd6314fb2bf035ce43f178c867e21ff1bd50`), downloaded from his supplied iCloud share. Extracted 90.5–110 seconds, then mastered with the existing loop-master tool using a two-second rotated equal-power seam and category loudness normalization. No replacement sound or speed change.
+
+17.5 seconds; 48 kHz stereo AAC; native LoopPCMCache decode verified at exactly 840,000 frames. Measured -24.19 LUFS, -4.36 dBTP; 9/12 ms leading/trailing silence under the seam detector, 0.10 dB boundary-window delta; automated seam check passed. Asset SHA-256 `f798358a4ae5379a51dcc94761765dd6aadaf60f7cc935dbae67ff28f1a63085`. Physical-iPhone fixed-volume listening, repeated-loop acceptance, and publication remain pending. See `docs/feature-briefs/moss-falls-focus-environment.md` for video provenance and delivery status.
+
+### Existing assets
+
 | Asset | Owner | Category | Provenance / transform | Measurements | Proof status |
 | --- | --- | --- | --- | --- | --- |
 | `soundscapes/deep-work-drift-loop-c24a34f97230.mp3` | Focus | `focus.music` | Derived from the licensed pre-existing `Sleep Music No. 1 - Chris Haugen.mp3`; decoded to 48 kHz stereo before a 16 s rotation and 12 s equal-power seam, then normalized and encoded once at 192 kbps | 178.150 s; 8,551,200 decoded frames; 48 kHz stereo; 0 ms lead/tail; 0.11 dB boundary delta; -62.24 dBFS endpoint; endpoint 7.52 dB below local waveform motion; SHA-256 `c24a34f972303058e426344933366dbc65f2664d275a01996f9fa56c07ca5bb9` | Automated seam pass; Simulator, signed device, TestFlight, and production pending |

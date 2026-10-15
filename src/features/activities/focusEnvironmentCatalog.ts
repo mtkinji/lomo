@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 import type { VideoSource } from 'expo-video';
-import type { SoundscapeId } from '../../services/soundscapeCatalog';
+import type { FocusVideoEnvironmentId, SoundscapeId } from '../../services/soundscapeCatalog';
 
 const PUBLIC_FOCUS_ENVIRONMENT_ROOT =
   'https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/focus_environment_assets/v1';
@@ -13,7 +13,7 @@ function focusVideoSource(assetName: string): VideoSource {
 }
 
 export type FocusVideoEnvironment = {
-  id: Extract<SoundscapeId, 'canyonSpring' | 'mountainOverlook' | 'bishopLakes'>;
+  id: FocusVideoEnvironmentId;
   title: string;
   poster: ImageSourcePropType;
   video: VideoSource;
@@ -40,10 +40,18 @@ export const BISHOP_LAKES_ENVIRONMENT: FocusVideoEnvironment = {
   video: focusVideoSource('bishop-lakes-reflection-1c5f0bbe3f9c.mp4'),
 };
 
+export const MOSS_FALLS_ENVIRONMENT: FocusVideoEnvironment = {
+  id: 'mossFalls',
+  title: 'Moss Falls',
+  poster: require('../../../assets/images/focus/moss-falls-poster.jpg'),
+  video: focusVideoSource('moss-falls-loop-c3adcabe28c4.mp4'),
+};
+
 export const FOCUS_VIDEO_ENVIRONMENTS: readonly FocusVideoEnvironment[] = [
   CANYON_SPRING_ENVIRONMENT,
   MOUNTAIN_OVERLOOK_ENVIRONMENT,
   BISHOP_LAKES_ENVIRONMENT,
+  MOSS_FALLS_ENVIRONMENT,
 ];
 
 export function focusVideoEnvironment(id: SoundscapeId): FocusVideoEnvironment | null {

@@ -18,8 +18,8 @@ describe('Focus soundscape catalog', () => {
   });
 
   it('admits every visible soundscape through one immutable seamless-loop contract', () => {
-    expect(SOUND_SCAPES).toHaveLength(13);
-    expect(new Set(SOUND_SCAPES.map((soundscape) => soundscape.loop.assetKey)).size).toBe(13);
+    expect(SOUND_SCAPES).toHaveLength(14);
+    expect(new Set(SOUND_SCAPES.map((soundscape) => soundscape.loop.assetKey)).size).toBe(14);
 
     for (const soundscape of SOUND_SCAPES) {
       expect(soundscape.loop).toMatchObject({
@@ -35,7 +35,7 @@ describe('Focus soundscape catalog', () => {
         expect(remote).toBeDefined();
         expect(remote.cacheFileName).toMatch(/-[a-f0-9]{12}\.mp3$/);
       } else {
-        expect(['deep-work-drift', 'canyon-spring', 'mountain-overlook', 'bishop-lakes']).toContain(soundscape.loop.source.key);
+        expect(['deep-work-drift', 'canyon-spring', 'mountain-overlook', 'bishop-lakes', 'moss-falls']).toContain(soundscape.loop.source.key);
         expect(soundscape.loop.assetKey).toMatch(/-[a-f0-9]{12}$/);
         expect(typeof soundscape.loop.source.module).toBe('number');
       }
@@ -50,11 +50,20 @@ describe('Focus soundscape catalog', () => {
   });
 
   it('keeps video-environment identity independent from audio mute state', () => {
+    expect(normalizeFocusVideoEnvironmentId('mossFalls')).toBe('mossFalls');
     expect(normalizeFocusVideoEnvironmentId('canyonSpring')).toBe('canyonSpring');
     expect(normalizeFocusVideoEnvironmentId('mountainOverlook')).toBe('mountainOverlook');
     expect(normalizeFocusVideoEnvironmentId('bishopLakes')).toBe('bishopLakes');
     expect(normalizeFocusVideoEnvironmentId('quietRain')).toBeNull();
     expect(normalizeFocusVideoEnvironmentId(null)).toBeNull();
+  });
+
+  it('restores Moss Falls and pairs it with its original recorded ambience', () => {
+    expect(normalizeSoundscapeId('mossFalls')).toBe('mossFalls');
+    expect(SOUND_SCAPES.find((item) => item.id === 'mossFalls')).toMatchObject({
+      title: 'Moss Falls',
+      loop: { source: { kind: 'bundled', key: 'moss-falls' } },
+    });
   });
 
   it('pairs Mountain Overlook with its recorded windy ridgeline audio', () => {

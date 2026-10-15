@@ -88,6 +88,14 @@
     "channels": 2
   },
   {
+    "id": "mossFalls",
+    "assetKey": "moss-falls-ambient-f798358a4ae5",
+    "source": { "kind": "bundled", "key": "moss-falls" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
     "id": "oceanWaves",
     "assetKey": "ocean-waves-1bc54848be4d",
     "source": { "kind": "remote", "id": "focus.ocean-waves" },

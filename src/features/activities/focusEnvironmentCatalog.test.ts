@@ -3,6 +3,7 @@ import {
   CANYON_SPRING_ENVIRONMENT,
   FOCUS_VIDEO_ENVIRONMENTS,
   MOUNTAIN_OVERLOOK_ENVIRONMENT,
+  MOSS_FALLS_ENVIRONMENT,
   focusVideoEnvironment,
 } from './focusEnvironmentCatalog';
 
@@ -25,6 +26,7 @@ describe('Focus environment catalog', () => {
     expect(focusVideoEnvironment('canyonSpring')).toBe(CANYON_SPRING_ENVIRONMENT);
     expect(focusVideoEnvironment('mountainOverlook')).toBe(MOUNTAIN_OVERLOOK_ENVIRONMENT);
     expect(focusVideoEnvironment('bishopLakes')).toBe(BISHOP_LAKES_ENVIRONMENT);
+    expect(focusVideoEnvironment('mossFalls')).toBe(MOSS_FALLS_ENVIRONMENT);
     expect(focusVideoEnvironment('quietRain')).toBeNull();
     expect(focusVideoEnvironment('default')).toBeNull();
   });
@@ -44,6 +46,7 @@ describe('Focus environment catalog', () => {
   });
 
   it('serves every Focus video from a versioned public CDN path with local caching', () => {
+    expect(FOCUS_VIDEO_ENVIRONMENTS).toContain(MOSS_FALLS_ENVIRONMENT);
     for (const environment of FOCUS_VIDEO_ENVIRONMENTS) {
       expect(environment.video).toEqual({
         uri: expect.stringMatching(

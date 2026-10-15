@@ -9,6 +9,7 @@ const ALLOWED_BUNDLED_KEYS = new Set([
   'canyon-spring',
   'mountain-overlook',
   'bishop-lakes',
+  'moss-falls',
 ]);
 const SOUNDSCAPE_IDS = new Set([
   'default',
@@ -22,6 +23,7 @@ const SOUNDSCAPE_IDS = new Set([
   'canyonSpring',
   'mountainOverlook',
   'bishopLakes',
+  'mossFalls',
   'oceanWaves',
   'fireplace',
 ]);
