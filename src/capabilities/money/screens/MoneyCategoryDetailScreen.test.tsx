@@ -171,3 +171,10 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain('viewAllText: { color: colors.pine700');
   });
 });
+
+it('opens category settings at safe-area height and reserves handle clearance above its fixed header', () => {
+  const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+  const settings = source.slice(source.indexOf('visible={settingsOpen}'), source.indexOf('<SettingsGroup title="CATEGORY">'));
+  expect(settings).toContain("snapPoints={['100%']}");
+  expect(settings).toContain('underlapsHandle={false}');
+});

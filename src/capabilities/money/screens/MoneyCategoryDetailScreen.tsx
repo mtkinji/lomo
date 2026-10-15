@@ -97,7 +97,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [rebalanceFeedbackPending, setRebalanceFeedbackPending] = useState(false);
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
-  const [rolloverDraft, setRolloverDraft] = useState<RolloverDraft>({ enabled: false, startMonth: getLocalMoneyPeriodId(new Date()), balance: '0.00', historicalAmount: '0.00', historyReviewed: false });
+  const [rolloverDraft, setRolloverDraft] = useState<RolloverDraft>({ enabled: false, startMonth: getLocalMoneyPeriodId(new Date()), balance: '0.00' });
   const [fundingRhythmDraft, setFundingRhythmDraft] = useState<CategoryFundingRhythm>('monthly');
   const [planRoleDraft, setPlanRoleDraft] = useState<MoneyCategoryPlanRole>('flexible');
   const [expectedNeedDraft, setExpectedNeedDraft] = useState('');
@@ -504,9 +504,11 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <BottomDrawer
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        snapPoints={['82%']}
+        snapPoints={['100%']}
         keyboardBehavior="resize"
         bottomAccessory={(
+          <View style={{ gap: spacing.sm }}>
+          {rolloverReview?.error || categoryError ? <Text accessibilityRole="alert" style={styles.errorText}>{rolloverReview?.error || categoryError}</Text> : null}
           <Button
             disabled={savingCategory || !!rolloverReview?.error}
             fullWidth
@@ -516,6 +518,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           >
             Save changes
           </Button>
+          </View>
         )}
         bottomAccessoryPlacement="phoneFloating"
         sheetStyle={styles.settingsDrawerSheet}
@@ -529,6 +532,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           />
         </View>
         <BottomDrawerScrollView
+          underlapsHandle={false}
           automaticallyAdjustKeyboardInsets
           contentContainerStyle={styles.settingsDrawerScrollContent}
           keyboardDismissMode="interactive"
@@ -612,7 +616,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               value="Create"
             />
           </SettingsGroup>
-          {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}
+
         </BottomDrawerScrollView>
       </BottomDrawer>
 

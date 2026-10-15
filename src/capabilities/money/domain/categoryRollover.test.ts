@@ -1,4 +1,4 @@
-import { projectCategoryRollover, validateRolloverPolicy, rolloverHistoryGaps } from './categoryRollover';
+import { projectCategoryRollover, validateRolloverPolicy } from './categoryRollover';
 import type { MoneyTransaction } from '../data/moneySnapshot';
 
 const policy = { startMonth: '2026-01', startingBalanceCents: 0, monthlyAmounts: { '2026-01': 40000 }, timeZone: 'America/Denver' };
@@ -31,9 +31,6 @@ describe('category rollover', () => {
   });
   it('does not project rollover before its start month', () => {
     expect(projectCategoryRollover(category, policy, [], '2025-12', 0)).toBeNull();
-  });
-  it('identifies months without imported posted activity instead of assuming no spending', () => {
-    expect(rolloverHistoryGaps('2026-01', '2026-03', [transaction({}), transaction({ date: '2026-02-01', pending: true })])).toEqual(['2026-02']);
   });
   it.each([
     { ...policy, startMonth: '2026-13' }, { ...policy, startingBalanceCents: NaN },

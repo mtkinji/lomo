@@ -43,11 +43,6 @@ export function monthsBefore(startMonth: string, targetMonth: string): string[] 
   return result;
 }
 
-export function rolloverHistoryGaps(start: string, target: string, transactions: RolloverTransaction[]): string[] {
-  const imported = new Set(transactions.filter((transaction) => !transaction.pending).map((transaction) => transaction.date.slice(0, 7)));
-  return monthsBefore(start, target).filter((month) => !imported.has(month));
-}
-
 export function projectCategoryRollover(
   category: { id: string; sourceId: string; plannedCents: number },
   policy: RolloverPolicy,

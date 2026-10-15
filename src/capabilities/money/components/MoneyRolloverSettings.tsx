@@ -27,12 +27,11 @@ export function MoneyRolloverSettings({ draft, onChange, review, currentMonth, m
       {draft.enabled ? <>
         <SettingsDivider />
         <EnumPickerField
-          title="Start month" placeholder="Choose a month" accessibilityLabel="Rollover start month"
+          title="Roll over from" placeholder="Choose a month" accessibilityLabel="Roll over from"
           options={choices} value={draft.startMonth} disabled={disabled}
-          onValueChange={(startMonth) => onChange({ ...draft, startMonth, historyReviewed: false })}
-          renderTrigger={({ selectedLabel, onPress }) => <SettingsRow title="Start month" value={selectedLabel} onPress={onPress} disabled={disabled} />}
+          onValueChange={(startMonth) => onChange({ ...draft, startMonth })}
+          renderTrigger={({ selectedLabel, onPress }) => <SettingsRow title="Roll over from" value={selectedLabel} onPress={onPress} disabled={disabled} />}
         />
-        {draft.startMonth !== `${year}-01` ? <SettingsRow title="Start in January this year" onPress={() => onChange({ ...draft, startMonth: `${year}-01`, historyReviewed: false })} disabled={disabled} /> : null}
         <SettingsDivider />
         <SettingsTextInputRow label="Starting balance" value={draft.balance} keyboardType="numbers-and-punctuation" editable={!disabled}
           accessibilityHint={`Amount carried into ${formatRolloverMonth(draft.startMonth)}, before that month's budget and spending. Can be negative.`}
@@ -40,21 +39,13 @@ export function MoneyRolloverSettings({ draft, onChange, review, currentMonth, m
       </> : null}
     </SettingsGroup>
     {draft.enabled ? <>
-      {draft.startMonth < currentMonth ? <SettingsGroup>
-          <SettingsTextInputRow label="Earlier monthly budget" value={draft.historicalAmount} keyboardType="decimal-pad" editable={!disabled}
-            onChangeText={(historicalAmount) => onChange({ ...draft, historicalAmount, historyReviewed: false })} />
-          {review.historyRequired ? <SettingsToggleRow title="I’ve reviewed the earlier spending" description="Use this monthly amount for the earlier months. Check that spending from all relevant accounts is included."
-            enabled={draft.historyReviewed} disabled={disabled || !review.preview} onPress={() => onChange({ ...draft, historyReviewed: !draft.historyReviewed })} /> : null}
-      </SettingsGroup> : null}
-      {review.preview ? <SettingsGroup title={`PREVIEW · ${formatRolloverMonth(currentMonth).toUpperCase()}`} footer={review.error ?? undefined}>
+      {review.preview ? <SettingsGroup title={`PREVIEW · ${formatRolloverMonth(currentMonth).toUpperCase()}`} footer="Includes the selected month through this month, using recorded spending. Quiet months still receive their monthly budget.">
         <SettingsRow title="Rolled in" value={formatMoney(review.preview.carriedInCents)} />
         <SettingsRow title="Monthly budget" value={formatMoney(monthlyAmountCents)} />
         <SettingsRow title="Spent this month" value={formatMoney(spentCents)} />
         <SettingsDivider />
         <SettingsRow title="Remaining" value={formatMoney(review.preview.availableCents)} />
-      </SettingsGroup> : <SettingsGroup footer={review.error ?? undefined}>
-        <SettingsRow title="Start this month instead" disabled={disabled} onPress={() => onChange({ ...draft, startMonth: currentMonth, historyReviewed: false })} />
-      </SettingsGroup>}
+      </SettingsGroup> : null}
     </> : null}
   </>;
 }

@@ -109,3 +109,17 @@ conversion of their saved balances. Annual reset remains deferred.
 
 Delivery evidence and deployment/native boundaries are recorded in
 `docs/superpowers/plans/2026-10-13-category-rollover-start.md`.
+
+## Accepted correction — October 15, 2026
+
+Supersedes the October 13 start/history controls: use one **Roll over from** month
+picker, with no separate January shortcut, earlier-budget input, or history-review
+switch. A newly backdated period uses the entered standard monthly budget for each
+month from the selected month through the current month, subtracting recorded
+qualifying spending and including the signed opening balance. Empty months are
+valid and do not prove missing history. Existing saved budget schedules remain
+intact when the start month is unchanged. A zero opening balance is valid.
+
+Show validation and save errors immediately above the fixed Save changes button,
+not below scrollable preview content. Imported historical transactions are reused;
+this change neither imports new history nor asserts that bank coverage is complete.
