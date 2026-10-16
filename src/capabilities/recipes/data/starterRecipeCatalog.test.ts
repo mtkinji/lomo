@@ -18,11 +18,11 @@ import {
 import { getCuisineFamilyForCuisine } from "../domain/cuisineFamilies";
 
 describe("starter Recipe catalog", () => {
-  it("ships exactly 600 unique, contract-valid independently authored recipes", () => {
-    expect(getStarterRecipeProjections()).toHaveLength(600);
+  it("ships exactly 800 unique, contract-valid independently authored recipes", () => {
+    expect(getStarterRecipeProjections()).toHaveLength(800);
     expect(
       new Set(getStarterRecipeProjections().map(({ recipe }) => recipe.id)).size,
-    ).toBe(600);
+    ).toBe(800);
     for (const projection of getStarterRecipeProjections()) {
       expect(() => parseRecipeProjection(projection)).not.toThrow();
       expect(
@@ -90,7 +90,7 @@ describe("starter Recipe catalog", () => {
     };
     const inventory = buildRecipeLibraryInventory([personal, duplicate]);
 
-    expect(inventory).toHaveLength(601);
+    expect(inventory).toHaveLength(801);
     expect(inventory[0]).toBe(personal);
     expect(inventory[1]).toBe(duplicate);
     expect(
@@ -177,7 +177,7 @@ describe("starter Recipe catalog", () => {
 
     const inventory = buildRecipeLibraryInventory([personalEdition]);
 
-    expect(inventory).toHaveLength(601);
+    expect(inventory).toHaveLength(801);
     expect(inventory[0]).toBe(personalEdition);
   });
 

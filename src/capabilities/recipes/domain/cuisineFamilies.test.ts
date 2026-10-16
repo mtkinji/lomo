@@ -17,8 +17,8 @@ describe("cuisine families", () => {
   });
 
   it("keeps the canonical family set compact and every id unique", () => {
-    expect(CUISINE_FAMILIES).toHaveLength(20);
-    expect(new Set(CUISINE_FAMILIES.map(({ id }) => id)).size).toBe(20);
+    expect(CUISINE_FAMILIES).toHaveLength(22);
+    expect(new Set(CUISINE_FAMILIES.map(({ id }) => id)).size).toBe(22);
   });
 
   it("features a smaller complete illustration rail", () => {

@@ -1,0 +1,22 @@
+[
+  {
+    "rosterId": "DI336",
+    "source": "/Users/andrewwatanabe/.codex/generated_images/01a144da-b047-7490-8d4a-7144095a49eb/exec-5b1e3e52-8666-44b5-a7c1-90352edcab7c.png",
+    "path": "assets/recipes/simple-dinners/di336-hero-v2.png",
+    "prompt": "Landscape 3:2, 1536x1024, photorealistic editorial cookbook photograph of chicken enchilada skillet with black beans, one dinner serving in a warm cream ceramic shallow bowl. Shredded cooked chicken, black beans, yellow corn and softened diced red bell pepper mixed with SOFT floppy wide corn-tortilla strips, all thoroughly moistened in mild red enchilada sauce. The tortillas are tender and sauce-soaked, never chips, no crispy or toasted edges. White Monterey Jack melted gently under a lid on stovetop: smooth pale creamy melted patches, absolutely NO browned spots, no baked crust, no broiled bubbles. A modest spoonful completely plain smooth WHITE Greek yogurt on top, mixed with invisible lime juice: no zest, no green strands, no herbs or garnish whatsoever. Natural warm side window light, neutral linen and stone, elevated three-quarter viewpoint, realistic home-cooked texture, centered meal with safe crop margins. No text logos hands, no food props.",
+    "generator": "built-in image_gen",
+    "reviewState": "visually_reviewed",
+    "reviewNotes": "Plain white yogurt without zest or garnish. Cheese is smooth melted pale patches rather than browned crust. Wide tortilla strips are moist, folded and sauce-soaked, matching covered stovetop method. Chicken, black beans, corn and red pepper visible. Landscape full meal survives center crop.",
+    "publicationState": "not_published",
+    "storageRef": null,
+    "sha256": "7b08a869f34922c9a675d0e9a9ae685db89a63aa46d137133dcc20b1701a855e",
+    "width": 1536,
+    "height": 1024,
+    "sourceRecipeHash": "sha256:25060880f14781ec71e7e16c96203e7e03bad994b42dc8143385fc5cc364c774",
+    "verifiedRecipeHash": "sha256:25060880f14781ec71e7e16c96203e7e03bad994b42dc8143385fc5cc364c774",
+    "family": "editorial food photography",
+    "styleReferencePaths": [
+      "assets/recipes/household-recipe-atlas.png"
+    ]
+  }
+]
