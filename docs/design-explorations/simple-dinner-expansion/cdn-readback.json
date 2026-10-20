@@ -1,0 +1,1605 @@
+{
+  "checkedAt": "2026-10-16T14:22:35.459Z",
+  "images": [
+    {
+      "rosterId": "DI331",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di331/kwilt-recipe-hero-v2/f461ccf5c9bddb7b-d229ba0783698666/candidate-0.webp",
+      "status": 200,
+      "sha256": "d229ba0783698666152029df9cf2f28ae11781de2907c26c1e8645b6e74422d9",
+      "bytes": 258696,
+      "checkedAt": "2026-10-16T14:21:58.006Z"
+    },
+    {
+      "rosterId": "DI332",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di332/kwilt-recipe-hero-v2/e0382b0a382924b7-ecf99d2c4de47ea8/candidate-0.webp",
+      "status": 200,
+      "sha256": "ecf99d2c4de47ea82559d5511321ad33721c0f3cb32cfd9039a9af9b16225352",
+      "bytes": 348206,
+      "checkedAt": "2026-10-16T14:21:57.997Z"
+    },
+    {
+      "rosterId": "DI333",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di333/kwilt-recipe-hero-v2/b995abc50701bcce-00d52ff43421b083/candidate-0.webp",
+      "status": 200,
+      "sha256": "00d52ff43421b083ceba5d2cb8e37197674a2bf91fa673a8f9e5334811affaf1",
+      "bytes": 284954,
+      "checkedAt": "2026-10-16T14:21:58.198Z"
+    },
+    {
+      "rosterId": "DI334",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di334/kwilt-recipe-hero-v2/3c51f5f20d30fd19-a16fc6e06cc0c7d3/candidate-0.webp",
+      "status": 200,
+      "sha256": "a16fc6e06cc0c7d373bdc7cf0831f9108c75eb7b00a89b9a4fa018431c2c01c0",
+      "bytes": 286828,
+      "checkedAt": "2026-10-16T14:21:58.088Z"
+    },
+    {
+      "rosterId": "DI335",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di335/kwilt-recipe-hero-v2/31914e3bcb11ab9c-57762bd942b2b97d/candidate-0.webp",
+      "status": 200,
+      "sha256": "57762bd942b2b97d708c715407f63a817bcc17fc2528934beb1d1c9f6fb5ace0",
+      "bytes": 293884,
+      "checkedAt": "2026-10-16T14:21:58.178Z"
+    },
+    {
+      "rosterId": "DI336",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di336/kwilt-recipe-hero-v2/7e39c6c29ace07e3-ec2e4318b1158f02/candidate-0.webp",
+      "status": 200,
+      "sha256": "ec2e4318b1158f02b8e1222e3fe842664c7eca5b5ebeede9aafb52ecd8fac1be",
+      "bytes": 333258,
+      "checkedAt": "2026-10-16T14:21:58.248Z"
+    },
+    {
+      "rosterId": "DI337",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di337/kwilt-recipe-hero-v2/d3e7e5eb195a634a-6febec937f15468c/candidate-0.webp",
+      "status": 200,
+      "sha256": "6febec937f15468c565050ff9e2346806a260258476e515f0a83fbef755b6935",
+      "bytes": 345312,
+      "checkedAt": "2026-10-16T14:21:58.270Z"
+    },
+    {
+      "rosterId": "DI338",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di338/kwilt-recipe-hero-v2/dfc74ef98562bc78-fab55bf48f388ce8/candidate-0.webp",
+      "status": 200,
+      "sha256": "fab55bf48f388ce8023be3659d7d7d092c5e00ff9eb669d1faa2351a0e873a9b",
+      "bytes": 410338,
+      "checkedAt": "2026-10-16T14:21:58.338Z"
+    },
+    {
+      "rosterId": "DI339",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di339/kwilt-recipe-hero-v2/1f1b17de0b1d9593-35c90752ff90aed6/candidate-0.webp",
+      "status": 200,
+      "sha256": "35c90752ff90aed64d591df927f987e5045872f39b7855064c064af9447b1a07",
+      "bytes": 239534,
+      "checkedAt": "2026-10-16T14:21:58.349Z"
+    },
+    {
+      "rosterId": "DI340",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di340/kwilt-recipe-hero-v2/696f75147f01bf1a-52f3055909c648e7/candidate-0.webp",
+      "status": 200,
+      "sha256": "52f3055909c648e73d3c22c414f5fed83c661ae82aefb7e6b4ec1b098388bfda",
+      "bytes": 280766,
+      "checkedAt": "2026-10-16T14:21:58.413Z"
+    },
+    {
+      "rosterId": "DI341",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di341/kwilt-recipe-hero-v2/ab504d070c87e9e2-14d1781fbfac09bc/candidate-0.webp",
+      "status": 200,
+      "sha256": "14d1781fbfac09bcdc70f0b009726017cad97579ba6ab7cbb8dcde18f1b7d76a",
+      "bytes": 318178,
+      "checkedAt": "2026-10-16T14:21:58.408Z"
+    },
+    {
+      "rosterId": "DI342",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di342/kwilt-recipe-hero-v2/21e2ddc93bb65356-2885808420c1ae8e/candidate-0.webp",
+      "status": 200,
+      "sha256": "2885808420c1ae8ecc671ad30c79f9e3bdf780fe855219eabe8ec9b41a5c0e3d",
+      "bytes": 314304,
+      "checkedAt": "2026-10-16T14:21:58.482Z"
+    },
+    {
+      "rosterId": "DI343",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di343/kwilt-recipe-hero-v2/187d3957018b18ed-5bc49777ea7c5345/candidate-0.webp",
+      "status": 200,
+      "sha256": "5bc49777ea7c534550aeb04b87d16417c8081a9cceebf3bfa396c2de1b283b20",
+      "bytes": 308374,
+      "checkedAt": "2026-10-16T14:21:58.475Z"
+    },
+    {
+      "rosterId": "DI344",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di344/kwilt-recipe-hero-v2/a9cfbe6bd25a2414-11145b640c4da2f6/candidate-0.webp",
+      "status": 200,
+      "sha256": "11145b640c4da2f656b5d26573529358aee0b0eabef35f4a45f969afa71ad719",
+      "bytes": 378550,
+      "checkedAt": "2026-10-16T14:21:58.553Z"
+    },
+    {
+      "rosterId": "DI345",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di345/kwilt-recipe-hero-v2/6c3867bc033b3adb-cb3bda2e26da87cc/candidate-0.webp",
+      "status": 200,
+      "sha256": "cb3bda2e26da87cc8d4cc775ff8945546ec8e39d3fcd391faf44c7499f58b433",
+      "bytes": 271546,
+      "checkedAt": "2026-10-16T14:21:58.545Z"
+    },
+    {
+      "rosterId": "DI346",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di346/kwilt-recipe-hero-v2/83e0322bfc581ccc-e137ae49d01ca437/candidate-0.webp",
+      "status": 200,
+      "sha256": "e137ae49d01ca437b9130c29ed29cf965ae19074592955bdacc8fcba12d5510e",
+      "bytes": 386818,
+      "checkedAt": "2026-10-16T14:21:58.622Z"
+    },
+    {
+      "rosterId": "DI347",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di347/kwilt-recipe-hero-v2/8117fa04c5143e96-dd10a8a83f3088cd/candidate-0.webp",
+      "status": 200,
+      "sha256": "dd10a8a83f3088cdffd1f30628c207606b00da2942ae395df5deb4d3e2c8c432",
+      "bytes": 290820,
+      "checkedAt": "2026-10-16T14:21:58.623Z"
+    },
+    {
+      "rosterId": "DI348",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di348/kwilt-recipe-hero-v2/f855283faab2061c-93fd936c21162c61/candidate-0.webp",
+      "status": 200,
+      "sha256": "93fd936c21162c61374f01eae5d0e99654007255c4dfcc0bae11c9bc2ca916aa",
+      "bytes": 302278,
+      "checkedAt": "2026-10-16T14:21:58.689Z"
+    },
+    {
+      "rosterId": "DI349",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di349/kwilt-recipe-hero-v2/ef9e49df12f69ac4-3628d323a45b08ad/candidate-0.webp",
+      "status": 200,
+      "sha256": "3628d323a45b08adc1fdd702b8a980030edd3132f6d9a46585df3099d8bc7d8b",
+      "bytes": 372880,
+      "checkedAt": "2026-10-16T14:21:58.810Z"
+    },
+    {
+      "rosterId": "DI350",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di350/kwilt-recipe-hero-v2/86f73578166723ea-6c1b08406230dd70/candidate-0.webp",
+      "status": 200,
+      "sha256": "6c1b08406230dd707304b42ece99285e542e1f5231ab54492fd28cacd294fbf8",
+      "bytes": 363050,
+      "checkedAt": "2026-10-16T14:21:58.775Z"
+    },
+    {
+      "rosterId": "DI351",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di351/kwilt-recipe-hero-v2/9dd260c208294f0a-3a367657190cc003/candidate-0.webp",
+      "status": 200,
+      "sha256": "3a367657190cc00368074f953a64643436721c6b17c9aeecef76c111fe940e22",
+      "bytes": 295268,
+      "checkedAt": "2026-10-16T14:21:58.837Z"
+    },
+    {
+      "rosterId": "DI352",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di352/kwilt-recipe-hero-v2/36fb92338200956e-5062d45a9704b8b2/candidate-0.webp",
+      "status": 200,
+      "sha256": "5062d45a9704b8b223894437f5c48b6aab1f202613ec3afa1218d8e37154e90b",
+      "bytes": 283610,
+      "checkedAt": "2026-10-16T14:21:58.864Z"
+    },
+    {
+      "rosterId": "DI353",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di353/kwilt-recipe-hero-v2/064d2e62c73ce2be-b4def4df518a69af/candidate-0.webp",
+      "status": 200,
+      "sha256": "b4def4df518a69af876400f166d83e5a592b890e02a25477b8d1d5a7fb4fc9a2",
+      "bytes": 337242,
+      "checkedAt": "2026-10-16T14:21:58.928Z"
+    },
+    {
+      "rosterId": "DI354",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di354/kwilt-recipe-hero-v2/93adb5d362c1acc3-fbda08f86dc661c8/candidate-0.webp",
+      "status": 200,
+      "sha256": "fbda08f86dc661c8db0456d7b30e5e1098bcf3c3947febd272d27919085d1fe8",
+      "bytes": 366324,
+      "checkedAt": "2026-10-16T14:21:58.976Z"
+    },
+    {
+      "rosterId": "DI355",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di355/kwilt-recipe-hero-v2/e3f9891ac10a0bde-04f9d82b6eb6343b/candidate-0.webp",
+      "status": 200,
+      "sha256": "04f9d82b6eb6343b18b4d42868ba76a20162c08b5dc79807d345592fba56c9d5",
+      "bytes": 345558,
+      "checkedAt": "2026-10-16T14:21:58.988Z"
+    },
+    {
+      "rosterId": "DI356",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di356/kwilt-recipe-hero-v2/83c2d11f80905ba4-156c4f6f1d854af1/candidate-0.webp",
+      "status": 200,
+      "sha256": "156c4f6f1d854af1478fb7c8b1652e19ebb05b0fc59c70ae7409195ced1a9466",
+      "bytes": 328822,
+      "checkedAt": "2026-10-16T14:21:59.038Z"
+    },
+    {
+      "rosterId": "DI357",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di357/kwilt-recipe-hero-v2/87a1b10b09ff503d-d46aaddf8d8c76df/candidate-0.webp",
+      "status": 200,
+      "sha256": "d46aaddf8d8c76dfc298852d3da98926bf4a03d04af29736558609a7016f7fb8",
+      "bytes": 319028,
+      "checkedAt": "2026-10-16T14:21:59.050Z"
+    },
+    {
+      "rosterId": "DI358",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di358/kwilt-recipe-hero-v2/25b7f1f0d8f6f1ea-00cfd1ac03d9f22d/candidate-0.webp",
+      "status": 200,
+      "sha256": "00cfd1ac03d9f22de9819b7bdcba1cde29c49ba5de65c35c76854ee3d58e9cba",
+      "bytes": 305800,
+      "checkedAt": "2026-10-16T14:21:59.132Z"
+    },
+    {
+      "rosterId": "DI359",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di359/kwilt-recipe-hero-v2/d8cd60c16080bb1c-7c7dedb02a4b6edb/candidate-0.webp",
+      "status": 200,
+      "sha256": "7c7dedb02a4b6edb1513abee5f0f05097ce086247ddc2a1f5e3a5ed666c06683",
+      "bytes": 320554,
+      "checkedAt": "2026-10-16T14:21:59.108Z"
+    },
+    {
+      "rosterId": "DI360",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di360/kwilt-recipe-hero-v2/68b2f9732e056512-d828536d81a67a3e/candidate-0.webp",
+      "status": 200,
+      "sha256": "d828536d81a67a3ea171e72cb22b533885bf0567b12dba3376325dae6eecc6a9",
+      "bytes": 310454,
+      "checkedAt": "2026-10-16T14:21:59.181Z"
+    },
+    {
+      "rosterId": "DI361",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di361/kwilt-recipe-hero-v2/6b1f19cab4d88212-79b15128c95b4e90/candidate-0.webp",
+      "status": 200,
+      "sha256": "79b15128c95b4e9090550c22f0c33be994cbdb4a052d0d647ae20d684305fea8",
+      "bytes": 256624,
+      "checkedAt": "2026-10-16T14:21:59.188Z"
+    },
+    {
+      "rosterId": "DI362",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di362/kwilt-recipe-hero-v2/256989ceaa86edb3-be2458c2176ec3a6/candidate-0.webp",
+      "status": 200,
+      "sha256": "be2458c2176ec3a61a2b253c5743465071a5a82de5efe5b4863d2d9d21d2c8a8",
+      "bytes": 298634,
+      "checkedAt": "2026-10-16T14:21:59.237Z"
+    },
+    {
+      "rosterId": "DI363",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di363/kwilt-recipe-hero-v2/6a59cec43d915d5e-8588e73ed2f4f80a/candidate-0.webp",
+      "status": 200,
+      "sha256": "8588e73ed2f4f80a4b572d33393db00a4cda59d0f8ee674f893df7cf5a5231dc",
+      "bytes": 348338,
+      "checkedAt": "2026-10-16T14:21:59.282Z"
+    },
+    {
+      "rosterId": "DI364",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di364/kwilt-recipe-hero-v2/5d1e8cbe52e67bb6-52453be9de4342ce/candidate-0.webp",
+      "status": 200,
+      "sha256": "52453be9de4342ce577409906061e9d04221b513308135f163742a05df8ed89e",
+      "bytes": 394994,
+      "checkedAt": "2026-10-16T14:21:59.310Z"
+    },
+    {
+      "rosterId": "DI365",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di365/kwilt-recipe-hero-v2/aaae1ba681a8561e-12dcb30cd430c7db/candidate-0.webp",
+      "status": 200,
+      "sha256": "12dcb30cd430c7db4290d80c3a6022b11b07983d6ab68b14c9bbed43275f3ee9",
+      "bytes": 290944,
+      "checkedAt": "2026-10-16T14:21:59.362Z"
+    },
+    {
+      "rosterId": "DI366",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di366/kwilt-recipe-hero-v2/f357d88e57bc4968-00fdd0c8ec4d062c/candidate-0.webp",
+      "status": 200,
+      "sha256": "00fdd0c8ec4d062c111bc138a351623ef5e94fd3e8764176b722e756cfee1a4c",
+      "bytes": 315082,
+      "checkedAt": "2026-10-16T14:21:59.373Z"
+    },
+    {
+      "rosterId": "DI367",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di367/kwilt-recipe-hero-v2/fec3c570a00e8664-c7e33aa6076ebc11/candidate-0.webp",
+      "status": 200,
+      "sha256": "c7e33aa6076ebc11ca8d0155727b2cd531ea2e27c1d29f74333c66f475e62c7f",
+      "bytes": 320268,
+      "checkedAt": "2026-10-16T14:21:59.433Z"
+    },
+    {
+      "rosterId": "DI368",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di368/kwilt-recipe-hero-v2/2ec1bea5ecbb67c2-e28aa93245c40a9c/candidate-0.webp",
+      "status": 200,
+      "sha256": "e28aa93245c40a9c9835d7d74b4d38c427d1849a92de1fb589426641aa3ce2c7",
+      "bytes": 367652,
+      "checkedAt": "2026-10-16T14:21:59.446Z"
+    },
+    {
+      "rosterId": "DI369",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di369/kwilt-recipe-hero-v2/73c4b59c9935cbeb-914928ad58021563/candidate-0.webp",
+      "status": 200,
+      "sha256": "914928ad580215637d46ca8e92f46e0cc1ba4d9313513adff318c611db3cce59",
+      "bytes": 267350,
+      "checkedAt": "2026-10-16T14:21:59.492Z"
+    },
+    {
+      "rosterId": "DI370",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di370/kwilt-recipe-hero-v2/acfdee219a209f89-426fe717ea919c6d/candidate-0.webp",
+      "status": 200,
+      "sha256": "426fe717ea919c6d79d2d0c0853367f82fc7f9b946eaead7e08534c1d393f992",
+      "bytes": 275296,
+      "checkedAt": "2026-10-16T14:21:59.501Z"
+    },
+    {
+      "rosterId": "DI371",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di371/kwilt-recipe-hero-v2/f412fced07774b1c-85490f122fd1fff5/candidate-0.webp",
+      "status": 200,
+      "sha256": "85490f122fd1fff5dcf49c2f62232720926eba452de5d39829bef69496081e2f",
+      "bytes": 325596,
+      "checkedAt": "2026-10-16T14:21:59.555Z"
+    },
+    {
+      "rosterId": "DI372",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di372/kwilt-recipe-hero-v2/99e8fe0ac2a9eff2-896e0354fa11687a/candidate-0.webp",
+      "status": 200,
+      "sha256": "896e0354fa11687a5fe378edaac0552e7e5ecb14d322e88e0db14358534d241b",
+      "bytes": 336096,
+      "checkedAt": "2026-10-16T14:21:59.557Z"
+    },
+    {
+      "rosterId": "DI373",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di373/kwilt-recipe-hero-v2/079455eae10a0d11-014371f54a4fb88a/candidate-0.webp",
+      "status": 200,
+      "sha256": "014371f54a4fb88a94a94a460b315326774010d3241da36898a9aa81623e0386",
+      "bytes": 279706,
+      "checkedAt": "2026-10-16T14:21:59.616Z"
+    },
+    {
+      "rosterId": "DI374",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di374/kwilt-recipe-hero-v2/bbbe8b0c74e93d42-cba918fa1178e912/candidate-0.webp",
+      "status": 200,
+      "sha256": "cba918fa1178e91218ef25d6b993c07d59b0cd52a0f38ee868c9dd16e55a63e5",
+      "bytes": 323198,
+      "checkedAt": "2026-10-16T14:21:59.618Z"
+    },
+    {
+      "rosterId": "DI375",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di375/kwilt-recipe-hero-v2/8586e74a5538c34c-0fa6a6e2d685db62/candidate-0.webp",
+      "status": 200,
+      "sha256": "0fa6a6e2d685db628b9ab57d8ffb9cacbe34f75102db484fb19b0052780381be",
+      "bytes": 342006,
+      "checkedAt": "2026-10-16T14:21:59.684Z"
+    },
+    {
+      "rosterId": "DI376",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di376/kwilt-recipe-hero-v2/2076866cf3b87506-ee93a5294412aec7/candidate-0.webp",
+      "status": 200,
+      "sha256": "ee93a5294412aec7267af72d1c032e6cc1fc29853e15718306bd18ad396d74f2",
+      "bytes": 335616,
+      "checkedAt": "2026-10-16T14:21:59.689Z"
+    },
+    {
+      "rosterId": "DI377",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di377/kwilt-recipe-hero-v2/fa9412d4cb7d0cf6-55bd3c517e8d6021/candidate-0.webp",
+      "status": 200,
+      "sha256": "55bd3c517e8d602110de44f2c662d6ea14184b8fb95246eedce4b6d39ec816fc",
+      "bytes": 262064,
+      "checkedAt": "2026-10-16T14:21:59.752Z"
+    },
+    {
+      "rosterId": "DI378",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di378/kwilt-recipe-hero-v2/8caa10996c7fd772-be56a68c172e5df6/candidate-0.webp",
+      "status": 200,
+      "sha256": "be56a68c172e5df6d98cc5b1efaa232b1e3dd02968b21db7c17004185e830e4d",
+      "bytes": 321892,
+      "checkedAt": "2026-10-16T14:21:59.756Z"
+    },
+    {
+      "rosterId": "DI379",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di379/kwilt-recipe-hero-v2/4a6595adee68d8e5-7cb8c1cdf6a41391/candidate-0.webp",
+      "status": 200,
+      "sha256": "7cb8c1cdf6a4139191a129169f63c5da641bf1ccd6f7d8531bdbc9e429eabc45",
+      "bytes": 299234,
+      "checkedAt": "2026-10-16T14:21:59.817Z"
+    },
+    {
+      "rosterId": "DI380",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di380/kwilt-recipe-hero-v2/68a8158c920cc73a-c7ab7f3321c70fce/candidate-0.webp",
+      "status": 200,
+      "sha256": "c7ab7f3321c70fcef9c4b6f92d95549a58015553ea28b0a132b2108a53869452",
+      "bytes": 355320,
+      "checkedAt": "2026-10-16T14:21:59.828Z"
+    },
+    {
+      "rosterId": "DI381",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di381/kwilt-recipe-hero-v2/348874caa47efda8-d46de71f8050103d/candidate-0.webp",
+      "status": 200,
+      "sha256": "d46de71f8050103d0679df631e93d829f0cadadd96b0d18e514ec16d8fdb43f7",
+      "bytes": 274070,
+      "checkedAt": "2026-10-16T14:21:59.893Z"
+    },
+    {
+      "rosterId": "DI382",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di382/kwilt-recipe-hero-v2/3b5dcc83a231eb6b-77419f4610311474/candidate-0.webp",
+      "status": 200,
+      "sha256": "77419f461031147497408e424028998965304cb3df8e5cbfce7b27799f04cbd1",
+      "bytes": 332134,
+      "checkedAt": "2026-10-16T14:21:59.886Z"
+    },
+    {
+      "rosterId": "DI383",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di383/kwilt-recipe-hero-v2/785daef1415277ab-caa83dd90e6b3a72/candidate-0.webp",
+      "status": 200,
+      "sha256": "caa83dd90e6b3a7233c1c4326a354a62c65a356704ea65cb07d02e3ebe2baad4",
+      "bytes": 315782,
+      "checkedAt": "2026-10-16T14:21:59.942Z"
+    },
+    {
+      "rosterId": "DI384",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di384/kwilt-recipe-hero-v2/92674fbc976f9c4e-b456c1b56cb6fe71/candidate-0.webp",
+      "status": 200,
+      "sha256": "b456c1b56cb6fe714e5e27b897a1c2467488645b896584bae8c1a8e7c04596ae",
+      "bytes": 279802,
+      "checkedAt": "2026-10-16T14:21:59.964Z"
+    },
+    {
+      "rosterId": "DI385",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di385/kwilt-recipe-hero-v2/e93094fc55bf6b14-3ebecb12b21bcc35/candidate-0.webp",
+      "status": 200,
+      "sha256": "3ebecb12b21bcc3515757790c0053b78d55baf0cdb4e8d0dddceaad44c3f7898",
+      "bytes": 416076,
+      "checkedAt": "2026-10-16T14:22:00.007Z"
+    },
+    {
+      "rosterId": "DI386",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di386/kwilt-recipe-hero-v2/c43511f739a21971-f00dd1fa1b1023ad/candidate-0.webp",
+      "status": 200,
+      "sha256": "f00dd1fa1b1023ade96514d78bf6455ef833b4dc9d99bf44611c3674c9dd71e0",
+      "bytes": 310538,
+      "checkedAt": "2026-10-16T14:22:00.043Z"
+    },
+    {
+      "rosterId": "DI387",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di387/kwilt-recipe-hero-v2/807c2b8669ef54ee-2d718d77a75c14cc/candidate-0.webp",
+      "status": 200,
+      "sha256": "2d718d77a75c14cc76ea65039ddb7f8aac03b2d08f47bac44321c2530df3ce6a",
+      "bytes": 320816,
+      "checkedAt": "2026-10-16T14:22:00.069Z"
+    },
+    {
+      "rosterId": "DI388",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di388/kwilt-recipe-hero-v2/06c8636e54ca1c20-52f6326275177d61/candidate-0.webp",
+      "status": 200,
+      "sha256": "52f6326275177d6157edab10cdd9bb9ff466704c7dacba6c99e3c11266bee82f",
+      "bytes": 280426,
+      "checkedAt": "2026-10-16T14:22:00.101Z"
+    },
+    {
+      "rosterId": "DI389",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di389/kwilt-recipe-hero-v2/cbb2580edc41ef33-fe3e91590790e094/candidate-0.webp",
+      "status": 200,
+      "sha256": "fe3e91590790e0946acc58d1227e379092c770dd59db9f4711a7df4e58bb3240",
+      "bytes": 348354,
+      "checkedAt": "2026-10-16T14:22:00.130Z"
+    },
+    {
+      "rosterId": "DI390",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di390/kwilt-recipe-hero-v2/0fd939ea8e330c13-3b249194fc765b71/candidate-0.webp",
+      "status": 200,
+      "sha256": "3b249194fc765b71c2a2d9a47552590f90e9b1467acd9226dbd88537da5c3d47",
+      "bytes": 359452,
+      "checkedAt": "2026-10-16T14:22:00.168Z"
+    },
+    {
+      "rosterId": "DI391",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di391/kwilt-recipe-hero-v2/f9a65d7b92a7ce92-2f59a9e3f8a11172/candidate-0.webp",
+      "status": 200,
+      "sha256": "2f59a9e3f8a1117245c943a9572a8ba6ac3cb4469081fc3d9dff26250402a510",
+      "bytes": 269850,
+      "checkedAt": "2026-10-16T14:22:00.188Z"
+    },
+    {
+      "rosterId": "DI392",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di392/kwilt-recipe-hero-v2/04dadfd5dbd5554f-2f5e2595637d9551/candidate-0.webp",
+      "status": 200,
+      "sha256": "2f5e2595637d95516544d579760c81f0415713ee7471d9094a64bfbdf2ba0cda",
+      "bytes": 329420,
+      "checkedAt": "2026-10-16T14:22:00.216Z"
+    },
+    {
+      "rosterId": "DI393",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di393/kwilt-recipe-hero-v2/185eaf0d7b82a196-541aa5ab9002da65/candidate-0.webp",
+      "status": 200,
+      "sha256": "541aa5ab9002da65b81692aa92ae7ea5bc5a0284af9858e33068003498991121",
+      "bytes": 369188,
+      "checkedAt": "2026-10-16T14:22:00.258Z"
+    },
+    {
+      "rosterId": "DI394",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di394/kwilt-recipe-hero-v2/e684c42bd2c96ebc-8e48d7fd7ad5e273/candidate-0.webp",
+      "status": 200,
+      "sha256": "8e48d7fd7ad5e2739342c22a69b0066aab4913c83c65ff8bd55844542ada8a22",
+      "bytes": 245220,
+      "checkedAt": "2026-10-16T14:22:00.269Z"
+    },
+    {
+      "rosterId": "DI395",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di395/kwilt-recipe-hero-v2/7afc49aefe8ec43b-a939bf5feb9c8980/candidate-0.webp",
+      "status": 200,
+      "sha256": "a939bf5feb9c89800634d5c36807b900a38edd4df4cf4aee7acd599b40c7a145",
+      "bytes": 283444,
+      "checkedAt": "2026-10-16T14:22:00.324Z"
+    },
+    {
+      "rosterId": "DI396",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di396/kwilt-recipe-hero-v2/ca9679741815d269-5fe129bbdd615c72/candidate-0.webp",
+      "status": 200,
+      "sha256": "5fe129bbdd615c7249af6602e80811fdf688f277e1f8ce859bf287e9061435ae",
+      "bytes": 294092,
+      "checkedAt": "2026-10-16T14:22:00.330Z"
+    },
+    {
+      "rosterId": "DI397",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di397/kwilt-recipe-hero-v2/79a8a54ab3634df6-9bf674edb0d5ac20/candidate-0.webp",
+      "status": 200,
+      "sha256": "9bf674edb0d5ac20d08664667bd0c1e37e1e885aa2de844b5d5ead709a45a76b",
+      "bytes": 351750,
+      "checkedAt": "2026-10-16T14:22:00.397Z"
+    },
+    {
+      "rosterId": "DI398",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di398/kwilt-recipe-hero-v2/c0a423d19238b814-67a2daf9df582fd7/candidate-0.webp",
+      "status": 200,
+      "sha256": "67a2daf9df582fd7c1d06ebed77a5bcdc994c027c5bdb5ab7f07934d5ab53ee3",
+      "bytes": 368352,
+      "checkedAt": "2026-10-16T14:22:00.394Z"
+    },
+    {
+      "rosterId": "DI399",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di399/kwilt-recipe-hero-v2/88e0f6bce9ad4390-eba81439834a1ee2/candidate-0.webp",
+      "status": 200,
+      "sha256": "eba81439834a1ee2e7a44025688833f9e8c061157d8dc4a20a17db71489ec31b",
+      "bytes": 337800,
+      "checkedAt": "2026-10-16T14:22:00.468Z"
+    },
+    {
+      "rosterId": "DI400",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di400/kwilt-recipe-hero-v2/24f9992cb5739e8f-e2947d40c83d2d69/candidate-0.webp",
+      "status": 200,
+      "sha256": "e2947d40c83d2d69f5be1a912763553a9672b9190341b022d5f6782152f647d9",
+      "bytes": 351772,
+      "checkedAt": "2026-10-16T14:22:00.466Z"
+    },
+    {
+      "rosterId": "DI401",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di401/kwilt-recipe-hero-v2/38c87cdc5038c3d1-115ac966f686ff83/candidate-0.webp",
+      "status": 200,
+      "sha256": "115ac966f686ff83ed2b77eae922dd159154799dccf5b281c104eef3e160e63b",
+      "bytes": 303010,
+      "checkedAt": "2026-10-16T14:22:00.526Z"
+    },
+    {
+      "rosterId": "DI402",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di402/kwilt-recipe-hero-v2/8ca8f7217cb4d5ab-35642a37eca9a6b2/candidate-0.webp",
+      "status": 200,
+      "sha256": "35642a37eca9a6b24c89265315135998c47271358da10b2a5bda1f7458c84002",
+      "bytes": 339810,
+      "checkedAt": "2026-10-16T14:22:00.558Z"
+    },
+    {
+      "rosterId": "DI403",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di403/kwilt-recipe-hero-v2/cce5e8d8156a19c2-a3754cfc23d249a8/candidate-0.webp",
+      "status": 200,
+      "sha256": "a3754cfc23d249a8b248fa71f954c2c9b4d8d53ec84205510625f6c9f52fb86b",
+      "bytes": 372920,
+      "checkedAt": "2026-10-16T14:22:00.590Z"
+    },
+    {
+      "rosterId": "DI404",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di404/kwilt-recipe-hero-v2/88878e358c563064-c9969eface5a7df0/candidate-0.webp",
+      "status": 200,
+      "sha256": "c9969eface5a7df0479fe12e9dffee57e4652b0b7126f23259a980a41adf9743",
+      "bytes": 281252,
+      "checkedAt": "2026-10-16T14:22:00.608Z"
+    },
+    {
+      "rosterId": "DI405",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di405/kwilt-recipe-hero-v2/106d546d3bea74a5-db3f5a0ef5606215/candidate-0.webp",
+      "status": 200,
+      "sha256": "db3f5a0ef5606215b7f1a531fca03cf9383eceb0b49745f9b55a08b143780cde",
+      "bytes": 283260,
+      "checkedAt": "2026-10-16T14:22:00.653Z"
+    },
+    {
+      "rosterId": "DI406",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di406/kwilt-recipe-hero-v2/ab067cb3fdbc0d04-f0072f11666b5949/candidate-0.webp",
+      "status": 200,
+      "sha256": "f0072f11666b59498fefb14a01fdc9a043a6ef18109e9980603c015a8b2449ad",
+      "bytes": 318208,
+      "checkedAt": "2026-10-16T14:22:00.665Z"
+    },
+    {
+      "rosterId": "DI407",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di407/kwilt-recipe-hero-v2/4fa37ad64b038d7b-5ffc9d6ddcda68bf/candidate-0.webp",
+      "status": 200,
+      "sha256": "5ffc9d6ddcda68bfd8c5fe45f72b8a21425a459847f923b3add120b319b1ed53",
+      "bytes": 271654,
+      "checkedAt": "2026-10-16T14:22:00.712Z"
+    },
+    {
+      "rosterId": "DI408",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di408/kwilt-recipe-hero-v2/45a90058c8db6058-a88f43ff41442d69/candidate-0.webp",
+      "status": 200,
+      "sha256": "a88f43ff41442d69e401b2d6972502e3eb484313dfc551eb311f715bab3e53c5",
+      "bytes": 266208,
+      "checkedAt": "2026-10-16T14:22:00.726Z"
+    },
+    {
+      "rosterId": "DI409",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di409/kwilt-recipe-hero-v2/04538bc6f0bc66f5-def92635675cf882/candidate-0.webp",
+      "status": 200,
+      "sha256": "def92635675cf8822b935b49b5fc9288fb6b3a9f018cb9cb86ffa0dd90700dcc",
+      "bytes": 279198,
+      "checkedAt": "2026-10-16T14:22:00.775Z"
+    },
+    {
+      "rosterId": "DI410",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di410/kwilt-recipe-hero-v2/28707c55643af3f1-1733eb65bed1df21/candidate-0.webp",
+      "status": 200,
+      "sha256": "1733eb65bed1df21390ca9fa54e32a8c43253c1c44c6fd8c375bbdb5e55c32a4",
+      "bytes": 266868,
+      "checkedAt": "2026-10-16T14:22:00.787Z"
+    },
+    {
+      "rosterId": "DI411",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di411/kwilt-recipe-hero-v2/2c117ac5ce5f7eae-89cd659fcdd1e150/candidate-0.webp",
+      "status": 200,
+      "sha256": "89cd659fcdd1e15036dad53a504fa641cd8de52e09994f3d956d818b99d7af40",
+      "bytes": 279488,
+      "checkedAt": "2026-10-16T14:22:00.833Z"
+    },
+    {
+      "rosterId": "DI412",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di412/kwilt-recipe-hero-v2/bf09e75edc07516d-935eaeb39e4542de/candidate-0.webp",
+      "status": 200,
+      "sha256": "935eaeb39e4542def1a22f2da23a593d39cb8b35e123752d8ba96884b9119855",
+      "bytes": 371952,
+      "checkedAt": "2026-10-16T14:22:00.855Z"
+    },
+    {
+      "rosterId": "DI413",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di413/kwilt-recipe-hero-v2/de9517cd523e3b41-82f96ea4a921a3d6/candidate-0.webp",
+      "status": 200,
+      "sha256": "82f96ea4a921a3d634c252aacfdb4d470bbc9c45202fca66b379e1940b4f9f2d",
+      "bytes": 262680,
+      "checkedAt": "2026-10-16T14:22:00.891Z"
+    },
+    {
+      "rosterId": "DI414",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di414/kwilt-recipe-hero-v2/c690f8db319bba4d-fd44afd64b063a0c/candidate-0.webp",
+      "status": 200,
+      "sha256": "fd44afd64b063a0cfdaf004cc4dff67613bde7a2b1f7b9c94e87933f72217236",
+      "bytes": 332122,
+      "checkedAt": "2026-10-16T14:22:00.919Z"
+    },
+    {
+      "rosterId": "DI415",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di415/kwilt-recipe-hero-v2/c84dc93102f7fa66-26893a943a08eff6/candidate-0.webp",
+      "status": 200,
+      "sha256": "26893a943a08eff6651d132fc57574b31f216fb817401f4889b0d0f035a30357",
+      "bytes": 310738,
+      "checkedAt": "2026-10-16T14:22:00.953Z"
+    },
+    {
+      "rosterId": "DI416",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di416/kwilt-recipe-hero-v2/76724c373953cd04-05ed3d3d96c95733/candidate-0.webp",
+      "status": 200,
+      "sha256": "05ed3d3d96c9573373da6c417d50c83236c1f4f1ca02f54c905e74edf80fdc85",
+      "bytes": 336892,
+      "checkedAt": "2026-10-16T14:22:00.980Z"
+    },
+    {
+      "rosterId": "DI417",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di417/kwilt-recipe-hero-v2/f593f77f4ed0fd50-aa6e57f529ce32e0/candidate-0.webp",
+      "status": 200,
+      "sha256": "aa6e57f529ce32e0ce2b1617e35765f684aac18f68b18daa5dbbd88f81988a6e",
+      "bytes": 305624,
+      "checkedAt": "2026-10-16T14:22:01.041Z"
+    },
+    {
+      "rosterId": "DI418",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di418/kwilt-recipe-hero-v2/62953dec5b9a6db4-857e8635f7af999a/candidate-0.webp",
+      "status": 200,
+      "sha256": "857e8635f7af999ab1100596eb4d0a986a971bd6ec01e23d638cf10c6c4e76ba",
+      "bytes": 318562,
+      "checkedAt": "2026-10-16T14:22:01.044Z"
+    },
+    {
+      "rosterId": "DI419",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di419/kwilt-recipe-hero-v2/92a5790f87503ac9-dacf67de4a028c1e/candidate-0.webp",
+      "status": 200,
+      "sha256": "dacf67de4a028c1eb6d4e2698a004e5bf0f4c4ddb5824b18bda8f3e3cd961330",
+      "bytes": 392640,
+      "checkedAt": "2026-10-16T14:22:01.113Z"
+    },
+    {
+      "rosterId": "DI420",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di420/kwilt-recipe-hero-v2/c05c887042c0a4bc-70f14a72d46595cf/candidate-0.webp",
+      "status": 200,
+      "sha256": "70f14a72d46595cfcfd2d549e158384f2b05ca4a305af8f49fbc6f3a869c876f",
+      "bytes": 310210,
+      "checkedAt": "2026-10-16T14:22:01.107Z"
+    },
+    {
+      "rosterId": "DI421",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di421/kwilt-recipe-hero-v2/3fd35742e9fab570-52fe81aeebb9128c/candidate-0.webp",
+      "status": 200,
+      "sha256": "52fe81aeebb9128c51d2544b764bf526a93484d4f7dbfc7319e6f501258c5e28",
+      "bytes": 305160,
+      "checkedAt": "2026-10-16T14:22:01.169Z"
+    },
+    {
+      "rosterId": "DI422",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di422/kwilt-recipe-hero-v2/9c953582d1d639b6-c9c70665a85a96e0/candidate-0.webp",
+      "status": 200,
+      "sha256": "c9c70665a85a96e064565347a9d12a094a74db5f9b5960116e22788e4778aa19",
+      "bytes": 217768,
+      "checkedAt": "2026-10-16T14:22:01.172Z"
+    },
+    {
+      "rosterId": "DI423",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di423/kwilt-recipe-hero-v2/7bd158d5ea7956b2-ed6b03ce655dc026/candidate-0.webp",
+      "status": 200,
+      "sha256": "ed6b03ce655dc02655528ed994a765156a8639dcd70b4ce1fa54da0f254a2f08",
+      "bytes": 345944,
+      "checkedAt": "2026-10-16T14:22:01.228Z"
+    },
+    {
+      "rosterId": "DI424",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di424/kwilt-recipe-hero-v2/3515aa016c9e8a3e-0ae1eb590d4f1c76/candidate-0.webp",
+      "status": 200,
+      "sha256": "0ae1eb590d4f1c76b7714f5bc43d1267c3ff80b5228b688ee219098982db41c4",
+      "bytes": 353346,
+      "checkedAt": "2026-10-16T14:22:01.266Z"
+    },
+    {
+      "rosterId": "DI425",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di425/kwilt-recipe-hero-v2/2ca23c2529a8db92-5aa0cdb402a5a43e/candidate-0.webp",
+      "status": 200,
+      "sha256": "5aa0cdb402a5a43e2dd53d8487859dc6c96366ec500c1a5e72b6c7e69d494cb6",
+      "bytes": 304414,
+      "checkedAt": "2026-10-16T14:22:01.298Z"
+    },
+    {
+      "rosterId": "DI426",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di426/kwilt-recipe-hero-v2/6990d2c287f6dbfc-0a2eed55c695e7e1/candidate-0.webp",
+      "status": 200,
+      "sha256": "0a2eed55c695e7e1b5ded4e10d4df3bb88f5523a7089d2098738983fa57e4afc",
+      "bytes": 337342,
+      "checkedAt": "2026-10-16T14:22:01.351Z"
+    },
+    {
+      "rosterId": "DI427",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di427/kwilt-recipe-hero-v2/483974bc8fb896a8-19784c7af3297ede/candidate-0.webp",
+      "status": 200,
+      "sha256": "19784c7af3297ede5f530cbc8397ac90c4c01f70f1205523ce63ed01ff8bd98d",
+      "bytes": 259690,
+      "checkedAt": "2026-10-16T14:22:01.344Z"
+    },
+    {
+      "rosterId": "DI428",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di428/kwilt-recipe-hero-v2/16ff88c435b49c26-dcb0fae3497679c6/candidate-0.webp",
+      "status": 200,
+      "sha256": "dcb0fae3497679c6b7d81443b427609789732b7b40ec7070aae54e0cdbc43a24",
+      "bytes": 395806,
+      "checkedAt": "2026-10-16T14:22:01.416Z"
+    },
+    {
+      "rosterId": "DI429",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di429/kwilt-recipe-hero-v2/854e4ba90fb538b9-b3315bb1ec728471/candidate-0.webp",
+      "status": 200,
+      "sha256": "b3315bb1ec728471deebfbace549462009c8f81f699cfae34cafde91c9d4d347",
+      "bytes": 296036,
+      "checkedAt": "2026-10-16T14:22:01.414Z"
+    },
+    {
+      "rosterId": "DI430",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di430/kwilt-recipe-hero-v2/a020e304ae78d806-6fa5476fb1c41c5f/candidate-0.webp",
+      "status": 200,
+      "sha256": "6fa5476fb1c41c5f9841c9384e4b6a02959649d411733748d26b9e2b5404a8f8",
+      "bytes": 282624,
+      "checkedAt": "2026-10-16T14:22:01.501Z"
+    },
+    {
+      "rosterId": "DI431",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di431/kwilt-recipe-hero-v2/d280444666f22b30-34bd01e2d50d5645/candidate-0.webp",
+      "status": 200,
+      "sha256": "34bd01e2d50d56459681675a2a212704449ab93b7fea249960901e84e15881b6",
+      "bytes": 292576,
+      "checkedAt": "2026-10-16T14:22:01.483Z"
+    },
+    {
+      "rosterId": "DI432",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di432/kwilt-recipe-hero-v2/020086cc49b7304c-29680a2b9a4b8cfe/candidate-0.webp",
+      "status": 200,
+      "sha256": "29680a2b9a4b8cfe524ada9bfef5c5f6205172666f4b4419253606855f6d5fb3",
+      "bytes": 320384,
+      "checkedAt": "2026-10-16T14:22:01.547Z"
+    },
+    {
+      "rosterId": "DI433",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di433/kwilt-recipe-hero-v2/f3c42403d0053c0d-357de52a20616758/candidate-0.webp",
+      "status": 200,
+      "sha256": "357de52a206167585e3a96e3ad7bdb6cbf5a06e30cdab0b3800e307a22747418",
+      "bytes": 328866,
+      "checkedAt": "2026-10-16T14:22:01.576Z"
+    },
+    {
+      "rosterId": "DI434",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di434/kwilt-recipe-hero-v2/5fcc1e217094cada-0b880e5b52f5bb4f/candidate-0.webp",
+      "status": 200,
+      "sha256": "0b880e5b52f5bb4f531614f96077d68889233a61c3cc9db180c1c3ec38970b1a",
+      "bytes": 289076,
+      "checkedAt": "2026-10-16T14:22:01.599Z"
+    },
+    {
+      "rosterId": "DI435",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di435/kwilt-recipe-hero-v2/765bd1e2e6636369-070bf2d886a0a149/candidate-0.webp",
+      "status": 200,
+      "sha256": "070bf2d886a0a149fe1862222a7a50ae77ac50e119401ca3b2fe2d71d071ce82",
+      "bytes": 281302,
+      "checkedAt": "2026-10-16T14:22:01.643Z"
+    },
+    {
+      "rosterId": "DI436",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di436/kwilt-recipe-hero-v2/b4ed307d35186e5a-92efff8749113928/candidate-0.webp",
+      "status": 200,
+      "sha256": "92efff8749113928aad8762e290ec1b704eef2972a5da2b057ee296c775bedb0",
+      "bytes": 303746,
+      "checkedAt": "2026-10-16T14:22:04.283Z"
+    },
+    {
+      "rosterId": "DI437",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di437/kwilt-recipe-hero-v2/6d491d87ea9358d7-ee0c7f56b4c5e80a/candidate-0.webp",
+      "status": 200,
+      "sha256": "ee0c7f56b4c5e80a29c651de8ffb29f9be067dbdb3551de95f595b6a634ffe98",
+      "bytes": 327702,
+      "checkedAt": "2026-10-16T14:22:01.701Z"
+    },
+    {
+      "rosterId": "DI438",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di438/kwilt-recipe-hero-v2/87291dd84df8c91b-47c8baf59c4bc8b0/candidate-0.webp",
+      "status": 200,
+      "sha256": "47c8baf59c4bc8b0a0297a4b82ef996c3455e87ad75c1a2af4769d5b2677c132",
+      "bytes": 357712,
+      "checkedAt": "2026-10-16T14:22:01.769Z"
+    },
+    {
+      "rosterId": "DI439",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di439/kwilt-recipe-hero-v2/bc8141a1b0b0053c-52338e1176e4ea39/candidate-0.webp",
+      "status": 200,
+      "sha256": "52338e1176e4ea39a9ed81371e6db7991caae625584491abbb7434024c2426ab",
+      "bytes": 385972,
+      "checkedAt": "2026-10-16T14:22:01.831Z"
+    },
+    {
+      "rosterId": "DI440",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di440/kwilt-recipe-hero-v2/9349d647707b9e7d-2eddad3a91684379/candidate-0.webp",
+      "status": 200,
+      "sha256": "2eddad3a91684379e5c15d5f23f51bb297dc4ffa24f10332064a30c9f6ac7a8d",
+      "bytes": 343720,
+      "checkedAt": "2026-10-16T14:22:01.887Z"
+    },
+    {
+      "rosterId": "DI441",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di441/kwilt-recipe-hero-v2/b1669cee4e3be509-1660da7833177c4f/candidate-0.webp",
+      "status": 200,
+      "sha256": "1660da7833177c4fe8059c3a3282b8ea1fbe4b868f0edb49b8e20ab240a663d8",
+      "bytes": 472316,
+      "checkedAt": "2026-10-16T14:22:02.104Z"
+    },
+    {
+      "rosterId": "DI442",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di442/kwilt-recipe-hero-v2/97032aeb1a1c6bc3-4dbf55ed33a0dfad/candidate-0.webp",
+      "status": 200,
+      "sha256": "4dbf55ed33a0dfad691a9134d3caf26985b53c0a9cbd74c0058b8f60acf944b1",
+      "bytes": 285416,
+      "checkedAt": "2026-10-16T14:22:02.175Z"
+    },
+    {
+      "rosterId": "DI443",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di443/kwilt-recipe-hero-v2/b08a291c14820f0b-88e2368f6f7c9dab/candidate-0.webp",
+      "status": 200,
+      "sha256": "88e2368f6f7c9dab2a76580e131749fbd24ddb91a1c32c10a7064cf457d4cf75",
+      "bytes": 327378,
+      "checkedAt": "2026-10-16T14:22:02.487Z"
+    },
+    {
+      "rosterId": "DI444",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di444/kwilt-recipe-hero-v2/a1d21d0b81e5b006-76309ac1675da179/candidate-0.webp",
+      "status": 200,
+      "sha256": "76309ac1675da179cebadbe306fdac8c882cd72663557ab2dd6e10cf6d24ca45",
+      "bytes": 287306,
+      "checkedAt": "2026-10-16T14:22:02.570Z"
+    },
+    {
+      "rosterId": "DI445",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di445/kwilt-recipe-hero-v2/93d80c44e6e37e00-57144af506b65bd2/candidate-0.webp",
+      "status": 200,
+      "sha256": "57144af506b65bd2f23b3378b0f204f0d899d3b228dc332335fb0f8ffd343d64",
+      "bytes": 308746,
+      "checkedAt": "2026-10-16T14:22:02.787Z"
+    },
+    {
+      "rosterId": "DI446",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di446/kwilt-recipe-hero-v2/7cae0ba7626905ac-b1fe49475f651e36/candidate-0.webp",
+      "status": 200,
+      "sha256": "b1fe49475f651e3666c87272759e003fb1b663bcca72ef5f5e24e43262fa3c15",
+      "bytes": 278686,
+      "checkedAt": "2026-10-16T14:22:02.845Z"
+    },
+    {
+      "rosterId": "DI447",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di447/kwilt-recipe-hero-v2/eee4df7eaed7f5f9-82f493d2a610261f/candidate-0.webp",
+      "status": 200,
+      "sha256": "82f493d2a610261fb9ab7387a436a843aa31f03b5aba62d132b42ac03df4993f",
+      "bytes": 435472,
+      "checkedAt": "2026-10-16T14:22:05.531Z"
+    },
+    {
+      "rosterId": "DI448",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di448/kwilt-recipe-hero-v2/d87aa7f062f781eb-2f100392c87f52a7/candidate-0.webp",
+      "status": 200,
+      "sha256": "2f100392c87f52a7715d418c374683b2890457aa9083193aa3543bc71b8a0fdb",
+      "bytes": 293738,
+      "checkedAt": "2026-10-16T14:22:04.882Z"
+    },
+    {
+      "rosterId": "DI449",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di449/kwilt-recipe-hero-v2/6501cdb7b8ded863-dc684d4122de34b3/candidate-0.webp",
+      "status": 200,
+      "sha256": "dc684d4122de34b381c111de818febe0e8b985e664f4ef9e8b6010219b3c7af2",
+      "bytes": 275814,
+      "checkedAt": "2026-10-16T14:22:09.267Z"
+    },
+    {
+      "rosterId": "DI450",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di450/kwilt-recipe-hero-v2/651aca4c310ce346-548c9224eca25711/candidate-0.webp",
+      "status": 200,
+      "sha256": "548c9224eca25711e2c2b464e4cf6ece9451fcd8081247270366bb03a249ab92",
+      "bytes": 379924,
+      "checkedAt": "2026-10-16T14:22:09.821Z"
+    },
+    {
+      "rosterId": "DI451",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di451/kwilt-recipe-hero-v2/c29c74bb4e6fd6e8-cb31ec6665c9e7f7/candidate-0.webp",
+      "status": 200,
+      "sha256": "cb31ec6665c9e7f7a464bfc7b17932c79c9579a37b70b919b648f40efd7c30e2",
+      "bytes": 266512,
+      "checkedAt": "2026-10-16T14:22:10.057Z"
+    },
+    {
+      "rosterId": "DI452",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di452/kwilt-recipe-hero-v2/f68e29de9d68e185-15ec9833d3dc8b10/candidate-0.webp",
+      "status": 200,
+      "sha256": "15ec9833d3dc8b1063f090371ee19b9956cdbbfc7cfda9e3908a013be1fc42cb",
+      "bytes": 287490,
+      "checkedAt": "2026-10-16T14:22:10.557Z"
+    },
+    {
+      "rosterId": "DI453",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di453/kwilt-recipe-hero-v2/b245edf27b929728-f9333af90ea50e40/candidate-0.webp",
+      "status": 200,
+      "sha256": "f9333af90ea50e401c645ffdf4c0882f4bcd8421c682d74bc34d54c7543006df",
+      "bytes": 305828,
+      "checkedAt": "2026-10-16T14:22:10.627Z"
+    },
+    {
+      "rosterId": "DI454",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di454/kwilt-recipe-hero-v2/406f89595598ee23-33082f4bf53ba0c2/candidate-0.webp",
+      "status": 200,
+      "sha256": "33082f4bf53ba0c23b182e54438404ca85469b4e15b37c0301167a278d8b4e5b",
+      "bytes": 289374,
+      "checkedAt": "2026-10-16T14:22:11.237Z"
+    },
+    {
+      "rosterId": "DI455",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di455/kwilt-recipe-hero-v2/ddbd1671e9e85261-b37c92b57fec5930/candidate-0.webp",
+      "status": 200,
+      "sha256": "b37c92b57fec59300bc69df908f373413688ad124baa041864f1fe333e1d385e",
+      "bytes": 291656,
+      "checkedAt": "2026-10-16T14:22:11.141Z"
+    },
+    {
+      "rosterId": "DI456",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di456/kwilt-recipe-hero-v2/b1adc760b4f3dc4b-af810f730af26e40/candidate-0.webp",
+      "status": 200,
+      "sha256": "af810f730af26e40b8087036bc8e9ab51fc78b4905813a1c5616a2ccf0ff59f0",
+      "bytes": 286656,
+      "checkedAt": "2026-10-16T14:22:11.885Z"
+    },
+    {
+      "rosterId": "DI457",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di457/kwilt-recipe-hero-v2/bafb822ae587c01a-9c13f73c4628c9d4/candidate-0.webp",
+      "status": 200,
+      "sha256": "9c13f73c4628c9d49f6c488b981b9be402b35914feed0a2124390d59b925d46c",
+      "bytes": 410674,
+      "checkedAt": "2026-10-16T14:22:11.732Z"
+    },
+    {
+      "rosterId": "DI458",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di458/kwilt-recipe-hero-v2/930eafab494899a2-453001b138171e7a/candidate-0.webp",
+      "status": 200,
+      "sha256": "453001b138171e7a19c4eed75f65b7dddc801e6800ec3e4241498f94ceaeb7d8",
+      "bytes": 265628,
+      "checkedAt": "2026-10-16T14:22:12.310Z"
+    },
+    {
+      "rosterId": "DI459",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di459/kwilt-recipe-hero-v2/03d89ceeca7fe6f6-8cf3e849b9f2702a/candidate-0.webp",
+      "status": 200,
+      "sha256": "8cf3e849b9f2702ae91418212cc0ee96d88752ce9b6da7b9f58fd4e3f19458a0",
+      "bytes": 300122,
+      "checkedAt": "2026-10-16T14:22:12.358Z"
+    },
+    {
+      "rosterId": "DI460",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di460/kwilt-recipe-hero-v2/8000b0aba78074fd-ee257d8a318cbf86/candidate-0.webp",
+      "status": 200,
+      "sha256": "ee257d8a318cbf86bd333c9e8b4b078bde38cf0d69febcb75ad763b9e249c5b3",
+      "bytes": 313874,
+      "checkedAt": "2026-10-16T14:22:13.167Z"
+    },
+    {
+      "rosterId": "DI461",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di461/kwilt-recipe-hero-v2/ff44a551948b6514-d37289752dbf3600/candidate-0.webp",
+      "status": 200,
+      "sha256": "d37289752dbf3600bce996bf1f03dfae95c67bff605771dd22374d5181a1641a",
+      "bytes": 256536,
+      "checkedAt": "2026-10-16T14:22:13.266Z"
+    },
+    {
+      "rosterId": "DI462",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di462/kwilt-recipe-hero-v2/c99005b2f2083a8f-171e8681d6041bcf/candidate-0.webp",
+      "status": 200,
+      "sha256": "171e8681d6041bcf94e3991872e22bc482fcfbf509878ae2fcd8789c6f2c129b",
+      "bytes": 243536,
+      "checkedAt": "2026-10-16T14:22:13.642Z"
+    },
+    {
+      "rosterId": "DI463",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di463/kwilt-recipe-hero-v2/ebf3916ddb9c318a-e50b52b263626bad/candidate-0.webp",
+      "status": 200,
+      "sha256": "e50b52b263626bad4530f4b7ac6fcb60e85c3e507e532f1b176f09d5776e8c09",
+      "bytes": 301422,
+      "checkedAt": "2026-10-16T14:22:13.713Z"
+    },
+    {
+      "rosterId": "DI464",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di464/kwilt-recipe-hero-v2/969fe8dd6deb5e6d-d3b2d7221b24f598/candidate-0.webp",
+      "status": 200,
+      "sha256": "d3b2d7221b24f598938054a549af4ebe86f6eb3f662791c1ef5f2c147369b381",
+      "bytes": 317444,
+      "checkedAt": "2026-10-16T14:22:14.155Z"
+    },
+    {
+      "rosterId": "DI465",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di465/kwilt-recipe-hero-v2/72f5ec977472d957-a17140b5be979a5a/candidate-0.webp",
+      "status": 200,
+      "sha256": "a17140b5be979a5a8426b963dcb90d1129596a1ba3f4f1a52f3ebdf136edc433",
+      "bytes": 324352,
+      "checkedAt": "2026-10-16T14:22:14.620Z"
+    },
+    {
+      "rosterId": "DI466",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di466/kwilt-recipe-hero-v2/dd22bed6774da793-924372c8b9b2602d/candidate-0.webp",
+      "status": 200,
+      "sha256": "924372c8b9b2602db0403688b694393b7a158095ea1f53ccfd30a0fc2e74a3e5",
+      "bytes": 214364,
+      "checkedAt": "2026-10-16T14:22:14.522Z"
+    },
+    {
+      "rosterId": "DI467",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di467/kwilt-recipe-hero-v2/5f5b50db37e6fe4d-5b049c06d8254bc8/candidate-0.webp",
+      "status": 200,
+      "sha256": "5b049c06d8254bc8bd69d5a222b78f424bb4ca74a6ca4461db8560e9e22cacb4",
+      "bytes": 321426,
+      "checkedAt": "2026-10-16T14:22:15.127Z"
+    },
+    {
+      "rosterId": "DI468",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di468/kwilt-recipe-hero-v2/c69c20cc07dd6951-3401a0a49063876d/candidate-0.webp",
+      "status": 200,
+      "sha256": "3401a0a49063876d37b4f54857619daa6af351f7c8adeb7d8f65f1bdc3411618",
+      "bytes": 269796,
+      "checkedAt": "2026-10-16T14:22:15.023Z"
+    },
+    {
+      "rosterId": "DI469",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di469/kwilt-recipe-hero-v2/5d120011364d7f25-63f9d5e6ea0e36e3/candidate-0.webp",
+      "status": 200,
+      "sha256": "63f9d5e6ea0e36e3bc5ff3566956e2bc52103f3ba47a0974c3f63624c124c0f9",
+      "bytes": 243018,
+      "checkedAt": "2026-10-16T14:22:15.860Z"
+    },
+    {
+      "rosterId": "DI470",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di470/kwilt-recipe-hero-v2/318b50fbd183e7fe-f84e391a5e0e776a/candidate-0.webp",
+      "status": 200,
+      "sha256": "f84e391a5e0e776a709207a55e92300cae348acaebda2a17bb264b3060641eee",
+      "bytes": 308778,
+      "checkedAt": "2026-10-16T14:22:15.749Z"
+    },
+    {
+      "rosterId": "DI471",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di471/kwilt-recipe-hero-v2/d509968489530ea2-77ce7a5159ea03a9/candidate-0.webp",
+      "status": 200,
+      "sha256": "77ce7a5159ea03a9691f64dc82ef34d9cba11724f1300e76ca14ab4b14a060de",
+      "bytes": 296992,
+      "checkedAt": "2026-10-16T14:22:16.151Z"
+    },
+    {
+      "rosterId": "DI472",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di472/kwilt-recipe-hero-v2/8dd70461c39d341e-2cb45057c42ac309/candidate-0.webp",
+      "status": 200,
+      "sha256": "2cb45057c42ac309d621cb7ea6595a9fa1d37d31b66c7e3cafb33ab0c0091ff8",
+      "bytes": 277398,
+      "checkedAt": "2026-10-16T14:22:17.249Z"
+    },
+    {
+      "rosterId": "DI473",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di473/kwilt-recipe-hero-v2/7fc0ac6a9556f3a7-1ef2a56f50a5b9c8/candidate-0.webp",
+      "status": 200,
+      "sha256": "1ef2a56f50a5b9c8e3be03568b9dd641657b19213cd586143a33c9d8c0998ee6",
+      "bytes": 296184,
+      "checkedAt": "2026-10-16T14:22:16.603Z"
+    },
+    {
+      "rosterId": "DI474",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di474/kwilt-recipe-hero-v2/2494795238a2eb1f-5dd3356b444b1d48/candidate-0.webp",
+      "status": 200,
+      "sha256": "5dd3356b444b1d485a189c9ce0b466f8bef558683b0d8f71026b880c06860c1f",
+      "bytes": 263388,
+      "checkedAt": "2026-10-16T14:22:18.004Z"
+    },
+    {
+      "rosterId": "DI475",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di475/kwilt-recipe-hero-v2/49644d90b3744ab2-01c74fe4d7d7b6e9/candidate-0.webp",
+      "status": 200,
+      "sha256": "01c74fe4d7d7b6e97c8ecaf2a46d8549f2f24dfcedfe9b0df9eca98f2641370a",
+      "bytes": 255738,
+      "checkedAt": "2026-10-16T14:22:17.904Z"
+    },
+    {
+      "rosterId": "DI476",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di476/kwilt-recipe-hero-v2/97d03f7ca2a1c415-0e184c6e75a43cc5/candidate-0.webp",
+      "status": 200,
+      "sha256": "0e184c6e75a43cc5baa9fa4aa7833b54aba91c623e8daa09f24507a62f6616de",
+      "bytes": 200916,
+      "checkedAt": "2026-10-16T14:22:18.627Z"
+    },
+    {
+      "rosterId": "DI477",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di477/kwilt-recipe-hero-v2/11ad1d37ff313890-5cfe8a804d15dcd8/candidate-0.webp",
+      "status": 200,
+      "sha256": "5cfe8a804d15dcd824201e4bc8cea04ddfc0d74258bacc599cb823725e6393a4",
+      "bytes": 298606,
+      "checkedAt": "2026-10-16T14:22:18.608Z"
+    },
+    {
+      "rosterId": "DI478",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di478/kwilt-recipe-hero-v2/8857c3c189769255-f39b3fedfb9d7834/candidate-0.webp",
+      "status": 200,
+      "sha256": "f39b3fedfb9d7834f060fb228af5f880f8d257bd5ce32c25a32d276e0b59bac7",
+      "bytes": 292294,
+      "checkedAt": "2026-10-16T14:22:19.353Z"
+    },
+    {
+      "rosterId": "DI479",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di479/kwilt-recipe-hero-v2/bb1a86cd5a9d9a43-83b94dccddf53b96/candidate-0.webp",
+      "status": 200,
+      "sha256": "83b94dccddf53b9688f17c3ab73444ceda25f10260d331282c6d741ea51d9cd6",
+      "bytes": 252534,
+      "checkedAt": "2026-10-16T14:22:19.024Z"
+    },
+    {
+      "rosterId": "DI480",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di480/kwilt-recipe-hero-v2/be3db61bda0d5845-e9a4a5fe095cf706/candidate-0.webp",
+      "status": 200,
+      "sha256": "e9a4a5fe095cf706253ae3d7a7e1f1e641b81d48e913c722bd4248bffe57e7b8",
+      "bytes": 311024,
+      "checkedAt": "2026-10-16T14:22:19.501Z"
+    },
+    {
+      "rosterId": "DI481",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di481/kwilt-recipe-hero-v2/cbad3b9e2ad14ab2-f822695f7f0c6e0d/candidate-0.webp",
+      "status": 200,
+      "sha256": "f822695f7f0c6e0d84f8ecbfb1d681ffd5d613209762ed1306f474a22a5af995",
+      "bytes": 289858,
+      "checkedAt": "2026-10-16T14:22:19.889Z"
+    },
+    {
+      "rosterId": "DI482",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di482/kwilt-recipe-hero-v2/b155d260a85f169e-944dac7b20b04097/candidate-0.webp",
+      "status": 200,
+      "sha256": "944dac7b20b04097221e54752337116056635c1e82550ebae23e4a5c04299382",
+      "bytes": 320830,
+      "checkedAt": "2026-10-16T14:22:20.264Z"
+    },
+    {
+      "rosterId": "DI483",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di483/kwilt-recipe-hero-v2/a1cdce762ab2bded-c452f3dd9bc7b482/candidate-0.webp",
+      "status": 200,
+      "sha256": "c452f3dd9bc7b482339682295e54be1a7d6330fe73d8c60b96ef2c592400a87b",
+      "bytes": 266206,
+      "checkedAt": "2026-10-16T14:22:20.365Z"
+    },
+    {
+      "rosterId": "DI484",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di484/kwilt-recipe-hero-v2/357d57480486f4d5-7a39e718aa551d40/candidate-0.webp",
+      "status": 200,
+      "sha256": "7a39e718aa551d4027cd739474b0bf93f64d7641331bc54428b216b83302cf11",
+      "bytes": 251088,
+      "checkedAt": "2026-10-16T14:22:20.860Z"
+    },
+    {
+      "rosterId": "DI485",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di485/kwilt-recipe-hero-v2/2356aa45b8e52bc5-16f804f6711ac7e4/candidate-0.webp",
+      "status": 200,
+      "sha256": "16f804f6711ac7e4c4001bb8f45510a32e2bfe262ce8580ebbecd3de09e1525b",
+      "bytes": 257648,
+      "checkedAt": "2026-10-16T14:22:21.040Z"
+    },
+    {
+      "rosterId": "DI486",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di486/kwilt-recipe-hero-v2/9c4160b642cb7fa8-e0bf775f6a9ed397/candidate-0.webp",
+      "status": 200,
+      "sha256": "e0bf775f6a9ed397981270c667153ebb504938ca440a6809927237edd9cb8d98",
+      "bytes": 422888,
+      "checkedAt": "2026-10-16T14:22:21.467Z"
+    },
+    {
+      "rosterId": "DI487",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di487/kwilt-recipe-hero-v2/a41bbbf791f4040a-380c4cc52d491097/candidate-0.webp",
+      "status": 200,
+      "sha256": "380c4cc52d491097a57ee00314e76a068412400f624bd868fb00fe2eb75ce4ee",
+      "bytes": 307380,
+      "checkedAt": "2026-10-16T14:22:21.576Z"
+    },
+    {
+      "rosterId": "DI488",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di488/kwilt-recipe-hero-v2/712069a023945418-b7e27b4fa36d74e7/candidate-0.webp",
+      "status": 200,
+      "sha256": "b7e27b4fa36d74e744bd0638473ce6430c7298aaee108e2b01d1fc5455d49260",
+      "bytes": 297540,
+      "checkedAt": "2026-10-16T14:22:22.660Z"
+    },
+    {
+      "rosterId": "DI489",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di489/kwilt-recipe-hero-v2/39ba0cbdf373d136-94868443ad7131d8/candidate-0.webp",
+      "status": 200,
+      "sha256": "94868443ad7131d8ffc60b774a844fb34f97a53000b0f37ef7ae17d624c87efc",
+      "bytes": 292678,
+      "checkedAt": "2026-10-16T14:22:22.164Z"
+    },
+    {
+      "rosterId": "DI490",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di490/kwilt-recipe-hero-v2/67f69252764fdfb0-a30c2c0b520e5df7/candidate-0.webp",
+      "status": 200,
+      "sha256": "a30c2c0b520e5df77422fa1695b29cb7e103185351664275a9767354cbe46fdb",
+      "bytes": 276818,
+      "checkedAt": "2026-10-16T14:22:22.807Z"
+    },
+    {
+      "rosterId": "DI491",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di491/kwilt-recipe-hero-v2/53ce160204ab08c8-50e7e63237417fef/candidate-0.webp",
+      "status": 200,
+      "sha256": "50e7e63237417fef68cdb425f43dcc5b06b446bf4c58e160af4999822db66238",
+      "bytes": 255300,
+      "checkedAt": "2026-10-16T14:22:23.474Z"
+    },
+    {
+      "rosterId": "DI492",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di492/kwilt-recipe-hero-v2/fb3c321b6b52f9cf-2d2c591f8a862f64/candidate-0.webp",
+      "status": 200,
+      "sha256": "2d2c591f8a862f64ea621fd7a83db47cbcccd19eaee831fdda39c23f04de7a45",
+      "bytes": 294988,
+      "checkedAt": "2026-10-16T14:22:23.261Z"
+    },
+    {
+      "rosterId": "DI493",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di493/kwilt-recipe-hero-v2/284f05b671269100-c6608fcff7ac470c/candidate-0.webp",
+      "status": 200,
+      "sha256": "c6608fcff7ac470ce708a13f62bad3bff7e8d054899b8334df969aaed1c54fbb",
+      "bytes": 198664,
+      "checkedAt": "2026-10-16T14:22:23.738Z"
+    },
+    {
+      "rosterId": "DI494",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di494/kwilt-recipe-hero-v2/62a0445d4f108b8b-adcf8fc26a2f599b/candidate-0.webp",
+      "status": 200,
+      "sha256": "adcf8fc26a2f599b34c299d44eb3c8c4f1e611af42085900f1dec34ed6cb5616",
+      "bytes": 303168,
+      "checkedAt": "2026-10-16T14:22:24.250Z"
+    },
+    {
+      "rosterId": "DI495",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di495/kwilt-recipe-hero-v2/1935d3f89030272b-ec26a0ef1e33fe34/candidate-0.webp",
+      "status": 200,
+      "sha256": "ec26a0ef1e33fe34e4d14acbcaa989e27e5694734c0807b460373faf2acec09d",
+      "bytes": 291260,
+      "checkedAt": "2026-10-16T14:22:24.133Z"
+    },
+    {
+      "rosterId": "DI496",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di496/kwilt-recipe-hero-v2/7122bf8548961a15-c82533a2b341f5fb/candidate-0.webp",
+      "status": 200,
+      "sha256": "c82533a2b341f5fb5e43e9bbe586ae9cdacf17a2745d8148dfb961110e3a7e9e",
+      "bytes": 292062,
+      "checkedAt": "2026-10-16T14:22:24.599Z"
+    },
+    {
+      "rosterId": "DI497",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di497/kwilt-recipe-hero-v2/066d04edc78cd06b-c57ecb6465d43bb0/candidate-0.webp",
+      "status": 200,
+      "sha256": "c57ecb6465d43bb07a6a9d7ddc1f95a36ee311ee6ca665cd816d239eb1335b48",
+      "bytes": 323064,
+      "checkedAt": "2026-10-16T14:22:24.791Z"
+    },
+    {
+      "rosterId": "DI498",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di498/kwilt-recipe-hero-v2/c1b3fc7901f01d9f-dda29d708ce0a6a3/candidate-0.webp",
+      "status": 200,
+      "sha256": "dda29d708ce0a6a3a1edd77edf1da272a39d45eb383ab6f80f953770e6b92805",
+      "bytes": 256862,
+      "checkedAt": "2026-10-16T14:22:25.376Z"
+    },
+    {
+      "rosterId": "DI499",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di499/kwilt-recipe-hero-v2/a93420cc2d01c9c1-3c7415f724ce2635/candidate-0.webp",
+      "status": 200,
+      "sha256": "3c7415f724ce26357c20d9193da0a527b937c520bad37e249a434a0729a2f2d8",
+      "bytes": 291614,
+      "checkedAt": "2026-10-16T14:22:25.833Z"
+    },
+    {
+      "rosterId": "DI500",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di500/kwilt-recipe-hero-v2/21176a1f00b3e42b-4518d6c79590a97d/candidate-0.webp",
+      "status": 200,
+      "sha256": "4518d6c79590a97d95e94ce074fcc2c91e62a165f8f8741e1243247a9c3f4c9b",
+      "bytes": 336324,
+      "checkedAt": "2026-10-16T14:22:25.829Z"
+    },
+    {
+      "rosterId": "DI501",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di501/kwilt-recipe-hero-v2/c2c1fef01c537f44-7a85bde84c5929da/candidate-0.webp",
+      "status": 200,
+      "sha256": "7a85bde84c5929daf2bfe105f122dc6f3c1e0906aa1ad7bca48af175113d5a13",
+      "bytes": 266752,
+      "checkedAt": "2026-10-16T14:22:26.407Z"
+    },
+    {
+      "rosterId": "DI502",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di502/kwilt-recipe-hero-v2/d4ea8067004260ff-a7be3fd84ffc850f/candidate-0.webp",
+      "status": 200,
+      "sha256": "a7be3fd84ffc850f6e8e188546e79656cd36f6191eb45c8ee410e2da71c411cb",
+      "bytes": 251352,
+      "checkedAt": "2026-10-16T14:22:26.515Z"
+    },
+    {
+      "rosterId": "DI503",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di503/kwilt-recipe-hero-v2/5aa980e3b0061467-06ae815f9cbec784/candidate-0.webp",
+      "status": 200,
+      "sha256": "06ae815f9cbec78492c657cc2f42aceb072a15d744f0bcd2f58d89ccff4a2529",
+      "bytes": 252462,
+      "checkedAt": "2026-10-16T14:22:26.853Z"
+    },
+    {
+      "rosterId": "DI504",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di504/kwilt-recipe-hero-v2/ea28973abc32c51a-d95c06c3d33f9fbf/candidate-0.webp",
+      "status": 200,
+      "sha256": "d95c06c3d33f9fbf2f49ee516e2744331ef8f547e67336634c5e5a911512eca6",
+      "bytes": 302502,
+      "checkedAt": "2026-10-16T14:22:27.149Z"
+    },
+    {
+      "rosterId": "DI505",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di505/kwilt-recipe-hero-v2/7b31d2ff3bb552ce-47b78a8789df94f8/candidate-0.webp",
+      "status": 200,
+      "sha256": "47b78a8789df94f80de211d00f0935bbd07c315d677bafd20a43fc59852819bc",
+      "bytes": 296876,
+      "checkedAt": "2026-10-16T14:22:27.529Z"
+    },
+    {
+      "rosterId": "DI506",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di506/kwilt-recipe-hero-v2/a9521f86e02ebf81-ca291f036d1afe0f/candidate-0.webp",
+      "status": 200,
+      "sha256": "ca291f036d1afe0f70dbb3dad199fa46c9523640400e37052b034cf9b013a522",
+      "bytes": 290944,
+      "checkedAt": "2026-10-16T14:22:27.578Z"
+    },
+    {
+      "rosterId": "DI507",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di507/kwilt-recipe-hero-v2/0392163a29e0ab64-5379d39c20a67ff2/candidate-0.webp",
+      "status": 200,
+      "sha256": "5379d39c20a67ff29d71872cc672f00b54469f456f2fe6989589cf3cf2df712d",
+      "bytes": 275074,
+      "checkedAt": "2026-10-16T14:22:28.466Z"
+    },
+    {
+      "rosterId": "DI508",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di508/kwilt-recipe-hero-v2/3193f6f308b83ab5-20659df738f040b4/candidate-0.webp",
+      "status": 200,
+      "sha256": "20659df738f040b4f95c13a91cf8bf8e0ddd03e5f0d55a51f9f515822ec869de",
+      "bytes": 258570,
+      "checkedAt": "2026-10-16T14:22:28.458Z"
+    },
+    {
+      "rosterId": "DI509",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di509/kwilt-recipe-hero-v2/c63666d1fec7f564-80b8bd2ca5db596a/candidate-0.webp",
+      "status": 200,
+      "sha256": "80b8bd2ca5db596ac76cf3e7c340fb7062d50eae29c0fc7668031d76a6eadbee",
+      "bytes": 309170,
+      "checkedAt": "2026-10-16T14:22:29.185Z"
+    },
+    {
+      "rosterId": "DI510",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di510/kwilt-recipe-hero-v2/4d159567e2ebe814-1f85be9a747437e6/candidate-0.webp",
+      "status": 200,
+      "sha256": "1f85be9a747437e686f77d0857c47c91a957c7d26cd0d6652e53b2011eb2bdee",
+      "bytes": 273206,
+      "checkedAt": "2026-10-16T14:22:29.236Z"
+    },
+    {
+      "rosterId": "DI511",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di511/kwilt-recipe-hero-v2/04b2f42fb2a109b1-e5a756561c943616/candidate-0.webp",
+      "status": 200,
+      "sha256": "e5a756561c943616ca7464af9d620f45bea5a719162139e072c048be5620d4a3",
+      "bytes": 354626,
+      "checkedAt": "2026-10-16T14:22:29.555Z"
+    },
+    {
+      "rosterId": "DI512",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di512/kwilt-recipe-hero-v2/ea750d12fdd502e3-6e47ec2c76cc9a6b/candidate-0.webp",
+      "status": 200,
+      "sha256": "6e47ec2c76cc9a6bdeb0afd6440b86c0c33ed473c158c0032e49983636e9cfdb",
+      "bytes": 387816,
+      "checkedAt": "2026-10-16T14:22:29.599Z"
+    },
+    {
+      "rosterId": "DI513",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di513/kwilt-recipe-hero-v2/9641c9cb52b7be40-9d18e122c6c4ec94/candidate-0.webp",
+      "status": 200,
+      "sha256": "9d18e122c6c4ec94b8aadbb102af860368dcb01e2e5ac5af91cefb34193feea8",
+      "bytes": 319368,
+      "checkedAt": "2026-10-16T14:22:30.228Z"
+    },
+    {
+      "rosterId": "DI514",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di514/kwilt-recipe-hero-v2/ccb9b3a98c222229-128ad2a6b568d7a3/candidate-0.webp",
+      "status": 200,
+      "sha256": "128ad2a6b568d7a3edff6f65f311b23961e713e08c3c4b28d55f9a4de9b42e27",
+      "bytes": 285570,
+      "checkedAt": "2026-10-16T14:22:30.470Z"
+    },
+    {
+      "rosterId": "DI515",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di515/kwilt-recipe-hero-v2/6f7048f84a03004b-eadc2c22a814e0c6/candidate-0.webp",
+      "status": 200,
+      "sha256": "eadc2c22a814e0c6828ea901df84f492a5be46a22af08d077ff17ee27427543c",
+      "bytes": 249044,
+      "checkedAt": "2026-10-16T14:22:31.023Z"
+    },
+    {
+      "rosterId": "DI516",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di516/kwilt-recipe-hero-v2/c58c43ba2670567c-1528a14013f09c3d/candidate-0.webp",
+      "status": 200,
+      "sha256": "1528a14013f09c3df15b0dec15e537d4249abcfb3d54c7d13525e65a348634ce",
+      "bytes": 319066,
+      "checkedAt": "2026-10-16T14:22:31.194Z"
+    },
+    {
+      "rosterId": "DI517",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di517/kwilt-recipe-hero-v2/e05219c740efc670-5d9dfa3f715926bc/candidate-0.webp",
+      "status": 200,
+      "sha256": "5d9dfa3f715926bc8707db11dbbe062beb2197ba9ed22343e4f24868da7e5ebd",
+      "bytes": 325984,
+      "checkedAt": "2026-10-16T14:22:31.470Z"
+    },
+    {
+      "rosterId": "DI518",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di518/kwilt-recipe-hero-v2/fc48d39c695dd325-7a1f5455bdf56f58/candidate-0.webp",
+      "status": 200,
+      "sha256": "7a1f5455bdf56f58509037de0d1df2f7bc69fa9dfb6459963af0d422721f09e3",
+      "bytes": 323236,
+      "checkedAt": "2026-10-16T14:22:32.046Z"
+    },
+    {
+      "rosterId": "DI519",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di519/kwilt-recipe-hero-v2/7d881b6d244f6403-f842acca51fcebad/candidate-0.webp",
+      "status": 200,
+      "sha256": "f842acca51fcebad2bef20cb7aac78db9e0ce3989fb57f4b0cb35952e6775809",
+      "bytes": 311332,
+      "checkedAt": "2026-10-16T14:22:31.926Z"
+    },
+    {
+      "rosterId": "DI520",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di520/kwilt-recipe-hero-v2/450e0c4a67b4d8ad-ea5e1f258c06cb27/candidate-0.webp",
+      "status": 200,
+      "sha256": "ea5e1f258c06cb2745565dfd7408a54244d89b89859a4a35bc98e3a9de825d11",
+      "bytes": 389964,
+      "checkedAt": "2026-10-16T14:22:32.898Z"
+    },
+    {
+      "rosterId": "DI521",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di521/kwilt-recipe-hero-v2/8791a523a425a43a-a76b63a49f2d5361/candidate-0.webp",
+      "status": 200,
+      "sha256": "a76b63a49f2d5361e626e72148d46ffda4e4c932554b610d7a61565c3e971307",
+      "bytes": 273610,
+      "checkedAt": "2026-10-16T14:22:32.479Z"
+    },
+    {
+      "rosterId": "DI522",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di522/kwilt-recipe-hero-v2/a27f0af3bf8604ea-80e5612199259b03/candidate-0.webp",
+      "status": 200,
+      "sha256": "80e5612199259b03b9c9e8080029f100121630ff2f49717f261c03a85a2c434a",
+      "bytes": 327538,
+      "checkedAt": "2026-10-16T14:22:32.938Z"
+    },
+    {
+      "rosterId": "DI523",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di523/kwilt-recipe-hero-v2/d6b70a12c5872b66-144f150079dac8d8/candidate-0.webp",
+      "status": 200,
+      "sha256": "144f150079dac8d82cf19d749c76c9932baf9f739647cae0d33f2896ae9739d3",
+      "bytes": 360830,
+      "checkedAt": "2026-10-16T14:22:33.364Z"
+    },
+    {
+      "rosterId": "DI524",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di524/kwilt-recipe-hero-v2/b67b0ba9858eeb36-5ccd12c95d12360f/candidate-0.webp",
+      "status": 200,
+      "sha256": "5ccd12c95d12360f9c14e60c402c496e664a864fbd94c2d897be2a89114bf38a",
+      "bytes": 326592,
+      "checkedAt": "2026-10-16T14:22:33.714Z"
+    },
+    {
+      "rosterId": "DI525",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di525/kwilt-recipe-hero-v2/3a1bafcfb0a5dccd-c44153799948e50b/candidate-0.webp",
+      "status": 200,
+      "sha256": "c44153799948e50bd9a6c2fe8b4eb0d30f7fd15a8b3efe622d89829f8161e87e",
+      "bytes": 373252,
+      "checkedAt": "2026-10-16T14:22:33.699Z"
+    },
+    {
+      "rosterId": "DI526",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di526/kwilt-recipe-hero-v2/aca3bbdd89439dec-8e6ca0ef9fb6ed2e/candidate-0.webp",
+      "status": 200,
+      "sha256": "8e6ca0ef9fb6ed2eef7ac3c9a21bb095a1046b959372b06341770c40c3e8bea5",
+      "bytes": 377014,
+      "checkedAt": "2026-10-16T14:22:34.311Z"
+    },
+    {
+      "rosterId": "DI527",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di527/kwilt-recipe-hero-v2/144d04aacefe9d70-611f274013b4bf6e/candidate-0.webp",
+      "status": 200,
+      "sha256": "611f274013b4bf6e3fda381463899e34bae6d161a047b786f4fcb640dab7651a",
+      "bytes": 389940,
+      "checkedAt": "2026-10-16T14:22:34.587Z"
+    },
+    {
+      "rosterId": "DI528",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di528/kwilt-recipe-hero-v2/938b4358f3df4af4-11bc612e698ccc34/candidate-0.webp",
+      "status": 200,
+      "sha256": "11bc612e698ccc347d1c9217a3e4ac71d9cccf2e4d878b3a68d1396a290cd060",
+      "bytes": 302000,
+      "checkedAt": "2026-10-16T14:22:34.893Z"
+    },
+    {
+      "rosterId": "DI529",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di529/kwilt-recipe-hero-v2/4ffdfb53bfde6120-cf1b414d84db8118/candidate-0.webp",
+      "status": 200,
+      "sha256": "cf1b414d84db8118df954c607e1126d9379930df285abef29bf9766c70c06554",
+      "bytes": 407930,
+      "checkedAt": "2026-10-16T14:22:35.149Z"
+    },
+    {
+      "rosterId": "DI530",
+      "url": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di530/kwilt-recipe-hero-v2/73f102fabf73a8d5-e7b9142e79236e4a/candidate-0.webp",
+      "status": 200,
+      "sha256": "e7b9142e79236e4a47b6c90b2691eaae528984820375171cbdf1a57249e664a8",
+      "bytes": 327864,
+      "checkedAt": "2026-10-16T14:22:35.459Z"
+    }
+  ]
+}

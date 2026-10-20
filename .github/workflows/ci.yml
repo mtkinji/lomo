@@ -29,6 +29,9 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Supabase Data API grant contracts
+        run: node --test scripts/public-data-api-grants.test.mjs
+
       - name: Diff-aware PR verification
         if: github.event_name == 'pull_request'
         run: npm run verify:changed -- --run --base origin/main

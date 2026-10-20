@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-10-16T14:26:45.982749+00:00",
+  "publishedRecipes": 800,
+  "publishedDinners": 530,
+  "newPublishedImages": 200,
+  "newIngredientLines": 2211,
+  "newEquipmentRequirements": 449,
+  "edgeFunctionVersion": 43,
+  "newRecipeVersion": 2,
+  "verification": "SQL activation preconditions and count readback; authenticated image-admin job readback; all200 CDN SHA256 matches"
+}
