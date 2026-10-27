@@ -86,4 +86,13 @@ describe('externalMcpWrite canonical adapter', () => {
       receipt_id: null, status: 'unavailable', handoff: null,
     });
   });
+
+  test('returns current food versions and preservation warnings to the actual MCP caller', () => {
+    const output = { planId: 'plan-1', version: 8, warnings: ['Review grocery rebase conflicts before shopping.'] };
+    expect(projectExternalMcpWriteResult({
+      tool: tool('kwilt_meal_cart_ensure'), requestId: 'food-1',
+      result: { status: 'completed', output,
+        receipt: { receiptId: 'receipt-1', resultRefs: [{ kind: 'meal_plan', id: 'plan-1' }], replayed: true } },
+    }).structured).toMatchObject({ output, idempotent_replay: true });
+  });
 });

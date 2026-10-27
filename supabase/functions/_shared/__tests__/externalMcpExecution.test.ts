@@ -1,4 +1,4 @@
-import { executeExternalAuthorizedTool, applyExternalLifeOperations, readExternalExecutionReceipt } from '../externalMcpExecution';
+import { executeExternalAuthorizedTool, applyExternalLifeOperations, applyExternalFoodOperations, readExternalExecutionReceipt } from '../externalMcpExecution';
 import { executeServerAgentTool } from '../serverAgentTools';
 import { SERVER_AGENT_TOOL_CATALOG } from '../serverAgentCatalog';
 
@@ -100,4 +100,35 @@ test('retries read an owner-and-client-scoped receipt before revalidating a dele
   expect(eq.mock.calls).toEqual([['user_id','user-1'],['oauth_client_id','client-1'],['request_id','request-1']]);
   expect(await readExternalExecutionReceipt({ ...context, call: { ...call, arguments: { title: 'Changed' } } }))
     .toMatchObject({ status: 'refused' });
+});
+
+test('food operations use actor-scoped atomic authority and return preservation warnings', async () => {
+  const foodCall = { id: 'food-request', toolId: 'meal_planning.cart.ensure', arguments: { householdId: 'home-1' } };
+  const foodReceipt = { ...receipt, requestId: foodCall.id, operationId: foodCall.toolId,
+    resultRefs: [{ kind: 'meal_plan', id: 'plan-1' }], output: { warnings: ['Family corrections preserved.'] } };
+  const rpc = jest.fn(async () => ({ data: foodReceipt, error: null }));
+  const planned = { ...proposal, operation: { ...proposal.operation, type: foodCall.toolId } };
+  expect(await applyExternalFoodOperations({ client: { rpc, from: jest.fn() }, userId: 'user-1', clientId: 'client-1', call: foodCall }, [planned]))
+    .toMatchObject({ status: 'completed', output: foodReceipt.output });
+  expect(rpc).toHaveBeenCalledWith('execute_kwilt_external_food_operations', {
+    p_user_id: 'user-1', p_oauth_client_id: 'client-1', p_request_id: foodCall.id,
+    p_operation_id: foodCall.toolId, p_arguments: foodCall.arguments, p_operations: [planned.operation],
+  });
+});
+
+test('external food execution never enables catalog publication or arbitrary recipe CRUD', async () => {
+  const rpc = jest.fn();
+  for (const toolId of ['recipes.create', 'recipes.publication.publish', 'recipes.delete']) {
+    expect(await applyExternalFoodOperations({ client: { rpc, from: jest.fn() }, userId: 'user-1', clientId: 'client-1', call: { ...call, toolId } }, [proposal]))
+      .toMatchObject({ status: 'unavailable' });
+  }
+  expect(rpc).not.toHaveBeenCalled();
+});
+
+test('food execution failures cannot masquerade as successful empty results', async () => {
+  const foodCall = { ...call, toolId: 'groceries.item.set_state' };
+  for (const result of [{ data: null, error: { message: 'stale' } }, { data: receipt, error: null }]) {
+    expect(await applyExternalFoodOperations({ client: { rpc: async () => result, from: jest.fn() }, userId: 'user-1', clientId: 'client-1', call: foodCall }, [proposal]))
+      .toMatchObject({ status: 'failed' });
+  }
 });

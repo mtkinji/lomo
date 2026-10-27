@@ -36,6 +36,7 @@ const SERVER_EXECUTABLE_TOOL_IDS = [
   'recipes.scale.preview', 'recipes.favorite.update', 'recipes.visibility.update',
   'cook_session.read', 'cook_session.start', 'cook_session.control', 'cook_session.complete',
   'meal_planning.preferences.read', 'meal_planning.preferences.update',
+  'meal_planning.cart.ensure', 'meal_planning.cart.add', 'meal_planning.cart.mark_made', 'meal_planning.cart.remove', 'meal_planning.history.read',
   'meal_planning.plan.create', 'meal_planning.plan.update',
   'meal_planning.candidate.add', 'meal_planning.candidate.remove',
   'meal_planning.round.open', 'meal_planning.round.close',

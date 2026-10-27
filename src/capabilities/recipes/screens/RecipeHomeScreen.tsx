@@ -783,6 +783,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
               id: line.id,
               originalText: line.originalText,
               optional: line.optional,
+              scaleRule: line.scaleRule,
             })),
             recipeScaleMultiplier: multiplier,
           });

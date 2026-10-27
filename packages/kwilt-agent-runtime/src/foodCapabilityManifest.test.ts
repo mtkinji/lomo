@@ -55,3 +55,20 @@ describe('canonical Food capability manifest', () => {
     });
   });
 });
+
+
+describe('ongoing Meal cart contracts', () => {
+  test('requires stable request identity and optimistic version authority for cart mutations', () => {
+    const contracts = new Map(FOOD_OPERATION_CONTRACTS.map(contract => [contract.id, contract]));
+    for (const id of ['meal_planning.cart.add', 'meal_planning.cart.mark_made', 'meal_planning.cart.remove'] as const) {
+      const contract = contracts.get(id);
+      expect(contract?.providers).toEqual(['server']);
+      expect(contract?.inputSchema.required).toEqual(expect.arrayContaining(['mealPlanId', 'expectedVersion', 'candidateId', 'idempotencyKey']));
+      expect(contract?.confirmation).toBe('explicit');
+      expect(KWILT_CAPABILITY_MANIFEST.find(entry => entry.id === id)?.channels.mobile.state).toBe('pending_provider');
+    }
+    expect(contracts.get('meal_planning.cart.add')?.inputSchema).toMatchObject({ properties: { recipeScaleMultiplier: { enum: [1, 2, 3] } } });
+    expect(contracts.get('meal_planning.history.read')?.effect).toBe('read');
+    expect(contracts.get('meal_planning.history.read')?.confirmation).toBe('none');
+  });
+});

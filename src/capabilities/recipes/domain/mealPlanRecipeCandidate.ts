@@ -31,6 +31,7 @@ export function buildMealPlanRecipeCandidate(
         id: line.id,
         originalText: line.originalText,
         optional: line.optional,
+        scaleRule: line.scaleRule,
       })),
       equipmentSuggestions: projection.currentVersion.equipmentRequirements.length
         ? projection.currentVersion.equipmentRequirements

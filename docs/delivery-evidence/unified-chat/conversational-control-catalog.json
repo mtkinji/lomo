@@ -663,6 +663,45 @@
       ]
     },
     {
+      "id": "meal_planning.cart.ensure",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.cart.add",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.cart.mark_made",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.cart.remove",
+      "completionMode": "reviewed_proposal",
+      "requiredScopes": [
+        "food.read",
+        "food.write"
+      ]
+    },
+    {
+      "id": "meal_planning.history.read",
+      "completionMode": "direct",
+      "requiredScopes": [
+        "food.read"
+      ]
+    },
+    {
       "id": "meal_planning.plan.create",
       "completionMode": "reviewed_proposal",
       "requiredScopes": [
@@ -1888,10 +1927,15 @@
     "kwilt_household_member_update",
     "kwilt_household_read",
     "kwilt_meal_candidates_prepare",
+    "kwilt_meal_cart_add",
+    "kwilt_meal_cart_ensure",
+    "kwilt_meal_cart_mark_made",
+    "kwilt_meal_cart_remove",
     "kwilt_meal_choice_response_submit",
     "kwilt_meal_choice_response_withdraw",
     "kwilt_meal_choice_round_close",
     "kwilt_meal_choice_round_open",
+    "kwilt_meal_history_read",
     "kwilt_meal_plan_candidate_add",
     "kwilt_meal_plan_candidate_remove",
     "kwilt_meal_plan_create",
