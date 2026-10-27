@@ -10,6 +10,7 @@ import {
 import { KWILT_CAPABILITY_MANIFEST } from '../../../../packages/kwilt-agent-runtime/src/kwiltCapabilityManifest';
 import { projectOperationCoverage } from '../../../../packages/kwilt-agent-runtime/src/capabilityManifest';
 import { UNIFIED_CHAT_TOOL_CATALOG } from '../../../../src/features/unifiedChat/toolCatalog';
+import { KWILT_TOOL_CONTRACTS } from '../../../../packages/kwilt-agent-runtime/src/kwiltToolContracts';
 import { SERVER_AGENT_TOOL_CATALOG } from '../serverAgentCatalog';
 import { SERVER_TOOL_PROVIDER_REGISTRATIONS } from '../serverToolImplementations';
 
@@ -188,13 +189,22 @@ describe('server agent runtime channel contract', () => {
     expect(serverModelStep.mock.calls[4][0].tools).toEqual([]);
   });
 
-  test('keeps every deployed server tool version and policy aligned with the mobile catalog', () => {
+  test('keeps server tools aligned with canonical policy and declares MCP-only native boundaries', () => {
     expect(SERVER_AGENT_TOOL_CATALOG).toEqual(projectAgentToolCatalog(
       KWILT_CAPABILITY_MANIFEST,
       { runtime: 'server', registrations: SERVER_TOOL_PROVIDER_REGISTRATIONS },
     ));
     for (const serverTool of SERVER_AGENT_TOOL_CATALOG) {
       const mobileTool = UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === serverTool.id);
+      const mcpOnlyIds = ['meal_planning.cart.ensure', 'meal_planning.cart.add', 'meal_planning.cart.mark_made', 'meal_planning.cart.remove', 'meal_planning.history.read'];
+      if (mcpOnlyIds.includes(serverTool.id)) {
+        expect(mobileTool).toBeUndefined();
+        const canonical = KWILT_TOOL_CONTRACTS.find(tool => tool.id === serverTool.id);
+        expect(canonical?.providers).toEqual(['server']);
+        expect(serverTool).toEqual({ ...canonical, providers: ['server'], canDeferToClient: false });
+        expect(KWILT_CAPABILITY_MANIFEST.find(operation => operation.id === serverTool.id)?.channels.mobile.state).toBe('pending_provider');
+        continue;
+      }
       expect(mobileTool).toBeDefined();
       expect(serverTool).toEqual({
         ...mobileTool,

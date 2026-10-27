@@ -11,6 +11,9 @@ import { prepareMealCandidates, selectMealPlanStarterCandidates, type MealCandid
 import { executeServerGroceryTool, SERVER_GROCERY_TOOL_IDS } from './serverGroceryTools.ts';
 import { mealPlanHorizon, mealPlanRecipeCandidate, validMealFields } from './serverMealPlanValidation.ts';
 
+import { readServerFoodCatalog } from './serverFoodCatalog.ts';
+import { executeServerMealCartTool, SERVER_MEAL_CART_TOOL_IDS } from './serverMealCartTools.ts';
+
 type QueryResult = { data: unknown; error: unknown };
 type FoodClient = { rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<QueryResult> };
 const TOOL_IDS = new Set([
@@ -26,7 +29,7 @@ const TOOL_IDS = new Set([
   'meal_planning.response.submit', 'meal_planning.response.withdraw',
   'meal_planning.plan.finalize', 'meal_planning.plan.revise',
   'meal_planning.candidates.prepare',
-  ...SERVER_GROCERY_TOOL_IDS,
+  ...SERVER_GROCERY_TOOL_IDS, ...SERVER_MEAL_CART_TOOL_IDS,
   'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
   'savings.review', 'savings.accept', 'savings.coupon.open', 'receipt.extract', 'receipt.reconcile',
 ]);
@@ -262,7 +265,20 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
   if (!client.rpc) return { status: 'unavailable', reason: 'server_food_provider_unavailable', retryable: false };
   const { data, error } = await client.rpc('get_kwilt_agent_food_control_snapshot', { p_user_id: userId });
   if (error || !validSnapshot(data)) return { status: 'refused', reason: 'The current account does not have an authorized food context.' };
-  const snapshot = data;
+  const snapshot = { ...data };
+  const catalogRead = ['recipes.search', 'recipes.read', 'recipes.scale.preview', 'meal_planning.candidate.add', 'meal_planning.cart.add', 'meal_planning.candidates.prepare'].includes(call.toolId);
+  // Catalog authority is read-only; never make catalog rows eligible for generic Recipe edits.
+  if (catalogRead) {
+    try {
+      const catalog = await readServerFoodCatalog(client);
+      const catalogIds = new Set(catalog.map(recipe => recipe.recipeId));
+      snapshot.recipes = [...(data.recipes as unknown[]).filter(value => !catalogIds.has(record(value)?.recipeId)), ...catalog];
+    } catch {
+      return { status: 'unavailable', reason: 'The authorized canonical Recipe catalog could not be read. No offline or partial catalog was substituted.', retryable: true };
+    }
+  }
+  const cartResult = await executeServerMealCartTool({ snapshot, call, client, stageProposal });
+  if (cartResult) return cartResult;
   const mealPreferences = record(snapshot.mealPreferences);
   if (call.toolId === 'recipes.publication.prepare' || call.toolId === 'recipes.publication.publish') {
     if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
@@ -396,11 +412,20 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
       return { status: 'failed', code: 'recipe_scale_unavailable', message: 'This Recipe needs a known yield and a positive target yield.', retryable: false };
     }
     const factor = targetYield / fromYield;
+    const sourceIngredients = Array.isArray(version.ingredients) ? version.ingredients : [];
+    const validRule = (value: unknown) => {
+      const rule = record(record(value)?.scaleRule);
+      return rule?.kind === 'multiply' || rule?.kind === 'fixed'
+        && ['as_needed', 'garnish', 'to_taste', 'vessel', 'reviewed_other'].includes(String(rule.reason));
+    };
+    if (![1, 2, 3].includes(factor) || factor !== 1 && (version.scalingState !== 'verified' || !sourceIngredients.every(validRule))) {
+      return { status: 'failed', code: 'recipe_scaling_unverified', message: 'Choose a reviewed whole-batch multiplier (1, 2, or 3); larger batches need verified ingredient scaling rules.', retryable: false };
+    }
     const ingredients = Array.isArray(version.ingredients) ? version.ingredients.map((value) => {
       const ingredient = record(value) ?? {};
-      const scale = (quantity: unknown) => quantity === null || quantity === undefined ? null : Math.round(Number(quantity) * factor * 1_000_000_000) / 1_000_000_000;
+      const scale = (quantity: unknown) => quantity === null || quantity === undefined ? null : Math.round(Number(quantity) * (record(ingredient.scaleRule)?.kind === 'multiply' ? factor : 1) * 1_000_000_000) / 1_000_000_000;
       return { id: ingredient.id, originalText: ingredient.originalText, quantity: scale(ingredient.quantityMin),
-        quantityMax: scale(ingredient.quantityMax), unit: ingredient.unit ?? null, optional: ingredient.optional === true };
+        quantityMax: scale(ingredient.quantityMax), unit: ingredient.unit ?? null, optional: ingredient.optional === true, scaleRule: ingredient.scaleRule ?? { kind: 'review_required' } };
     }) : [];
     return { status: 'completed', output: { recipeVersionId: versionId, fromYield, targetYield, ingredients }, receipt: null };
   }

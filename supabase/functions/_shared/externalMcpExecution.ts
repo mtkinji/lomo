@@ -1,4 +1,5 @@
 import type { ServerAgentProposalRecord, ServerAgentProposalRequest, ServerAgentToolCall, ServerAgentToolResult } from './agentRuntime.ts';
+import { enrichExternalFoodGroceryProposals } from './externalFoodGroceryExecution.ts';
 
 export const EXTERNAL_DIRECT_LIFE_TOOLS = new Set([
   'arcs.create', 'arcs.update', 'arcs.delete',
@@ -8,6 +9,19 @@ export const EXTERNAL_DIRECT_LIFE_TOOLS = new Set([
   'activities.steps.update', 'activities.steps.complete', 'activities.steps.delete',
   'activities.steps.reorder', 'chapters.note.update',
 ]);
+
+// Catalog publication and recipe CRUD intentionally remain governed by their
+// existing creation/review pipeline, not this external executor.
+export const EXTERNAL_DIRECT_FOOD_TOOLS = new Set([
+  'meal_planning.cart.ensure', 'meal_planning.cart.add',
+  'meal_planning.cart.remove', 'meal_planning.cart.mark_made',
+  'meal_planning.plan.create', 'meal_planning.plan.update',
+  'meal_planning.plan.finalize', 'meal_planning.plan.revise',
+  'meal_planning.round.open', 'meal_planning.round.close',
+  'meal_planning.response.submit', 'meal_planning.response.withdraw',
+  'groceries.compile', 'groceries.item.add', 'groceries.item.update', 'groceries.item.set_state',
+]);
+export const EXTERNAL_DIRECT_TOOLS = new Set([...EXTERNAL_DIRECT_LIFE_TOOLS, ...EXTERNAL_DIRECT_FOOD_TOOLS]);
 
 type RpcResult = { data: unknown; error: unknown };
 type ReceiptQuery = {
@@ -40,7 +54,7 @@ function completed(value: unknown, call: ServerAgentToolCall, replayed = false):
       receipt.resultRefs.some((ref) => typeof record(ref).kind !== 'string' || typeof record(ref).id !== 'string')) {
     return { status: 'failed', code: 'external_receipt_invalid', message: 'Kwilt could not verify the execution receipt.', retryable: true };
   }
-  return { status: 'completed', receipt: { ...receipt, replayed: replayed || receipt.replayed === true }, output: {} };
+  return { status: 'completed', receipt: { ...receipt, replayed: replayed || receipt.replayed === true }, output: record(receipt.output) };
 }
 
 /** Consult the transaction receipt before target validation: a deleted target may be a successful retry. */
@@ -72,6 +86,32 @@ export async function applyExternalLifeOperations(
   if (error) return {
     status: 'failed', code: 'external_execution_failed',
     message: 'Kwilt could not apply this request. Refresh the target before changing it; retry an uncertain outcome with the same request ID.',
+    retryable: true,
+  };
+  return completed(data, context.call);
+}
+
+export async function applyExternalFoodOperations(
+  context: ExternalExecutionContext, proposals: ServerAgentProposalRequest[],
+): Promise<ServerAgentToolResult> {
+  if (!EXTERNAL_DIRECT_FOOD_TOOLS.has(context.call.toolId)) {
+    return { status: 'unavailable', reason: 'This food operation requires its existing governed review pipeline. No change was made.', retryable: false };
+  }
+  let planned: ServerAgentProposalRequest[];
+  try {
+    planned = await enrichExternalFoodGroceryProposals(context, proposals);
+  } catch {
+    return { status: 'failed', code: 'external_grocery_preparation_failed',
+      message: 'The current cart could not be safely compiled. Refresh its current version and review the meals before retrying.', retryable: true };
+  }
+  const { data, error } = await context.client.rpc('execute_kwilt_external_food_operations', {
+    p_user_id: context.userId, p_oauth_client_id: context.clientId,
+    p_request_id: context.call.id, p_operation_id: context.call.toolId,
+    p_arguments: context.call.arguments, p_operations: planned.map((proposal) => proposal.operation),
+  });
+  if (error) return {
+    status: 'failed', code: 'external_food_execution_failed',
+    message: 'Kwilt could not apply this food request. Refresh the current cart or grocery list before changing it; retry an uncertain outcome with the same request ID.',
     retryable: true,
   };
   return completed(data, context.call);

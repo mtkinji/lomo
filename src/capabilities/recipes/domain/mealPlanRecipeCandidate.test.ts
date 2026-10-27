@@ -30,6 +30,7 @@ describe('meal plan recipe candidates', () => {
           id: line.id,
           originalText: line.originalText,
           optional: line.optional,
+          scaleRule: line.scaleRule,
         })),
         recipeScaleMultiplier: 2,
         plannedPortions: 6,

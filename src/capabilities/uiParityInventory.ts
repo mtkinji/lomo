@@ -284,6 +284,8 @@ export const UI_PARITY_SURFACES = [
     'src/capabilities/meal-planning/screens/NextMealsScreen.tsx',
     'src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx',
   ], [
+    intent('meal_cart.external', 'Use the ongoing cart and history through external MCP; native Chat apply remains pending',
+      'meal_planning.cart.ensure', 'meal_planning.cart.add', 'meal_planning.cart.mark_made', 'meal_planning.cart.remove', 'meal_planning.history.read'),
     intent('meal_plan.manage', 'Create or update a meal plan', 'meal_planning.plan.create', 'meal_planning.plan.update'),
     intent('meal_plan.candidates', 'Add, remove, or prepare meal candidates',
       'meal_planning.candidate.add', 'meal_planning.candidate.remove', 'meal_planning.candidates.prepare'),

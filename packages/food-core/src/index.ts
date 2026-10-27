@@ -93,7 +93,7 @@ const numberWords: Record<string, number> = { one:1,two:2,three:3,four:4,five:5,
 
 function number(value: string): number | null {
   if (numberWords[value.toLowerCase()] !== undefined) return numberWords[value.toLowerCase()];
-  if (/^\d+\s+\d+\/\d+$/.test(value)) { const [whole,fraction]=value.split(/\s+/); const [a,b]=fraction.split('/').map(Number); return Number(whole)+a/b; }
+  if (/^\d+\s+\d+\/\d+$/.test(value)) { const [whole,fraction]=value.split(/\s+/); const [a,b]=fraction.split('/').map(Number); return b ? Number(whole)+a/b : null; }
   if (/^\d+\/\d+$/.test(value)) { const [a,b]=value.split('/').map(Number); return b ? a/b : null; }
   const parsed=Number(value); return Number.isFinite(parsed)?parsed:null;
 }
@@ -110,14 +110,19 @@ export function parseQuantity(original: string): ParsedQuantity {
   if(parentheticalPackageMatch)return{quantityMin:number(parentheticalPackageMatch[1]),quantityMax:null,packageQuantity:Number(parentheticalPackageMatch[2]),packageUnit:normalizeUnit(parentheticalPackageMatch[3]),consumedLength:parentheticalPackageMatch[0].length};
   const packageMatch=new RegExp(`^(${quantityToken})\\s+(\\d+(?:\\.\\d+)?)\\s*[- ]?(ounce|ounces|oz|pound|pounds|lb|gram|grams|g|kilogram|kilograms|kg)\\s+(?:can|cans|package|packages|pkg|jar|jars|bottle|bottles)\\b`).exec(text);
   if(packageMatch)return{quantityMin:number(packageMatch[1]),quantityMax:null,packageQuantity:Number(packageMatch[2]),packageUnit:normalizeUnit(packageMatch[3]),consumedLength:packageMatch[0].length};
-  const range=new RegExp(`^(${quantityToken})\\s*[-–]\\s*(${quantityToken})\\b`).exec(text);
-  if(range)return{quantityMin:number(range[1]),quantityMax:number(range[2]),packageQuantity:null,packageUnit:null,consumedLength:range[0].length};
-  const match=new RegExp(`^(${quantityToken})\\b`).exec(text);
+  const end = '(?=\\s|$|(?:kg|g|ml|l)\\b)';
+  const range=new RegExp(`^(${quantityToken})\\s*(?:[-–—]|to)\\s*(${quantityToken})${end}`).exec(text);
+  if(range){
+    const min=number(range[1]); const max=number(range[2]);
+    const valid=min!==null&&max!==null&&min<=max;
+    return{quantityMin:valid?min:null,quantityMax:valid?max:null,packageQuantity:null,packageUnit:null,consumedLength:range[0].length};
+  }
+  const match=new RegExp(`^(${quantityToken})${end}`).exec(text);
   if(match)return{quantityMin:number(match[1]),quantityMax:null,packageQuantity:null,packageUnit:null,consumedLength:match[0].length};
   return{quantityMin:null,quantityMax:null,packageQuantity:null,packageUnit:null,consumedLength:0};
 }
 
-const units: Record<string,string>={cups:'cup',cup:'cup',tablespoons:'tablespoon',tablespoon:'tablespoon',tbsp:'tablespoon',teaspoons:'teaspoon',teaspoon:'teaspoon',tsp:'teaspoon',ounces:'ounce',ounce:'ounce',oz:'ounce',pounds:'pound',pound:'pound',lbs:'pound',lb:'pound',grams:'gram',gram:'gram',g:'gram',kilograms:'kilogram',kilogram:'kilogram',kg:'kilogram',bunches:'bunch',bunch:'bunch',cloves:'clove',clove:'clove',cans:'count',can:'count',packages:'count',package:'count',jars:'count',jar:'count',bottles:'count',bottle:'count'};
+const units: Record<string,string>={milliliters:'milliliter',millilitres:'milliliter',milliliter:'milliliter',millilitre:'milliliter',ml:'milliliter',liters:'liter',litres:'liter',liter:'liter',litre:'liter',l:'liter',cups:'cup',cup:'cup',tablespoons:'tablespoon',tablespoon:'tablespoon',tbsp:'tablespoon',teaspoons:'teaspoon',teaspoon:'teaspoon',tsp:'teaspoon',ounces:'ounce',ounce:'ounce',oz:'ounce',pounds:'pound',pound:'pound',lbs:'pound',lb:'pound',grams:'gram',gram:'gram',g:'gram',kilograms:'kilogram',kilogram:'kilogram',kg:'kilogram',bunches:'bunch',bunch:'bunch',cloves:'clove',clove:'clove',cans:'count',can:'count',packages:'count',package:'count',jars:'count',jar:'count',bottles:'count',bottle:'count'};
 export function normalizeUnit(value:string):string{return units[value.toLowerCase()]??value.toLowerCase();}
 
 export function parseIngredientLine(originalText:string):ParsedIngredient{
@@ -137,7 +142,7 @@ export function parseIngredientLine(originalText:string):ParsedIngredient{
   return{...quantity,unit,concept,preparation};
 }
 
-const conversion:Record<string,{dimension:'volume'|'mass';factor:number}>={teaspoon:{dimension:'volume',factor:1},tablespoon:{dimension:'volume',factor:3},cup:{dimension:'volume',factor:48},gram:{dimension:'mass',factor:1},kilogram:{dimension:'mass',factor:1000},ounce:{dimension:'mass',factor:28.349523125},pound:{dimension:'mass',factor:453.59237}};
+const conversion:Record<string,{dimension:'volume'|'mass';factor:number}>={milliliter:{dimension:'volume',factor:1/4.92892159375},liter:{dimension:'volume',factor:1000/4.92892159375},teaspoon:{dimension:'volume',factor:1},tablespoon:{dimension:'volume',factor:3},cup:{dimension:'volume',factor:48},gram:{dimension:'mass',factor:1},kilogram:{dimension:'mass',factor:1000},ounce:{dimension:'mass',factor:28.349523125},pound:{dimension:'mass',factor:453.59237}};
 function compatible(a:string|null,b:string|null):boolean{return a===b||Boolean(a&&b&&conversion[a]&&conversion[b]&&conversion[a].dimension===conversion[b].dimension);}
 function convert(value:number|null,from:string|null,to:string|null):number|null{if(value===null||from===to)return value;if(!from||!to||!compatible(from,to))return null;return Math.round(value*(conversion[from].factor/conversion[to].factor)*1e9)/1e9;}
 
@@ -161,7 +166,7 @@ export function buildGroceryCompilation(lines:GroceryCompilerLine[]):{items:Comp
     const mergeable=quantityMin!==null&&parsed.unit!==null&&!['to taste','for garnish','divided'].includes(parsed.preparation??'');
     const existing=mergeable?items.find((item)=>item.concept===parsed.concept&&item.preparation===parsed.preparation&&item.optional===line.optional&&item.packageQuantity===parsed.packageQuantity&&item.packageUnit===parsed.packageUnit&&compatible(item.unit,parsed.unit)):undefined;
     const sourceForUnit=(unit:string|null)=>({recipeVersionId:line.recipeVersionId,ingredientLineId:line.ingredientLineId,planEntryId:line.planEntryId,quantityMin:convert(quantityMin,parsed.unit,unit),quantityMax:convert(quantityMax,parsed.unit,unit),unit,optional:line.optional});
-    if(existing){existing.quantityMin=(existing.quantityMin??0)+(convert(quantityMin,parsed.unit,existing.unit)??0);existing.quantityMax=existing.quantityMax===null&&quantityMax===null?null:(existing.quantityMax??existing.quantityMin??0)+(convert(quantityMax,parsed.unit,existing.unit)??0);existing.originalDisplayTexts.push(line.originalText);existing.sources.push(sourceForUnit(existing.unit));continue;}
+    if(existing){const previousMin=existing.quantityMin;existing.quantityMin=(previousMin??0)+(convert(quantityMin,parsed.unit,existing.unit)??0);existing.quantityMax=existing.quantityMax===null&&quantityMax===null?null:(existing.quantityMax??previousMin??0)+(convert(quantityMax??quantityMin,parsed.unit,existing.unit)??0);existing.originalDisplayTexts.push(line.originalText);existing.sources.push(sourceForUnit(existing.unit));continue;}
     const source=sourceForUnit(parsed.unit);
     items.push({id:`grocery-${items.length+1}`,concept:parsed.concept||line.originalText.toLowerCase(),quantityMin,quantityMax,unit:parsed.unit,packageQuantity:parsed.packageQuantity,packageUnit:parsed.packageUnit,preparation:parsed.preparation,optional:line.optional,aisle:assignAisle(parsed.concept),originalDisplayTexts:[line.originalText],sources:[source],reviewReason:quantityMin===null?'Quantity needs review':!parsed.concept?'Ingredient needs review':null});
   }

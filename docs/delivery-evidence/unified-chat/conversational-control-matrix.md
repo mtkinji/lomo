@@ -1,6 +1,6 @@
 # Conversational control behavior matrix
 
-Generated from the canonical manifest: **232 operations**, **2088 deterministic cases**, and **9 capability-specific adversarial cases**.
+Generated from the canonical manifest: **237 operations**, **2133 deterministic cases**, and **9 capability-specific adversarial cases**.
 
 All fixtures are synthetic. This artifact proves generated contract coverage only; it is not live-model, deployed-backend, Simulator, physical-device, TestFlight, or production proof.
 
@@ -8,25 +8,25 @@ All fixtures are synthetic. This artifact proves generated contract coverage onl
 
 | Case | Count |
 | --- | ---: |
-| ordinary | 232 |
-| paraphrase | 232 |
-| ambiguous_target | 232 |
-| unauthorized_actor | 232 |
-| missing_scope | 232 |
-| valid_path | 232 |
-| duplicate_request | 232 |
-| provider_failure | 232 |
-| correction_retry | 232 |
+| ordinary | 237 |
+| paraphrase | 237 |
+| ambiguous_target | 237 |
+| unauthorized_actor | 237 |
+| missing_scope | 237 |
+| valid_path | 237 |
+| duplicate_request | 237 |
+| provider_failure | 237 |
+| correction_retry | 237 |
 
 ## Completion modes
 
 | Mode | Operations |
 | --- | ---: |
-| direct | 70 |
+| direct | 71 |
 | excluded | 2 |
 | native_handoff | 33 |
 | provider_handoff | 2 |
-| reviewed_proposal | 120 |
+| reviewed_proposal | 124 |
 | supported_boundary | 5 |
 
 ## Capability-specific adversarial cases
