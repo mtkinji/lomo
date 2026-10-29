@@ -97,6 +97,10 @@ export function buildVerificationPlan(files, base) {
     add('npm run test:supabase-functions', 'run Deno unit tests for extracted Supabase function helpers');
   }
 
+  if (matches(/^(supabase\/migrations\/.*\.sql$|scripts\/public-data-api-grants\.test\.mjs$)/)) {
+    add('node --test scripts/public-data-api-grants.test.mjs', 'require explicit per-role access for new public tables');
+  }
+
   if (matches(/^(docs\/jtbd\/|docs\/personas\/|docs\/job-flows\/|docs\/feature-briefs\/|docs\/delivery-evidence\/|src\/features\/[^/]+\/FEATURE\.md)/)) {
     add('npm run product:lint', 'validate JTBD, persona, job-flow, feature, and feature-brief references');
   }
