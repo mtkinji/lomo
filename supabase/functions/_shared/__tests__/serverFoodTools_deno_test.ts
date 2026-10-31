@@ -568,3 +568,20 @@ Deno.test('server food controls refuse unsupported payloads and missing househol
   });
   if (denied?.status !== 'refused') throw new Error('missing meal authority accepted');
 });
+
+Deno.test('weekly recipe reuse ignores retired occurrences and refuses an undersized batch', async () => {
+  for (const lifecycle of ['removed', 'made']) {
+    const historyClient = { rpc: async (name: string) => ({ data: name === 'list_kwilt_recipe_catalog_v2' ? [] : { ...snapshot, mealPlans: [{ ...snapshot.mealPlans[0], candidates: [{
+      id: 'candidate-existing', kind: 'recipe', lifecycle, title: 'Lemon pasta', recipeSnapshot: { recipeVersionId: 'version-1' },
+    }] }] }, error: null }) };
+    for (const plannedPortions of [4, 6]) {
+      const result = await executeServerFoodTool({ client: historyClient, userId: 'user-1',
+        call: { id: `weekly-${lifecycle}-${plannedPortions}`, toolId: 'meal_planning.candidate.add', arguments: {
+          mealPlanId: 'plan-1', expectedVersion: 3,
+          candidate: { candidateId: 'candidate-new', title: 'Lemon pasta', recipeVersionId: 'version-1', plannedPortions },
+        } }, stageProposal: async () => ({ id: 'proposal' } as never) });
+      if (plannedPortions === 4 && result?.status !== 'proposed') throw new Error('historical recipe cannot be reused');
+      if (plannedPortions === 6 && (result?.status !== 'failed' || result.code !== 'recipe_portions_exceed_batch')) throw new Error('undersized recipe batch accepted');
+    }
+  }
+});

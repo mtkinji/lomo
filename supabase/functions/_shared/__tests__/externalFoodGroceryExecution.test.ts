@@ -41,6 +41,15 @@ test('rejects a foreign personal plan before loading its candidates', async () =
   expect(client.from).not.toHaveBeenCalledWith('kwilt_meal_plan_candidates');
 });
 
+test('removing a sent meal recompiles remaining contributions without buying old ingredients again', async () => {
+  const removal = { ...proposal, operation: { ...proposal.operation, type: 'meal_planning.candidate.remove', payload: { expectedVersion: 3, candidateId: 'old' } } };
+  const [result] = await enrichExternalFoodGroceryProposals({ client: fixture(), userId: 'user-1' }, [removal]);
+  expect(result.operation.payload).toMatchObject({ planAction: 'remove', candidateIds: ['old'] });
+  const items = result.operation.payload.compiledItems as any[];
+  expect(items[0].sources.map((s: any) => s.planCandidateId)).toEqual(['kept']);
+  expect(items[0].quantityMin).toBe(2);
+});
+
 test('rejects stale plan and failed canonical ingredient lookup rather than compiling an empty list', async () => {
   await expect(enrichExternalFoodGroceryProposals({ client: fixture(), userId: 'user-1' }, [{ ...proposal, operation: { ...proposal.operation, payload: { expectedVersion: 2 } } }])).rejects.toThrow('stale');
   await expect(enrichExternalFoodGroceryProposals({ client: fixture({ kwilt_meal_plan_candidates: [{ id: 'new', lifecycle_state: 'idea', recipe_snapshot: { recipeVersionId: 'missing' } }] }), userId: 'user-1' }, [proposal])).rejects.toThrow('missing_recipe_version');
@@ -50,6 +59,23 @@ test('does not reinterpret manual grocery edits as a compile', async () => {
   const client = fixture(); const manual = { ...proposal, operation: { ...proposal.operation, type: 'groceries.item.add' } };
   expect(await enrichExternalFoodGroceryProposals({ client, userId: 'user-1' }, [manual])).toEqual([manual]);
   expect(client.from).not.toHaveBeenCalled();
+});
+
+test('private recipe compilation disambiguates the recipe parent from the current-version relationship', async () => {
+  const versionId = '50000000-0000-4000-8000-000000000001';
+  const client = fixture({ kwilt_meal_plan_candidates: [{ id: 'new', lifecycle_state: 'idea', recipe_snapshot: { ...snapshot, recipeVersionId: versionId, sourceType: 'manual' } }] });
+  const from = client.from;
+  const wrapped = { from: (table: string) => {
+    if (table !== 'kwilt_recipe_versions') return from(table);
+    let select = '';
+    const q: any = { select: (columns: string) => { select = columns; return q; }, in: () => q,
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(select.includes('kwilt_recipes!kwilt_recipe_versions_recipe_id_fkey!inner')
+        ? { data: [{ id: versionId, recipe: { lifecycle: 'active' }, ingredients: [{ id: 'ingredient-1', original_text: '1 cup rice', optional: false, scale_rule: { kind: 'multiply' } }] }], error: null }
+        : { data: null, error: { code: 'PGRST201' } }).then(resolve) };
+    return q;
+  } };
+  const [result] = await enrichExternalFoodGroceryProposals({ client: wrapped, userId: 'user-1' }, [proposal]);
+  expect(result.operation.payload.compiledItems).toHaveLength(1);
 });
 
 test('ongoing open cart compile is staged, not rejected for lacking a weekly finalized plan', async () => {

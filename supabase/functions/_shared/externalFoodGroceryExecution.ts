@@ -37,8 +37,15 @@ export async function enrichExternalFoodGroceryProposals(
   const query = (table: string) => context.client.from(table) as Query;
   const enriched: ServerAgentProposalRequest[] = [];
   for (const proposal of proposals) {
-    if (proposal.operation.type !== 'groceries.compile') { enriched.push(proposal); continue; }
-    const planId = proposal.operation.targetId;
+    const removing = ['meal_planning.cart.remove', 'meal_planning.candidate.remove'].includes(proposal.operation.type);
+    if (proposal.operation.type !== 'groceries.compile' && !removing) { enriched.push(proposal); continue; }
+    let planId = proposal.operation.targetId;
+    let removedId = proposal.operation.payload.candidateId;
+    if (proposal.operation.type === 'meal_planning.cart.remove') {
+      removedId = planId;
+      const candidate = row(await read(query('kwilt_meal_plan_candidates').select('plan_id').eq('id', planId).single()));
+      planId = String(candidate.plan_id);
+    }
     const expectedVersion = proposal.operation.payload.expectedVersion;
     if (!planId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) throw new Error('invalid_grocery_compile');
     const binding = row(await read(query('kwilt_person_auth_bindings').select('person_id')
@@ -48,6 +55,7 @@ export async function enrichExternalFoodGroceryProposals(
       .eq('id', planId).single()));
     if (plan.id !== planId) throw new Error('grocery_plan_not_found');
     if (plan.version !== expectedVersion) throw new Error('stale_grocery_plan');
+    if (removing && row(plan.horizon).kind !== 'open') { enriched.push(proposal); continue; }
     let actorRole: string | null = null;
     if (plan.household_id !== null) {
       const membership = row(await read(query('kwilt_household_memberships').select('role')
@@ -62,13 +70,16 @@ export async function enrichExternalFoodGroceryProposals(
     if (plan.state === 'draft' && row(plan.horizon).kind === 'open') {
       const source = rows(await read(query('kwilt_meal_plan_candidates')
         .select('id,lifecycle_state,removed_grocery_behavior,recipe_snapshot').eq('plan_id', planId).order('position')));
-      candidateIds = source.filter((candidate) => candidate.lifecycle_state === 'idea' && candidate.recipe_snapshot)
+      if (removing && source.find((candidate) => candidate.id === removedId)?.lifecycle_state === 'idea') {
+        enriched.push(proposal); continue;
+      }
+      candidateIds = source.filter((candidate) => removing ? candidate.id === removedId && candidate.lifecycle_state === 'sent' : candidate.lifecycle_state === 'idea' && candidate.recipe_snapshot)
         .map((candidate) => String(candidate.id));
       if (!candidateIds.length || candidateIds.length > 60) throw new Error('grocery_cart_candidates_required');
       const selected = new Set(candidateIds);
       candidates = source.map((candidate) => ({
-        id: String(candidate.id), lifecycleState: (selected.has(String(candidate.id)) ? 'sent' : candidate.lifecycle_state) as 'sent' | 'removed',
-        removedGroceryBehavior: candidate.removed_grocery_behavior === 'kept' ? 'kept' as const : null,
+        id: String(candidate.id), lifecycleState: (selected.has(String(candidate.id)) ? removing ? 'removed' : 'sent' : candidate.lifecycle_state) as 'sent' | 'removed',
+        removedGroceryBehavior: removing && selected.has(String(candidate.id)) ? null : candidate.removed_grocery_behavior === 'kept' ? 'kept' as const : null,
         recipeSnapshot: candidate.recipe_snapshot ? row(candidate.recipe_snapshot) : null,
       })).filter((candidate) => candidate.lifecycleState === 'sent' || candidate.lifecycleState === 'removed' && candidate.removedGroceryBehavior === 'kept');
     } else if (plan.state === 'finalized') {
@@ -83,7 +94,7 @@ export async function enrichExternalFoodGroceryProposals(
     const ingredientsByVersionId: GroceryAuthorityInput['ingredientsByVersionId'] = {};
     if (versionIds.length) {
       const versions = rows(await read(query('kwilt_recipe_versions')
-        .select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional,scale_rule),recipe:kwilt_recipes!inner(lifecycle)').in('id', versionIds)));
+        .select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional,scale_rule),recipe:kwilt_recipes!kwilt_recipe_versions_recipe_id_fkey!inner(lifecycle)').in('id', versionIds)));
       for (const version of versions) {
         const recipe = row(Array.isArray(version.recipe) ? version.recipe[0] : version.recipe);
         if (recipe.lifecycle === 'deleted' || !Array.isArray(version.ingredients)) throw new Error('missing_recipe_version');
@@ -96,8 +107,8 @@ export async function enrichExternalFoodGroceryProposals(
       : compileGroceryAuthority({ plan: plan as GroceryAuthorityInput['plan'], expectedVersion: Number(expectedVersion),
         actorPersonId: binding.person_id, entries, ingredientsByVersionId });
     enriched.push({ ...proposal, operation: { ...proposal.operation, payload: {
-      expectedVersion, payloadHash: await hash(compiled.items), compiledItems: compiled.items,
-      ...(plan.state === 'draft' ? { candidateIds, planAction: 'send', acknowledgeHardPasses: false } : {}),
+      ...proposal.operation.payload, expectedVersion, payloadHash: await hash(compiled.items), compiledItems: compiled.items,
+      ...(plan.state === 'draft' ? { candidateIds, planAction: removing ? 'remove' : 'send', acknowledgeHardPasses: false } : {}),
     } } });
   }
   return enriched;
