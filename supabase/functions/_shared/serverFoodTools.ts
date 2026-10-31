@@ -707,11 +707,16 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
         const currentTitle = text(record(recipe?.version)?.title);
         if (!recipe) return { status: 'failed', code: 'recipe_version_not_found', message: 'That exact Recipe version is no longer available.', retryable: false };
         if (requestedTitle !== currentTitle) return { status: 'failed', code: 'meal_candidate_title_mismatch', message: 'Use the current Recipe title for this exact Recipe version.', retryable: false };
-        if (existingCandidates.some((existing) => text(record(existing?.recipeSnapshot)?.recipeVersionId) === recipeVersionId)) {
+        if (existingCandidates.some((existing) => text(record(existing?.recipeSnapshot)?.recipeVersionId) === recipeVersionId
+          && !(record(plan.horizon)?.kind === 'open' && ['removed', 'made'].includes(String(existing?.lifecycle))))) {
           return { status: 'failed', code: 'meal_candidate_recipe_exists', message: 'That exact Recipe version is already in this Meal Plan.', retryable: false };
         }
         const projected = mealPlanRecipeCandidate(recipe, candidateId, plannedPortions);
         if (!projected) return { status: 'failed', code: 'meal_candidate_recipe_invalid', message: 'That Recipe does not have enough authority to add to Plan.', retryable: false };
+        const yieldQuantity = record(recipe.version)?.yieldQuantity;
+        if (typeof yieldQuantity === 'number' && Number.isFinite(yieldQuantity) && yieldQuantity > 0 && plannedPortions > yieldQuantity) {
+          return { status: 'failed', code: 'recipe_portions_exceed_batch', message: 'This recipe batch is smaller than the requested portions. Save a larger reviewed batch or use an explicitly scaled cart entry.', retryable: false };
+        }
         candidate = projected;
       } else {
         candidate = { id: candidateId, kind: 'meal_note', title: requestedTitle, recipeSnapshot: null };

@@ -10,9 +10,11 @@ export const EXTERNAL_DIRECT_LIFE_TOOLS = new Set([
   'activities.steps.reorder', 'chapters.note.update',
 ]);
 
-// Catalog publication and recipe CRUD intentionally remain governed by their
-// existing creation/review pipeline, not this external executor.
+// Reviewed private recipes use the canonical versioned recipe writer.
+// Publication and deletion retain their separate governed pipelines.
 export const EXTERNAL_DIRECT_FOOD_TOOLS = new Set([
+  'recipes.create', 'recipes.update',
+  'meal_planning.candidate.add', 'meal_planning.candidate.remove',
   'meal_planning.cart.ensure', 'meal_planning.cart.add',
   'meal_planning.cart.remove', 'meal_planning.cart.mark_made',
   'meal_planning.plan.create', 'meal_planning.plan.update',

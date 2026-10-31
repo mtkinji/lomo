@@ -116,9 +116,17 @@ test('food operations use actor-scoped atomic authority and return preservation 
   });
 });
 
-test('external food execution never enables catalog publication or arbitrary recipe CRUD', async () => {
+test.each(['recipes.create', 'recipes.update', 'meal_planning.candidate.add', 'meal_planning.candidate.remove'])('reviewed %s reaches the durable food executor', async (toolId) => {
+  const foodCall = { ...call, toolId };
+  const rpc = jest.fn(async () => ({ data: { ...receipt, operationId: toolId }, error: null }));
+  expect(await applyExternalFoodOperations({ client: { rpc, from: jest.fn() }, userId: 'user-1', clientId: 'client-1', call: foodCall }, [proposal]))
+    .toMatchObject({ status: 'completed' });
+  expect(rpc).toHaveBeenCalledWith('execute_kwilt_external_food_operations', expect.objectContaining({ p_operation_id: toolId }));
+});
+
+test('external food execution never enables publication or deletion', async () => {
   const rpc = jest.fn();
-  for (const toolId of ['recipes.create', 'recipes.publication.publish', 'recipes.delete']) {
+  for (const toolId of ['recipes.publication.publish', 'recipes.delete']) {
     expect(await applyExternalFoodOperations({ client: { rpc, from: jest.fn() }, userId: 'user-1', clientId: 'client-1', call: { ...call, toolId } }, [proposal]))
       .toMatchObject({ status: 'unavailable' });
   }
