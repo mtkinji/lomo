@@ -1,3 +1,6 @@
+import { randomUUID } from 'expo-crypto';
+import { useCategorySettingsEditor } from '../runtime/useCategorySettingsEditor';
+import { prepareCategorySettingsRequest } from '../runtime/categorySettingsPreparation';
 import { MoneyRolloverSettings } from '../components/MoneyRolloverSettings';
 import { initialRolloverDraft, reviewRolloverDraft, type RolloverDraft } from '../domain/rolloverDraft';
 import { Pressable } from '@/src/ui/HapticPressable';
@@ -79,7 +82,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const {
     previewCategoryPlanAmount,
     refresh,
-    renameCategory,
+    userId,
+    loadCategorySettingsRequest,
+    saveCategorySettingsRequest,
     savingCategory,
     snapshot,
     status,
@@ -123,7 +128,34 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
   const category = view?.category;
-  const settingsCategory = snapshot?.categories.find((item) => item.sourceId === category?.sourceId) ?? category;
+  const currentSettingsCategory = snapshot?.categories.find((item) => item.sourceId === category?.sourceId) ?? category;
+  const previewSequence = useRef(0);
+  const editor = useCategorySettingsEditor({
+    open: settingsOpen, actorUserId: userId, category: currentSettingsCategory,
+    loadPending: loadCategorySettingsRequest, save: saveCategorySettingsRequest,
+    onReady: (baseline, pending) => {
+      const saved = pending?.settings;
+      const draftCategory = saved ? { ...baseline, name: saved.name, plannedCents: saved.budgetCents,
+        fundingRhythm: saved.fundingRhythm, rolloverEnabled: saved.rolloverEnabled, rolloverPolicy: saved.rolloverPolicy,
+        planRole: saved.planRole, expectedNeed: saved.expectedNeedCents !== null && saved.expectedNeedDueMonth !== null
+          ? { amountCents: saved.expectedNeedCents, dueMonth: saved.expectedNeedDueMonth } : null } : baseline;
+      setRolloverDraft(initialRolloverDraft(draftCategory, getLocalMoneyPeriodId(new Date())));
+      setCategoryNameDraft(draftCategory.name);
+      setCategoryAmountDraft((draftCategory.plannedCents / 100).toFixed(2));
+      setFundingRhythmDraft(draftCategory.fundingRhythm);
+      setPlanRoleDraft(draftCategory.planRole ?? 'flexible');
+      setExpectedNeedDraft(formatCentsInput(draftCategory.expectedNeed?.amountCents));
+      setExpectedNeedDueMonthDraft(draftCategory.expectedNeed?.dueMonth ?? '');
+      previewSequence.current += 1;
+      setPlanImpact(null); setShowPlanChanges(false); setCategoryError(null);
+    },
+  });
+  const settingsCategory = settingsOpen ? editor.baseline ?? currentSettingsCategory : currentSettingsCategory;
+  const settingsLocked = savingCategory || editor.phase !== 'ready' || Boolean(editor.pending);
+  const closeSettings = () => { if (editor.phase !== 'saving') setSettingsOpen(false); };
+  const previewScope = JSON.stringify([settingsOpen, userId, settingsCategory?.sourceId, categoryAmountDraft, fundingRhythmDraft, expectedNeedDraft, expectedNeedDueMonthDraft]);
+  const latestPreviewScope = useRef(previewScope); latestPreviewScope.current = previewScope;
+  const invalidatePlanImpact = () => { previewSequence.current += 1; setPlanImpact(null); };
   const currentMonth = getLocalMoneyPeriodId(new Date());
   const rolloverReview = settingsCategory ? reviewRolloverDraft(settingsCategory, rolloverDraft, categoryAmountDraft, snapshot?.transactions ?? [], currentMonth) : null;
   const rebalanceAnswer = useMemo(() => (
@@ -168,15 +200,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
   useEffect(() => {
     if (!settingsCategory || settingsOpen) return;
-    setRolloverDraft(initialRolloverDraft(settingsCategory, currentMonth));
-    setCategoryNameDraft(settingsCategory.name);
-    setCategoryAmountDraft((settingsCategory.plannedCents / 100).toFixed(2));
-    setFundingRhythmDraft(settingsCategory.fundingRhythm);
-    setPlanRoleDraft(settingsCategory.planRole ?? 'flexible');
-    setExpectedNeedDraft(formatCentsInput(settingsCategory.expectedNeed?.amountCents));
-    setExpectedNeedDueMonthDraft(settingsCategory.expectedNeed?.dueMonth ?? '');
-    setPlanImpact(null);
-    setShowPlanChanges(false);
     setForecastModeDraft(settingsCategory.forecastSettings?.mode ?? settingsCategory.forecast.mode);
     setManualForecastDraft(formatCentsInput(settingsCategory.forecastSettings?.manualProjectedSpendCents));
     setScheduledAmountDraft(formatCentsInput(settingsCategory.forecastSettings?.scheduledAmountCents));
@@ -185,7 +208,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   }, [settingsOpen, settingsCategory?.rolloverPolicy, settingsCategory?.rolloverEnabled, currentMonth, settingsCategory?.expectedNeed, settingsCategory?.forecast.mode, settingsCategory?.forecastSettings, settingsCategory?.fundingRhythm, settingsCategory?.name, settingsCategory?.planRole, settingsCategory?.plannedCents, settingsCategory?.sourceId]);
 
   const previewMonthlyAmount = async () => {
-    if (!settingsCategory) return null;
+    if (!settingsCategory || settingsLocked) return null;
+    const sequence = ++previewSequence.current;
+    const scope = previewScope;
     try {
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const expectedNeedDueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
@@ -195,70 +220,57 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         expectedNeedCents,
         expectedNeedDueMonth,
       });
+      if (sequence !== previewSequence.current || scope !== latestPreviewScope.current) return null;
       setPlanImpact(preview);
       setShowPlanChanges(false);
       return preview;
     } catch (error) {
-      setMutationError(error);
+      if (sequence === previewSequence.current && scope === latestPreviewScope.current) setMutationError(error);
       return null;
     }
   };
 
   const saveCategorySettings = async () => {
-    if (!settingsCategory) return;
+    if (editor.phase === 'load_error') { editor.retryLoad(); return; }
     const startedAtMs = Date.now();
     setCategoryError(null);
-    try {
-      const rollover = reviewRolloverDraft(settingsCategory, rolloverDraft, categoryAmountDraft, snapshot?.transactions ?? [], currentMonth);
+    const result = await editor.submit(async (baseline, actorUserId) => {
+      const rollover = reviewRolloverDraft(baseline, rolloverDraft, categoryAmountDraft, snapshot?.transactions ?? [], currentMonth);
       if (rollover.error) throw new Error(rollover.error);
-      const name = parseCategoryName(categoryNameDraft);
       const budgetCents = parseMonthlyAmount(categoryAmountDraft);
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const dueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
       if ((expectedNeedCents == null) !== (dueMonth == null)) throw new Error('Enter both an expected amount and due month.');
-
-      const planChanged = budgetCents !== settingsCategory.plannedCents
-        || fundingRhythmDraft !== settingsCategory.fundingRhythm
-        || expectedNeedCents !== (settingsCategory.expectedNeed?.amountCents ?? null)
-        || dueMonth !== (settingsCategory.expectedNeed?.dueMonth ?? null);
-      const roleChanged = planRoleDraft !== settingsCategory.planRole;
-
-      if (planChanged) {
-        const preview = planImpact ?? await previewCategoryPlanAmount(settingsCategory.sourceId, budgetCents, {
-          fundingRhythm: fundingRhythmDraft,
-          expectedNeedCents,
-          expectedNeedDueMonth: dueMonth,
-        });
-        if (preview && preview.outcome !== 'ready' && preview.outcome !== 'no_op') {
-          throw new Error('Kwilt needs current account evidence before it can check this amount against your living target.');
-        }
-        await updateCategoryPlan(settingsCategory.sourceId, {
-          budgetCents,
-          fundingRhythm: fundingRhythmDraft,
-          expectedNeedCents,
-          expectedNeedDueMonth: dueMonth,
-        }, preview?.outcome === 'ready' ? preview : undefined);
+      const planChanged = budgetCents !== baseline.plannedCents || fundingRhythmDraft !== baseline.fundingRhythm
+        || expectedNeedCents !== (baseline.expectedNeed?.amountCents ?? null) || dueMonth !== (baseline.expectedNeed?.dueMonth ?? null);
+      const preview = planChanged ? planImpact ?? await previewCategoryPlanAmount(baseline.sourceId, budgetCents, {
+        fundingRhythm: fundingRhythmDraft, expectedNeedCents, expectedNeedDueMonth: dueMonth,
+      }) : null;
+      if (preview && preview.outcome !== 'ready') {
+        throw new Error('Kwilt needs current account evidence before it can check this change. Refresh Budget and review it again.');
       }
-      if (rolloverDraft.enabled !== settingsCategory.rolloverEnabled || JSON.stringify(rollover.policy) !== JSON.stringify(settingsCategory.rolloverPolicy ?? null)) {
-        await updateCategoryPlan(settingsCategory.sourceId, { rolloverEnabled: rolloverDraft.enabled, rolloverPolicy: rollover.policy });
-      }
-      if (roleChanged) await updateCategoryPlan(settingsCategory.sourceId, { planRole: planRoleDraft });
-      if (name !== settingsCategory.name) await renameCategory(settingsCategory.sourceId, name);
+      return prepareCategorySettingsRequest({ actorUserId, requestId: randomUUID(), category: baseline,
+        settings: { name: parseCategoryName(categoryNameDraft), budgetCents, fundingRhythm: fundingRhythmDraft,
+          rolloverEnabled: fundingRhythmDraft === 'monthly' && rolloverDraft.enabled, rolloverPolicy: rollover.policy,
+          planRole: planRoleDraft, expectedNeedCents, expectedNeedDueMonth: dueMonth },
+        preview: preview?.outcome === 'ready' ? preview : undefined });
+    });
+    if (!result) return;
+    if (result.outcome === 'confirmed') {
       setSettingsOpen(false);
       if (rebalanceAnswer) {
         capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
         setRebalanceFeedbackPending(true);
       }
-      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('succeeded');
-    } catch (error) {
-      setMutationError(error);
-      if (rebalanceAnswer && error instanceof Error && error.message.includes('changed since you reviewed')) {
+    } else if (result.outcome === 'rejected') {
+      signalMoneyMutationOutcome('failed');
+      if (rebalanceAnswer && result.message.includes('changed since you reviewed')) {
         capture(AnalyticsEvent.MoneyRebalanceStaleRejected, buildMoneyRebalanceOutcomeProps({ outcome: 'stale_rejected', answerState: rebalanceAnswer.state }));
       }
-      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'failed', durationMs: Date.now() - startedAtMs });
-      signalMoneyMutationOutcome('failed');
     }
+    captureMoneyMutation(capture, { operation: 'category_settings',
+      outcome: result.outcome === 'confirmed' ? 'succeeded' : result.outcome === 'unknown' ? 'unknown' : 'failed', durationMs: Date.now() - startedAtMs });
   };
 
   const setMutationError = (error: unknown) => {
@@ -503,20 +515,21 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer
         visible={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        dismissable={editor.phase !== 'saving'}
+        onClose={closeSettings}
         snapPoints={['100%']}
         keyboardBehavior="resize"
         bottomAccessory={(
           <View style={{ gap: spacing.sm }}>
-          {rolloverReview?.error || categoryError ? <Text accessibilityRole="alert" style={styles.errorText}>{rolloverReview?.error || categoryError}</Text> : null}
+          {editor.error || categoryError || (!editor.pending && rolloverReview?.error) ? <Text accessibilityRole="alert" style={styles.errorText}>{editor.error || categoryError || rolloverReview?.error}</Text> : null}
           <Button
-            disabled={savingCategory || !!rolloverReview?.error}
+            disabled={savingCategory || editor.phase === 'loading' || editor.phase === 'saving' || (editor.phase !== 'load_error' && !editor.pending && !!rolloverReview?.error)}
             fullWidth
-            loading={savingCategory}
-            loadingLabel="Saving…"
+            loading={savingCategory || editor.phase === 'loading' || editor.phase === 'saving'}
+            loadingLabel={editor.phase === 'loading' || editor.pending ? 'Checking save…' : 'Saving…'}
             onPress={() => void saveCategorySettings()}
           >
-            Save changes
+            {editor.phase === 'load_error' ? 'Try again' : editor.pending ? 'Check save' : 'Save changes'}
           </Button>
           </View>
         )}
@@ -526,7 +539,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         <View style={styles.drawerFixedHeader}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category settings"
-            onClose={() => setSettingsOpen(false)}
+            onClose={closeSettings}
             title={`${category.name} settings`}
             variant="withClose"
           />
@@ -539,9 +552,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           keyboardShouldPersistTaps="handled"
         >
           <SettingsGroup title="CATEGORY">
-            <SettingsTextInputRow editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
+            <SettingsTextInputRow editable={!settingsLocked} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); invalidatePlanImpact(); setShowPlanChanges(false); }} value={categoryNameDraft} />
             <SettingsDivider />
-            <SettingsTextInputRow editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
+            <SettingsTextInputRow editable={!settingsLocked} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); invalidatePlanImpact(); }} value={categoryAmountDraft} />
           </SettingsGroup>
 
           <SettingsGroup
@@ -550,29 +563,29 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               ? 'Kwilt keeps this amount aside before calculating flexible room.'
               : 'Spending here counts against flexible room.'}
           >
-            <SettingsChoiceRow disabled={savingCategory} selected={planRoleDraft === 'protected'} description="Keep this amount aside before flexible spending." title="Protected" onPress={() => setPlanRoleDraft('protected')} />
+            <SettingsChoiceRow disabled={settingsLocked} selected={planRoleDraft === 'protected'} description="Keep this amount aside before flexible spending." title="Protected" onPress={() => setPlanRoleDraft('protected')} />
             <SettingsDivider />
-            <SettingsChoiceRow disabled={savingCategory} selected={planRoleDraft === 'flexible'} description="Count spending here against flexible room." title="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
+            <SettingsChoiceRow disabled={settingsLocked} selected={planRoleDraft === 'flexible'} description="Count spending here against flexible room." title="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
           </SettingsGroup>
 
           {rolloverReview ? <MoneyRolloverSettings
             draft={rolloverDraft} review={rolloverReview} currentMonth={currentMonth}
             monthlyAmountCents={Math.round(Number(categoryAmountDraft) * 100) || 0}
             spentCents={settingsCategory?.spentCents ?? category.spentCents}
-            disabled={savingCategory}
+            disabled={settingsLocked}
             onChange={(draft) => {
               if (draft.enabled !== rolloverDraft.enabled) signalMoneyToggle(draft.enabled);
               setRolloverDraft(draft);
               if (!draft.enabled) setFundingRhythmDraft('monthly');
               else setFundingRhythmDraft(category.fundingRhythm);
-              setPlanImpact(null);
+              invalidatePlanImpact();
             }}
           /> : null}
           {rolloverDraft.enabled && fundingRhythmDraft === 'reserve' ? (
             <SettingsGroup title="EXPECTED NEED" footer={reserveCoverageCopy(category, categoryAmountDraft, expectedNeedDraft, expectedNeedDueMonthDraft)}>
-              <SettingsTextInputRow editable={!savingCategory} keyboardType="decimal-pad" label="Amount" onChangeText={(value) => { setExpectedNeedDraft(value); setPlanImpact(null); }} value={expectedNeedDraft} />
+              <SettingsTextInputRow editable={!settingsLocked} keyboardType="decimal-pad" label="Amount" onChangeText={(value) => { setExpectedNeedDraft(value); invalidatePlanImpact(); }} value={expectedNeedDraft} />
               <SettingsDivider />
-              <SettingsTextInputRow autoCapitalize="none" editable={!savingCategory} label="Due month" accessibilityHint="Enter a month in YYYY-MM format" onChangeText={(value) => { setExpectedNeedDueMonthDraft(value); setPlanImpact(null); }} value={expectedNeedDueMonthDraft} />
+              <SettingsTextInputRow autoCapitalize="none" editable={!settingsLocked} label="Due month" accessibilityHint="Enter a month in YYYY-MM format" onChangeText={(value) => { setExpectedNeedDueMonthDraft(value); invalidatePlanImpact(); }} value={expectedNeedDueMonthDraft} />
             </SettingsGroup>
           ) : null}
           {planImpact?.outcome === 'ready' && rebalanceAnswer ? (
@@ -595,7 +608,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           ) : null}
           <SettingsGroup footer="Choose apps and decide when this category should ask for a spending review." title="FOLLOW THROUGH">
             <SettingsRow
-              disabled={savingCategory}
+              disabled={settingsLocked}
               onPress={() => {
                 setSettingsOpen(false);
                 rootNavigation?.navigate('Settings', {

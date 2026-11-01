@@ -3,20 +3,24 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { MoneyDataProvider, useMoneyData } from './MoneyDataContext';
 import type { MoneyRepository } from './moneyRepository';
-import { MoneyTransactionUnavailableError } from './moneyRepository';
+import { createMoneyRepository, MoneyTransactionUnavailableError } from './moneyRepository';
 import type { MoneySnapshot } from './moneySnapshot';
 import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
 import { reconcileConnectedMoneyActivity } from '../runtime/reconcileConnectedMoneyActivity';
+import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { setProEntitlement } from '../../../test/storeFixtures';
 
+jest.mock('./moneyRepository', () => ({ ...jest.requireActual('./moneyRepository'), createMoneyRepository: jest.fn() }));
+jest.mock('../runtime/livingPlanReconciliation', () => ({ ...jest.requireActual('../runtime/livingPlanReconciliation'), reconcileLivingPlan: jest.fn() }));
 jest.mock('../runtime/moneyGlanceableState', () => ({ syncMoneyGlanceableState: jest.fn() }));
 jest.mock('../runtime/reconcileConnectedMoneyActivity', () => ({ reconcileConnectedMoneyActivity: jest.fn() }));
 jest.mock('../../../services/backend/supabaseClient', () => ({ getSupabaseClient: jest.fn(() => ({})) }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((nextResolve) => { resolve = nextResolve; });
-  return { promise, resolve };
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => { resolve = nextResolve; reject = nextReject; });
+  return { promise, resolve, reject };
 }
 
 const snapshot = {
@@ -97,6 +101,23 @@ function NoteProbe() {
   );
 }
 
+function ReadLifecycleProbe() {
+  const { refresh, error, snapshot: current, stale, setTransactionNote, disconnectConnection, reconcileConnectedActivity } = useMoneyData();
+  return <View>
+    <Text>{current?.generatedAt ?? 'no-snapshot'}</Text>
+    <Text>{current?.transactions[0]?.userNote ?? 'no-note'}</Text>
+    <Text>{error ?? 'no-error'}</Text>
+    <Text>{stale ? 'stale' : 'current'}</Text>
+    <Pressable onPress={() => { void refresh(); }}><Text>Reload</Text></Pressable>
+    <Pressable onPress={() => {
+      void reconcileConnectedActivity({ trigger: 'account_connected', sync: false }).then(() => refresh());
+    }}><Text>Reconcile and reload</Text></Pressable>
+    <Pressable onPress={() => { void disconnectConnection('connection-1'); }}><Text>Disconnect</Text></Pressable>
+    <Pressable onPress={() => { void refresh({ afterMutation: true }); }}><Text>Reload after write</Text></Pressable>
+    <Pressable onPress={() => { void setTransactionNote('transaction-1', 'Confirmed note'); }}><Text>Edit note</Text></Pressable>
+  </View>;
+}
+
 function ConnectedRefreshProbe() {
   const { error, reconcileConnectedActivity: refreshConnectedActivity, snapshot: currentSnapshot } = useMoneyData();
   return (
@@ -124,7 +145,213 @@ function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
 describe('MoneyDataProvider merchant-rule confirmation', () => {
   beforeEach(() => {
     jest.mocked(reconcileConnectedMoneyActivity).mockReset();
+    jest.mocked(createMoneyRepository).mockReset();
+    jest.mocked(reconcileLivingPlan).mockReset();
     setProEntitlement(true);
+  });
+
+  it('does not replace an authoritative refresh with a delayed device cache read', async () => {
+    const cached = deferred<MoneySnapshot | null>();
+    const initial = deferred<MoneySnapshot>();
+    const cache = snapshotCache(null);
+    jest.mocked(cache.load).mockReturnValue(cached.promise);
+    const repository = { loadSnapshot: jest.fn().mockResolvedValueOnce({ ...snapshot, generatedAt: 'fresh' }).mockReturnValueOnce(initial.promise) } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a"><ReadLifecycleProbe /></MoneyDataProvider>);
+    fireEvent.press(screen.getByText('Reload'));
+    await screen.findByText('fresh');
+    await act(async () => cached.resolve({ ...snapshot, generatedAt: 'old-cache' }));
+    expect(screen.getByText('fresh')).toBeTruthy();
+    expect(screen.queryByText('old-cache')).toBeNull();
+    await act(async () => initial.resolve({ ...snapshot, generatedAt: 'latest' }));
+  });
+
+  it('starts a fresh read after governed promotion instead of sharing a pre-promotion refresh', async () => {
+    const foundation = deferred<void>();
+    const manual = deferred<MoneySnapshot>();
+    const promoted = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(manual.promise).mockReturnValueOnce(promoted.promise),
+      ensureGovernedPlanFoundation: jest.fn(() => foundation.promise),
+    } as unknown as MoneyRepository;
+    jest.mocked(createMoneyRepository).mockReturnValue(repository);
+    jest.mocked(reconcileLivingPlan).mockResolvedValue({ outcome: 'promoted', versionId: 'v2' });
+    const screen = render(<MoneyDataProvider><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reload'));
+    await act(async () => foundation.resolve());
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(3);
+    await act(async () => promoted.resolve({ ...snapshot, generatedAt: 'promoted' }));
+    await act(async () => manual.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(screen.getByText('promoted')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+  });
+
+  it('protects confirmed edits during governed initialization too', async () => {
+    const initial = deferred<MoneySnapshot>();
+    const background = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn().mockReturnValueOnce(initial.promise).mockReturnValueOnce(background.promise),
+      ensureGovernedPlanFoundation: jest.fn().mockResolvedValue(undefined),
+      setTransactionNote: jest.fn().mockResolvedValue({ transactionId: 'transaction-1', note: 'Confirmed note' }),
+    } as unknown as MoneyRepository;
+    jest.mocked(createMoneyRepository).mockReturnValue(repository);
+    jest.mocked(reconcileLivingPlan).mockResolvedValue({ outcome: 'no_op' });
+    const screen = render(<MoneyDataProvider snapshotCache={snapshotCache(snapshot)} userId="user-a"><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Edit note'));
+    await screen.findByText('Confirmed note');
+    await act(async () => initial.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(screen.getByText('Confirmed note')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+    await act(async () => background.resolve({ ...snapshot, generatedAt: 'confirmed', transactions: [{ ...snapshot.transactions[0], userNote: 'Confirmed note' }] }));
+  });
+
+  it('does not start a reload when initialization classification completes after unmount', async () => {
+    const classification = deferred<{ assignedCount: number }>();
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValue(snapshot),
+      classifyUnresolvedTransactions: jest.fn(() => classification.promise),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    screen.unmount();
+    await act(async () => classification.resolve({ assignedCount: 1 }));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['resolve', 'reject'] as const)('ignores an initial read that %ss after a confirmed edit', async (outcome) => {
+    const initial = deferred<MoneySnapshot>();
+    const background = deferred<MoneySnapshot>();
+    const cache = snapshotCache(snapshot);
+    const repository = {
+      loadSnapshot: jest.fn().mockReturnValueOnce(initial.promise).mockReturnValueOnce(background.promise),
+      setTransactionNote: jest.fn().mockResolvedValue({ transactionId: 'transaction-1', note: 'Confirmed note' }),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a"><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Edit note'));
+    await screen.findByText('Confirmed note');
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      if (outcome === 'resolve') initial.resolve({ ...snapshot, generatedAt: 'obsolete' });
+      else initial.reject(new Error('Obsolete failure'));
+    });
+    expect(screen.getByText('Confirmed note')).toBeTruthy();
+    expect(screen.getByText('no-error')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+    expect(cache.save).not.toHaveBeenCalled();
+    await act(async () => background.resolve({ ...snapshot, generatedAt: 'confirmed', transactions: [{ ...snapshot.transactions[0], userNote: 'Confirmed note' }] }));
+    expect(screen.getByText('confirmed')).toBeTruthy();
+  });
+
+  it('does not share a read from before account reconciliation with its final refresh', async () => {
+    const reconciliation = deferred<Awaited<ReturnType<typeof reconcileConnectedMoneyActivity>>>();
+    const stale = deferred<MoneySnapshot>();
+    const final = deferred<MoneySnapshot>();
+    jest.mocked(reconcileConnectedMoneyActivity).mockReturnValue(reconciliation.promise);
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(stale.promise).mockReturnValueOnce(final.promise),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reconcile and reload'));
+    fireEvent.press(screen.getByText('Reload'));
+    await act(async () => reconciliation.resolve({
+      snapshot: { ...snapshot, generatedAt: 'reconciled' }, syncResult: null, classification: { outcome: 'failed' },
+    }));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(3);
+    await act(async () => stale.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(screen.getByText('reconciled')).toBeTruthy();
+    await act(async () => final.resolve({ ...snapshot, generatedAt: 'latest' }));
+    expect(screen.getByText('latest')).toBeTruthy();
+  });
+
+  it('does not reuse a pre-disconnect read after the disconnect receipt is confirmed', async () => {
+    const connected = {
+      ...snapshot,
+      connections: [{ id: 'connection-1', updatedAt: '2026-11-01T10:00:00Z', institutionName: 'Bank' }],
+    } as MoneySnapshot;
+    const stale = deferred<MoneySnapshot>();
+    const afterDisconnect = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValueOnce(connected).mockReturnValueOnce(stale.promise)
+        .mockResolvedValueOnce(connected).mockReturnValueOnce(afterDisconnect.promise),
+      disconnectConnection: jest.fn().mockResolvedValue({ connectionId: 'connection-1', disconnectedAccountCount: 1, confirmedAt: '2026-11-01T10:01:00Z' }),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reload'));
+    fireEvent.press(screen.getByText('Disconnect'));
+    await waitFor(() => expect(repository.disconnectConnection).toHaveBeenCalledTimes(1));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(4);
+    await act(async () => afterDisconnect.resolve({ ...snapshot, generatedAt: 'disconnected', connections: [] }));
+    await act(async () => stale.resolve({ ...connected, generatedAt: 'obsolete' }));
+    expect(screen.getByText('disconnected')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+  });
+
+  it('starts a new read after an external confirmed write even when an earlier refresh is pending', async () => {
+    const beforeWrite = deferred<MoneySnapshot>();
+    const afterWrite = deferred<MoneySnapshot>();
+    const repository = { loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(beforeWrite.promise).mockReturnValueOnce(afterWrite.promise) } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reload'));
+    fireEvent.press(screen.getByText('Reload after write'));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(3);
+    await act(async () => afterWrite.resolve({ ...snapshot, generatedAt: 'after-write' }));
+    await act(async () => beforeWrite.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(screen.getByText('after-write')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+  });
+
+  it('shares overlapping manual refreshes without reusing a settled result', async () => {
+    const pending = deferred<MoneySnapshot>();
+    const repository = { loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ ...snapshot, generatedAt: 'later' }) } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reload'));
+    fireEvent.press(screen.getByText('Reload'));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(2);
+    await act(async () => pending.resolve({ ...snapshot, generatedAt: 'refreshed' }));
+    expect(screen.getByText('refreshed')).toBeTruthy();
+    fireEvent.press(screen.getByText('Reload'));
+    await screen.findByText('later');
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it('shares a confirmed edit refresh but isolates it from older reads', async () => {
+    const oldRead = deferred<MoneySnapshot>();
+    const afterEdit = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(oldRead.promise).mockReturnValueOnce(afterEdit.promise),
+      setTransactionNote: jest.fn().mockResolvedValue({ transactionId: 'transaction-1', note: 'Confirmed note' }),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    fireEvent.press(screen.getByText('Reload'));
+    fireEvent.press(screen.getByText('Edit note'));
+    await screen.findByText('Confirmed note');
+    fireEvent.press(screen.getByText('Reload'));
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(3);
+    await act(async () => oldRead.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(screen.getByText('Confirmed note')).toBeTruthy();
+    expect(screen.queryByText('obsolete')).toBeNull();
+    await act(async () => afterEdit.resolve({ ...snapshot, generatedAt: 'confirmed', transactions: [{ ...snapshot.transactions[0], userNote: 'Confirmed note' }] }));
+    expect(screen.getByText('confirmed')).toBeTruthy();
+  });
+
+  it('does not persist an outstanding refresh after the provider unmounts', async () => {
+    const pending = deferred<MoneySnapshot>();
+    const cache = snapshotCache(null);
+    const repository = { loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockReturnValueOnce(pending.promise) } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a"><ReadLifecycleProbe /></MoneyDataProvider>);
+    await screen.findByText('before');
+    jest.mocked(cache.save).mockClear();
+    fireEvent.press(screen.getByText('Reload'));
+    screen.unmount();
+    await act(async () => pending.resolve({ ...snapshot, generatedAt: 'obsolete' }));
+    expect(cache.save).not.toHaveBeenCalled();
   });
 
   it.each([false, true])('refreshes after a removed pending transaction without claiming a save (refresh fails: %s)', async (refreshFails) => {

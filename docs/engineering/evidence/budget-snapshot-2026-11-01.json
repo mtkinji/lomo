@@ -1,0 +1,277 @@
+{
+  "scope": "Synthetic desktop projection only; not native, network, production workflow or release proof",
+  "fixture": "24 categories, six accounts, dated history over two years, split allocations, credits, pending transactions, saved resources, reserves and rollover policies",
+  "warmupsPerCase": 5,
+  "initialComparisonLimitations": "Initial before/after runs used 80 repeated names and did not record source hashes. Later all-unique run includes hashes for the matcher, snapshot and benchmark; other dependencies are not fingerprinted. Node 24 is outside the repository Node 22 engine range.",
+  "before": {
+    "scope": "synthetic desktop snapshot projection",
+    "node": "v24.14.0",
+    "platform": "darwin/arm64",
+    "cpu": "Apple M5",
+    "sourceHead": "94f6c1ac31d245a600d21c5b71e144308894f334",
+    "dirty": true,
+    "timeZone": "America/Denver",
+    "results": [
+      {
+        "transactions": 0,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 0.106,
+        "p95Ms": 0.158,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 1.393,
+        "p95Ms": 1.87,
+        "snapshotSha256": "a87037d0e813bad3a52c76d0c3327a331b43c3ab0ac9265f994663f2954f62c7"
+      },
+      {
+        "transactions": 4000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 5.902,
+        "p95Ms": 6.812,
+        "snapshotSha256": "8c4a5fc8f9db1b7fc52033ffeb8676f4666246c1044bd65435b5905c050963f4"
+      },
+      {
+        "transactions": 10000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 14.571,
+        "p95Ms": 16.932,
+        "snapshotSha256": "b8d17499a233386dc843f435f326519454a5b3ad3877f7799549da6a0d4d4be6"
+      },
+      {
+        "transactions": 0,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 0.083,
+        "p95Ms": 0.096,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 8.731,
+        "p95Ms": 11.931,
+        "snapshotSha256": "2f388cdafdfc345b51e166ddaf5dfc425856c5db91a9898c2c60ad8d326bc127"
+      },
+      {
+        "transactions": 4000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 34.916,
+        "p95Ms": 37.072,
+        "snapshotSha256": "f6b3f00bbee0da7db7db3796d77de24b87c5016fa101602debb8a67d28537645"
+      },
+      {
+        "transactions": 10000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 89.225,
+        "p95Ms": 91.391,
+        "snapshotSha256": "59d42895e499dcb5cee1a9f65b298f5b8b00cef02cc4d752bf618a7c741d0977"
+      }
+    ]
+  },
+  "after": {
+    "scope": "synthetic desktop snapshot projection",
+    "node": "v24.14.0",
+    "platform": "darwin/arm64",
+    "cpu": "Apple M5",
+    "sourceHead": "94f6c1ac31d245a600d21c5b71e144308894f334",
+    "dirty": true,
+    "timeZone": "America/Denver",
+    "results": [
+      {
+        "transactions": 0,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 0.114,
+        "p95Ms": 0.176,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 1.425,
+        "p95Ms": 1.982,
+        "snapshotSha256": "a87037d0e813bad3a52c76d0c3327a331b43c3ab0ac9265f994663f2954f62c7"
+      },
+      {
+        "transactions": 4000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 5.779,
+        "p95Ms": 6.51,
+        "snapshotSha256": "8c4a5fc8f9db1b7fc52033ffeb8676f4666246c1044bd65435b5905c050963f4"
+      },
+      {
+        "transactions": 10000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 14.247,
+        "p95Ms": 16.067,
+        "snapshotSha256": "b8d17499a233386dc843f435f326519454a5b3ad3877f7799549da6a0d4d4be6"
+      },
+      {
+        "transactions": 0,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 0.085,
+        "p95Ms": 0.104,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 1.462,
+        "p95Ms": 1.673,
+        "snapshotSha256": "2f388cdafdfc345b51e166ddaf5dfc425856c5db91a9898c2c60ad8d326bc127"
+      },
+      {
+        "transactions": 4000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 5.736,
+        "p95Ms": 6.031,
+        "snapshotSha256": "f6b3f00bbee0da7db7db3796d77de24b87c5016fa101602debb8a67d28537645"
+      },
+      {
+        "transactions": 10000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 14.659,
+        "p95Ms": 15.444,
+        "snapshotSha256": "59d42895e499dcb5cee1a9f65b298f5b8b00cef02cc4d752bf618a7c741d0977"
+      }
+    ]
+  },
+  "afterUniqueMerchants": {
+    "scope": "synthetic desktop snapshot projection",
+    "node": "v24.14.0",
+    "platform": "darwin/arm64",
+    "cpu": "Apple M5",
+    "sourceHead": "94f6c1ac31d245a600d21c5b71e144308894f334",
+    "dirty": true,
+    "timeZone": "America/Denver",
+    "merchantNames": "all unique",
+    "sourceHashes": {
+      "../../src/capabilities/money/data/moneySnapshot.ts": "fe94949d2b8b634ef95fff62d85fba0321b057a9700dd5c59fe43c305cec56fe",
+      "../../src/capabilities/money/data/moneyMerchantRules.ts": "18795938b076e70e7a7288049f99c0d28a9cbb6a6bd9d6ed7017950d36605cbf",
+      "./snapshot-performance-fixture.ts": "f05a356b71cbbe3fb9cef0df68dfd75529731186c9f1f468944c43fe5322ca9c",
+      "./benchmark-snapshot.ts": "7f17e69714cef23826ef54464d1e67a5befadeca63137fc17392b8a3e1365280"
+    },
+    "results": [
+      {
+        "transactions": 0,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 0.107,
+        "p95Ms": 0.152,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 1.42,
+        "p95Ms": 1.887,
+        "snapshotSha256": "42113194ab50a4588e4a94ff87184fe576c4afb4fa2fb47c890aef8be003b314"
+      },
+      {
+        "transactions": 4000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 5.724,
+        "p95Ms": 6.662,
+        "snapshotSha256": "2f5e3fce5984e09bb788c67aa993143a320dddde9d3e0c6978162a62cc54ba12"
+      },
+      {
+        "transactions": 10000,
+        "rules": 0,
+        "samples": 40,
+        "medianMs": 14.295,
+        "p95Ms": 15.25,
+        "snapshotSha256": "54f5e7a92fe4a943bc4ccdb88608cd60c5b6df1658cdbaf2136ccaf940975ff0"
+      },
+      {
+        "transactions": 0,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 0.097,
+        "p95Ms": 0.111,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 1.968,
+        "p95Ms": 2.201,
+        "snapshotSha256": "3f487ddb44d6408562c0e22cb3a2f4abc1d367d68962b903588cf9193d54c111"
+      },
+      {
+        "transactions": 4000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 7.87,
+        "p95Ms": 8.286,
+        "snapshotSha256": "bbe72ce8a1ad5032d2bb2a706e0711f1109a2ddf3285933483cca02bd2cb41c0"
+      },
+      {
+        "transactions": 10000,
+        "rules": 40,
+        "samples": 40,
+        "medianMs": 21.443,
+        "p95Ms": 22.261,
+        "snapshotSha256": "aa688f8b045253d8541e2a1af9f53964eee176367ac0512d1891f9bf928d482e"
+      },
+      {
+        "transactions": 0,
+        "rules": 113,
+        "samples": 40,
+        "medianMs": 0.1,
+        "p95Ms": 0.112,
+        "snapshotSha256": "91d7df23bf787985a1fd749bff33680a5530142b5c4f7f20d9a225f753a1ce9c"
+      },
+      {
+        "transactions": 1000,
+        "rules": 113,
+        "samples": 40,
+        "medianMs": 2.13,
+        "p95Ms": 2.313,
+        "snapshotSha256": "ce6be097f6e1036db925bb1ffbc4bca2dd949ad7687da8f9f5d0edafdd5ccc44"
+      },
+      {
+        "transactions": 4000,
+        "rules": 113,
+        "samples": 40,
+        "medianMs": 8.313,
+        "p95Ms": 8.747,
+        "snapshotSha256": "4ade85e13192a5856aab3c8c57a818b04be604c9c84a7703199d299be43d6fe3"
+      },
+      {
+        "transactions": 10000,
+        "rules": 113,
+        "samples": 40,
+        "medianMs": 22.731,
+        "p95Ms": 24.125,
+        "snapshotSha256": "45431c3e43e5939e3e5d94f40f361e5a68fccf02de60108c1b3d70b154636b85"
+      }
+    ]
+  },
+  "productionAggregateObservation": {
+    "readOnly": true,
+    "ownersWithRules": 1,
+    "maximumRulesPerOwner": 113,
+    "totalRules": 113,
+    "containsUserOrMerchantIdentifiers": false
+  }
+}

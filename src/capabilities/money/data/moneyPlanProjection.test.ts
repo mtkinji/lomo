@@ -314,7 +314,7 @@ describe('projectMoneyPlanProjection', () => {
   it('rejects an active projection that is not the version returned by the commit', async () => {
     jest.mocked(getActiveLivingPlan).mockResolvedValue({ versionId: 'version-other' } as ActiveLivingPlan);
 
-    await expect(loadMoneyPlanProjection({} as SupabaseClient, {} as MoneySnapshot, 'version-committed'))
+    await expect(loadMoneyPlanProjection({} as SupabaseClient, {} as MoneySnapshot, 'version-committed', 'owner'))
       .rejects.toThrow('changed somewhere else');
   });
 
@@ -329,10 +329,14 @@ describe('projectMoneyPlanProjection', () => {
       outsidePlan: { spentCents: 0, transactionCount: 0 }, categories: [], transactions: [], accounts: [],
     } as MoneySnapshot;
 
-    await loadMoneyPlanProjection({} as SupabaseClient, snapshot);
+    const client = { rpc: jest.fn().mockResolvedValue({ data: 'owner', error: null }) } as unknown as SupabaseClient;
+    await loadMoneyPlanProjection(client, snapshot);
+
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(getActiveLivingPlan).toHaveBeenCalledWith(client, 'owner');
 
     expect(getActiveLivingPlan).toHaveBeenCalledTimes(1);
-    expect(getMoneyPlanLimitEvidence).toHaveBeenCalledWith(expect.anything(), plan);
+    expect(getMoneyPlanLimitEvidence).toHaveBeenCalledWith(expect.anything(), plan, 'owner');
   });
 });
 

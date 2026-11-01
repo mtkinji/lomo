@@ -40,5 +40,7 @@ jobs:
           # Expo token for non-interactive EAS auth.
           # The expo/expo-github-action sets EXPO_TOKEN for the CLI; we keep this for clarity.
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # Project-scoped read-only Database and Custom Domain permissions.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_RELEASE_READ_TOKEN }}
         run: |
           npm run -s ios:testflight

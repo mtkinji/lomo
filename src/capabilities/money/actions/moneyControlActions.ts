@@ -1,5 +1,5 @@
+import type { MoneyBudgetUpdate, MoneyBudgetUpdateResult } from './moneyBudgetActionCommand';
 import type {
-  ConfirmedCategoryWrite,
   ConfirmedTransactionPlanRoleWrite,
   ConfirmedTransactionWrite,
 } from '../data/moneyRepository';
@@ -28,11 +28,7 @@ export type MoneyControlActionBoundary = {
   loadSnapshot(): Promise<MoneySnapshot>;
   requireFreshAuthentication(): Promise<boolean>;
   requireProAccess?(): void;
-  updateCategoryPlan(
-    categoryId: string,
-    input: { budgetCents: number },
-    version: ExpectedVersion,
-  ): Promise<Pick<ConfirmedCategoryWrite, 'confirmedAt'>>;
+  applyBudgetChange(input: MoneyBudgetUpdate): Promise<MoneyBudgetUpdateResult>;
   reviewTransactionMeaning(
     transactionId: string,
     input: TransactionMeaningReviewInput,
@@ -214,33 +210,15 @@ export function createMoneyControlActions(boundary: MoneyControlActionBoundary) 
       })));
     },
 
-    updateBudget(input: {
-      requestId: string; confirmed: boolean; month: string; categoryId: string;
-      expectedUpdatedAt: string; plannedCents: number;
-    }) {
-      return mutate(input.requestId, input.confirmed, async () => {
-        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.month)
-          || !Number.isSafeInteger(input.plannedCents) || input.plannedCents < 0) {
-          throw new Error('invalid_money_budget_diff');
-        }
-        const snapshot = await boundary.loadSnapshot();
-        if (snapshot.generatedAt.slice(0, 7) !== input.month) throw new MoneyTargetStaleError();
-        const category = snapshot.categories.find((candidate) => candidate.sourceId === input.categoryId.trim());
-        if (!category) throw new MoneyTargetNotFoundError();
-        requireVersion(category.updatedAt, input.expectedUpdatedAt);
-        const receipt = await boundary.updateCategoryPlan(
-          category.sourceId,
-          { budgetCents: input.plannedCents },
-          { expectedUpdatedAt: input.expectedUpdatedAt },
-        );
-        return completed('money.budget.update', {
-          categoryId: category.sourceId,
-          name: category.name,
-          previousPlannedCents: category.plannedCents,
-          plannedCents: input.plannedCents,
-          updatedAt: receipt.confirmedAt,
-        }, [{ kind: 'money_category', id: category.sourceId }]);
-      });
+    async updateBudget(input: MoneyBudgetUpdate & { confirmed: boolean }) {
+      // The capability command owns durable deduplication. Do not cache rejected
+      // promises or read mutable Budget state before recovering an earlier receipt.
+      requireConfirmation(input.confirmed);
+      await authorize();
+      boundary.requireProAccess?.();
+      const result = await boundary.applyBudgetChange({ requestId: input.requestId.trim(), month: input.month,
+        categoryId: input.categoryId.trim(), expectedUpdatedAt: input.expectedUpdatedAt, plannedCents: input.plannedCents });
+      return completed('money.budget.update', result, [{ kind: 'money_category', id: result.categoryId }]);
     },
 
     async getTransaction(input: { transactionId: string }) {

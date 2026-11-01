@@ -16,30 +16,28 @@ type PlanningIncomeSourceRow = {
 export async function getMoneyPlanLimitEvidence(
   client: SupabaseClient,
   active: ActiveLivingPlan,
+  ownerUserId: string,
 ): Promise<MoneyPlanLimitEvidence> {
-  const { data: authData, error: authError } = await client.auth.getUser();
-  if (authError) throw authError;
-  if (!authData.user) throw new Error('Sign in to view your Money plan.');
-
   const [overrideResult, sourcesResult] = await Promise.all([
     client
       .from('budget_planning_basis_overrides')
       .select('monthly_basis_cents,updated_at')
-      .eq('user_id', authData.user.id)
+      .eq('user_id', ownerUserId)
       .eq('active', true)
       .maybeSingle(),
     client
       .from('budget_planning_income_sources')
       .select('confidence,planning_role,expected_monthly_cents,updated_at')
-      .eq('user_id', authData.user.id)
+      .eq('user_id', ownerUserId)
       .eq('active', true),
   ]);
 
-  if (isMissingOptionalTable(overrideResult.error) || isMissingOptionalTable(sourcesResult.error)) {
+  for (const error of [overrideResult.error, sourcesResult.error]) {
+    if (error && !isMissingOptionalTable(error)) throw error;
+  }
+  if (overrideResult.error || sourcesResult.error) {
     return retainedActiveBasis(active);
   }
-  if (overrideResult.error) throw overrideResult.error;
-  if (sourcesResult.error) throw sourcesResult.error;
 
   const override = overrideResult.data as { monthly_basis_cents: number; updated_at: string | null } | null;
   if (override && Number(override.monthly_basis_cents) === active.resourceBasisCents) {
@@ -67,8 +65,6 @@ function isMissingOptionalTable(error: { code?: string; message?: string } | nul
   return Boolean(error && (
     error.code === 'PGRST205'
     || error.code === '42P01'
-    || error.message?.includes('budget_planning_basis_overrides')
-    || error.message?.includes('budget_planning_income_sources')
   ));
 }
 

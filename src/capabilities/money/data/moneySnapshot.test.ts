@@ -67,6 +67,17 @@ const accounts = [
 ];
 
 describe('projectMoneySnapshot', () => {
+  it('preserves independent category and plan versions without inventing concurrency tokens', () => {
+    const result = projectMoneySnapshot({
+      categories: [{ ...categories[0], updated_at: '2026-11-01T10:00:00Z' }, categories[1]],
+      plans: [{ ...plans[0], updated_at: '2026-11-01T11:00:00Z' }],
+      transactions: [], accounts: [], connections: [],
+    });
+    expect(result.categories[0]).toMatchObject({ categoryUpdatedAt: '2026-11-01T10:00:00Z', planUpdatedAt: '2026-11-01T11:00:00Z' });
+    expect(result.categories[1].categoryUpdatedAt).toBeUndefined();
+    expect(result.categories[1].planUpdatedAt).toBeUndefined();
+  });
+
   it('projects a stored category role as both the effective and explicit role', () => {
     const snapshot = projectMoneySnapshot({
       categories,

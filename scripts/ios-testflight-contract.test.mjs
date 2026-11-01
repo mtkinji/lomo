@@ -12,6 +12,7 @@ const workflow = fs.readFileSync(new URL('../.github/workflows/ios-testflight.ym
 
 test('TestFlight commands cannot bypass the protected changed-file gate', () => {
   assert.equal(packageJson.scripts['ios:testflight'], 'bash scripts/ios-testflight.sh');
+  assert.equal(packageJson.scripts['money:verify-backend'], 'node scripts/money/backend-contract.mjs');
   assert.equal(
     packageJson.scripts['ios:testflight:no-widgets'],
     'KWILT_TESTFLIGHT_PROFILE=testflight bash scripts/ios-testflight.sh',
@@ -59,4 +60,23 @@ test('TestFlight wrapper executes verification and build commands under strict s
   } finally {
     fs.rmSync(binDir, { recursive: true, force: true });
   }
+});
+
+test('an incompatible Budget backend stops release before EAS build or upload', () => {
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwilt-backend-gate-'));
+  const commandLog = path.join(binDir, 'commands.log');
+  try {
+    for (const command of ['npm', 'npx']) {
+      const executable = path.join(binDir, command);
+      fs.writeFileSync(executable, '#!/usr/bin/env bash\nprintf "%s\\n" "$0 $*" >> "$KWILT_TESTFLIGHT_COMMAND_LOG"\nif [[ "$*" == *"money:verify-backend"* ]]; then exit 17; fi\n');
+      fs.chmodSync(executable, 0o755);
+    }
+    const result = spawnSync('bash', [fileURLToPath(new URL('./ios-testflight.sh', import.meta.url))], {
+      encoding: 'utf8', env: { ...process.env, PATH: `${binDir}:${process.env.PATH ?? ''}`, KWILT_TESTFLIGHT_COMMAND_LOG: commandLog },
+    });
+    assert.equal(result.status, 17);
+    const commands = fs.readFileSync(commandLog, 'utf8');
+    assert.match(commands, /money:verify-backend -- --profile testflight-widgets/);
+    assert.doesNotMatch(commands, /npx .*build/);
+  } finally { fs.rmSync(binDir, { recursive: true, force: true }); }
 });

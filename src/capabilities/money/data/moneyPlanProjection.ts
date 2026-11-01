@@ -9,6 +9,7 @@ import { getLocalMoneyDayId, getLocalMoneyPeriodId } from '../domain/moneyCalend
 import { getActiveLivingPlan, type ActiveLivingPlan, type LivingPlanReceipt } from './livingPlanRepository';
 import { getMoneyPlanLimitEvidence, type MoneyPlanLimitEvidence } from './moneyPlanLimitEvidence';
 import type { MoneyCategory, MoneySnapshot } from './moneySnapshot';
+import { resolveMoneyOwnerUserId } from './moneyHouseholdScope';
 
 export type MoneyPlanProjection = {
   snapshot: MoneySnapshot;
@@ -20,13 +21,15 @@ export async function loadMoneyPlanProjection(
   client: SupabaseClient,
   snapshot: MoneySnapshot,
   expectedVersionId?: string,
+  ownerUserId?: string,
 ): Promise<MoneyPlanProjection | null> {
-  const active = await getActiveLivingPlan(client);
+  const owner = ownerUserId ?? await resolveMoneyOwnerUserId(client);
+  const active = await getActiveLivingPlan(client, owner);
   if (!active) return null;
   if (expectedVersionId && active.versionId !== expectedVersionId) {
     throw new Error('The Money plan changed somewhere else. Refresh before making another change.');
   }
-  const evidence = await getMoneyPlanLimitEvidence(client, active);
+  const evidence = await getMoneyPlanLimitEvidence(client, active, owner);
   return projectMoneyPlanProjection(snapshot, active, evidence);
 }
 

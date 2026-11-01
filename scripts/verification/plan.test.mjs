@@ -7,7 +7,10 @@ import { buildVerificationPlan } from './plan.mjs';
 const fixtures = JSON.parse(fs.readFileSync(new URL('./fixtures/protected-plans.json', import.meta.url)));
 for (const { name, files, expected } of fixtures) {
   test(`protected gate selection remains identical: ${name}`, () => {
-    assert.deepEqual(buildVerificationPlan(files, 'origin/main'), expected);
+    const actual = buildVerificationPlan(files, 'origin/main');
+    // Preserve every original gate and its ordering; the new release contract is additive.
+    const original = { ...actual, commands: actual.commands.filter(entry => entry.command !== 'node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs') };
+    assert.deepEqual(original, expected);
   });
 }
 
@@ -35,3 +38,10 @@ for (const file of [
     assert(plan.commands.some(entry => entry.command === 'npm run architecture:lint'));
   });
 }
+
+test('Money release contract and release-entry changes retain automated failure-to-upload coverage', () => {
+  for (const file of ['package.json', 'app.config.ts', 'eas.json', '.easignore', 'scripts/money/backend-contract.mjs', 'scripts/ios-testflight.sh', '.github/workflows/ios-testflight.yml', 'supabase/migrations/20261101154005_atomic_budget_category_settings.sql']) {
+    const plan = buildVerificationPlan([file], 'origin/main');
+    assert(plan.commands.some(entry => entry.command === 'node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs'), file);
+  }
+});

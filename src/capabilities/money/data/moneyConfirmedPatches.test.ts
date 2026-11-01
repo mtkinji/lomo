@@ -30,6 +30,70 @@ const snapshot = {
 } as MoneySnapshot;
 
 describe('confirmed Money patches', () => {
+  it('applies all confirmed settings and their server versions before a refresh', () => {
+    const result = applyConfirmedCategoryPatch({ ...snapshot, livingLimitAnswer: {}, transactions: [{ ...snapshot.transactions[0], categoryId: 'groceries', date: new Date().toISOString().slice(0, 10) }] } as MoneySnapshot, {
+      categorySourceId: 'category-uuid', name: 'Household', budgetCents: 20000,
+      fundingRhythm: 'reserve', expectedNeed: { amountCents: 50000, dueMonth: '2026-12' },
+      planRole: 'protected', rolloverEnabled: false, rolloverPolicy: null,
+      categoryUpdatedAt: '2026-11-01T10:01:00Z', planUpdatedAt: '2026-11-01T10:02:00Z',
+    });
+    expect(result.categories[0]).toMatchObject({
+      name: 'Household', plannedCents: 20000, monthlyContributionCents: 20000, remainingCents: 17500,
+      fundingRhythm: 'reserve', expectedNeed: { amountCents: 50000, dueMonth: '2026-12' },
+      planRole: 'protected', planRoleOverride: 'protected',
+      categoryUpdatedAt: '2026-11-01T10:01:00Z', planUpdatedAt: '2026-11-01T10:02:00Z', updatedAt: '2026-11-01T10:02:00Z',
+    });
+    expect(result.totals).toMatchObject({ plannedCents: 20000, remainingCents: 17500 });
+    expect(result.livingLimitAnswer).toBeNull();
+  });
+
+  it('retains reserve accumulation from an older anchor when changing its role', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-15T12:00:00Z'));
+    try {
+      const prior = { ...snapshot, categories: [{ ...snapshot.categories[0], fundingRhythm: 'reserve' as const,
+        spentCents: 0, remainingCents: 65000, reserveAvailableCents: 65000,
+        reserveBalanceCents: 30000, reserveBalancePeriodId: '2026-08', rolloverPolicy: null }],
+        transactions: [{ ...snapshot.transactions[0], date: '2026-09-15', categoryId: 'groceries', amountCents: 5000 }] };
+      const result = applyConfirmedCategoryPatch(prior, { categorySourceId: 'category-uuid', planRole: 'protected' });
+      expect(result.categories[0]).toMatchObject({ remainingCents: 65000, reserveAvailableCents: 65000 });
+      expect(result.totals.remainingCents).toBe(65000);
+    } finally { jest.useRealTimers(); }
+  });
+
+  it('lets current-month refunds offset older reserve spending before clamping', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-15T12:00:00Z'));
+    try {
+      const prior = { ...snapshot, categories: [{ ...snapshot.categories[0], fundingRhythm: 'reserve' as const,
+        spentCents: 0, remainingCents: 65000, reserveAvailableCents: 65000,
+        reserveBalanceCents: 30000, reserveBalancePeriodId: '2026-08', rolloverPolicy: null }],
+        transactions: [
+          { ...snapshot.transactions[0], date: '2026-09-15', categoryId: 'groceries', amountCents: 10000 },
+          { ...snapshot.transactions[0], id: 'refund', date: '2026-11-02', categoryId: 'groceries', amountCents: 5000,
+            direction: 'inflow' as const, moneyMeaning: 'category_credit' as const },
+        ] };
+      expect(applyConfirmedCategoryPatch(prior, { categorySourceId: 'category-uuid', planRole: 'protected' })
+        .categories[0].reserveAvailableCents).toBe(65000);
+    } finally { jest.useRealTimers(); }
+  });
+
+  it('does not overwrite a newer snapshot with a recovered older receipt', () => {
+    const prior = { ...snapshot, categories: [{ ...snapshot.categories[0], name: 'Newer edit',
+      categoryUpdatedAt: '2026-11-01T11:00:00Z', planUpdatedAt: '2026-11-01T11:00:00Z' }] };
+    const result = applyConfirmedCategoryPatch(prior, { categorySourceId: 'category-uuid', name: 'Old save',
+      expectedCategoryUpdatedAt: '2026-11-01T09:00:00Z', expectedPlanUpdatedAt: '2026-11-01T09:00:00Z',
+      categoryUpdatedAt: '2026-11-01T10:00:00Z', planUpdatedAt: '2026-11-01T10:00:00Z' });
+    expect(result.categories[0].name).toBe('Newer edit');
+  });
+
+  it('refreshes the aggregate forecast after a changed amount', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-31T12:00:00Z'));
+    try {
+      const result = applyConfirmedCategoryPatch(snapshot, { categorySourceId: 'category-uuid', budgetCents: 20000 });
+      expect(result.forecast.projectedRemainingCents).toBe(17500);
+      expect(result.forecast.projectedRemainingCents).not.toBe(snapshot.forecast.projectedRemainingCents);
+    } finally { jest.useRealTimers(); }
+  });
+
   it('applies a confirmed household note without changing financial truth', () => {
     const result = applyConfirmedTransactionNotePatch(snapshot, {
       transactionId: 'transaction-1',
