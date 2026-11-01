@@ -1,3 +1,8 @@
+import { resolveMoneyHouseholdScope } from './moneyHouseholdScope';
+import { createCategorySettingsRepository } from './categorySettingsRepository';
+import { createMoneyCategorySettingsCommand } from '../runtime/moneyCategorySettingsCommand';
+import { categorySettingsJournal } from '../runtime/categorySettingsJournal';
+import { UNKNOWN_CATEGORY_SAVE, type CategorySettingsRequest, type CategorySettingsOutcome } from '../domain/categorySettingsCommand';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   createMoneyRepository,
@@ -9,6 +14,7 @@ import {
 } from './moneyRepository';
 import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
+import { createMoneySnapshotRequests } from './moneySnapshotRequests';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 import { syncMoneyGlanceableState } from '../runtime/moneyGlanceableState';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
@@ -42,7 +48,8 @@ import { assertMoneyProAccess } from '../runtime/moneyProAccess';
 
 type MoneyDataContextValue = MoneyDataState & {
   userId: string | null;
-  refresh: () => Promise<void>;
+  /** External writes must invalidate reads that may have begun before their commit. */
+  refresh: (options?: { afterMutation?: boolean }) => Promise<void>;
   reconcileGovernedPlanFoundation: () => Promise<void>;
   reconcileConnectedActivity: (input: {
     trigger: ConnectedMoneyActivityTrigger;
@@ -57,6 +64,8 @@ type MoneyDataContextValue = MoneyDataState & {
   setTransactionPlanCoverage: (transactionId: string, savedResourceCents: number) => Promise<void>;
   setTransactionNote: (transactionId: string, note: string) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
+  loadCategorySettingsRequest: (categoryId: string) => Promise<CategorySettingsRequest | null>;
+  saveCategorySettingsRequest: (request: CategorySettingsRequest) => Promise<CategorySettingsOutcome>;
   savingCategory: boolean;
   savingCategoryOrder: boolean;
   createCategory: (input: CategoryPlanInput) => Promise<string>;
@@ -85,17 +94,20 @@ function nativeMoneyRequestId(operation: string, targetId: string): string {
 export function MoneyDataProvider({
   children,
   repository,
+  categorySettingsCommand,
   snapshotCache = defaultMoneySnapshotCache,
   userId = null,
 }: {
   children: React.ReactNode;
   repository?: MoneyRepository;
+  categorySettingsCommand?: ReturnType<typeof createMoneyCategorySettingsCommand>;
   snapshotCache?: MoneySnapshotCache;
   userId?: string | null;
 }) {
   const [state, dispatch] = useReducer(moneyDataReducer, initialMoneyDataState);
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [categorySettingsSaveCount, setCategorySettingsSaveCount] = useState(0);
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const { capture } = useAnalytics();
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
@@ -103,11 +115,27 @@ export function MoneyDataProvider({
     () => createMoneyControlActions(createMoneyControlActionBoundary(resolvedRepository)),
     [resolvedRepository],
   );
+  const snapshotRequests = useMemo(
+    () => createMoneySnapshotRequests(() => resolvedRepository.loadSnapshot()),
+    [resolvedRepository],
+  );
+  const settingsCommand = useMemo(() => categorySettingsCommand
+    ?? createMoneyCategorySettingsCommand(categorySettingsJournal, createCategorySettingsRepository(getSupabaseClient())),
+  [categorySettingsCommand]);
   const mutationVersionRef = useRef(0);
   const initializationVersionRef = useRef(0);
+  const acceptedSnapshotCountRef = useRef(0);
   const normalizedUserId = userId?.trim() || null;
+  const currentActorRef = useRef(normalizedUserId);
+  const handledSettingsReceiptsRef = useRef(new Set<string>());
+  currentActorRef.current = normalizedUserId;
+  useEffect(() => {
+    setCategorySettingsSaveCount(0);
+    handledSettingsReceiptsRef.current.clear();
+  }, [normalizedUserId]);
 
   const acceptSnapshot = useCallback((snapshot: Awaited<ReturnType<MoneyRepository['loadSnapshot']>>) => {
+    acceptedSnapshotCountRef.current += 1;
     dispatch({ type: 'success', snapshot });
     if (normalizedUserId) {
       useMoneyNavigationAvailabilityStore.getState().recordTransactionsAvailability(
@@ -125,20 +153,21 @@ export function MoneyDataProvider({
   }, [normalizedUserId, snapshotCache]);
 
   const refreshInBackground = useCallback((version: number) => {
-    void resolvedRepository.loadSnapshot().then((snapshot) => {
+    if (mutationVersionRef.current !== version) return;
+    void snapshotRequests.read(version).then((snapshot) => {
       if (mutationVersionRef.current !== version) return;
       acceptSnapshot(snapshot);
     }).catch(() => {
       if (mutationVersionRef.current !== version) return;
       dispatch({ type: 'background_failure', message: 'Saved. Money will refresh when the connection is available.' });
     });
-  }, [acceptSnapshot, resolvedRepository]);
+  }, [acceptSnapshot, snapshotRequests]);
 
-  const refresh = useCallback(async () => {
-    const version = ++mutationVersionRef.current;
+  const refresh = useCallback(async (options?: { afterMutation?: boolean }) => {
+    const version = options?.afterMutation ? ++mutationVersionRef.current : mutationVersionRef.current;
     dispatch({ type: 'load' });
     try {
-      const snapshot = await resolvedRepository.loadSnapshot();
+      const snapshot = await snapshotRequests.read(version);
       if (mutationVersionRef.current === version) acceptSnapshot(snapshot);
     } catch (error) {
       if (mutationVersionRef.current !== version) return;
@@ -147,34 +176,50 @@ export function MoneyDataProvider({
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
       });
     }
-  }, [acceptSnapshot, resolvedRepository]);
+  }, [acceptSnapshot, snapshotRequests]);
 
   const initialize = useCallback(async () => {
     const initializationVersion = ++initializationVersionRef.current;
+    const acceptedSnapshotCount = acceptedSnapshotCountRef.current;
+    let snapshotVersion = mutationVersionRef.current;
+    const isCurrent = () => initializationVersionRef.current === initializationVersion
+      && mutationVersionRef.current === snapshotVersion;
+    let hasReadSnapshot = false;
+    const loadInitialSnapshot = () => {
+      if (!isCurrent()) return Promise.reject(new Error('Money initialization was superseded.'));
+      // A second lifecycle read follows a governed-plan promotion. It cannot
+      // share a request that began before that write became authoritative.
+      if (hasReadSnapshot) snapshotVersion = ++mutationVersionRef.current;
+      hasReadSnapshot = true;
+      return snapshotRequests.read(snapshotVersion);
+    };
     dispatch({ type: 'load' });
     if (normalizedUserId) {
       const cachedSnapshot = await snapshotCache.load(normalizedUserId).catch(() => null);
-      if (initializationVersionRef.current !== initializationVersion) return;
-      if (cachedSnapshot) dispatch({ type: 'cached_snapshot', snapshot: cachedSnapshot });
+      if (!isCurrent()) return;
+      if (cachedSnapshot && acceptedSnapshotCountRef.current === acceptedSnapshotCount) {
+        dispatch({ type: 'cached_snapshot', snapshot: cachedSnapshot });
+      }
     }
     try {
       if (repository) {
-        const snapshot = await resolvedRepository.loadSnapshot();
-        if (initializationVersionRef.current !== initializationVersion) return;
+        const snapshot = await loadInitialSnapshot();
+        if (!isCurrent()) return;
         acceptSnapshot(snapshot);
       } else {
         await initializeGovernedMoneyPlan(
-          resolvedRepository,
+          { ...resolvedRepository, loadSnapshot: loadInitialSnapshot },
           getSupabaseClient(),
           reconcileLivingPlan,
           (snapshot) => {
-            if (initializationVersionRef.current === initializationVersion) acceptSnapshot(snapshot);
+            if (isCurrent()) acceptSnapshot(snapshot);
           },
         );
       }
-      if (initializationVersionRef.current !== initializationVersion) return;
+      if (!isCurrent()) return;
       if (typeof resolvedRepository.classifyUnresolvedTransactions === 'function') {
         void resolvedRepository.classifyUnresolvedTransactions().then((result) => {
+          if (initializationVersionRef.current !== initializationVersion) return;
           if (result.policyVersion) {
             captureMoneyClassification(capture, { trigger: 'initialization', outcome: 'succeeded', receipt: result });
           }
@@ -182,17 +227,18 @@ export function MoneyDataProvider({
           const version = ++mutationVersionRef.current;
           refreshInBackground(version);
         }).catch(() => {
+          if (initializationVersionRef.current !== initializationVersion) return;
           captureMoneyClassification(capture, { trigger: 'initialization', outcome: 'failed' });
         });
       }
     } catch (error) {
-      if (initializationVersionRef.current !== initializationVersion) return;
+      if (!isCurrent()) return;
       dispatch({
         type: 'failure',
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
       });
     }
-  }, [acceptSnapshot, capture, normalizedUserId, refreshInBackground, repository, resolvedRepository, snapshotCache]);
+  }, [acceptSnapshot, capture, normalizedUserId, refreshInBackground, repository, resolvedRepository, snapshotCache, snapshotRequests]);
 
   const reconcileGovernedPlanFoundation = useCallback(async () => {
     assertMoneyProAccess();
@@ -216,6 +262,9 @@ export function MoneyDataProvider({
         sync: input.sync && shouldSyncConnectedMoneyActivity(state.snapshot),
       });
       if (mutationVersionRef.current !== version) return result.syncResult;
+      // Reads started during sync/classification can predate its writes.
+      // Retire them before publishing the reconciled snapshot.
+      ++mutationVersionRef.current;
       acceptSnapshot(result.snapshot);
       captureMoneyClassification(capture, {
         trigger: input.trigger,
@@ -238,6 +287,7 @@ export function MoneyDataProvider({
     void initialize();
     return () => {
       initializationVersionRef.current += 1;
+      mutationVersionRef.current += 1;
     };
   }, [initialize]);
 
@@ -526,6 +576,41 @@ export function MoneyDataProvider({
     }
   }, [refreshInBackground]);
 
+  const loadCategorySettingsRequest = useCallback(async (categoryId: string) => {
+    if (!normalizedUserId) throw new Error('Sign in before changing category settings.');
+    return settingsCommand.loadPending(normalizedUserId, categoryId);
+  }, [normalizedUserId, settingsCommand]);
+
+  const saveCategorySettingsRequest = useCallback(async (request: CategorySettingsRequest): Promise<CategorySettingsOutcome> => {
+    assertMoneyProAccess();
+    if (!normalizedUserId || request.actorUserId !== normalizedUserId || currentActorRef.current !== normalizedUserId) {
+      throw new Error('Sign in to the account that started this save before checking it again.');
+    }
+    const session = initializationVersionRef.current;
+    const isCurrent = () => currentActorRef.current === normalizedUserId && initializationVersionRef.current === session;
+    setCategorySettingsSaveCount((count) => count + 1);
+    try {
+      const result = await settingsCommand.execute(request);
+      if (!isCurrent()) return { outcome: 'unknown', message: UNKNOWN_CATEGORY_SAVE };
+      if (result.outcome === 'confirmed' && !handledSettingsReceiptsRef.current.has(result.receipt.requestId)) {
+        const { receipt } = result;
+        handledSettingsReceiptsRef.current.add(receipt.requestId);
+        const { changes } = receipt;
+        dispatch({ type: 'confirmed_category_patch', patch: {
+          categorySourceId: receipt.categoryId, ...changes,
+          categoryUpdatedAt: receipt.categoryUpdatedAt, planUpdatedAt: receipt.planUpdatedAt,
+          expectedCategoryUpdatedAt: request.expectedCategoryUpdatedAt, expectedPlanUpdatedAt: request.expectedPlanUpdatedAt,
+          expectedNeed: changes.expectedNeedCents !== null && changes.expectedNeedDueMonth !== null
+            ? { amountCents: changes.expectedNeedCents, dueMonth: changes.expectedNeedDueMonth } : null,
+        } });
+        refreshInBackground(++mutationVersionRef.current);
+      }
+      return result;
+    } finally {
+      if (isCurrent()) setCategorySettingsSaveCount((count) => Math.max(0, count - 1));
+    }
+  }, [normalizedUserId, refreshInBackground, settingsCommand]);
+
   const previewCategoryPlanAmount = useCallback(async (
     categoryId: string,
     budgetCents: number,
@@ -535,10 +620,12 @@ export function MoneyDataProvider({
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
     if (!category) throw new Error('This category is no longer available.');
     const client = getSupabaseClient();
-    const settings = await getLivingPlanSettings(client);
+    if (!normalizedUserId) throw new Error('Sign in before reviewing category settings.');
+    const scope = await resolveMoneyHouseholdScope(client, normalizedUserId);
+    const settings = await getLivingPlanSettings(client, scope.ownerUserId);
     if (!settings.promotionEnabled || !settings.target) return null;
-    return previewLivingPlanOverride(client, category.id, budgetCents, funding);
-  }, [state.snapshot]);
+    return previewLivingPlanOverride(client, category.id, budgetCents, funding, scope.ownerUserId);
+  }, [normalizedUserId, state.snapshot]);
 
   const renameCategory = useCallback(
     (categoryId: string, name: string) => applyCategoryMutation(
@@ -626,7 +713,7 @@ export function MoneyDataProvider({
       requestId: nativeMoneyRequestId('disconnect', connectionId), confirmed: true,
       connectionId, expectedUpdatedAt: connection.updatedAt,
     });
-    await refresh();
+    await refresh({ afterMutation: true });
   }, [moneyActions, refresh, state.snapshot]);
 
   const value = useMemo(() => ({
@@ -644,7 +731,9 @@ export function MoneyDataProvider({
       setTransactionPlanCoverage,
       setTransactionNote,
     saveMerchantRule,
-    savingCategory,
+    savingCategory: savingCategory || categorySettingsSaveCount > 0,
+    loadCategorySettingsRequest,
+    saveCategorySettingsRequest,
     savingCategoryOrder,
     createCategory,
     reorderCategories,
@@ -653,7 +742,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     disconnectConnection,
     previewCategoryPlanAmount,
-  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionNote, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [categorySettingsSaveCount, loadCategorySettingsRequest, saveCategorySettingsRequest, assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionNote, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

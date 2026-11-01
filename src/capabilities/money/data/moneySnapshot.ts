@@ -1,3 +1,5 @@
+import { countedReserveSpend } from '../domain/reserveSpending';
+import { createMerchantRuleMatcher } from './moneyMerchantRules';
 import { applyCategoryRollover, type RolloverPolicy } from '../domain/categoryRollover';
 import {
   projectCategoryForecast,
@@ -30,6 +32,7 @@ export type MoneyCategoryRow = {
   cover_image?: unknown | null;
   sort_order: number;
   mapping_tags?: string[] | null;
+  updated_at?: string | null;
 };
 
 export type MoneyPlanRow = {
@@ -159,6 +162,9 @@ export type MoneyCategory = {
   planRoleOverride?: MoneyCategoryPlanRole | null;
   mappingTags?: string[];
   updatedAt?: string;
+  /** Exact server row versions; absent on older device caches. */
+  categoryUpdatedAt?: string;
+  planUpdatedAt?: string;
 };
 
 export type MoneyTransaction = {
@@ -300,13 +306,14 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   );
 
   const accountById = new Map(rows.accounts.map((account) => [account.id, account]));
+  const matchMerchantRule = createMerchantRuleMatcher(rows.rules ?? []);
   const currentTransactions = rows.transactions.filter((transaction) => transaction.date.startsWith(monthKey));
   const transactions = linkCreditCardPaymentTransfers(rows.transactions
     .map((transaction) => projectTransaction(
       transaction,
       accountById,
       categoryByAlias,
-      rows.rules ?? [],
+      matchMerchantRule,
       allocationsByTransactionId.get(transaction.id),
     )))
     .sort((left, right) => right.date.localeCompare(left.date));
@@ -429,6 +436,8 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         planRoleOverride,
         mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
         updatedAt: plan?.updated_at ?? now.toISOString(),
+        categoryUpdatedAt: category.updated_at ?? undefined,
+        planUpdatedAt: plan?.updated_at ?? undefined,
       };
       return applyCategoryRollover({
         ...projectedCategory,
@@ -488,11 +497,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       && !allocationsByTransactionId.has(transaction.id)
       && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
   );
-  const availableBudgetCents = categories.reduce((sum, category) => sum + category.remainingCents + category.spentCents, 0);
-  const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
-  const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
-  const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
-  const confidence = lowestForecastConfidence(categories.map((category) => category.forecast.confidence));
+
 
   return {
     periodLabel,
@@ -504,15 +509,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       remainingCents: categories.reduce((sum, category) => sum + category.remainingCents, 0),
       needsReviewCount,
     },
-    forecast: {
-      projectedSpendCents,
-      projectionRangeLowCents,
-      projectionRangeHighCents,
-      projectedRemainingCents: Math.max(0, availableBudgetCents - projectedSpendCents),
-      projectedOverageCents: Math.max(0, projectedSpendCents - availableBudgetCents),
-      confidence,
-      atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length,
-    },
+    forecast: projectSnapshotForecast(categories),
     outsidePlan: {
       spentCents: outsidePlanTransactions.reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0),
       transactionCount: outsidePlanTransactions.length,
@@ -521,6 +518,23 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
     transactions,
     accounts,
     connections,
+  };
+}
+
+export function projectSnapshotForecast(categories: Pick<MoneyCategory, 'remainingCents' | 'spentCents' | 'forecast'>[]): MoneySnapshot['forecast'] {
+  const availableBudgetCents = categories.reduce((sum, category) => sum + category.remainingCents + category.spentCents, 0);
+  const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
+  const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
+  const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
+  const confidence = lowestForecastConfidence(categories.map((category) => category.forecast.confidence));
+  return {
+    projectedSpendCents,
+    projectionRangeLowCents,
+    projectionRangeHighCents,
+    projectedRemainingCents: Math.max(0, availableBudgetCents - projectedSpendCents),
+    projectedOverageCents: Math.max(0, projectedSpendCents - availableBudgetCents),
+    confidence,
+    atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length,
   };
 }
 
@@ -538,14 +552,14 @@ function projectTransaction(
   transaction: MoneyTransactionRow,
   accounts: Map<string, MoneyAccountRow>,
   categories: Map<string, MoneyCategoryRow>,
-  rules: MoneyRuleRow[],
+  matchMerchantRule: (merchant: string) => MoneyRuleRow | undefined,
   allocations?: MoneyTransactionAllocation[],
 ): MoneyTransaction {
   const account = transaction.financial_account_id ? accounts.get(transaction.financial_account_id) : undefined;
   const connection = normalizeConnection(account?.budget_financial_connections);
   const category = transaction.budget_id ? categories.get(transaction.budget_id) : undefined;
   const reviewState = reviewStateFor(transaction, categories, allocations);
-  const merchantRule = rules.find((rule) => merchantRuleMatches(rule, transaction.merchant_name?.trim() || transaction.name));
+  const merchantRule = matchMerchantRule(transaction.merchant_name?.trim() || transaction.name);
   const merchantRuleCategory = merchantRule ? categories.get(merchantRule.budget_id) : undefined;
 
   return {
@@ -602,29 +616,6 @@ function projectTransaction(
     updatedAt: transaction.updated_at ?? new Date(`${transaction.date}T00:00:00.000Z`).toISOString(),
     ...(allocations?.length ? { allocations } : {}),
   };
-}
-
-function merchantRuleMatches(rule: MoneyRuleRow, merchantName: string): boolean {
-  if (rule.merchant_match_mode === 'exact') {
-    return normalizeMerchant(rule.merchant_contains) === normalizeMerchant(merchantName);
-  }
-  const ruleKey = partialMerchantKey(rule.merchant_contains);
-  const merchantKey = partialMerchantKey(merchantName);
-  return Boolean(ruleKey && merchantKey && merchantKey.includes(ruleKey));
-}
-
-function normalizeMerchant(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
-}
-
-const GENERIC_MERCHANT_WORDS = new Set(['co', 'company', 'food', 'foods', 'inc', 'llc', 'market', 'marketplace', 'mktpl', 'store', 'the']);
-
-function partialMerchantKey(value: string): string {
-  return normalizeMerchant(value)
-    .split(' ')
-    .filter((word) => word && !/^[0-9]+$/.test(word) && !GENERIC_MERCHANT_WORDS.has(word))
-    .slice(0, 2)
-    .join(' ');
 }
 
 function reviewStateFor(
@@ -721,29 +712,18 @@ function countedCategorySpendBetween(input: {
   startPeriodId: string;
   endPeriodId: string;
 }): number {
-  let outflowCents = 0;
-  let creditCents = 0;
-  input.transactions.forEach((transaction) => {
-    const periodId = transaction.date.slice(0, 7);
-    if (periodId < input.startPeriodId || periodId > input.endPeriodId) return;
-    const assignedCategory = transaction.budget_id ? input.categoryByAlias.get(transaction.budget_id) : null;
-    if (assignedCategory?.id === input.categoryId) {
-      if (isCommittedRowOutflow(transaction)) outflowCents += planCoveredRowAmountCents(transaction);
-      if (!transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit') {
-        creditCents += validCents(transaction.amount_cents);
-      }
-    }
-    const allocation = input.allocationsByTransactionId.get(transaction.id)
-      ?.find((candidate) => candidate.sourceCategoryId === input.categoryId);
-    if (allocation) {
-      outflowCents += planCoveredAllocationAmountCents(
-        transaction,
-        allocation.amountCents,
-        input.allocationsByTransactionId.get(transaction.id) ?? [],
-      );
-    }
+  return countedReserveSpend({
+    transactions: input.transactions,
+    categoryId: input.categoryId, categorySourceId: input.categoryId,
+    startPeriodId: input.startPeriodId, endPeriodId: input.endPeriodId,
+    read: (transaction) => ({
+      date: transaction.date, direction: transaction.direction, pending: transaction.pending,
+      moneyMeaning: transaction.money_meaning, providerCategoryDetailed: transaction.personal_finance_category_detailed,
+      categoryId: transaction.budget_id ? input.categoryByAlias.get(transaction.budget_id)?.id ?? null : null,
+      amountCents: transaction.amount_cents, savedResourceCents: transaction.saved_resource_cents,
+      allocations: input.allocationsByTransactionId.get(transaction.id),
+    }),
   });
-  return Math.max(0, outflowCents - creditCents);
 }
 
 function planCoveredRowAmountCents(transaction: MoneyTransactionRow): number {

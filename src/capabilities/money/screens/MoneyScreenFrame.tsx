@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
@@ -10,8 +10,12 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 import { HapticsService } from '../../../services/HapticsService';
+export type MoneyFrameScrollProps = Pick<ScrollViewProps, 'onScroll' | 'refreshControl' | 'scrollEventThrottle'> & {
+  warning: ReactNode;
+};
 type MoneyScreenFrameProps = {
-  children: ReactNode;
+  /** A list can own scrolling without being nested inside the default ScrollView. */
+  children: ReactNode | ((props: MoneyFrameScrollProps) => ReactNode);
   headerRightElement?: ReactNode;
   moreMenu?: ReactNode;
   onRefresh?: () => Promise<unknown>;
@@ -45,6 +49,12 @@ function MoneyScreenFrameContent({
     return refreshMoney();
   }, [refreshMoney]);
   const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: handlePullRefresh });
+  const warning = error ? (
+    <View accessibilityRole="alert" style={styles.warning}>
+      <Text variant="label">Showing the last successful update</Text>
+      <Text tone="secondary">{error}</Text>
+    </View>
+  ) : null;
 
   return (
     <AppShell>
@@ -67,19 +77,14 @@ function MoneyScreenFrameContent({
           >
             <MoneyFramePreview error={error} onRetry={refresh} title={title} />
           </ScrollView>
-        ) : (
+        ) : typeof children === 'function' ? children({ onScroll, refreshControl, scrollEventThrottle, warning }) : (
           <ScrollView
             contentContainerStyle={styles.content}
             onScroll={onScroll}
             refreshControl={refreshControl}
             scrollEventThrottle={scrollEventThrottle}
           >
-            {error ? (
-              <View accessibilityRole="alert" style={styles.warning}>
-                <Text variant="label">Showing the last successful update</Text>
-                <Text tone="secondary">{error}</Text>
-              </View>
-            ) : null}
+            {warning}
             {children}
           </ScrollView>
         )}

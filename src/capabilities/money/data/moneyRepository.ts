@@ -31,6 +31,7 @@ import {
   type TransactionReviewUpdate,
 } from './moneyMutations';
 import { loadMoneyPlanProjection } from './moneyPlanProjection';
+import { resolveMoneyOwnerUserId } from './moneyHouseholdScope';
 import { canReadSandboxMoneyData } from '../domain/demoMoneyEnvironment';
 import { normalizeTransactionNote } from '../domain/transactionNote';
 
@@ -187,6 +188,8 @@ export interface MoneyRepository {
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
   const loadSnapshot = async (): Promise<MoneySnapshot> => {
     const signedInUser = await requireSignedInUser(client);
+    if (signedInUser.is_anonymous) throw new Error('Sign in to see your Money data.');
+    const ownerUserId = await resolveMoneyOwnerUserId(client);
     const includeSandbox = canReadSandboxMoneyData(
       signedInUser,
       typeof __DEV__ !== 'undefined' && __DEV__,
@@ -194,12 +197,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
     const db = client as unknown as MoneyReadClient;
     const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
-      readCategoryRows(db),
-      readPlanRows(db),
+      readCategoryRows(db, ownerUserId),
+      readPlanRows(db, ownerUserId),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
           .from('budget_financial_connections')
-          .select('id,environment,institution_name,status,last_synced_at,updated_at'), 'environment', includeSandbox)
+          .select('id,environment,institution_name,status,last_synced_at,updated_at')
+          .eq('user_id', ownerUserId), 'environment', includeSandbox)
           .order('created_at', { ascending: false })),
       readPart<MoneyAccountRow[]>('accounts',
         environmentQuery(db
@@ -213,17 +217,19 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               type,
               subtype,
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
-          `), 'budget_financial_connections.environment', includeSandbox)
+          `).eq('user_id', ownerUserId), 'budget_financial_connections.environment', includeSandbox)
           .order('created_at', { ascending: false })),
       readPart<MoneyRuleRow[]>('merchant rules',
         db
           .from('budget_transaction_match_rules')
           .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
+          .eq('user_id', ownerUserId)
           .order('created_at', { ascending: false })),
       collectAllPages<MoneyTransactionAllocationRow>((from, to) =>
         readOptionalAllocations(db
           .from('budget_transaction_allocations')
           .select('transaction_id,budget_id,amount_cents')
+          .eq('user_id', ownerUserId)
           .order('transaction_id', { ascending: true })
           .order('budget_id', { ascending: true })
           .range(from, to)),
@@ -260,7 +266,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 personal_finance_category_confidence,
                 updated_at,
                 budget_financial_connections!inner(environment)
-            `), 'budget_financial_connections.environment', includeSandbox)
+            `).eq('user_id', ownerUserId), 'budget_financial_connections.environment', includeSandbox)
             .order('date', { ascending: false })
             .order('id', { ascending: false })
             .range(from, to)),
@@ -277,7 +283,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       allocations,
       transactions,
     });
-    const projection = await loadMoneyPlanProjection(client, snapshot);
+    const projection = await loadMoneyPlanProjection(client, snapshot, undefined, ownerUserId);
     return projection?.snapshot ?? snapshot;
   };
 
@@ -769,9 +775,10 @@ function parseConnectionDisconnectReceipt(
   return { confirmedAt, connectionId, disconnectedAccountCount };
 }
 
-async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
+async function readPlanRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyPlanRow[]> {
   const withRollover = await db.from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,rollover_policy,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active');
   if (!withRollover.error) return (withRollover.data ?? []) as MoneyPlanRow[];
   if (withRollover.error.code !== 'PGRST204' && withRollover.error.code !== '42703') {
@@ -780,6 +787,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   const expanded = await db
     .from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active');
   if (!expanded.error) return (expanded.data ?? []) as MoneyPlanRow[];
   const missingPlanRole = expanded.error.code === 'PGRST204'
@@ -788,6 +796,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
     const withoutPlanRole = await db
       .from('budget_plans')
       .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,updated_at')
+      .eq('user_id', ownerUserId)
       .eq('status', 'active');
     if (!withoutPlanRole.error) return (withoutPlanRole.data ?? []) as MoneyPlanRow[];
     expanded.error = withoutPlanRole.error;
@@ -801,6 +810,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   return readPart<MoneyPlanRow[]>('legacy plans', db
     .from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active'));
 }
 
@@ -867,10 +877,11 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   return (data ?? []) as T;
 }
 
-async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
+async function readCategoryRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyCategoryRow[]> {
   const withCover = await db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];
@@ -879,7 +890,8 @@ async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]
   }
   return readPart<MoneyCategoryRow[]>('categories', db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true }));
 }
@@ -893,7 +905,7 @@ function isMissingCoverColumnError(error: NonNullable<ReadResult['error']>): boo
 async function readOptionalAllocations(query: PromiseLike<ReadResult>): Promise<MoneyTransactionAllocationRow[]> {
   const { data, error } = await query;
   if (!error) return (data ?? []) as MoneyTransactionAllocationRow[];
-  if (error.code === 'PGRST205' || error.message?.includes('budget_transaction_allocations')) return [];
+  if (error.code === 'PGRST205' || error.code === '42P01') return [];
   throw new Error(`Money could not read transaction allocations: ${error.message || 'Unknown database error'}`);
 }
 

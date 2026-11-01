@@ -554,7 +554,7 @@ describe('Recipe library', () => {
     expect(screen.getByTestId('recipe-inventory-control-group')).toBeTruthy();
     expect(screen.getByTestId('recipe-funnel-control-surface')).toBeTruthy();
     const sortStyle = StyleSheet.flatten(screen.getByTestId('recipe-sort-control-surface').props.style);
-    expect(sortStyle).toMatchObject({ minWidth: 40, height: 34 });
+    expect(sortStyle).toMatchObject({ minWidth: 40, minHeight: 34 });
   });
 
   it('uses one selected-pill grammar for quick and drawer-applied filters', () => {
@@ -591,7 +591,7 @@ describe('Recipe library', () => {
       filterRailLabels.indexOf('Show liked meals'),
     );
     expect(StyleSheet.flatten(screen.getByTestId('recipe-funnel-control-surface').props.style)).toMatchObject({
-      height: 34,
+      minHeight: 34,
       backgroundColor: colors.sumi900,
     });
     expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-pill-cuisine-all').props.style)).toMatchObject({

@@ -16,6 +16,7 @@
     "web": "expo start --web",
     "ios:build:production": "eas build --platform ios --profile production --non-interactive",
     "ios:submit:production": "eas submit --platform ios --profile production --non-interactive",
+    "money:verify-backend": "node scripts/money/backend-contract.mjs",
     "ios:testflight": "bash scripts/ios-testflight.sh",
     "ios:testflight:no-widgets": "KWILT_TESTFLIGHT_PROFILE=testflight bash scripts/ios-testflight.sh",
     "lint": "tsc --noEmit",

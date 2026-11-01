@@ -33,3 +33,8 @@ test('the repository EAS ignore file satisfies the upload policy', async () => {
 
   assert.deepEqual(validateEasIgnore(source), []);
 });
+
+test('release archives cannot contain an environment-specific backend override', () => {
+  const source = REQUIRED_EAS_IGNORE_ENTRIES.filter(entry => entry !== '.env*').join('\n');
+  assert(validateEasIgnore(source).some(error => error.includes('.env*')));
+});

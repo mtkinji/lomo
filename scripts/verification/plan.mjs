@@ -45,6 +45,11 @@ export function buildVerificationPlan(files, base) {
     );
   }
 
+  if (matches(/^(package\.json$|app\.config\.ts$|eas\.json$|\.easignore$|scripts\/money\/|scripts\/ios-testflight|\.github\/workflows\/ios-testflight\.yml$|supabase\/migrations\/)/)) {
+    add('node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs',
+      'verify backend incompatibility stops the supported release before upload');
+  }
+
   if (matches(/^scripts\/code-health(-lib)?(\.test)?\.mjs$/)) {
     add('npm run test:code-health', 'unit-test the code-health ratchet rules');
   }

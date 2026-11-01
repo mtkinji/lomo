@@ -71,6 +71,7 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
+      if (name === 'budget_effective_owner_user_id') return Promise.resolve({ data: 'user-1', error: null });
       return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: options.rpcError ?? null });
     },
     functions: {
@@ -499,7 +500,7 @@ describe('createMoneyRepository transaction review', () => {
         p_description: null,
         p_accent_color: '#315545',
       },
-    }]);
+    }, { name: 'budget_effective_owner_user_id', args: undefined }]);
     expect(result.categoryId).toBe('groceries-a1b2c3d4');
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
   });

@@ -1,0 +1,53 @@
+# Money backend release contract
+
+The supported TestFlight commands run a read-only target-backend check after protected verification and the full coverage suite, before EAS build/auto-submit:
+
+```sh
+npm run money:verify-backend -- --profile testflight-widgets
+```
+
+`ios:testflight:no-widgets` checks `testflight`. The same contract can be checked directly for `production` and `production-widgets`. A missing credential, unreachable service, invalid response, different target, missing object, unexpected implementation or incorrect permission stops the command. The checker does not migrate the database or retry a write. Direct ad hoc EAS commands are outside this supported release wrapper.
+
+## Target and credentials
+
+The contract in `scripts/money/backend-contract.mjs` is bound to Kwilt project `sqxwjtorodqjdfnuvprf` and `https://auth.kwilt.app`. EAS profile inheritance is resolved, then the actual Expo configuration is evaluated in a child process. Only its backend URL is returned; other configuration values and credentials are not printed. Store profiles also validate their backend after dotenv loading in `app.config.ts`, and `.easignore` excludes all `.env*` files so an uploaded environment variant cannot silently change the remote build's target. Profile configuration and EAS-managed environment values supply release configuration.
+
+For a local check, provide `SUPABASE_ACCESS_TOKEN` through the process environment. CI reads the GitHub secret `SUPABASE_RELEASE_READ_TOKEN`. Use a Supabase personal access token scoped to this project with **Database Read** and **Custom Domain Read** permissions. Do not use a service-role app key; this is the Management API. The task implementing this gate did not provision or save a token, and no local token was available for an end-to-end CLI request. Missing setup blocks release rather than skipping the check.
+
+The transport uses Supabase's [read-only query endpoint](https://supabase.com/docs/reference/api/v1-read-only-query) and [custom hostname configuration endpoint](https://supabase.com/docs/reference/api/v1-get-hostname-config). Requests go only to `api.supabase.com`, reject redirects, have bounded timeouts, and suppress response bodies on errors. These endpoints are documented as beta; an incompatible API response fails closed.
+
+## What is verified
+
+- Required category, plan and private receipt columns with their types.
+- Exact source-body hashes, signatures, argument names/default counts, return types, security mode, language and declared search-path configuration for atomic settings, receipt lookup, promotion/reversal, rollover, timestamp, plan projection and household-owner dependencies. Expected bodies come from the named source migrations, not from migration-history names.
+- Authenticated execution of command and household helpers, required schema access, and denied API access to the private receipt table and promotion helper.
+- Required read grants and RLS flags, household/owner read-policy expressions, and absence of additional permissive read policies on the two preview settings tables.
+- The validated rollover constraint and enabled before-row insert/update history trigger. Category/plan timestamp and active-plan projection triggers must have the expected function binding, enabled state, timing/events, update columns, predicate and arguments.
+
+A successful CLI response records the contract hash, project, origin, profile, observation time, check count, source HEAD and dirty state. It is catalog evidence for that source contract, not an IPA identity or a durable promise that the backend cannot later change. Re-run for the release candidate. Changes to required SQL behavior must update the contract's source references and pass the local fixtures before deployment approval.
+
+## Verification and proof limits
+
+```sh
+node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs scripts/eas-upload-policy.test.mjs
+python3 scripts/money/verify-category-settings-postgres.py --pg-bin /opt/homebrew/opt/postgresql@17/bin
+```
+
+The isolated PostgreSQL runner also executes `supabase/tests/category_rollover_schema_contract.sql`. It checks the good schema, then separately rolls back each deliberate break: missing rollover column, receipt column or RPC; missing command/helper permissions; changed RPC or trigger-function code; disabled, restricted or misbound required triggers; missing household policy; and broader owner/extra read policies. The shell regression proves an incompatible backend prevents invoking the EAS build command. Integration verification selects these tests when this gate or the relevant migrations change.
+
+The live query reads system catalogs only; it does not read household records or invoke save functions. It does not prove PostgREST's current schema cache, authenticated API round trips, native gestures, installed app persistence, or end-user latency. Those remain separate deployment/native acceptance gates. The isolated database uses real relevant migrations plus explicitly documented JWT/category-read fixtures; it is not a full Supabase replay.
+
+The isolated runner supplies minimal authenticated SELECT privileges on the legacy household tables directly, just as it supplies category/plan read fixtures. It does not require the separate, unmerged full-replay grant-baseline migration from PR #197. Actual household RLS and actor-denial tests remain in place. This fixture correction changes no deployed privileges.
+
+Before deployment on November 1 the live catalog query correctly found the original rollover schema repaired while rejecting the new, undeployed atomic settings functions and household preview policies. The checker itself did not deploy either migration. After explicit approval, both were deployed as `20261101213719` and `20261101213724`; local filenames were aligned without changing SQL contents. All 46 checks then passed. See the [deployment receipt](../engineering/evidence/budget-backend-deployment-2026-11-01.json) for hashes, API denial probes, advisor differences and remaining signed-in/native proof. This connector-backed catalog check still does not exercise the release Management API token transport.
+
+
+## Check the release credential without an app release
+
+The existing iOS TestFlight workflow now has a `backend_check_only` boolean input. When true, only its read-only backend verification job runs; the entire Expo/EAS build-and-submit job is disabled. Once `SUPABASE_RELEASE_READ_TOKEN` is configured, invoke the branch under review explicitly:
+
+```sh
+gh workflow run ios-testflight.yml --ref codex/budget-reliability-checkpoint -f backend_check_only=true
+```
+
+Inspect that run's backend job and receipt. A successful unit test of this workflow mode does not prove the secret is configured or the Management API request succeeded. Ordinary tag releases and dispatches with the input false retain the original protected verification/build path.

@@ -162,6 +162,15 @@ envFiles.forEach((file) => {
   }
 });
 
+// EAS store artifacts must use the same backend checked before release. Evaluate
+// after dotenv so an environment file cannot silently redirect the built app.
+if (['production', 'production-widgets', 'testflight', 'testflight-widgets'].includes(process.env.EAS_BUILD_PROFILE)) {
+  const releaseBackend = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (releaseBackend !== 'https://auth.kwilt.app') {
+    throw new Error('Release backend does not match the checked Kwilt backend.');
+  }
+}
+
 const config = {
   name: 'Kwilt',
   // Custom URL schemes for current Kwilt links and installed Kwilt Games invites.
