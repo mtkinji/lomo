@@ -1,4 +1,4 @@
-import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, fireEventAsync, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { MoneyCategoryDetailScreen } from './MoneyCategoryDetailScreen';
 import { projectMoneySnapshot } from '../data/moneySnapshot';
@@ -49,8 +49,9 @@ describe('category settings screen save', () => {
     // Formatting differences and edits reverted to their initial value are not changes.
     fireEvent.changeText(screen.getByLabelText('Name'), 'Household  ');
     fireEvent.changeText(screen.getByLabelText(mode === 'reserve' ? 'Monthly contribution' : 'Monthly amount'), '500');
-    fireEvent.press(screen.getByText('Save changes'));
-    await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
+    // Await React's async save/close work rather than racing the polling timeout.
+    await fireEventAsync.press(screen.getByText('Save changes'));
+    expect(screen.queryByLabelText('Name')).toBeNull();
     expect(mockMoney.saveCategorySettingsRequest).not.toHaveBeenCalled();
     expect(mockMoney.previewCategoryPlanAmount).not.toHaveBeenCalled();
   });
