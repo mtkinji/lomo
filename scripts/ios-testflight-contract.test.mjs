@@ -80,3 +80,28 @@ test('an incompatible Budget backend stops release before EAS build or upload', 
     assert.doesNotMatch(commands, /npx .*build/);
   } finally { fs.rmSync(binDir, { recursive: true, force: true }); }
 });
+
+test('backend-only dispatch cannot select Expo setup, EAS build or submission', async () => {
+  const { default: yaml } = await import('js-yaml');
+  const { runInNewContext } = await import('node:vm');
+  const parsed = yaml.load(workflow);
+  for (const [event, backendOnly, expectedJob] of [
+    ['workflow_dispatch', true, 'verify_backend'],
+    ['workflow_dispatch', false, 'build_and_submit'],
+    ['push', undefined, 'build_and_submit'],
+  ]) {
+    const enabled = Object.entries(parsed.jobs).filter(([, job]) => runInNewContext(
+      job.if.replace(/^\$\{\{\s*|\s*\}\}$/g, ''),
+      { github: { event_name: event }, inputs: { backend_check_only: backendOnly } }, { timeout: 100 },
+    ));
+    assert.deepEqual(enabled.map(([name]) => name), [expectedJob]);
+    if (backendOnly) {
+      const steps = enabled[0][1].steps;
+      assert.deepEqual(steps.filter(step => step.run).map(step => step.run), [
+        'npm ci', 'npm run money:verify-backend -- --profile testflight-widgets',
+      ]);
+      assert(steps.filter(step => step.uses).every(step => /^actions\/(checkout|setup-node)@/.test(step.uses)));
+      assert(!JSON.stringify(steps).includes('EXPO_TOKEN'));
+    }
+  }
+});

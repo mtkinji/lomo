@@ -1,10 +1,12 @@
+import type { CategorySettingsRequest } from '../../../src/capabilities/money/domain/categorySettingsCommand';
+import { openSettingsFixture, pendingSettings, reloadSettingsSnapshot, saveSettings } from './settings';
 import { useSyncExternalStore } from 'react';
 import { projectMoneySnapshot, type MoneySnapshot } from '../../../src/capabilities/money/data/moneySnapshot';
 import { snapshotPerformanceFixture } from '../snapshot-performance-fixture';
 
-type State = { snapshot: MoneySnapshot | null; status: 'ready' | 'loading' | 'error'; error: string | null; refreshes: number };
+type State = { snapshot: MoneySnapshot | null; status: 'ready' | 'loading' | 'error'; error: string | null; refreshes: number; userId: string | null; settingsMode: boolean; savingCategory: boolean };
 const listeners = new Set<() => void>();
-let state: State = { snapshot: null, status: 'loading', error: null, refreshes: 0 };
+let state: State = { snapshot: null, status: 'loading', error: null, refreshes: 0, userId: null, settingsMode: false, savingCategory: false };
 function update(next: Partial<State>) { state = { ...state, ...next }; listeners.forEach((listener) => listener()); }
 export function selectFixture(count: number, mode = 'ready') {
   const now = new Date();
@@ -18,9 +20,27 @@ export function selectFixture(count: number, mode = 'ready') {
   const snapshot = projectMoneySnapshot(rows, now);
   update({ snapshot: mode === 'error' || mode === 'loading' ? null : snapshot,
     status: mode === 'error' ? 'error' : mode === 'loading' ? 'loading' : 'ready',
-    error: mode === 'stale' || mode === 'error' ? 'Synthetic offline fixture. Pull to retry.' : null, refreshes: 0 });
+    settingsMode: false, userId: null, error: mode === 'stale' || mode === 'error' ? 'Synthetic offline fixture. Pull to retry.' : null, refreshes: 0 });
+}
+export async function selectSettingsFixture() {
+  const value = await openSettingsFixture();
+  update({ snapshot: value.snapshot, userId: value.actorUserId, status: 'ready', error: null, settingsMode: true });
+  return value.snapshot.categories[0].id;
+}
+async function submitSettings(request: CategorySettingsRequest) {
+  update({ savingCategory: true });
+  try {
+    const result = await saveSettings(request);
+    if (result.outcome === 'confirmed') {
+      try { update({ snapshot: await reloadSettingsSnapshot(), error: null }); }
+      catch { update({ error: 'Saved. Fixture snapshot reload failed.' }); }
+    }
+    return result;
+  } finally { update({ savingCategory: false }); }
 }
 async function refresh() {
+  if (state.settingsMode) { update({ snapshot: await reloadSettingsSnapshot(), error: null }); return; }
+
   await new Promise((resolve) => setTimeout(resolve, 500));
   if (!state.snapshot) selectFixture(4000);
   update({ error: null, status: 'ready', refreshes: state.refreshes + 1 });
@@ -30,7 +50,9 @@ async function blockedWrite(): Promise<never> { throw new Error('Read-only nativ
 export function useMoneyData() {
   const value = useSyncExternalStore((listener) => { listeners.add(listener); return () => listeners.delete(listener); }, () => state);
   return { ...value, refresh, reconcileConnectedActivity: refresh,
-    reviewingTransactionId: null, savingCategory: false,
+    reviewingTransactionId: null,
+    loadCategorySettingsRequest: pendingSettings, saveCategorySettingsRequest: submitSettings,
+    previewCategoryPlanAmount: async () => null, updateCategoryPlan: blockedWrite, updateCategoryCover: blockedWrite,
     assignTransactionCategory: blockedWrite, createCategory: blockedWrite,
     markTransactionNotCounted: blockedWrite, reviewTransactionMeaning: blockedWrite,
     setTransactionPlanRoleOverride: blockedWrite, setTransactionPlanCoverage: blockedWrite,

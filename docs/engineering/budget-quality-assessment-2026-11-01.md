@@ -5,6 +5,10 @@ Framework: [Kwilt product and engineering quality index](product-and-engineering
 
 ## Latest status
 
+The production JS command and repository now pass signed-JWT HTTP acceptance against disposable PostgreSQL 17.11/PostgREST 16.5: combined settings, concurrent taps, lost-response recovery through a new command instance, durable stale rejection, adult/denied actor boundaries, and late governed failure rolling back category/plan/version writes. [Exact source hashes and evidence](evidence/budget-settings-api-2026-11-01.json). Identity lookup and category/plan read policies are fixture substitutes; this is not live household or native persistence acceptance.
+
+The native harness now opens the real settings screen using this backend and a fixture-only native journal namespace. Mac unlock is required to observe save/reopen/relaunch and the existing scroll/Dynamic Type gaps. A new backend-only TestFlight workflow mode allows the release credential to be checked without building or submitting; the repository currently has no Actions secrets, so the requested read token still needs configuration. These are concrete remaining inputs, not waived gates.
+
 Approved backend deployment is complete: the reviewed atomic-settings and household-preview migrations were applied on November 1 at recorded versions `20261101213719` and `20261101213724`. Repository filenames now match those deployed versions; contents and SHA-256 hashes are unchanged from the approved files. The live contract passes **46/46 checks**. Both public RPCs are visible to PostgREST and deny unauthenticated requests with HTTP 401 / SQLSTATE 42501. Read-only authenticated-role probes with missing actor claims also deny before writes. [Deployment receipt and exact hashes](evidence/budget-backend-deployment-2026-11-01.json).
 
 Advisor differences are intentional: RLS with no direct-access policy on the private receipt table, and authenticated SECURITY DEFINER access to guarded save/receipt RPCs plus the refactored promotion wrapper. No new anonymous RPC grant was found. These notices are reviewed design choices, not a blanket security audit pass. Signed-in API/native save/reopen/retry, the release Management API read-token transport, and the inventory acceptance gaps remain open. PR #200 remains draft; no app release occurred.
@@ -23,7 +27,7 @@ Excluded from this batch: seven pre-existing PR #197 SQL/doc files, preserved in
 | Workstream | Current evidence | Remaining gate |
 | --- | --- | --- |
 | Original missing rollover column | Approved production schema repair verified | Confirm Andrew's installed workflow |
-| Category settings and Chat amount changes | Shared atomic command, durable recovery, household preview; local tests/SQL/review passed | Signed-in API and native save/reopen/retry acceptance |
+| Category settings and Chat amount changes | Shared atomic command, durable recovery, household preview; local tests/SQL/review and isolated authenticated HTTP acceptance passed | Live signed-in API and native save/reopen/retry acceptance |
 | Read performance | Equivalent reads coalesced; Chat avoids a full post-save snapshot; repeated merchant normalization removed with identical synthetic snapshot results | Bounded history/read model and named-device latency measurements |
 | Household read consistency | Snapshot, active plan and income evidence use one resolved owner; missing/denied reads distinguished | General settings/reconciliation writes and native caregiver acceptance |
 | Transaction rendering/accessibility | Virtual list retains full data while bounding mounted controls; isolated real-screen Simulator cases and fresh-launch large text checked; scoped local gate passed | Native scroll/pull gestures, in-session text resizing, shared-caller acceptance and release-mode latency |

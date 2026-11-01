@@ -40,3 +40,14 @@ The live query reads system catalogs only; it does not read household records or
 The isolated runner supplies minimal authenticated SELECT privileges on the legacy household tables directly, just as it supplies category/plan read fixtures. It does not require the separate, unmerged full-replay grant-baseline migration from PR #197. Actual household RLS and actor-denial tests remain in place. This fixture correction changes no deployed privileges.
 
 Before deployment on November 1 the live catalog query correctly found the original rollover schema repaired while rejecting the new, undeployed atomic settings functions and household preview policies. The checker itself did not deploy either migration. After explicit approval, both were deployed as `20261101213719` and `20261101213724`; local filenames were aligned without changing SQL contents. All 46 checks then passed. See the [deployment receipt](../engineering/evidence/budget-backend-deployment-2026-11-01.json) for hashes, API denial probes, advisor differences and remaining signed-in/native proof. This connector-backed catalog check still does not exercise the release Management API token transport.
+
+
+## Check the release credential without an app release
+
+The existing iOS TestFlight workflow now has a `backend_check_only` boolean input. When true, only its read-only backend verification job runs; the entire Expo/EAS build-and-submit job is disabled. Once `SUPABASE_RELEASE_READ_TOKEN` is configured, invoke the branch under review explicitly:
+
+```sh
+gh workflow run ios-testflight.yml --ref codex/budget-reliability-checkpoint -f backend_check_only=true
+```
+
+Inspect that run's backend job and receipt. A successful unit test of this workflow mode does not prove the secret is configured or the Management API request succeeded. Ordinary tag releases and dispatches with the input false retain the original protected verification/build path.

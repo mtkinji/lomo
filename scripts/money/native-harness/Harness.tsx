@@ -1,5 +1,5 @@
-import React from 'react';
-import { Button, ScrollView, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Button, ScrollView, Text, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,10 +9,23 @@ import { PortalHost } from '../../../src/ui/Portal';
 import type { MoneyStackParamList } from '../../../src/capabilities/money/navigation/types';
 import { MoneyTransactionsScreen } from '../../../src/capabilities/money/screens/MoneyTransactionsScreen';
 import { MoneyTransactionDetailScreen } from '../../../src/capabilities/money/screens/MoneyTransactionDetailScreen';
-import { selectFixture, useMoneyData } from './fixture';
+import { MoneyCategoryDetailScreen } from '../../../src/capabilities/money/screens/MoneyCategoryDetailScreen';
+import { settingsFault } from './settings';
+import { selectFixture, selectSettingsFixture, useMoneyData } from './fixture';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
 function FixturePicker({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
+  const dimensions = useWindowDimensions();
+  useEffect(() => { console.info('[Budget fixture] dimensions', dimensions); }, [dimensions]);
+  const [fixtureMessage, setFixtureMessage] = useState('');
+  const settings = async () => {
+    try { const categoryId = await selectSettingsFixture(); navigation.navigate('MoneyCategoryDetail', { categoryId }); }
+    catch (error) { setFixtureMessage(error instanceof Error ? error.message : 'Fixture could not open'); }
+  };
+  const fault = async (action: 'lose-response' | 'recover') => {
+    try { await settingsFault(action); setFixtureMessage(action === 'recover' ? 'Receipt network restored' : 'Next save commits but its response and receipt lookup will be lost'); }
+    catch { setFixtureMessage('Start the isolated Budget API fixture first'); }
+  };
   const { refreshes } = useMoneyData();
   const open = (count: number, mode = 'ready', overageReview = false) => {
     selectFixture(count, mode);
@@ -20,8 +33,12 @@ function FixturePicker({ navigation }: NativeStackScreenProps<MoneyStackParamLis
   };
   return <SafeAreaView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 24, gap: 18 }}>
     <Text style={{ fontSize: 24 }}>Budget native fixture</Text>
-    <Text>Synthetic data only. Backend disabled. Current screen code; development native host.</Text>
+    <Text>Synthetic data only. Production backend disabled. Settings use isolated local PostgreSQL; other writes remain disabled.</Text>
     <Text>Completed refreshes: {refreshes}</Text>
+    <Text accessibilityLiveRegion="polite">{fixtureMessage}</Text>
+    <Button title="Category settings — isolated API" onPress={() => void settings()} />
+    <Button title="Lose next save response" onPress={() => void fault('lose-response')} />
+    <Button title="Restore receipt network" onPress={() => void fault('recover')} />
     {[0, 1000, 4000, 10000].map((count) => <Button key={count} title={`${count} transactions`} onPress={() => open(count)} />)}
     <Button title="Stale data and refresh" onPress={() => open(4000, 'stale')} />
     <Button title="Initial error and retry" onPress={() => open(0, 'error')} />
@@ -35,6 +52,7 @@ export function Harness() {
   return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider>
     <NavigationContainer><Stack.Navigator initialRouteName="MoneySummary" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MoneySummary" component={FixturePicker} />
+      <Stack.Screen name="MoneyCategoryDetail" component={MoneyCategoryDetailScreen} />
       <Stack.Screen name="MoneyTransactions" component={MoneyTransactionsScreen} />
       <Stack.Screen name="MoneyTransactionDetail" component={MoneyTransactionDetailScreen} />
     </Stack.Navigator></NavigationContainer><PortalHost />
