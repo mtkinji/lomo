@@ -32,7 +32,7 @@ Execute inline in the existing checkout. Use regression-first SQL and TypeScript
 
 ## Server implementation evidence (November 1)
 
-Completed locally: `supabase/migrations/20261101154005_atomic_budget_category_settings.sql`, `supabase/tests/category_settings_command.sql`, and `scripts/money/verify-category-settings-postgres.py`.
+Completed locally: `supabase/migrations/20261101213719_atomic_budget_category_settings.sql`, `supabase/tests/category_settings_command.sql`, and `scripts/money/verify-category-settings-postgres.py`.
 
 Run the repeatable isolated check with:
 
@@ -72,7 +72,7 @@ Proof path: Budget → category → Category settings → edit/save/reopen; inje
 
 The native category settings caller now prepares and submits one atomic request. The editor captures original row versions, reads the actor/category journal before enabling edits, locks through preview and submission, restores unknown requests for Check save, keeps rejected inputs open, and ignores obsolete session/preview responses. Reserve settings retain their carry-forward policy without also enabling monthly rollover. Dismissal is disabled through the owned drawer's `dismissable` API while saving, rather than only guarding its close callback. Existing forecast and cover editors keep their separate operation contracts.
 
-Category preview resolves the household owner once and passes that scope through settings, active-plan and evidence reads. This is explicitly scoped to the category preview path; general plan settings/reconciliation and conversational command migration still need their own owner/write-policy alignment. The new CLI-generated migration `20261101163341_household_category_settings_preview_read.sql` grants current permanent adults SELECT on the canonical owner's planning basis and plan config while preserving write privileges. The existing owner config read policy now also excludes anonymous sessions.
+Category preview resolves the household owner once and passes that scope through settings, active-plan and evidence reads. This is explicitly scoped to the category preview path; general plan settings/reconciliation and conversational command migration still need their own owner/write-policy alignment. The new CLI-generated migration `20261101213724_household_category_settings_preview_read.sql` grants current permanent adults SELECT on the canonical owner's planning basis and plan config while preserving write privileges. The existing owner config read policy now also excludes anonymous sessions.
 
 Regression evidence includes actual screen interaction tests with real owned fields/buttons and a test drawer host; the host does not prove native animation/keyboard behavior. The PostgreSQL harness now loads original living-plan RLS/grants and canonical access helpers, and reproduces caregiver basis/config denial before the policy fixes. It verifies owner/adult reads, unchanged basis writes, and child/unrelated/anonymous/revoked denial. Review caught the config read gap and native dismissal contract; both have failing-then-passing regressions and a clean follow-up review.
 
@@ -87,3 +87,5 @@ Recovery checks that exact operation before current snapshot/version checks. A m
 Regression tests cover the actual Chat boundary with the shared repository/journal, lost response and cleanup, a second device with no journal, original request identity, canonical preview scope, stale proposals, preservation of another drawer save, and confirmed writes followed by unavailable snapshots or Chat bookkeeping. SQL tests assert the original request is returned without changing the receipt's original confirmed fields; existing actor/revoked/anonymous checks remain. Review found canceled-auth false failure and retained-journal blocking; both were reproduced and corrected. Integration checks and review follow-up are recorded in the assessment. No new migration has been applied and no runtime has been launched.
 
 Open beyond this slice: compatibility/release gates, general Money owner/actor alignment, bounded history/read-model work, native save/reopen/offline/retry behavior, and actual device latency measurements. Other Money proposal types and standalone category rename/forecast/cover flows retain their existing contracts; this is not a claim that every Money mutation has been unified.
+
+Deployment checkpoint (November 1): Andrew approved both migrations. Supabase assigned versions `20261101213719` and `20261101213724`; local filenames and runner references now match, with original reviewed SQL bytes unchanged. See [the deployment receipt](../../engineering/evidence/budget-backend-deployment-2026-11-01.json). Earlier undeployed statements in this plan are historical; native acceptance and release transport remain open.

@@ -40,7 +40,7 @@ for (const file of [
 }
 
 test('Money release contract and release-entry changes retain automated failure-to-upload coverage', () => {
-  for (const file of ['package.json', 'app.config.ts', 'eas.json', '.easignore', 'scripts/money/backend-contract.mjs', 'scripts/ios-testflight.sh', '.github/workflows/ios-testflight.yml', 'supabase/migrations/20261101154005_atomic_budget_category_settings.sql']) {
+  for (const file of ['package.json', 'app.config.ts', 'eas.json', '.easignore', 'scripts/money/backend-contract.mjs', 'scripts/ios-testflight.sh', '.github/workflows/ios-testflight.yml', 'supabase/migrations/20261101213719_atomic_budget_category_settings.sql']) {
     const plan = buildVerificationPlan([file], 'origin/main');
     assert(plan.commands.some(entry => entry.command === 'node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs'), file);
   }

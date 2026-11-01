@@ -198,8 +198,8 @@ def main():
         # Local trust is restricted to this temporary Unix socket; no network listener.
         PSQL = [str(pg_bin/'psql'), '-X', '-qAt', '-v', 'ON_ERROR_STOP=1']
         run(build_schema())
-        run((ROOT/'supabase/migrations/20261101154005_atomic_budget_category_settings.sql').read_text())
-        run((ROOT/'supabase/migrations/20261101163341_household_category_settings_preview_read.sql').read_text())
+        run((ROOT/'supabase/migrations/20261101213719_atomic_budget_category_settings.sql').read_text())
+        run((ROOT/'supabase/migrations/20261101213724_household_category_settings_preview_read.sql').read_text())
         print(run((ROOT/'supabase/tests/category_settings_command.sql').read_text()))
         fixture=(ROOT/'supabase/tests/category_settings_command.sql').read_text().split('set local role authenticated;')[0]
         print(run(fixture+(ROOT/'supabase/tests/household_category_settings_preview.sql').read_text()))

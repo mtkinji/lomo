@@ -5,6 +5,10 @@ Framework: [Kwilt product and engineering quality index](product-and-engineering
 
 ## Latest status
 
+Approved backend deployment is complete: the reviewed atomic-settings and household-preview migrations were applied on November 1 at recorded versions `20261101213719` and `20261101213724`. Repository filenames now match those deployed versions; contents and SHA-256 hashes are unchanged from the approved files. The live contract passes **46/46 checks**. Both public RPCs are visible to PostgREST and deny unauthenticated requests with HTTP 401 / SQLSTATE 42501. Read-only authenticated-role probes with missing actor claims also deny before writes. [Deployment receipt and exact hashes](evidence/budget-backend-deployment-2026-11-01.json).
+
+Advisor differences are intentional: RLS with no direct-access policy on the private receipt table, and authenticated SECURITY DEFINER access to guarded save/receipt RPCs plus the refactored promotion wrapper. No new anonymous RPC grant was found. These notices are reviewed design choices, not a blanket security audit pass. Signed-in API/native save/reopen/retry, the release Management API read-token transport, and the inventory acceptance gaps remain open. PR #200 remains draft; no app release occurred.
+
 Integration checkpoint: new improvement scope is frozen. Budget changes are now on `codex/budget-reliability-checkpoint`, rebased onto main `c6aa8002711cfb1e1fb5eb4287598dc6ff2bd6c1`, separately from the dinner/SQL PR #197. The three initial commits cover checkpoint policy/evidence, settings/read/release reliability, and transaction rendering/accessibility. Earlier evidence below remains dated to its original checkout. Fresh integration review, uncached verification, CI, backend ordering and native acceptance determine merge readiness; a saved commit is not a merge or deployment receipt.
 
 Review corrections at this checkpoint:
@@ -19,11 +23,11 @@ Excluded from this batch: seven pre-existing PR #197 SQL/doc files, preserved in
 | Workstream | Current evidence | Remaining gate |
 | --- | --- | --- |
 | Original missing rollover column | Approved production schema repair verified | Confirm Andrew's installed workflow |
-| Category settings and Chat amount changes | Shared atomic command, durable recovery, household preview; local tests/SQL/review passed | Backend compatibility, authorized deployment, native save/reopen/retry acceptance |
+| Category settings and Chat amount changes | Shared atomic command, durable recovery, household preview; local tests/SQL/review passed | Signed-in API and native save/reopen/retry acceptance |
 | Read performance | Equivalent reads coalesced; Chat avoids a full post-save snapshot; repeated merchant normalization removed with identical synthetic snapshot results | Bounded history/read model and named-device latency measurements |
-| Household read consistency | Snapshot, active plan and income evidence use one resolved owner; missing/denied reads distinguished | General settings/reconciliation writes, deployment and native caregiver acceptance |
+| Household read consistency | Snapshot, active plan and income evidence use one resolved owner; missing/denied reads distinguished | General settings/reconciliation writes and native caregiver acceptance |
 | Transaction rendering/accessibility | Virtual list retains full data while bounding mounted controls; isolated real-screen Simulator cases and fresh-launch large text checked; scoped local gate passed | Native scroll/pull gestures, in-session text resizing, shared-caller acceptance and release-mode latency |
-| Release reliability | Read-only backend contract wired into supported TestFlight releases; local failure fixtures pass | Configure release read token, deploy approved compatible backend, verify API/native acceptance |
+| Release reliability | Read-only backend contract wired into supported TestFlight releases; local failure fixtures pass | Configure and exercise release read token; verify signed-in API/native acceptance |
 
 The earlier local command/drawer/Chat candidate passed 1,313 Jest suites with 8,229 tests, two skipped tests and two snapshots. Typechecks, Chat delivery/contracts, architecture, code-health, explicit grants and whitespace also passed. The isolated PostgreSQL contract and an iOS bundle export passed separately. That export predates the release-configuration and projection follow-ups below. The later transaction slice now has [partial native fixture evidence](evidence/budget-native-2026-11-01/README.md) using current screen JavaScript in an existing development host. No new native build or migration was deployed; this is not production or signed-in workflow acceptance.
 

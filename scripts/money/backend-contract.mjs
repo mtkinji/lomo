@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const q = value => `'${String(value).replaceAll("'", "''")}'`;
 const digest = (value, algorithm = 'sha256') => createHash(algorithm).update(value).digest('hex');
-const atomicMigration = '20261101154005_atomic_budget_category_settings.sql';
+const atomicMigration = '20261101213719_atomic_budget_category_settings.sql';
 const rolloverMigration = '20261013123903_category_rollover_start_policy.sql';
 const ownerMigration = '20260901040118_canonical_household_money_access.sql';
 const canonicalType = value => value === 'timestamptz' ? 'timestamp with time zone' : value;
