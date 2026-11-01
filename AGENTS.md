@@ -95,6 +95,23 @@ The persona and JTBD taxonomies are canonical at `/Users/andrewwatanabe/Kwilt/do
 
 If a symlink ever breaks (e.g. a repo is moved), recreate it with `ln -s ../../Kwilt/docs/jtbd docs/jtbd` and `ln -s ../../Kwilt/docs/personas docs/personas` from each repo root. Feature briefs in any of the three repos use the same `personas:` and `serves:` ids.
 
+### Supabase Data API grants
+
+From October 30, 2026, new `public` tables no longer receive automatic API grants.
+In the migration that creates a table, explicitly declare each API role's access:
+`anon`, `authenticated`, and `service_role`. Use the minimum required `GRANT`, or
+an explicit `REVOKE ALL` when a role must have no direct access. Enable RLS and
+write the appropriate policies before exposing a table. RLS does not replace
+table privileges, and `service_role` bypassing RLS does not replace its grants.
+Grant sequence `USAGE` when an API writer needs a serial/identity default.
+Keep RPC-only tables private; do not restore automatic default privileges or
+grant access to all tables as a workaround.
+
+The legacy replay baseline is
+`supabase/migrations/20261020145812_explicit_public_data_api_grants.sql`.
+Run `node --test scripts/public-data-api-grants.test.mjs` for migration changes.
+See `docs/development/supabase-data-api-grants.md` for the notice and evidence.
+
 ### Lint
 
 ```bash

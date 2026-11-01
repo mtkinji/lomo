@@ -1,0 +1,3355 @@
+[
+  {
+    "rosterId": "DI426",
+    "title": "Tuna white bean lemon pasta",
+    "description": "Tender penne, flaky tuna and creamy beans with lemon, parsley and sweet cherry tomatoes.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces penne",
+      "2 cans (5 ounces each) chunk light tuna in water, drained",
+      "1 can (15 ounces) cannellini beans, rinsed and drained",
+      "1 pint cherry tomatoes, halved",
+      "3 garlic cloves, minced",
+      "1 lemon, zested and juiced",
+      "1/4 cup chopped parsley",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil. Add the penne and cook according to its package, usually 10 to 12 minutes; reserve 1 cup cooking water before draining.",
+      "While the water heats, warm the oil in a 12-inch skillet over medium. Cook garlic for 30 seconds, then add tomatoes, salt and pepper. Cook 6 minutes until several tomatoes burst.",
+      "Add the beans and 1/2 cup pasta water; simmer 3 minutes. Fold in the tuna without breaking all the flakes.",
+      "Add pasta, lemon zest, half the lemon juice and parsley. Toss over low heat for 1 minute, adding reserved water a tablespoon at a time until lightly glossy. Taste before adding remaining lemon juice; divide into equal servings."
+    ],
+    "notes": "A pantry pasta built around lemony beans rather than the creamy baked sauce of tuna casserole. Tomatoes supply a vegetable component without a second side. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Healthy tuna pasta",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/healthy-tuna-pasta",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Reserve cooking water; fold in canned tuna late."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna and white bean salad",
+          "url": "https://www.budgetbytes.com/tuna-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain canned ingredients before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Mediterranean tuna pasta",
+          "url": "https://www.budgetbytes.com/mediterranean-tuna-pasta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tomatoes and olives complement tuna; original uses tuna steaks."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Reserve pasta water and add tuna after the beans warm."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Reserve cooking water; fold in canned tuna late. Drain canned ingredients before dressing. Tomatoes and olives complement tuna; original uses tuna steaks."
+      ],
+      "repeatedFailureRisks": [
+        "Vigorously stirring tuna or boiling the finished pasta turns the flakes to paste."
+      ],
+      "adaptationDecision": "A pantry pasta built around lemony beans rather than the creamy baked sauce of tuna casserole. Tomatoes supply a vegetable component without a second side."
+    }
+  },
+  {
+    "rosterId": "DI427",
+    "title": "Salmon pea creamy pasta",
+    "description": "Salmon flakes and green peas nestle in a light lemon cream sauce around short pasta.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces fusilli",
+      "1 pound skinless salmon, pin bones removed, cut into 1-inch cubes",
+      "2 cups frozen peas",
+      "1 small shallot, finely chopped",
+      "3/4 cup half-and-half",
+      "2 ounces cream cheese, cubed",
+      "1 lemon, zested and juiced",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil and cook fusilli according to the package. Add peas for the last 3 minutes. Reserve 1 cup cooking water, then drain.",
+      "Meanwhile, heat oil in a 12-inch skillet over medium. Add shallot and cook 3 minutes. Turn heat to low and stir in half-and-half, cream cheese, salt, pepper and 1/4 cup pasta water until smooth.",
+      "Nestle salmon in the sauce. Cover and cook at a bare simmer for 5 to 7 minutes until the largest pieces reach 145\u00b0F; turn once gently.",
+      "Fold in pasta, peas and lemon zest. Add half the lemon juice off the heat and enough reserved water for a flowing sauce. Divide among serving plates, leaving visible pieces of salmon. Serve remaining lemon juice at the table to add to taste."
+    ],
+    "notes": "This stovetop dinner uses a little cream cheese to stabilize a light sauce, with peas cooked in the pasta water. It is a quick fresh-salmon pasta, not a smoked-fish dish. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Pasta with salmon and peas",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/pasta-salmon-peas",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small salmon pieces cook in a gentle creamy sauce."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Hot-smoked salmon and dill spaghetti",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/1346/hot-smoked-salmon-and-dill-spaghetti",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Peas share pasta water; finish fish gently."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Creamy tomato and spinach pasta",
+          "url": "https://www.budgetbytes.com/creamy-tomato-spinach-pasta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook sauce while pasta boils; finish with spinach."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep the sauce below a rolling boil and check salmon at 145\u00b0F."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Small salmon pieces cook in a gentle creamy sauce. Peas share pasta water; finish fish gently. Cook sauce while pasta boils; finish with spinach."
+      ],
+      "repeatedFailureRisks": [
+        "Hard boiling can split the sauce and overcook the salmon."
+      ],
+      "adaptationDecision": "This stovetop dinner uses a little cream cheese to stabilize a light sauce, with peas cooked in the pasta water. It is a quick fresh-salmon pasta, not a smoked-fish dish."
+    }
+  },
+  {
+    "rosterId": "DI428",
+    "title": "Shrimp spinach tomato gnocchi",
+    "description": "Pillowy gnocchi and juicy shrimp in a garlicky tomato sauce with soft spinach.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 package (16 ounces) shelf-stable potato gnocchi",
+      "1 pound large raw shrimp, peeled, deveined and thawed",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "5 ounces baby spinach",
+      "2 garlic cloves, minced",
+      "1/2 teaspoon dried oregano",
+      "1/4 cup grated Parmesan",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "1/2 cup water"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil. Cook gnocchi according to the package, generally 2 to 3 minutes, then drain.",
+      "While the water heats, warm oil in a 12-inch skillet over medium. Add garlic and oregano for 30 seconds, then tomatoes, the measured water, salt and pepper. Simmer uncovered for 6 minutes.",
+      "Pat shrimp dry and stir into the sauce. Cover and simmer gently 4 to 6 minutes, turning once, until pearly and opaque throughout.",
+      "Fold in gnocchi and spinach and cook 2 minutes until the spinach wilts. Turn off the heat, scatter Parmesan over the portions, and serve immediately."
+    ],
+    "notes": "Purchased gnocchi makes this a complete one-skillet seafood supper after a brief boil. The tomato sauce is cooked before the shrimp enter, protecting their texture. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Cheesy gnocchi skillet",
+          "url": "https://www.budgetbytes.com/cheesy-gnocchi-skillet/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Purchased gnocchi makes a quick vegetable-rich skillet."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Creamy tomato and spinach pasta",
+          "url": "https://www.budgetbytes.com/creamy-tomato-spinach-pasta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook sauce while pasta boils; finish with spinach."
+        },
+        {
+          "publisher": "Recipe Girl",
+          "title": "Greek-style shrimp over rice",
+          "url": "https://www.recipegirl.com/greek-style-shrimp-over-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook zucchini and tomatoes before shrimp and feta."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Finish the tomato sauce before adding shrimp."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Purchased gnocchi makes a quick vegetable-rich skillet. Cook sauce while pasta boils; finish with spinach. Cook zucchini and tomatoes before shrimp and feta."
+      ],
+      "repeatedFailureRisks": [
+        "Holding shrimp in simmering sauce while preparing other components makes them rubbery."
+      ],
+      "adaptationDecision": "Purchased gnocchi makes this a complete one-skillet seafood supper after a brief boil. The tomato sauce is cooked before the shrimp enter, protecting their texture."
+    }
+  },
+  {
+    "rosterId": "DI429",
+    "title": "Fish finger dinner wraps with cabbage slaw",
+    "description": "Crisp oven-baked fish strips tucked into soft wraps with tangy cabbage and carrot slaw.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 1/4 pounds skinless cod, pin bones removed, cut into 1-inch-wide strips",
+      "1 cup panko breadcrumbs",
+      "1 large egg",
+      "2 tablespoons all-purpose flour",
+      "1 teaspoon sweet paprika",
+      "4 large (10-inch) flour tortillas",
+      "1 bag (12 ounces) shredded cabbage and carrot slaw",
+      "1/2 cup plain Greek yogurt",
+      "1 lemon, juiced",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat the oven to 425\u00b0F. Line a rimmed sheet pan with parchment. Toss panko with oil and paprika in a shallow dish. Beat the egg in a second shallow dish; pat fish dry and dust with flour, salt and pepper.",
+      "Dip fish in egg, then press into crumbs. Arrange in one layer on the sheet pan. Bake 12 to 15 minutes, turning after 8 minutes, until crisp and the thickest strip reaches 145\u00b0F.",
+      "While fish bakes, stir yogurt with half the lemon juice. Toss two thirds with the cabbage-carrot mix; reserve the rest for the wraps.",
+      "Wrap tortillas in foil and place beside the fish for the final 3 minutes. Spread reserved yogurt sauce on each warm tortilla, add slaw and fish, then fold and serve. Put any remaining slaw beside the wraps. Serve remaining lemon juice at the table to add to taste."
+    ],
+    "notes": "Baked panko fingers and large flour wraps distinguish this from the catalog\u2019s battered Baja tacos. Ready-shredded slaw keeps the complete dinner within twenty minutes of hands-on work. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Homemade fish sticks",
+          "url": "https://www.budgetbytes.com/tilapia-fish-sticks/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry fish before coating; panko gives a crisp surface."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Fish tacos with slaw",
+          "url": "https://www.budgetbytes.com/fish-tacos-with-slaw/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Citrus cabbage provides contrast to mild fish."
+        },
+        {
+          "publisher": "Ambitious Kitchen",
+          "title": "Homemade baked fish sticks",
+          "url": "https://www.ambitiouskitchen.com/homemade-baked-fish-sticks/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Even fish strips and dry surfaces improve coating."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Dry fish before breading; leave space between strips."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Dry fish before coating; panko gives a crisp surface. Citrus cabbage provides contrast to mild fish. Even fish strips and dry surfaces improve coating."
+      ],
+      "repeatedFailureRisks": [
+        "Wet fish loosens the crumb coating; overcrowding steams it."
+      ],
+      "adaptationDecision": "Baked panko fingers and large flour wraps distinguish this from the catalog\u2019s battered Baja tacos. Ready-shredded slaw keeps the complete dinner within twenty minutes of hands-on work."
+    }
+  },
+  {
+    "rosterId": "DI430",
+    "title": "Cod potato sweetcorn chowder",
+    "description": "A gentle, creamy chowder with chunky cod, tender potatoes and sweetcorn, served with crusty bread.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound skinless cod, pin bones removed, cut into 1 1/2-inch pieces",
+      "1 pound Yukon gold potatoes, scrubbed and diced 1/2 inch",
+      "2 cups frozen corn",
+      "1 small onion, finely diced",
+      "2 celery stalks, thinly sliced",
+      "2 tablespoons butter",
+      "2 tablespoons all-purpose flour",
+      "3 cups low-sodium vegetable broth",
+      "1 cup whole milk",
+      "1/2 teaspoon dried thyme",
+      "4 thick slices whole-grain bread",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Melt butter in a 5-quart pot over medium. Cook onion and celery for 5 minutes, stirring occasionally. Add flour and thyme and stir 1 minute.",
+      "Gradually stir in broth so no flour lumps remain. Add potatoes, salt and pepper; bring to a simmer, cover and cook 12 to 15 minutes until a potato cube crushes easily.",
+      "Add corn and milk. Bring back to a gentle simmer, then add cod. Cook 5 to 7 minutes until the largest piece reaches 145\u00b0F, moving pieces gently rather than stirring hard.",
+      "Taste the broth and divide the chowder among deep bowls. Serve a thick slice of bread alongside each bowl. Avoid boiling after the milk goes in."
+    ],
+    "notes": "This fish-led chowder differs from the existing clam and sweetcorn soups: cod supplies the main protein and milk keeps the broth lighter than cream. Potato cubes are small enough for a reliable weeknight simmer. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Simple seafood chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/simple-seafood-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tenderize potatoes before gently cooking seafood."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Bacon and sweetcorn chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/10040/bacon-and-sweetcorn-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Potatoes soften before fish and corn finish."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Summer fish stew with rouille",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/summer-fish-stew-rouille",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Develop vegetable broth before gently adding fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "The potatoes must be tender before cod is added."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Tenderize potatoes before gently cooking seafood. Potatoes soften before fish and corn finish. Develop vegetable broth before gently adding fish."
+      ],
+      "repeatedFailureRisks": [
+        "Adding fish with raw potatoes overcooks it long before the potatoes soften."
+      ],
+      "adaptationDecision": "This fish-led chowder differs from the existing clam and sweetcorn soups: cod supplies the main protein and milk keeps the broth lighter than cream. Potato cubes are small enough for a reliable weeknight simmer."
+    }
+  },
+  {
+    "rosterId": "DI431",
+    "title": "Salmon patties with cucumber yogurt and couscous",
+    "description": "Golden salmon cakes with cool cucumber yogurt and fluffy lemon couscous.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "3 cans (5 ounces each) skinless boneless pink salmon, drained",
+      "1 large egg",
+      "1/2 cup plain breadcrumbs",
+      "2 scallions, finely sliced",
+      "1 teaspoon Dijon mustard",
+      "1 cup dry instant couscous",
+      "1 cup boiling water",
+      "1 cucumber, diced small",
+      "3/4 cup plain Greek yogurt",
+      "1 lemon, zested and juiced",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "In a heatproof bowl, combine couscous, the measured boiling water and half the salt. Cover for 10 minutes, or follow the package liquid ratio. The kettle can heat while you mix the patties.",
+      "Flake salmon and mix with egg, breadcrumbs, scallions, mustard, lemon zest and pepper. Form compact patties, two per serving, about 2 1/2 inches wide and 1/2 inch thick; let stand 5 minutes while making the sauce.",
+      "Mix cucumber, yogurt, half the lemon juice and remaining salt. Heat oil in a 12-inch nonstick skillet over medium. Cook patties in two batches, about 3 minutes per side, until golden and centers reach 160\u00b0F because they contain egg.",
+      "Fluff the couscous and mix in remaining lemon juice to taste. Serve two patties per person with couscous and cucumber yogurt; add remaining lemon juice only to taste."
+    ],
+    "notes": "Canned salmon makes crisp small cakes without a separate fish-cooking stage. A full cucumber in the sauce and couscous on the side turn the patties into a balanced dinner. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Salmon patties",
+          "url": "https://www.budgetbytes.com/salmon-patties/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small patties need gentle turning and controlled heat."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna patties",
+          "url": "https://www.budgetbytes.com/tuna-patties/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain fish and bind before shaping."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Couscous",
+          "url": "https://www.recipetineats.com/couscous/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Hydrate covered and fluff; check brand liquid ratio."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use small firmly packed patties and turn only after a crust forms."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Small patties need gentle turning and controlled heat. Drain fish and bind before shaping. Hydrate covered and fluff; check brand liquid ratio."
+      ],
+      "repeatedFailureRisks": [
+        "Too much liquid or oversized patties causes breakage and uncooked centers."
+      ],
+      "adaptationDecision": "Canned salmon makes crisp small cakes without a separate fish-cooking stage. A full cucumber in the sauce and couscous on the side turn the patties into a balanced dinner."
+    }
+  },
+  {
+    "rosterId": "DI432",
+    "title": "Shrimp broccoli lemon linguine",
+    "description": "Garlicky linguine with tender shrimp, bright broccoli and a glossy lemon-butter finish.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces linguine",
+      "1 pound large raw shrimp, peeled, deveined and thawed",
+      "12 ounces broccoli florets, cut into 1-inch pieces",
+      "3 garlic cloves, minced",
+      "1 lemon, zested and juiced",
+      "2 tablespoons butter",
+      "1 tablespoon olive oil",
+      "1/4 cup chopped parsley",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil. Cook linguine according to the package, adding broccoli for the last 3 minutes. Reserve 1 cup cooking water and drain.",
+      "Meanwhile pat shrimp dry. Heat oil in a 12-inch skillet over medium-high. Add shrimp in one layer, salt and pepper; cook 2 minutes per side until pearly and opaque. Transfer to a clean plate.",
+      "Lower heat to medium-low. Melt butter in the skillet, stir in garlic for 30 seconds, then add 1/2 cup pasta water and lemon zest. Simmer for 1 minute.",
+      "Add linguine, broccoli, shrimp and parsley. Toss for 1 minute, adding more cooking water if dry. Remove from heat, add half the lemon juice and serve in four portions. Serve remaining lemon juice at the table to add to taste."
+    ],
+    "notes": "A pasta-water emulsion provides a light sauce without cream. Broccoli shares the pasta pot, while shrimp cooks separately just long enough to stay tender. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Slender Kitchen",
+          "title": "Lemon broccoli shrimp pasta",
+          "url": "https://www.slenderkitchen.com/recipe/lemon-and-broccoli-pasta-with-shrimp",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook shrimp separately, then finish with pasta."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Quick garlic butter shrimp",
+          "url": "https://www.budgetbytes.com/quick-garlic-butter-shrimp/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry shrimp; brief cooking protects texture."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Healthy tuna pasta",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/healthy-tuna-pasta",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Reserve cooking water; fold in canned tuna late."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Remove cooked shrimp while building the pan sauce."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Cook shrimp separately, then finish with pasta. Dry shrimp; brief cooking protects texture. Reserve cooking water; fold in canned tuna late."
+      ],
+      "repeatedFailureRisks": [
+        "Garlic burns in the hot shrimp pan unless heat is lowered."
+      ],
+      "adaptationDecision": "A pasta-water emulsion provides a light sauce without cream. Broccoli shares the pasta pot, while shrimp cooks separately just long enough to stay tender."
+    }
+  },
+  {
+    "rosterId": "DI433",
+    "title": "Tuna tomato olive rice skillet",
+    "description": "Fluffy tomato rice with tuna flakes, sweet peppers and a few briny olives.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 cup long-grain white rice",
+      "2 cans (5 ounces each) chunk light tuna in water, drained",
+      "1 can (14.5 ounces) diced tomatoes with juices",
+      "1 red bell pepper, diced",
+      "1 small onion, finely diced",
+      "2 garlic cloves, minced",
+      "1/3 cup sliced pitted green olives",
+      "1/2 teaspoon dried oregano",
+      "1 1/4 cups low-sodium vegetable broth",
+      "2 tablespoons olive oil",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet with a lid over medium. Cook onion and pepper for 5 minutes. Add garlic and oregano and stir for 30 seconds.",
+      "Stir in rice, tomatoes with their juices, broth, salt and pepper. Bring to a simmer, cover tightly and turn heat to low. Cook 18 to 20 minutes without stirring.",
+      "Check a few grains: if still firm, add 2 tablespoons water and cook covered 3 minutes more. Gently place tuna and olives over the tender rice, cover and remove from heat for 5 minutes.",
+      "Fold the warmed tuna through the rice with a broad spoon, preserving flakes and separate grains. Divide into generous portions."
+    ],
+    "notes": "This pantry skillet uses tuna as a late addition rather than cooking it through the rice\u2019s entire simmer. Tomato, pepper and olives make a mild savory dinner without a separate sauce. Hands-on estimate: 15 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Mediterranean tuna pasta",
+          "url": "https://www.budgetbytes.com/mediterranean-tuna-pasta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tomatoes and olives complement tuna; original uses tuna steaks."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Cajun sausage and rice skillet",
+          "url": "https://www.budgetbytes.com/cajun-sausage-and-rice-skillet/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Brown sausage before cooking rice in measured liquid."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep the lid tight during rice cooking; add canned tuna afterward."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Tomatoes and olives complement tuna; original uses tuna steaks. Measure liquid and rest rice covered. Brown sausage before cooking rice in measured liquid."
+      ],
+      "repeatedFailureRisks": [
+        "Stirring simmering rice makes it gummy; adding too many olives makes the dish salty."
+      ],
+      "adaptationDecision": "This pantry skillet uses tuna as a late addition rather than cooking it through the rice\u2019s entire simmer. Tomato, pepper and olives make a mild savory dinner without a separate sauce."
+    }
+  },
+  {
+    "rosterId": "DI434",
+    "title": "Cod coconut pea curry with rice",
+    "description": "Mild coconut sauce surrounds flaky cod and sweet peas, with rice to catch every spoonful.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 cup long-grain white rice",
+      "1 1/2 cups water",
+      "1 1/4 pounds skinless cod, pin bones removed, cut into 1 1/2-inch pieces",
+      "1 can (13.5 ounces) unsweetened coconut milk",
+      "2 cups frozen peas",
+      "1 small onion, finely diced",
+      "1 tablespoon grated fresh ginger",
+      "2 teaspoons mild curry powder",
+      "1 lime, juiced",
+      "1 tablespoon neutral oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Combine rice and the measured water in a small saucepan. Bring to a boil, cover and simmer on low for 15 minutes, then rest covered 10 minutes. Prepare the curry while rice cooks.",
+      "Heat oil in a deep 12-inch skillet over medium. Soften onion for 5 minutes, then add ginger and mild curry powder for 30 seconds.",
+      "Add coconut milk, salt and pepper and simmer gently 5 minutes. Stir in peas and cod; cover and simmer 6 to 8 minutes until the thickest fish reaches 145\u00b0F.",
+      "Remove the curry from heat and add half the lime juice, then more to taste. Fluff rice and divide among serving plates with the curry."
+    ],
+    "notes": "This deliberately mild home curry uses a supermarket spice blend rather than claiming a particular regional identity. The rice cooks alongside the sauce, and fish is added at the end. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Turmeric ginger and coconut fish curry",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/turmeric-ginger-coconut-fish-curry",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Simmer sauce first; fish and peas go in late."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Coconut fish curry",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/coconut-fish-curry",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Build coconut sauce before adding fish."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Simmer fish gently only after the coconut base is ready."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Simmer sauce first; fish and peas go in late. Build coconut sauce before adding fish. Measure liquid and rest rice covered."
+      ],
+      "repeatedFailureRisks": [
+        "A rolling boil breaks fish apart and reduces the sauce too far."
+      ],
+      "adaptationDecision": "This deliberately mild home curry uses a supermarket spice blend rather than claiming a particular regional identity. The rice cooks alongside the sauce, and fish is added at the end."
+    }
+  },
+  {
+    "rosterId": "DI435",
+    "title": "Shrimp corn zucchini quesadillas",
+    "description": "Toasted cheese tortillas filled with juicy shrimp, sweetcorn and tender zucchini, with cool tomato salsa.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces large raw shrimp, peeled, deveined, thawed and chopped into 1/2-inch pieces",
+      "1 small zucchini (6 ounces), diced small",
+      "1/2 cup frozen corn",
+      "4 medium (8-inch) flour tortillas",
+      "1 cup shredded Monterey Jack",
+      "1 teaspoon ground cumin",
+      "1 lime, juiced",
+      "1 cup mild tomato salsa",
+      "1 tablespoon neutral oil",
+      "1/2 teaspoon fine salt"
+    ],
+    "instructions": [
+      "Heat the oven to 425\u00b0F with a rimmed sheet pan inside. Heat oil in a 12-inch skillet over medium-high. Add zucchini, corn and salt; cook 5 to 6 minutes until the liquid evaporates.",
+      "Add shrimp and cumin, stirring for 3 to 4 minutes until shrimp is pearly and opaque. Remove from heat, add half the lime juice and let excess steam escape for 2 minutes.",
+      "Spread shrimp mixture over one half of each tortilla, add cheese and fold. Carefully lay the folded quesadillas on the hot sheet pan in one layer.",
+      "Bake 8 to 10 minutes, turning halfway, until tortillas crisp and cheese melts. Cut each into wedges and serve with salsa, adding remaining lime juice to the salsa to taste."
+    ],
+    "notes": "Baking the folded tortillas together avoids four separate frying rounds. Cooking water out of zucchini and corn first gives crisp quesadillas rather than a soggy filling. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Hearty black bean quesadillas",
+          "url": "https://www.budgetbytes.com/hearty-black-bean-quesadillas/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cheese binds filling; moderate heat crisps tortillas."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Charred corn and zucchini salad",
+          "url": "https://www.budgetbytes.com/charred-corn-and-zucchini-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetable moisture off before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Quick garlic butter shrimp",
+          "url": "https://www.budgetbytes.com/quick-garlic-butter-shrimp/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry shrimp; brief cooking protects texture."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Dry the vegetable filling before adding shrimp and cheese."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Cheese binds filling; moderate heat crisps tortillas. Cook vegetable moisture off before dressing. Dry shrimp; brief cooking protects texture."
+      ],
+      "repeatedFailureRisks": [
+        "Wet filling steams tortillas; overfilling spills onto the pan."
+      ],
+      "adaptationDecision": "Baking the folded tortillas together avoids four separate frying rounds. Cooking water out of zucchini and corn first gives crisp quesadillas rather than a soggy filling."
+    }
+  },
+  {
+    "rosterId": "DI436",
+    "title": "Orange ginger salmon with carrots and couscous",
+    "description": "Roasted salmon with an orange-ginger glaze, sweet carrot coins and fluffy couscous.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "4 skinless salmon fillets (4 ounces each), pin bones removed",
+      "1 pound carrots, peeled and sliced into 1/4-inch coins",
+      "1 orange, zested and juiced",
+      "1 tablespoon reduced-sodium soy sauce",
+      "1 tablespoon honey",
+      "1 teaspoon grated ginger",
+      "1 cup instant couscous",
+      "1 cup boiling water",
+      "2 scallions, thinly sliced",
+      "2 tablespoons olive oil",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oven to 425\u00b0F. Toss carrots with half the oil, salt and pepper on a large rimmed sheet pan. Spread in one layer and roast 15 minutes.",
+      "Mix orange juice and zest with soy sauce, honey and ginger in a small bowl. Push carrots to the sides, add salmon and brush it with remaining oil. Spoon half the orange mixture over the fish. Roast 10 to 12 minutes until carrots are tender and salmon reaches 145\u00b0F.",
+      "While salmon roasts, combine couscous with the measured boiling water in a heatproof bowl. Cover 10 minutes, or follow the package liquid ratio, then fluff with scallions and the remaining orange mixture, kept separate from raw fish.",
+      "Serve one salmon fillet per person with carrots and couscous. Spoon the cooked pan juices over the fish."
+    ],
+    "notes": "Thin carrot coins roast before the fish, while couscous hydrates without a second pan. Orange, ginger and soy replace the catalog\u2019s mustard-potato salmon profile. Hands-on estimate: 18 minutes. For eight servings, use two large sheet pans and keep fish pieces and carrot thickness unchanged; do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food Middle East",
+          "title": "Harissa salmon with zesty couscous",
+          "url": "https://www.bbcgoodfoodme.com/recipes/harissa-salmon-zesty-couscous/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Orange seasons baked salmon; couscous hydrates alongside."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "One pan salmon dinner",
+          "url": "https://www.budgetbytes.com/one-pan-salmon-dinner/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Start potatoes before adding faster-cooking fish."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Couscous",
+          "url": "https://www.recipetineats.com/couscous/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Hydrate covered and fluff; check brand liquid ratio."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Start thin carrots first and keep reserved dressing away from raw salmon."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Orange seasons baked salmon; couscous hydrates alongside. Start potatoes before adding faster-cooking fish. Hydrate covered and fluff; check brand liquid ratio."
+      ],
+      "repeatedFailureRisks": [
+        "Thick carrots remain firm after salmon cooks; sugary glaze needs only the final roasting stage."
+      ],
+      "adaptationDecision": "Thin carrot coins roast before the fish, while couscous hydrates without a second pan. Orange, ginger and soy replace the catalog\u2019s mustard-potato salmon profile."
+    }
+  },
+  {
+    "rosterId": "DI437",
+    "title": "Tuna pepper cheddar potato halves",
+    "description": "Fluffy potatoes filled with tuna and sweet roasted peppers under melted cheddar, with crisp cucumber alongside.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "4 russet potatoes (8 ounces each), scrubbed",
+      "2 cans (5 ounces each) chunk light tuna in water, drained",
+      "1 cup jarred roasted red peppers, drained and chopped",
+      "3/4 cup plain Greek yogurt",
+      "1 cup shredded cheddar",
+      "2 scallions, sliced",
+      "1 cucumber, cut into spears",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Pierce potatoes several times. Put on a microwave-safe plate with gaps between them; microwave on high 14 to 18 minutes, turning halfway, until a knife slides through. Add 1-minute bursts if needed. Heat the broiler while they cook.",
+      "Mix tuna, roasted peppers, yogurt, scallions, salt and pepper. Cut potatoes lengthwise; let steam escape for 2 minutes. Fluff the centers with a fork, leaving skins intact.",
+      "Transfer potato halves to a rimmed sheet pan and brush skins with oil. Mound tuna mixture over all the halves and top with cheddar.",
+      "Broil 6 inches from the heat for 3 to 5 minutes until cheese bubbles and filling is hot. Watch closely. Serve two halves per person with cucumber spears."
+    ],
+    "notes": "These stuffed potatoes turn pantry tuna into a substantial dinner with vegetables. The soft potato base and roasted-pepper filling distinguish them from a toasted tuna sandwich. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Simply Recipes",
+          "title": "Microwave baked potato",
+          "url": "https://www.simplyrecipes.com/microwave-baked-potato-recipe-6931347",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Pierce potatoes; timing increases with quantity and size."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna melt",
+          "url": "https://www.budgetbytes.com/tuna-melt/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drained tuna supports a cheddar-topped filling."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna and white bean salad",
+          "url": "https://www.budgetbytes.com/tuna-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain canned ingredients before dressing."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Check potato centers for tenderness before filling."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Pierce potatoes; timing increases with quantity and size. Drained tuna supports a cheddar-topped filling. Drain canned ingredients before dressing."
+      ],
+      "repeatedFailureRisks": [
+        "Oversized potatoes or a low-power microwave need longer; broiling cannot fix a hard center."
+      ],
+      "adaptationDecision": "These stuffed potatoes turn pantry tuna into a substantial dinner with vegetables. The soft potato base and roasted-pepper filling distinguish them from a toasted tuna sandwich."
+    }
+  },
+  {
+    "rosterId": "DI438",
+    "title": "Shrimp mushroom fried rice",
+    "description": "Separate rice grains tossed with juicy shrimp, browned mushrooms, peas and scallions.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "2 packages (8.8 ounces each) shelf-stable cooked plain rice",
+      "1 pound large raw shrimp, peeled, deveined and thawed",
+      "8 ounces sliced mushrooms",
+      "1 cup frozen peas",
+      "3 scallions, sliced, whites and greens separated",
+      "2 garlic cloves, minced",
+      "2 tablespoons reduced-sodium soy sauce",
+      "1 tablespoon rice vinegar",
+      "1 teaspoon toasted sesame oil",
+      "2 tablespoons neutral oil",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Break up rice inside the unopened pouches, then open; it need not be microwaved first. Pat shrimp dry and mix soy sauce, vinegar and sesame oil in a cup.",
+      "Heat half the neutral oil in a large wok over medium-high. Cook shrimp 2 to 3 minutes per side until pearly and opaque, then transfer to a clean plate.",
+      "Add remaining oil, mushrooms and scallion whites. Cook 4 minutes until mushrooms lose their moisture. Add garlic, peas and rice; stir-fry for 3 to 4 minutes until rice is steaming hot throughout.",
+      "Add sauce, pepper and shrimp. Toss for 1 minute, then scatter over scallion greens. Serve immediately in four portions."
+    ],
+    "notes": "Purchased cooked rice makes the stated time honest without assuming yesterday\u2019s leftovers. Mushrooms provide savory depth; this mild version differs from pineapple-curry fried rice. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "The Woks of Life",
+          "title": "Vegetable fried rice",
+          "url": "https://thewoksoflife.com/vegetable-fried-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Separate grains and sequence vegetables before final tossing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp fried rice with pineapple and toasted coconut",
+          "url": "https://www.budgetbytes.com/shrimp-fried-rice-pineapple-toasted-coconut/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Prepared sauce and cooked rice shorten stir-frying."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use cooked pouch rice and remove shrimp during the vegetable fry."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Separate grains and sequence vegetables before final tossing. Prepared sauce and cooked rice shorten stir-frying. Measure liquid and rest rice covered."
+      ],
+      "repeatedFailureRisks": [
+        "Freshly boiled wet rice clumps; leaving shrimp in the pan throughout makes it tough."
+      ],
+      "adaptationDecision": "Purchased cooked rice makes the stated time honest without assuming yesterday\u2019s leftovers. Mushrooms provide savory depth; this mild version differs from pineapple-curry fried rice."
+    }
+  },
+  {
+    "rosterId": "DI439",
+    "title": "Cod lemon chickpea skillet",
+    "description": "Flaky cod nestled into lemony chickpeas, zucchini and spinach, with warm pita for scooping.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "4 skinless cod portions (5 ounces each), pin bones removed",
+      "2 cans (15 ounces each) chickpeas, rinsed and drained",
+      "1 medium zucchini, cut into 1/2-inch half-moons",
+      "3 ounces baby spinach",
+      "2 garlic cloves, minced",
+      "1 lemon, zested and juiced",
+      "3/4 cup low-sodium vegetable broth",
+      "1/2 teaspoon ground cumin",
+      "4 small whole-wheat pitas",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Warm oil in a deep 12-inch skillet over medium-high. Cook zucchini for 4 minutes, turning once. Add garlic and cumin and stir for 30 seconds.",
+      "Add chickpeas, broth, lemon zest, salt and pepper. Simmer 4 minutes, then fold in spinach until just wilted.",
+      "Nestle cod into the chickpeas in one layer. Cover, reduce heat and simmer 7 to 10 minutes until the thickest part of each piece reaches 145\u00b0F.",
+      "While fish cooks, warm pitas in a toaster or wrap in a damp towel and microwave for 30 seconds. Add half the lemon juice to the chickpeas and serve with cod and pita. Serve remaining lemon juice at the table to add to taste."
+    ],
+    "notes": "Chickpeas carry a lemon-and-cumin pan broth rather than a tomato sauce. Canned pulses and quickly cooked zucchini make the whole meal practical in a single skillet. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Bon Appetit",
+          "title": "Lemon-chile white fish with chickpeas",
+          "url": "https://www.bonappetit.com/recipe/lemon-chile-white-fish-with-chickpeas",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Fish and chickpeas need different cooking times."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp and white bean stew",
+          "url": "https://www.budgetbytes.com/shrimp-and-white-bean-stew/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Canned beans shorten cooking; avoid prolonged shrimp simmering."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Summer fish stew with rouille",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/summer-fish-stew-rouille",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Develop vegetable broth before gently adding fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep the cod in a single layer above a shallow simmer."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Fish and chickpeas need different cooking times. Canned beans shorten cooking; avoid prolonged shrimp simmering. Develop vegetable broth before gently adding fish."
+      ],
+      "repeatedFailureRisks": [
+        "Repeated stirring shreds fish; unmeasured extra liquid makes the chickpeas soupy."
+      ],
+      "adaptationDecision": "Chickpeas carry a lemon-and-cumin pan broth rather than a tomato sauce. Canned pulses and quickly cooked zucchini make the whole meal practical in a single skillet."
+    }
+  },
+  {
+    "rosterId": "DI440",
+    "title": "Salmon tomato basil polenta",
+    "description": "Soft Parmesan polenta topped with salmon flakes and a juicy cherry-tomato basil sauce.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound skinless salmon, pin bones removed, cut into 4-ounce portions",
+      "1 cup quick-cooking polenta",
+      "3 cups water",
+      "1 cup whole milk",
+      "1 pint cherry tomatoes, halved",
+      "2 garlic cloves, minced",
+      "1/4 cup torn basil",
+      "1/3 cup grated Parmesan",
+      "2 tablespoons olive oil",
+      "3/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Bring the measured water and milk to a gentle simmer in a medium saucepan with half the salt. Whisk in quick-cooking polenta and cook on low according to the package, generally 5 to 8 minutes, stirring often. Cover off heat.",
+      "Meanwhile heat oil in a 12-inch skillet over medium. Add tomatoes, garlic, remaining salt and pepper; cook 5 minutes until tomatoes soften. Add 1/4 cup water if the pan becomes dry.",
+      "Nestle salmon into the tomatoes, cover and simmer gently for 7 to 10 minutes until the thickest piece reaches 145\u00b0F. Separate into large flakes with a fork and fold in basil.",
+      "Stir Parmesan into the polenta. Add hot water a tablespoon at a time if it has thickened while standing. Spoon onto four plates and top with salmon and tomato juices."
+    ],
+    "notes": "Creamy quick-cooking cornmeal provides a different dinner format from the catalog\u2019s salmon parcels. The fish poaches in fresh tomato juices, and basil is added only at the finish. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Perfect creamy polenta",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/creamy-polenta",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Quick-cook polenta needs only a short simmer."
+        },
+        {
+          "publisher": "Ainsley Harriott via Sightline",
+          "title": "Salmon with tomato sauce",
+          "url": "https://www.sightline.org.uk/wp-content/uploads/2022/09/NEHW-Salmon-recipe-card.pdf",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Sear salmon separately from tomato-basil sauce."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Summer fish stew with rouille",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/summer-fish-stew-rouille",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Develop vegetable broth before gently adding fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use quick-cooking polenta and keep salmon at a gentle simmer."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Quick-cook polenta needs only a short simmer. Sear salmon separately from tomato-basil sauce. Develop vegetable broth before gently adding fish."
+      ],
+      "repeatedFailureRisks": [
+        "Ordinary coarse cornmeal will not soften within the stated time."
+      ],
+      "adaptationDecision": "Creamy quick-cooking cornmeal provides a different dinner format from the catalog\u2019s salmon parcels. The fish poaches in fresh tomato juices, and basil is added only at the finish."
+    }
+  },
+  {
+    "rosterId": "DI441",
+    "title": "Shrimp pesto cannellini skillet",
+    "description": "Tender shrimp and creamy white beans coated in basil pesto with blistered tomatoes and crusty bread.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound large raw shrimp, peeled, deveined and thawed",
+      "2 cans (15 ounces each) cannellini beans, rinsed and drained",
+      "1 pint cherry tomatoes",
+      "3 ounces baby spinach",
+      "1/4 cup prepared basil pesto",
+      "1/2 cup low-sodium vegetable broth",
+      "1 lemon, juiced",
+      "4 thick slices whole-grain bread",
+      "1 tablespoon olive oil",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet over medium-high. Add tomatoes and salt and cook for 4 minutes, rolling them occasionally until several split.",
+      "Add beans and broth. Simmer 3 minutes, then stir in shrimp. Cover and cook gently 4 to 6 minutes, turning once, until shrimp is pearly and opaque throughout.",
+      "Fold in spinach for 1 minute until wilted. Take the pan off the heat and stir in pesto, pepper and half the lemon juice.",
+      "Toast the bread while the shrimp cooks. Divide beans and shrimp among shallow dishes with a slice of toast; add more lemon juice to taste."
+    ],
+    "notes": "A small jar of pesto supplies the basil-garlic flavor while beans make the shrimp go further. This is a thick spoonable skillet, with bread included rather than an unstated side. Hands-on estimate: 15 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp and white bean stew",
+          "url": "https://www.budgetbytes.com/shrimp-and-white-bean-stew/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Canned beans shorten cooking; avoid prolonged shrimp simmering."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Creamy pesto pasta with chicken and broccoli",
+          "url": "https://www.budgetbytes.com/creamy-pesto-pasta-chicken-broccoli/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Pesto provides a concentrated basil finish."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Quick garlic butter shrimp",
+          "url": "https://www.budgetbytes.com/quick-garlic-butter-shrimp/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry shrimp; brief cooking protects texture."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Add pesto off heat once the seafood has cooked."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Canned beans shorten cooking; avoid prolonged shrimp simmering. Pesto provides a concentrated basil finish. Dry shrimp; brief cooking protects texture."
+      ],
+      "repeatedFailureRisks": [
+        "Reducing pesto over high heat dulls its fresh flavor; too much broth turns the skillet to soup."
+      ],
+      "adaptationDecision": "A small jar of pesto supplies the basil-garlic flavor while beans make the shrimp go further. This is a thick spoonable skillet, with bread included rather than an unstated side."
+    }
+  },
+  {
+    "rosterId": "DI442",
+    "title": "Tuna pea potato fishcakes with slaw",
+    "description": "Crisp-edged tuna and pea potato cakes with a cool, tangy cabbage slaw.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 45,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound Yukon gold potatoes, peeled and diced 1/2 inch",
+      "2 cans (5 ounces each) chunk light tuna in water, drained very well",
+      "1 cup frozen peas",
+      "1 large egg",
+      "1/2 cup plain breadcrumbs",
+      "1 teaspoon Dijon mustard",
+      "1 bag (12 ounces) shredded cabbage-carrot slaw",
+      "1/2 cup plain Greek yogurt",
+      "1 lemon, juiced",
+      "2 tablespoons neutral oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oven to 425\u00b0F. Place potatoes in a medium saucepan with water to cover. Bring to a boil and cook 10 to 12 minutes until tender; add peas for the last 2 minutes. Drain thoroughly, mash roughly and spread in a bowl to release steam for 5 minutes.",
+      "Meanwhile toss slaw with yogurt, half the lemon juice and half the salt. Mix tuna, egg, mustard, pepper, remaining salt and half the breadcrumbs into the warm, not piping-hot, potato mixture.",
+      "Shape compact 3-inch cakes about 1/2 inch thick, two per serving, and press remaining crumbs onto both sides. Brush a rimmed sheet pan with half the oil; arrange cakes with gaps and brush tops with remaining oil. Bake 18 to 20 minutes, turning gently after 12 minutes, until golden and centers reach 160\u00b0F.",
+      "Serve two cakes per person with slaw. Squeeze remaining lemon juice over the cakes to taste. Use a wide spatula when turning the cakes so they stay intact."
+    ],
+    "notes": "These are potato-led fishcakes, unlike breadcrumb-bound salmon patties. Small potato cubes and a short steam-drying pause allow a practical same-evening supper without chilled leftover mash. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna patties",
+          "url": "https://www.budgetbytes.com/tuna-patties/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain fish and bind before shaping."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Salmon patties",
+          "url": "https://www.budgetbytes.com/salmon-patties/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small patties need gentle turning and controlled heat."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Ultimate fish cakes",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/ultimate-fish-cakes",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry cooked potatoes before shaping fishcakes."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Drain potatoes well and let steam escape before binding with egg."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Drain fish and bind before shaping. Small patties need gentle turning and controlled heat. Dry cooked potatoes before shaping fishcakes."
+      ],
+      "repeatedFailureRisks": [
+        "Wet mash makes fragile cakes; adding egg to piping-hot mash cooks it prematurely."
+      ],
+      "adaptationDecision": "These are potato-led fishcakes, unlike breadcrumb-bound salmon patties. Small potato cubes and a short steam-drying pause allow a practical same-evening supper without chilled leftover mash."
+    }
+  },
+  {
+    "rosterId": "DI443",
+    "title": "Fish taco rice skillet with corn",
+    "description": "Mild cumin rice with flaky fish, sweetcorn, black beans and a fresh avocado-lime finish.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound skinless cod, pin bones removed, cut into 1 1/2-inch pieces",
+      "1 cup long-grain white rice",
+      "1 can (15 ounces) black beans, rinsed and drained",
+      "1 cup frozen corn",
+      "1 cup mild tomato salsa",
+      "1 1/2 cups low-sodium vegetable broth",
+      "1 teaspoon ground cumin",
+      "1 avocado, diced",
+      "1 lime, juiced",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet with a lid over medium. Stir in rice and cumin for 1 minute, then add salsa, broth, beans, corn and half the salt.",
+      "Bring to a simmer, cover and cook on low for 17 minutes. Check rice; it should be almost tender with a little moisture remaining. Add 2 tablespoons water if the pan looks dry.",
+      "Season cod with remaining salt and nestle on top of the rice. Cover and cook 7 to 9 minutes until fish reaches 145\u00b0F and rice is tender. Let stand off heat for 3 minutes.",
+      "Flake fish gently into large pieces. Top each portion with avocado and half the lime juice, adding remaining juice to taste."
+    ],
+    "notes": "This rice-and-bean skillet offers taco flavors without tortillas, batter or separate toppings to prepare. Fish cooks on the nearly finished rice so its timing is independent of the grain. Hands-on estimate: 15 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Fish tacos with slaw",
+          "url": "https://www.budgetbytes.com/fish-tacos-with-slaw/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Citrus cabbage provides contrast to mild fish."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Cajun sausage and rice skillet",
+          "url": "https://www.budgetbytes.com/cajun-sausage-and-rice-skillet/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Brown sausage before cooking rice in measured liquid."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Add the fish only when the rice is nearly cooked."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Citrus cabbage provides contrast to mild fish. Measure liquid and rest rice covered. Brown sausage before cooking rice in measured liquid."
+      ],
+      "repeatedFailureRisks": [
+        "Adding raw fish at the start dries it out; a loose lid leaves rice hard."
+      ],
+      "adaptationDecision": "This rice-and-bean skillet offers taco flavors without tortillas, batter or separate toppings to prepare. Fish cooks on the nearly finished rice so its timing is independent of the grain."
+    }
+  },
+  {
+    "rosterId": "DI444",
+    "title": "Salmon edamame soba salad",
+    "description": "Sesame-dressed soba with warm salmon flakes, crunchy cucumber and green edamame.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "4 skinless salmon fillets (4 ounces each), pin bones removed",
+      "8 ounces dried soba noodles",
+      "1 1/2 cups frozen shelled edamame",
+      "1 cucumber, cut into thin matchsticks",
+      "2 scallions, sliced",
+      "2 tablespoons reduced-sodium soy sauce",
+      "2 tablespoons rice vinegar",
+      "1 tablespoon toasted sesame oil",
+      "1 tablespoon honey",
+      "1 teaspoon grated ginger",
+      "1 tablespoon neutral oil",
+      "1/4 teaspoon fine salt"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil. Cook soba according to its package, adding edamame for the final 4 minutes or its required package time. Drain, rinse with cold water and drain thoroughly.",
+      "Meanwhile pat salmon dry and season with salt. Heat neutral oil in a 12-inch nonstick skillet over medium. Cook salmon 4 to 5 minutes per side until its thickest part reaches 145\u00b0F; remove from heat.",
+      "Whisk soy sauce, vinegar, sesame oil, honey and ginger in a large serving bowl. Add drained noodles, edamame, cucumber and scallions and toss gently.",
+      "Divide noodles among serving plates. Break salmon into large flakes over each serving, drizzling any remaining dressing from the bowl over the fish."
+    ],
+    "notes": "This is a Japanese-inspired noodle salad, not a traditional named dish. Soba is rinsed for a clean texture, while salmon is served freshly cooked instead of requiring a long chilling stage. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Just One Cookbook",
+          "title": "Soba noodle salad",
+          "url": "https://www.justonecookbook.com/soba-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Rinse cooked soba to remove starch, then drain."
+        },
+        {
+          "publisher": "British Dietetic Association",
+          "title": "Scandinavian salmon and potato salad",
+          "url": "https://www.bda.uk.com/static/e98e39a6-9eca-483c-8a65faec1115c78a/BDA452Scandinavian-Salmon-and-Potato-Salad.pdf",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Firm eggs and potatoes join large salmon flakes."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "One pan salmon dinner",
+          "url": "https://www.budgetbytes.com/one-pan-salmon-dinner/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Start potatoes before adding faster-cooking fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Rinse and drain soba before dressing; cook salmon to 145\u00b0F."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Rinse cooked soba to remove starch, then drain. Firm eggs and potatoes join large salmon flakes. Start potatoes before adding faster-cooking fish."
+      ],
+      "repeatedFailureRisks": [
+        "Undrained noodles dilute the dressing and become sticky."
+      ],
+      "adaptationDecision": "This is a Japanese-inspired noodle salad, not a traditional named dish. Soba is rinsed for a clean texture, while salmon is served freshly cooked instead of requiring a long chilling stage."
+    }
+  },
+  {
+    "rosterId": "DI445",
+    "title": "Shrimp tomato feta stuffed zucchini",
+    "description": "Tender zucchini boats packed with shrimp, tomato and crumbled feta, with lemon couscous.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "4 medium zucchini (about 8 ounces each), halved lengthwise",
+      "1 pound large raw shrimp, peeled, deveined, thawed and chopped",
+      "1 cup cherry tomatoes, quartered",
+      "3/4 cup crumbled feta",
+      "2 garlic cloves, minced",
+      "1/2 teaspoon dried oregano",
+      "1 cup instant couscous",
+      "1 cup boiling water",
+      "1 lemon, zested and juiced",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oven to 425\u00b0F. Scoop a shallow channel from each zucchini half with a spoon, leaving a 1/4-inch wall; chop the scooped flesh. Arrange boats in a large rimmed sheet pan, brush with half the oil and sprinkle with half the salt. Roast 12 minutes.",
+      "Meanwhile warm remaining oil in a 12-inch skillet over medium-high. Cook chopped zucchini flesh 4 minutes to drive off water. Add tomatoes, garlic and oregano for 2 minutes, then shrimp and remaining salt and pepper for 3 minutes until just opaque.",
+      "Fill zucchini boats with shrimp mixture, top with feta and roast 6 to 8 minutes until zucchini is fork-tender and filling is hot. Do not pack the filling tightly.",
+      "While boats finish, combine couscous and the measured boiling water in a heatproof bowl; cover 10 minutes, or follow package liquid ratio. Fluff with lemon zest and 1 tablespoon juice. Serve two boats and couscous per person, with more juice to taste."
+    ],
+    "notes": "Zucchini acts as an edible serving vessel, with cooked filling that avoids raw seafood hiding inside a thick mound. The oven and skillet work concurrently, and the couscous hydrates during the final bake. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "REMCooks",
+          "title": "Shrimp stuffed zucchini with tomato and feta",
+          "url": "https://remcooks.com/2012/06/16/shrimp-stuffed-zucchini-with-tomato-and-feta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Pre-roast hollowed zucchini; reduce filling moisture."
+        },
+        {
+          "publisher": "Recipe Girl",
+          "title": "Greek-style shrimp over rice",
+          "url": "https://www.recipegirl.com/greek-style-shrimp-over-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook zucchini and tomatoes before shrimp and feta."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Couscous",
+          "url": "https://www.recipetineats.com/couscous/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Hydrate covered and fluff; check brand liquid ratio."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Pre-roast zucchini and remove filling moisture before stuffing."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Pre-roast hollowed zucchini; reduce filling moisture. Cook zucchini and tomatoes before shrimp and feta. Hydrate covered and fluff; check brand liquid ratio."
+      ],
+      "repeatedFailureRisks": [
+        "Raw zucchini or watery filling gives firm boats and a puddle around the cheese."
+      ],
+      "adaptationDecision": "Zucchini acts as an edible serving vessel, with cooked filling that avoids raw seafood hiding inside a thick mound. The oven and skillet work concurrently, and the couscous hydrates during the final bake."
+    }
+  },
+  {
+    "rosterId": "DI446",
+    "title": "Cod broccoli cheddar potato bake",
+    "description": "Flaky cod and broccoli under a light cheddar sauce with tender potato slices.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 40,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 1/4 pounds skinless cod, pin bones removed, cut into 2-inch chunks",
+      "1 pound Yukon gold potatoes, sliced 1/4 inch thick",
+      "12 ounces broccoli florets, cut into 1-inch pieces",
+      "1 cup whole milk",
+      "1 cup shredded cheddar",
+      "1 tablespoon cornstarch",
+      "1 teaspoon Dijon mustard",
+      "1 tablespoon butter",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oven to 425\u00b0F. Put potato slices in a large saucepan, cover with cold water and bring to a boil. Simmer 7 minutes; add broccoli for 2 minutes more. Drain thoroughly.",
+      "Butter a 9-by-13-inch baking dish and arrange potatoes, broccoli and raw cod evenly. Season with salt and pepper.",
+      "In the emptied saucepan, whisk cold milk with cornstarch and mustard. Heat, stirring, until it bubbles and lightly thickens, about 3 minutes. Remove from heat and melt in three quarters of the cheddar.",
+      "Pour sauce evenly over fish and vegetables; scatter remaining cheddar over the top. Bake 14 to 18 minutes until bubbling and the thickest cod piece reaches 145\u00b0F. Rest 3 minutes before dividing into equal portions."
+    ],
+    "notes": "Thin parboiled potatoes and a small amount of cheddar sauce make a fish bake without the separate mash of fish pie. Broccoli shares the potato pot, keeping cooking vessels to two. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Family meals easy fish pie",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/family-meals-easy-fish-pie-recipe",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Precooked potatoes surround fish and white sauce."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Simple seafood chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/simple-seafood-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tenderize potatoes before gently cooking seafood."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Easy broccoli rice",
+          "url": "https://www.budgetbytes.com/easy-cheesy-broccoli-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small broccoli pieces integrate into cheesy rice."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Parboil thin potatoes and drain vegetables thoroughly before assembly."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Precooked potatoes surround fish and white sauce. Tenderize potatoes before gently cooking seafood. Small broccoli pieces integrate into cheesy rice."
+      ],
+      "repeatedFailureRisks": [
+        "Raw thick potato slices will remain hard after the fish is cooked."
+      ],
+      "adaptationDecision": "Thin parboiled potatoes and a small amount of cheddar sauce make a fish bake without the separate mash of fish pie. Broccoli shares the potato pot, keeping cooking vessels to two."
+    }
+  },
+  {
+    "rosterId": "DI447",
+    "title": "Tuna roasted pepper chickpea salad with pita",
+    "description": "A lemony dinner salad of tuna, chickpeas, roasted peppers and crunchy cucumber with warm pita.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 5,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "2 cans (5 ounces each) chunk light tuna in water, drained",
+      "2 cans (15 ounces each) chickpeas, rinsed and drained",
+      "1 cup jarred roasted red peppers, drained and sliced",
+      "1 cucumber, diced",
+      "2 scallions, sliced",
+      "1/4 cup chopped parsley",
+      "1 lemon, juiced",
+      "1 teaspoon Dijon mustard",
+      "4 small whole-wheat pitas",
+      "2 tablespoons olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Whisk oil, half the lemon juice, mustard, salt and pepper in a large serving bowl.",
+      "Add chickpeas, roasted peppers, cucumber, scallions and parsley. Toss well so the dressing coats the chickpeas.",
+      "Flake tuna into large pieces and fold through the salad gently. Taste and add remaining lemon juice if needed.",
+      "Warm pitas in a toaster or microwave wrapped in a damp towel for 30 seconds. Divide salad into generous servings with a pita each; serve immediately or refrigerate promptly."
+    ],
+    "notes": "A substantial pantry salad with a full serving of chickpeas and pita alongside tuna. Roasted peppers and cucumber replace the boiled vegetables and eggs of a Ni\u00e7oise-style plate. Hands-on estimate: 15 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna and white bean salad",
+          "url": "https://www.budgetbytes.com/tuna-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain canned ingredients before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Lemony white bean salad",
+          "url": "https://www.budgetbytes.com/lemony-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain beans and mix dressing before tossing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Mediterranean tuna salad",
+          "url": "https://www.budgetbytes.com/mediterranean-tuna-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dress vegetables before gently folding tuna flakes."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Drain tuna, beans and peppers before dressing."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Drain canned ingredients before dressing. Drain beans and mix dressing before tossing. Dress vegetables before gently folding tuna flakes."
+      ],
+      "repeatedFailureRisks": [
+        "Canning liquid or wet vegetables dilute the dressing."
+      ],
+      "adaptationDecision": "A substantial pantry salad with a full serving of chickpeas and pita alongside tuna. Roasted peppers and cucumber replace the boiled vegetables and eggs of a Ni\u00e7oise-style plate."
+    }
+  },
+  {
+    "rosterId": "DI448",
+    "title": "Shrimp butter bean corn chowder",
+    "description": "A creamy, spoonable supper of shrimp, butter beans and sweetcorn with whole-grain toast.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound large raw shrimp, peeled, deveined and thawed",
+      "2 cans (15 ounces each) butter beans, rinsed and drained",
+      "2 cups frozen corn",
+      "1 small onion, finely diced",
+      "2 celery stalks, thinly sliced",
+      "2 tablespoons butter",
+      "2 cups low-sodium vegetable broth",
+      "1 cup whole milk",
+      "1/2 teaspoon smoked paprika",
+      "4 thick slices whole-grain bread",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Melt butter in a 5-quart pot over medium. Cook onion and celery 6 minutes until softened. Stir in paprika for 30 seconds.",
+      "Add broth, butter beans, corn, salt and pepper. Bring to a simmer and cook 7 minutes. Mash about 1 cup of beans against the side of the pot to thicken the broth.",
+      "Stir in milk and return to a bare simmer. Add shrimp and cook 4 to 6 minutes until pearly and opaque throughout, stirring gently once.",
+      "Toast the bread while the shrimp cooks. Divide chowder among serving bowls and serve with a slice of toast each. Do not boil hard after adding milk."
+    ],
+    "notes": "Butter beans thicken this chowder without flour or potatoes. The combination makes a filling, quicker alternative to a potato-based seafood soup while keeping shrimp tender. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp and white bean stew",
+          "url": "https://www.budgetbytes.com/shrimp-and-white-bean-stew/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Canned beans shorten cooking; avoid prolonged shrimp simmering."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Simple seafood chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/simple-seafood-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tenderize potatoes before gently cooking seafood."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Bacon and sweetcorn chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/10040/bacon-and-sweetcorn-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Potatoes soften before fish and corn finish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Mash beans before adding shrimp and keep milk below a hard boil."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Canned beans shorten cooking; avoid prolonged shrimp simmering. Tenderize potatoes before gently cooking seafood. Potatoes soften before fish and corn finish."
+      ],
+      "repeatedFailureRisks": [
+        "Extended simmering toughens shrimp; unmashed beans leave the broth thin."
+      ],
+      "adaptationDecision": "Butter beans thicken this chowder without flour or potatoes. The combination makes a filling, quicker alternative to a potato-based seafood soup while keeping shrimp tender."
+    }
+  },
+  {
+    "rosterId": "DI449",
+    "title": "Salmon cabbage ginger noodle soup",
+    "description": "Ginger-scented broth with salmon, tender cabbage and rice noodles, finished with lime.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound skinless salmon, pin bones removed, cut into 1-inch cubes",
+      "8 ounces thin rice noodles",
+      "1 bag (10 ounces) shredded green cabbage",
+      "2 carrots, coarsely grated",
+      "1 tablespoon grated ginger",
+      "2 garlic cloves, minced",
+      "5 cups low-sodium vegetable broth",
+      "2 tablespoons reduced-sodium soy sauce",
+      "1 lime, juiced",
+      "2 scallions, sliced",
+      "1 tablespoon neutral oil"
+    ],
+    "instructions": [
+      "Heat oil in a 5-quart pot over medium. Add ginger and garlic for 30 seconds, then cabbage and carrots for 3 minutes, stirring.",
+      "Pour in broth and soy sauce. Bring to a simmer and cook 5 minutes until cabbage is just tender.",
+      "Add salmon and simmer gently 5 to 7 minutes until the largest cube reaches 145\u00b0F. Meanwhile soak thin rice noodles in a heatproof bowl of hot water according to their package, generally 4 to 6 minutes, then drain.",
+      "Divide noodles among serving bowls. Ladle salmon, vegetables and broth over them. Finish with scallions and half the lime juice divided between bowls, offering the remaining juice to taste."
+    ],
+    "notes": "A ginger-and-cabbage noodle supper with fish added late, not a long-cooked fish stock. Cooking noodles separately keeps their starch out of the broth and avoids swollen leftovers in the pot. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Salmon noodle soup",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/salmon-noodle-soup",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Broth and vegetables cook before salmon."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Chinese noodle soup",
+          "url": "https://www.recipetineats.com/chinese-noodle-soup/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook noodles separately from aromatic broth."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Summer fish stew with rouille",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/summer-fish-stew-rouille",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Develop vegetable broth before gently adding fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use thin soaking rice noodles and poach salmon gently."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Broth and vegetables cook before salmon. Cook noodles separately from aromatic broth. Develop vegetable broth before gently adding fish."
+      ],
+      "repeatedFailureRisks": [
+        "Leaving noodles in the simmering soup absorbs the broth and overcooks the fish."
+      ],
+      "adaptationDecision": "A ginger-and-cabbage noodle supper with fish added late, not a long-cooked fish stock. Cooking noodles separately keeps their starch out of the broth and avoids swollen leftovers in the pot."
+    }
+  },
+  {
+    "rosterId": "DI450",
+    "title": "Fish tomato fennel stew with toast",
+    "description": "A fragrant tomato broth with tender fennel, white beans and flaky fish, served with garlic toast.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 1/4 pounds skinless cod, pin bones removed, cut into 1 1/2-inch pieces",
+      "1 medium fennel bulb, cored and thinly sliced",
+      "1 small onion, thinly sliced",
+      "3 garlic cloves, minced, divided",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "1 can (15 ounces) cannellini beans, rinsed and drained",
+      "2 cups low-sodium vegetable broth",
+      "1/2 teaspoon dried thyme",
+      "4 thick slices whole-grain bread",
+      "2 tablespoons olive oil, divided",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat half the oil in a 5-quart pot over medium. Add fennel and onion and cook 7 minutes, stirring occasionally. Add two thirds of the garlic and thyme for 30 seconds.",
+      "Add tomatoes, beans, broth, salt and pepper. Simmer uncovered 10 minutes until fennel is tender and the broth has a lightly thickened body.",
+      "Nestle cod into the broth. Cover and simmer gently 6 to 8 minutes until its thickest pieces reach 145\u00b0F; move fish gently without breaking it apart.",
+      "While fish cooks, toast bread. Mix remaining garlic with remaining oil and brush lightly over the hot toast. Serve stew in four bowls with the toast alongside."
+    ],
+    "notes": "This modest white-fish and bean stew uses fennel for fragrance without claiming to be bouillabaisse. Canned beans make it a complete dinner and fresh garlic toast provides a crisp contrast. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Summer fish stew with rouille",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/summer-fish-stew-rouille",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Develop vegetable broth before gently adding fish."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp and white bean stew",
+          "url": "https://www.budgetbytes.com/shrimp-and-white-bean-stew/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Canned beans shorten cooking; avoid prolonged shrimp simmering."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Simple seafood chowder",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/simple-seafood-chowder",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tenderize potatoes before gently cooking seafood."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook fennel tender before adding cod."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Develop vegetable broth before gently adding fish. Canned beans shorten cooking; avoid prolonged shrimp simmering. Tenderize potatoes before gently cooking seafood."
+      ],
+      "repeatedFailureRisks": [
+        "Thick fennel slices stay stringy; rough stirring destroys the fish chunks."
+      ],
+      "adaptationDecision": "This modest white-fish and bean stew uses fennel for fragrance without claiming to be bouillabaisse. Canned beans make it a complete dinner and fresh garlic toast provides a crisp contrast."
+    }
+  },
+  {
+    "rosterId": "DI511",
+    "title": "Egg broccoli cheddar rice skillet",
+    "description": "Cheesy broccoli rice with gently set eggs tucked into the top.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 cup long-grain white rice",
+      "2 cups low-sodium vegetable broth",
+      "12 ounces broccoli florets, chopped small",
+      "8 large eggs",
+      "1 cup shredded cheddar",
+      "1/2 cup whole milk",
+      "1 teaspoon Dijon mustard",
+      "1 tablespoon butter",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Melt butter in a deep 12-inch nonstick skillet with a lid over medium. Stir in rice for 1 minute, then add broth and half the salt. Bring to a simmer, cover and cook on low 15 minutes.",
+      "Add broccoli and milk, stir once and cover for 5 minutes. Check that rice and broccoli are tender; if rice is firm, add 2 tablespoons water and cook 3 minutes more.",
+      "Stir in cheddar and mustard. Make two shallow wells per serving and crack an egg into each. Sprinkle remaining salt and pepper over the eggs.",
+      "Cover and cook on low 6 to 9 minutes until whites and yolks are firm. Serve two eggs with an equal share of the broccoli rice per person."
+    ],
+    "notes": "Eggs turn broccoli rice into a complete skillet dinner, with no separately fried topping. The rice is tender before eggs enter so neither component has to wait for the other. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Easy broccoli rice",
+          "url": "https://www.budgetbytes.com/easy-cheesy-broccoli-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small broccoli pieces integrate into cheesy rice."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Smoky white bean shakshuka",
+          "url": "https://www.budgetbytes.com/smoky-white-bean-shakshuka/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cover eggs in wells of a reduced base."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make a frittata",
+          "url": "https://www.budgetbytes.com/how-to-make-a-frittata/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetables first; stop once the egg center sets."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Finish the rice before adding eggs; cook whites and yolks firm."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Small broccoli pieces integrate into cheesy rice. Cover eggs in wells of a reduced base. Cook vegetables first; stop once the egg center sets."
+      ],
+      "repeatedFailureRisks": [
+        "Adding eggs too early leaves either hard rice or rubbery eggs."
+      ],
+      "adaptationDecision": "Eggs turn broccoli rice into a complete skillet dinner, with no separately fried topping. The rice is tender before eggs enter so neither component has to wait for the other."
+    }
+  },
+  {
+    "rosterId": "DI512",
+    "title": "Mushroom spinach egg fried rice",
+    "description": "Savory mushroom rice tossed with tender scrambled egg, spinach and sesame.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 15,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "2 packages (8.8 ounces each) shelf-stable cooked plain rice",
+      "8 large eggs, beaten",
+      "8 ounces sliced mushrooms",
+      "5 ounces baby spinach, chopped",
+      "3 scallions, sliced, whites and greens separated",
+      "2 garlic cloves, minced",
+      "2 tablespoons reduced-sodium soy sauce",
+      "1 tablespoon rice vinegar",
+      "1 teaspoon toasted sesame oil",
+      "2 tablespoons neutral oil",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Break up rice in the unopened pouches, then open. Mix soy sauce, vinegar and sesame oil in a cup. Have all ingredients ready before heating the pan.",
+      "Heat half the neutral oil in a large wok over medium-high. Add eggs and scramble for 2 to 3 minutes until set with no wet streaks. Transfer to a clean bowl.",
+      "Add remaining oil and mushrooms. Cook 4 minutes until moisture evaporates, then add scallion whites, garlic and spinach for 1 minute. Add rice and stir-fry 3 to 4 minutes until steaming hot.",
+      "Return eggs, pour in sauce and add pepper. Toss 1 minute, breaking eggs into bite-size pieces. Finish with scallion greens and divide into equal servings."
+    ],
+    "notes": "Pouch rice removes the hidden overnight prerequisite of many fried-rice recipes. Eight eggs make this a dinner portion, and cooked-down mushrooms keep the rice from becoming wet. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "The Woks of Life",
+          "title": "Vegetable fried rice",
+          "url": "https://thewoksoflife.com/vegetable-fried-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Separate grains and sequence vegetables before final tossing."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Mushroom omelette",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/cheesy-mushroom-omelette",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook mushroom filling before folding it into eggs."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook and remove eggs before frying vegetables and rice."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Separate grains and sequence vegetables before final tossing. Measure liquid and rest rice covered. Cook mushroom filling before folding it into eggs."
+      ],
+      "repeatedFailureRisks": [
+        "Eggs become tiny dry crumbs if left in during the whole stir-fry."
+      ],
+      "adaptationDecision": "Pouch rice removes the hidden overnight prerequisite of many fried-rice recipes. Eight eggs make this a dinner portion, and cooked-down mushrooms keep the rice from becoming wet."
+    }
+  },
+  {
+    "rosterId": "DI513",
+    "title": "Potato pea egg curry with rice",
+    "description": "Halved eggs and tender potatoes in a mild tomato curry with sweet peas and fluffy rice.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "12 ounces Yukon gold potatoes, diced 1/2 inch",
+      "1 cup frozen peas",
+      "2 packages (8.8 ounces each) shelf-stable cooked plain rice",
+      "3/4 cup water, plus water for boiling eggs",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "1 small onion, finely diced",
+      "2 teaspoons mild curry powder",
+      "1/2 cup plain Greek yogurt",
+      "1 tablespoon neutral oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Put eggs in a medium saucepan, cover with cold water and bring to a boil. Cover, remove from heat and stand 12 minutes. Transfer eggs to cold water, then peel and halve; yolks should be firm.",
+      "Meanwhile heat oil in a deep 12-inch skillet over medium. Cook onion 4 minutes, then stir in curry powder for 30 seconds. Add potatoes and the measured water, cover and simmer 10 to 12 minutes until the small cubes are almost tender; add a splash of water if needed to prevent sticking.",
+      "Add tomatoes, peas, salt and pepper. Simmer uncovered 5 minutes until potatoes are completely tender. Turn off heat and stir in yogurt.",
+      "Lay eggs in the sauce and cover off heat for 2 minutes. Heat the rice pouches in the microwave according to their package and serve alongside. If any egg yolks were not firm when halved, simmer those halves in the sauce until fully set before adding yogurt."
+    ],
+    "notes": "This is a mild supermarket-spice curry, not a claim to a regional Indian recipe. Eggs cook in a saucepan while small potato cubes soften in the skillet; purchased cooked rice heats at the finish. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Egg curry",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/egg-curry",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook eggs separately and add to finished vegetable sauce."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Turmeric ginger and coconut fish curry",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/turmeric-ginger-coconut-fish-curry",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Simmer sauce first; fish and peas go in late."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make hard-boiled eggs",
+          "url": "https://www.budgetbytes.com/how-to-make-hard-boiled-eggs/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Covered off-heat standing produces firm eggs."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Start eggs first, and temper yogurt off heat."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Cook eggs separately and add to finished vegetable sauce. Simmer sauce first; fish and peas go in late. Covered off-heat standing produces firm eggs."
+      ],
+      "repeatedFailureRisks": [
+        "Boiling yogurt splits it; large potato chunks prolong cooking."
+      ],
+      "adaptationDecision": "This is a mild supermarket-spice curry, not a claim to a regional Indian recipe. Eggs cook in a saucepan while small potato cubes soften in the skillet; purchased cooked rice heats at the finish."
+    }
+  },
+  {
+    "rosterId": "DI514",
+    "title": "Egg black bean tostadas with corn slaw",
+    "description": "Crisp tostadas layered with creamy black beans, fluffy egg and a bright corn-cabbage slaw.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "1 can (15 ounces) black beans, rinsed and drained",
+      "8 ready-baked corn tostada shells",
+      "1 cup canned corn, drained",
+      "2 cups shredded cabbage",
+      "1/2 cup mild tomato salsa",
+      "1 avocado, diced",
+      "1 lime, juiced",
+      "1/2 teaspoon ground cumin",
+      "1 tablespoon neutral oil",
+      "1/2 teaspoon fine salt",
+      "1/4 cup water"
+    ],
+    "instructions": [
+      "Toss cabbage, corn, avocado, half the lime juice and half the salt in a serving bowl. Set aside while cooking the beans.",
+      "In a 12-inch nonstick skillet, combine black beans, salsa, cumin and the measured water. Simmer over medium for 5 minutes and mash roughly. Transfer to a bowl and cover.",
+      "Wipe the skillet clean. Beat eggs with remaining salt. Heat oil over medium-low, pour in eggs and gently fold for 4 to 5 minutes until fully set with no liquid remaining.",
+      "Spread beans over tostada shells and divide eggs between them. Top with corn slaw and remaining lime juice to taste. Serve two tostadas per person immediately to preserve the crunch."
+    ],
+    "notes": "Ready-baked tostadas replace a frying stage. Separate bean and egg layers with uncooked slaw make a crisp dinner distinct from tomato-braised eggs and soft breakfast tacos. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tostadas",
+          "url": "https://www.budgetbytes.com/tostadas/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Mash beans; crisp shells support moist toppings."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Fish tacos with slaw",
+          "url": "https://www.budgetbytes.com/fish-tacos-with-slaw/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Citrus cabbage provides contrast to mild fish."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Mushroom omelette",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/cheesy-mushroom-omelette",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook mushroom filling before folding it into eggs."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep the slaw separate until serving and scramble eggs gently."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Mash beans; crisp shells support moist toppings. Citrus cabbage provides contrast to mild fish. Cook mushroom filling before folding it into eggs."
+      ],
+      "repeatedFailureRisks": [
+        "Assembling too early softens the tostadas."
+      ],
+      "adaptationDecision": "Ready-baked tostadas replace a frying stage. Separate bean and egg layers with uncooked slaw make a crisp dinner distinct from tomato-braised eggs and soft breakfast tacos."
+    }
+  },
+  {
+    "rosterId": "DI515",
+    "title": "Zucchini corn frittata with white bean salad",
+    "description": "A golden zucchini-and-corn frittata served with lemony white beans and tomatoes.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "1/3 cup whole milk",
+      "1 medium zucchini, diced small",
+      "1 cup frozen corn",
+      "1/2 cup shredded cheddar",
+      "2 cans (15 ounces each) cannellini beans, rinsed and drained",
+      "1 pint cherry tomatoes, halved",
+      "1 lemon, juiced",
+      "1/4 cup chopped parsley",
+      "2 tablespoons olive oil, divided",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oven to 375\u00b0F. Whisk eggs, milk, half the salt and pepper in a bowl. Heat half the oil in a 10-inch oven-safe skillet over medium; cook zucchini and corn for 6 minutes until excess moisture evaporates.",
+      "Spread vegetables evenly, pour in eggs and scatter cheddar on top. Cook on the stove 2 minutes until edges begin to set.",
+      "Transfer to the oven and bake 14 to 18 minutes until the center reaches 160\u00b0F and is set. Rest 3 minutes before cutting into one wedge per serving.",
+      "While it bakes, toss beans, tomatoes and parsley with remaining oil and salt and half the lemon juice. Serve an equal share of the salad beside each wedge, adding more lemon to taste."
+    ],
+    "notes": "The corn-zucchini filling and substantial bean salad make a full dinner without bread. Cooking vegetable moisture out before adding eggs is the key difference between a tender wedge and a watery frittata. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make a frittata",
+          "url": "https://www.budgetbytes.com/how-to-make-a-frittata/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetables first; stop once the egg center sets."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Charred corn and zucchini salad",
+          "url": "https://www.budgetbytes.com/charred-corn-and-zucchini-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetable moisture off before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Lemony white bean salad",
+          "url": "https://www.budgetbytes.com/lemony-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain beans and mix dressing before tossing."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use a 10-inch oven-safe skillet and check the egg center at 160\u00b0F."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Cook vegetables first; stop once the egg center sets. Cook vegetable moisture off before dressing. Drain beans and mix dressing before tossing."
+      ],
+      "repeatedFailureRisks": [
+        "A larger pan overcooks thin eggs; wet vegetables leak into the custard."
+      ],
+      "adaptationDecision": "The corn-zucchini filling and substantial bean salad make a full dinner without bread. Cooking vegetable moisture out before adding eggs is the key difference between a tender wedge and a watery frittata."
+    }
+  },
+  {
+    "rosterId": "DI516",
+    "title": "Egg edamame sesame noodle salad",
+    "description": "Sesame noodles with green edamame, crunchy carrot and cucumber, topped with firm-yolk eggs.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "8 ounces dried soba noodles",
+      "1 1/2 cups frozen shelled edamame",
+      "1 cucumber, cut into matchsticks",
+      "2 carrots, coarsely grated",
+      "2 tablespoons reduced-sodium soy sauce",
+      "2 tablespoons rice vinegar",
+      "1 tablespoon toasted sesame oil",
+      "1 tablespoon honey",
+      "1 tablespoon sesame seeds",
+      "2 scallions, sliced"
+    ],
+    "instructions": [
+      "Put eggs in a medium saucepan, cover with cold water and bring to a boil. Cover, remove from heat and stand 12 minutes. Cool under cold water, then peel and quarter; yolks should be firm.",
+      "Meanwhile bring a large pot of water to a boil. Cook soba according to its package, adding edamame for the final 4 minutes or the time on its package. Drain, rinse under cold water and drain again.",
+      "Whisk soy sauce, vinegar, sesame oil and honey in a large serving bowl. Toss with noodles, edamame, cucumber, carrots and scallions.",
+      "Divide among serving plates, top each with two quartered eggs and scatter sesame seeds over the top. Serve immediately or refrigerate promptly."
+    ],
+    "notes": "A cool noodle salad uses eggs and edamame as complementary proteins. Both components cook from scratch within the stated time, so no chilled eggs or leftover noodles are assumed. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Just One Cookbook",
+          "title": "Soba noodle salad",
+          "url": "https://www.justonecookbook.com/soba-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Rinse cooked soba to remove starch, then drain."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make hard-boiled eggs",
+          "url": "https://www.budgetbytes.com/how-to-make-hard-boiled-eggs/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Covered off-heat standing produces firm eggs."
+        },
+        {
+          "publisher": "British Dietetic Association",
+          "title": "Scandinavian salmon and potato salad",
+          "url": "https://www.bda.uk.com/static/e98e39a6-9eca-483c-8a65faec1115c78a/BDA452Scandinavian-Salmon-and-Potato-Salad.pdf",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Firm eggs and potatoes join large salmon flakes."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Rinse soba well and cool eggs before peeling."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Rinse cooked soba to remove starch, then drain. Covered off-heat standing produces firm eggs. Firm eggs and potatoes join large salmon flakes."
+      ],
+      "repeatedFailureRisks": [
+        "Warm wet noodles dilute dressing; undercooked eggs do not meet the stated firm-yolk finish."
+      ],
+      "adaptationDecision": "A cool noodle salad uses eggs and edamame as complementary proteins. Both components cook from scratch within the stated time, so no chilled eggs or leftover noodles are assumed."
+    }
+  },
+  {
+    "rosterId": "DI517",
+    "title": "Spinach potato egg skillet with feta",
+    "description": "Tender potato cubes and spinach topped with eggs and salty feta, with juicy tomatoes alongside.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "1 1/2 pounds Yukon gold potatoes, diced 1/2 inch",
+      "5 ounces baby spinach",
+      "1/2 cup crumbled feta",
+      "2 garlic cloves, minced",
+      "1 teaspoon dried oregano",
+      "1 pint cherry tomatoes, halved",
+      "1 tablespoon red wine vinegar",
+      "2 tablespoons olive oil, divided",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "1/2 cup water"
+    ],
+    "instructions": [
+      "Put potatoes, the measured water and half the salt in a deep 12-inch nonstick skillet. Cover and steam over medium for 10 to 12 minutes until just tender. Uncover and let remaining water evaporate.",
+      "Add half the oil and cook potatoes 4 minutes, turning occasionally. Add garlic, oregano and spinach and stir 2 minutes until wilted.",
+      "Make two wells per serving, crack an egg into each and sprinkle with feta and pepper. Cover and cook over low heat 6 to 9 minutes until whites and yolks are firm.",
+      "While eggs cook, toss tomatoes with remaining oil, vinegar and salt. Divide potatoes and eggs into equal portions with the tomatoes alongside."
+    ],
+    "notes": "Potatoes are steam-cooked before browning in the same pan, avoiding a separate boiling pot. Feta and oregano give a savory finish while the fresh tomatoes stay crisp and juicy. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Skillet breakfast potatoes",
+          "url": "https://www.budgetbytes.com/skillet-breakfast-potatoes/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Parboil potatoes before browning undisturbed."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make a frittata",
+          "url": "https://www.budgetbytes.com/how-to-make-a-frittata/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetables first; stop once the egg center sets."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Smoky white bean shakshuka",
+          "url": "https://www.budgetbytes.com/smoky-white-bean-shakshuka/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cover eggs in wells of a reduced base."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Steam small potato cubes until tender before cracking in the eggs."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Parboil potatoes before browning undisturbed. Cook vegetables first; stop once the egg center sets. Cover eggs in wells of a reduced base."
+      ],
+      "repeatedFailureRisks": [
+        "Hard potatoes cannot finish during the short egg cook."
+      ],
+      "adaptationDecision": "Potatoes are steam-cooked before browning in the same pan, avoiding a separate boiling pot. Feta and oregano give a savory finish while the fresh tomatoes stay crisp and juicy."
+    }
+  },
+  {
+    "rosterId": "DI518",
+    "title": "Mushroom cheese omelets with bean salad",
+    "description": "Soft folded mushroom-cheddar omelets with a bright tomato and white bean salad.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "8 ounces sliced mushrooms",
+      "3/4 cup shredded cheddar",
+      "2 cans (15 ounces each) cannellini beans, rinsed and drained",
+      "1 pint cherry tomatoes, halved",
+      "2 scallions, sliced",
+      "1 lemon, juiced",
+      "2 tablespoons chopped parsley",
+      "2 tablespoons olive oil, divided",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Toss beans, tomatoes, scallions and parsley with half the oil, half the lemon juice and half the salt. Set aside.",
+      "Heat half the remaining oil in a 10-inch nonstick skillet over medium-high. Cook mushrooms 5 to 6 minutes until browned and dry; transfer to a bowl. Beat eggs with remaining salt and pepper.",
+      "Lower heat to medium-low and add a little of the remaining oil. Pour in half the eggs, tilt to coat and gently lift edges for liquid egg to flow beneath. Cook 3 to 4 minutes until just set, then add half the mushrooms and cheddar to one half.",
+      "Fold and cook 1 minute until eggs are fully set and cheese melts. Slide onto a plate and cut in half. Repeat with remaining oil, eggs, mushrooms and cheese; serve each half omelet with an equal share of the bean salad."
+    ],
+    "notes": "Two large omelets, each shared by two people, reduce stovetop rounds. The bean salad supplies a substantial accompaniment without requiring potatoes or bread to cook alongside the eggs. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Mushroom omelette",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/cheesy-mushroom-omelette",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook mushroom filling before folding it into eggs."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make a frittata",
+          "url": "https://www.budgetbytes.com/how-to-make-a-frittata/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetables first; stop once the egg center sets."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Lemony white bean salad",
+          "url": "https://www.budgetbytes.com/lemony-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain beans and mix dressing before tossing."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Brown mushrooms first and cook two four-egg omelets in a 10-inch skillet."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Cook mushroom filling before folding it into eggs. Cook vegetables first; stop once the egg center sets. Drain beans and mix dressing before tossing."
+      ],
+      "repeatedFailureRisks": [
+        "Raw mushrooms release water into the eggs; high heat makes a leathery exterior."
+      ],
+      "adaptationDecision": "Two large omelets, each shared by two people, reduce stovetop rounds. The bean salad supplies a substantial accompaniment without requiring potatoes or bread to cook alongside the eggs."
+    }
+  },
+  {
+    "rosterId": "DI519",
+    "title": "Broccoli cheddar egg tortilla bake",
+    "description": "A crisp tortilla-edged egg bake with broccoli and cheddar, served with tomato-cucumber salad.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "1/2 cup whole milk",
+      "8 ounces broccoli florets, finely chopped",
+      "1 cup shredded cheddar",
+      "4 medium (8-inch) flour tortillas",
+      "1 cucumber, diced",
+      "1 pint cherry tomatoes, halved",
+      "1 tablespoon red wine vinegar",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "2 tablespoons water"
+    ],
+    "instructions": [
+      "Heat oven to 375\u00b0F. Place broccoli and the measured water in a microwave-safe bowl, cover loosely and microwave 3 minutes until just tender. Drain and cool briefly.",
+      "Brush a 9-by-13-inch baking dish with half the oil. Overlap tortillas across the bottom and partly up the sides. Whisk eggs, milk, half the salt and pepper, then fold in broccoli and three quarters of the cheddar.",
+      "Pour into the tortilla-lined dish and scatter remaining cheese over the top. Bake 22 to 26 minutes until the center reaches 160\u00b0F and the eggs are set. Rest 3 minutes.",
+      "While the bake cooks, toss cucumber and tomatoes with vinegar, remaining oil and salt. Cut the bake into equal portions and serve the salad alongside."
+    ],
+    "notes": "Tortillas make a quick crust without pastry or a long chilling stage. Briefly steaming broccoli first protects the egg texture and gives reliably tender vegetables. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tortilla baked eggs",
+          "url": "https://www.budgetbytes.com/tortilla-baked-eggs/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Tortillas form a shallow edible egg-bake crust."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make a frittata",
+          "url": "https://www.budgetbytes.com/how-to-make-a-frittata/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetables first; stop once the egg center sets."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Easy broccoli rice",
+          "url": "https://www.budgetbytes.com/easy-cheesy-broccoli-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small broccoli pieces integrate into cheesy rice."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Drain steamed broccoli before adding it to the eggs."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Tortillas form a shallow edible egg-bake crust. Cook vegetables first; stop once the egg center sets. Small broccoli pieces integrate into cheesy rice."
+      ],
+      "repeatedFailureRisks": [
+        "Wet broccoli makes the crust soggy; deep dishes need longer to set."
+      ],
+      "adaptationDecision": "Tortillas make a quick crust without pastry or a long chilling stage. Briefly steaming broccoli first protects the egg texture and gives reliably tender vegetables."
+    }
+  },
+  {
+    "rosterId": "DI520",
+    "title": "Lentil tomato egg skillet with pita",
+    "description": "A thick lentil-and-tomato braise with softly set eggs and warm pita for scooping.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 large eggs",
+      "2 cans (15 ounces each) cooked lentils, rinsed and drained",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "1 small onion, finely diced",
+      "2 garlic cloves, minced",
+      "1 teaspoon ground cumin",
+      "3 ounces baby spinach",
+      "4 small whole-wheat pitas",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "1/2 cup water"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet over medium. Soften onion for 5 minutes; add garlic and cumin for 30 seconds.",
+      "Add tomatoes, lentils, the measured water, salt and pepper. Simmer 6 minutes until thick but still spoonable. Fold in spinach for 1 minute.",
+      "Make two shallow wells per serving. Crack an egg into each, cover and cook on low 6 to 9 minutes until whites and yolks are firm; add a splash of water at the edge if the lentils stick.",
+      "Warm pitas in a toaster or microwave under a damp towel for 30 seconds while eggs cook. Serve two eggs and an equal share of the lentils with one pita per person."
+    ],
+    "notes": "Lentils form the bulk of this protein-rich supper rather than a pool of tomato sauce. It is a contemporary pantry skillet, not presented as a traditional shakshuka or eggs-in-purgatory recipe. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "British Heart Foundation",
+          "title": "Spanish-style lentils with eggs",
+          "url": "https://www.bhf.org.uk/informationsupport/support/healthy-living/healthy-eating/recipe-finder/spanish-style-lentils-with-eggs",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Soften vegetables before lentils and covered eggs."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Smoky white bean shakshuka",
+          "url": "https://www.budgetbytes.com/smoky-white-bean-shakshuka/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cover eggs in wells of a reduced base."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Egg curry",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/egg-curry",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook eggs separately and add to finished vegetable sauce."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep the lentil layer moist enough to steam eggs under a lid."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Soften vegetables before lentils and covered eggs. Cover eggs in wells of a reduced base. Cook eggs separately and add to finished vegetable sauce."
+      ],
+      "repeatedFailureRisks": [
+        "An overly reduced base scorches before the eggs set."
+      ],
+      "adaptationDecision": "Lentils form the bulk of this protein-rich supper rather than a pool of tomato sauce. It is a contemporary pantry skillet, not presented as a traditional shakshuka or eggs-in-purgatory recipe."
+    }
+  },
+  {
+    "rosterId": "DI521",
+    "title": "Chicken ham Swiss skillet pasta",
+    "description": "Tender chicken and ham with pasta, peas and a creamy mustard-Swiss sauce.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "10 ounces short pasta shells",
+      "12 ounces boneless skinless chicken breast, cut into 1/2-inch pieces",
+      "4 ounces fully cooked ham, diced",
+      "2 cups frozen peas",
+      "3/4 cup whole milk",
+      "1 tablespoon cornstarch",
+      "1 cup shredded Swiss cheese",
+      "1 tablespoon Dijon mustard",
+      "1 tablespoon olive oil",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil. Cook pasta according to its package, adding peas for the last 3 minutes. Reserve 1 cup cooking water and drain.",
+      "While the pasta cooks, heat oil in a deep 12-inch skillet over medium-high. Add chicken, salt and pepper; cook 6 to 8 minutes, stirring occasionally, until pieces reach 165\u00b0F. Add ham and cook 1 minute.",
+      "Whisk cold milk with cornstarch and mustard, then pour into the skillet. Stir over medium heat until lightly thickened, about 2 minutes. Reduce heat to low and stir in Swiss cheese until melted.",
+      "Fold in pasta and peas. Add reserved pasta water a little at a time until sauce coats everything without pooling. Heat gently 1 minute and divide among serving plates."
+    ],
+    "notes": "The familiar chicken-ham-Swiss combination becomes a pasta supper without breading or rolling cutlets. Peas share the pasta pot and the milk sauce uses a small amount of starch instead of heavy cream. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Easy chicken cordon bleu",
+          "url": "https://www.recipetineats.com/chicken-cordon-bleu-easy-fancy/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Ham, Swiss and Dijon pair with chicken."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Creamy tomato and spinach pasta",
+          "url": "https://www.budgetbytes.com/creamy-tomato-spinach-pasta/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook sauce while pasta boils; finish with spinach."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Creamy pesto pasta with chicken and broccoli",
+          "url": "https://www.budgetbytes.com/creamy-pesto-pasta-chicken-broccoli/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Pesto provides a concentrated basil finish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook chicken through before adding the milk sauce."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Ham, Swiss and Dijon pair with chicken. Cook sauce while pasta boils; finish with spinach. Pesto provides a concentrated basil finish."
+      ],
+      "repeatedFailureRisks": [
+        "High heat after cheese is added makes a grainy sauce."
+      ],
+      "adaptationDecision": "The familiar chicken-ham-Swiss combination becomes a pasta supper without breading or rolling cutlets. Peas share the pasta pot and the milk sauce uses a small amount of starch instead of heavy cream."
+    }
+  },
+  {
+    "rosterId": "DI522",
+    "title": "Shrimp chicken vegetable noodles",
+    "description": "Glossy ginger-soy noodles with chicken, shrimp and crisp-tender mixed vegetables.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 ounces dried thin egg noodles",
+      "8 ounces boneless skinless chicken breast, sliced into thin strips",
+      "8 ounces large raw shrimp, peeled, deveined and thawed",
+      "1 bag (12 ounces) fresh stir-fry vegetables, large pieces cut small",
+      "2 garlic cloves, minced",
+      "1 tablespoon grated ginger",
+      "3 tablespoons reduced-sodium soy sauce",
+      "1 tablespoon honey",
+      "1 tablespoon rice vinegar",
+      "1 teaspoon cornstarch",
+      "1/3 cup water",
+      "2 tablespoons neutral oil"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil and cook noodles according to their package. Drain. Whisk soy sauce, honey, vinegar, cornstarch and the measured water in a cup.",
+      "Heat half the oil in a large wok over medium-high. Add chicken and stir-fry 4 to 5 minutes until it reaches 165\u00b0F. Transfer to a clean plate.",
+      "Add remaining oil and vegetables to the wok and stir-fry 3 minutes. Add shrimp, garlic and ginger; cook 3 to 4 minutes until shrimp is pearly and opaque, adding a small splash of water if vegetables start to scorch.",
+      "Return chicken, add noodles and stir the sauce again before pouring it in. Toss 1 to 2 minutes until glossy and hot throughout. Divide into equal portions immediately."
+    ],
+    "notes": "Thin chicken strips cook first, while shrimp enters with the quick vegetable finish. This is a mild noodle stir-fry rather than an abbreviated regional noodle dish. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Chow mein",
+          "url": "https://www.recipetineats.com/chicken-chow-mein/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Prepare sauce before stir-frying; slice vegetables thinly."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Lo mein noodles",
+          "url": "https://www.recipetineats.com/lo-mein-noodles/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Premix sauce and sequence quick-cooking components."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Quick garlic butter shrimp",
+          "url": "https://www.budgetbytes.com/quick-garlic-butter-shrimp/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry shrimp; brief cooking protects texture."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook chicken separately to 165\u00b0F, then return it only for the sauce finish."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Prepare sauce before stir-frying; slice vegetables thinly. Premix sauce and sequence quick-cooking components. Dry shrimp; brief cooking protects texture."
+      ],
+      "repeatedFailureRisks": [
+        "Cooking both proteins for the same length of time gives dry shrimp or undercooked chicken."
+      ],
+      "adaptationDecision": "Thin chicken strips cook first, while shrimp enters with the quick vegetable finish. This is a mild noodle stir-fry rather than an abbreviated regional noodle dish."
+    }
+  },
+  {
+    "rosterId": "DI523",
+    "title": "Beef pork cabbage meatball skillet with rice",
+    "description": "Small tender meatballs in a sweet-savory tomato cabbage sauce, served over rice.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 ounces ground beef",
+      "8 ounces ground pork",
+      "1/3 cup plain breadcrumbs",
+      "1 large egg",
+      "1 bag (10 ounces) shredded green cabbage",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "1 tablespoon Worcestershire sauce",
+      "1 teaspoon sweet paprika",
+      "1 cup long-grain white rice",
+      "2 cups water, divided",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Combine rice and three quarters of the measured water in a small saucepan; bring to a boil, cover and simmer on low 15 minutes, then rest covered 10 minutes.",
+      "Mix beef, pork, breadcrumbs, egg, half the salt and pepper gently. With damp hands form small meatballs, four per serving, about 1 1/4 inches wide.",
+      "Heat oil in a deep 12-inch skillet over medium. Brown meatballs for 5 minutes, turning twice; they need not be cooked inside yet. Add cabbage around them, then tomatoes, Worcestershire, paprika, remaining salt and the remaining measured water.",
+      "Bring to a simmer, cover and cook 12 to 15 minutes until cabbage is tender and the largest meatball reaches 160\u00b0F. Turn meatballs once gently. Fluff rice and serve with four meatballs and sauce per person."
+    ],
+    "notes": "A small amount of pork adds richness to beef meatballs while shredded cabbage cooks in the same pan sauce. Rice cooks concurrently; there is no cabbage rolling or long oven braise. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Italian meatballs",
+          "url": "https://www.recipetineats.com/classic-italian-meatballs-extra-soft-and-juicy/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "A moist binder and gentle mixing protect meatballs."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        },
+        {
+          "publisher": "Texas A&M AgriLife Extension",
+          "title": "Cabbage and meatballs",
+          "url": "https://hidalgo.agrilife.org/files/2017/08/Day-25-Cabbage-Meatballs.pdf",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Small bound meatballs simmer with shredded cabbage."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Keep meatballs small and verify a 160\u00b0F center."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): A moist binder and gentle mixing protect meatballs. Measure liquid and rest rice covered. Small bound meatballs simmer with shredded cabbage."
+      ],
+      "repeatedFailureRisks": [
+        "Large tightly packed meatballs stay dense and take too long to cook."
+      ],
+      "adaptationDecision": "A small amount of pork adds richness to beef meatballs while shredded cabbage cooks in the same pan sauce. Rice cooks concurrently; there is no cabbage rolling or long oven braise."
+    }
+  },
+  {
+    "rosterId": "DI524",
+    "title": "Chicken bacon pea potato skillet",
+    "description": "Golden potato cubes, tender chicken and sweet peas with a little crisp bacon and a creamy mustard finish.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 35,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces boneless skinless chicken breast, cut into 1/2-inch pieces",
+      "4 slices bacon, chopped",
+      "1 1/4 pounds Yukon gold potatoes, diced 1/2 inch",
+      "2 cups frozen peas",
+      "1/2 cup plain Greek yogurt",
+      "1 teaspoon Dijon mustard",
+      "2 scallions, sliced",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "1/2 cup water"
+    ],
+    "instructions": [
+      "Put potatoes and water in a deep 12-inch skillet. Cover and steam over medium heat 10 to 12 minutes until nearly tender; drain and transfer to a bowl.",
+      "Add bacon to the emptied skillet and cook over medium 5 minutes until crisp. Transfer bacon to a plate, leaving about 1 tablespoon rendered fat; spoon off any excess.",
+      "Add chicken, salt and pepper and cook 5 to 6 minutes, stirring, until it reaches 165\u00b0F. Add potatoes and olive oil and cook 3 minutes. Stir in peas and 2 tablespoons water, cover and cook 3 minutes until hot.",
+      "Mix yogurt and mustard. Remove skillet from heat and fold in the yogurt mixture; finish with bacon and scallions. Divide into equal servings without returning the yogurt to a boil."
+    ],
+    "notes": "A little bacon seasons a full skillet of chicken, potatoes and peas. Steam-cooking the potatoes first keeps the dish practical without an extra boiling pot. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "French-style chicken with peas and bacon",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/518641/frenchstyle-chicken-with-peas-and-bacon",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Render bacon first; peas finish late."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Skillet breakfast potatoes",
+          "url": "https://www.budgetbytes.com/skillet-breakfast-potatoes/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Parboil potatoes before browning undisturbed."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Easy chicken cordon bleu",
+          "url": "https://www.recipetineats.com/chicken-cordon-bleu-easy-fancy/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Ham, Swiss and Dijon pair with chicken."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook potatoes before chicken and add yogurt off heat."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Render bacon first; peas finish late. Parboil potatoes before browning undisturbed. Ham, Swiss and Dijon pair with chicken."
+      ],
+      "repeatedFailureRisks": [
+        "Raw potato cubes prolong cooking; boiling yogurt makes it split."
+      ],
+      "adaptationDecision": "A little bacon seasons a full skillet of chicken, potatoes and peas. Steam-cooking the potatoes first keeps the dish practical without an extra boiling pot."
+    }
+  },
+  {
+    "rosterId": "DI525",
+    "title": "Shrimp sausage tomato rice",
+    "description": "Mild smoky tomato rice with juicy shrimp, sausage coins and sweet peppers.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 40,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces large raw shrimp, peeled, deveined and thawed",
+      "6 ounces fully cooked smoked pork sausage, sliced thin",
+      "1 cup long-grain white rice",
+      "1 red bell pepper, diced",
+      "1 can (14.5 ounces) diced tomatoes with juices",
+      "1 1/4 cups low-sodium chicken broth",
+      "1 teaspoon sweet paprika",
+      "1/2 teaspoon dried oregano",
+      "2 scallions, sliced",
+      "1 tablespoon olive oil",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet with a lid over medium. Brown sausage for 3 minutes, then add pepper and cook 3 minutes more.",
+      "Stir in rice, paprika, oregano, tomatoes with juices, broth and pepper. Bring to a simmer, cover and cook over low heat 18 minutes.",
+      "Check rice is nearly tender, adding 2 tablespoons water if dry. Lay shrimp over the rice, cover and cook 5 to 7 minutes until shrimp is pearly and opaque and rice is tender.",
+      "Remove from heat, rest covered 3 minutes, then fold gently and scatter scallions over the top. Taste before adding any salt because sausage and broth are already seasoned."
+    ],
+    "notes": "A mild tomato rice supper with quick-cooking shrimp added late. It is deliberately not labeled jambalaya or perloo: the seasoning, ingredient balance and short method are contemporary family cooking. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Cajun sausage and rice skillet",
+          "url": "https://www.budgetbytes.com/cajun-sausage-and-rice-skillet/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Brown sausage before cooking rice in measured liquid."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Shrimp fried rice with pineapple and toasted coconut",
+          "url": "https://www.budgetbytes.com/shrimp-fried-rice-pineapple-toasted-coconut/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Prepared sauce and cooked rice shorten stir-frying."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "How to cook white rice",
+          "url": "https://www.recipetineats.com/how-to-cook-rice/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Measure liquid and rest rice covered."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Add shrimp only after rice is nearly tender."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Brown sausage before cooking rice in measured liquid. Prepared sauce and cooked rice shorten stir-frying. Measure liquid and rest rice covered."
+      ],
+      "repeatedFailureRisks": [
+        "Adding shrimp at the start makes it tough; heavily salted sausage can overwhelm the dish."
+      ],
+      "adaptationDecision": "A mild tomato rice supper with quick-cooking shrimp added late. It is deliberately not labeled jambalaya or perloo: the seasoning, ingredient balance and short method are contemporary family cooking."
+    }
+  },
+  {
+    "rosterId": "DI526",
+    "title": "Turkey bacon corn dinner salad",
+    "description": "Warm turkey and crisp bacon over crunchy romaine, corn, tomatoes and avocado with a lime-yogurt dressing.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 15,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "1 pound lean ground turkey",
+      "4 slices bacon, chopped",
+      "1 teaspoon ground cumin",
+      "1 can (15 ounces) corn, drained",
+      "2 romaine hearts, chopped",
+      "1 pint cherry tomatoes, halved",
+      "1 avocado, diced",
+      "1/2 cup plain Greek yogurt",
+      "1 lime, juiced",
+      "4 small whole-wheat pitas",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper",
+      "1 tablespoon water"
+    ],
+    "instructions": [
+      "Cook bacon in a 12-inch skillet over medium for 5 to 6 minutes until crisp. Transfer to a plate; leave about 1 tablespoon fat in the skillet and discard any excess.",
+      "Add turkey, cumin, salt and pepper. Break into small pieces and cook 6 to 8 minutes until turkey reaches 165\u00b0F. Stir in drained corn for 1 minute, then remove from heat.",
+      "While meat cooks, mix yogurt with half the lime juice and the measured water to make a pourable dressing. Divide romaine, tomatoes and avocado among serving plates.",
+      "Warm pitas in a toaster or microwave under a damp towel. Spoon warm turkey and corn over salad, scatter bacon on top and drizzle with dressing. Serve with pita and remaining lime juice to taste."
+    ],
+    "notes": "This chopped dinner salad uses seasoned ground turkey rather than precooked roast chicken. Warm meat and corn meet cool greens at serving, while pita ensures the plate is substantial. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Cobb salad",
+          "url": "https://www.budgetbytes.com/cobb-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Prep vegetables while poultry and bacon cook."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Charred corn and zucchini salad",
+          "url": "https://www.budgetbytes.com/charred-corn-and-zucchini-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Cook vegetable moisture off before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Lemony white bean salad",
+          "url": "https://www.budgetbytes.com/lemony-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain beans and mix dressing before tossing."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Cook turkey to 165\u00b0F and assemble only when ready to eat."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Prep vegetables while poultry and bacon cook. Cook vegetable moisture off before dressing. Drain beans and mix dressing before tossing."
+      ],
+      "repeatedFailureRisks": [
+        "Hot meat left on lettuce wilts it; undrained corn thins the dressing."
+      ],
+      "adaptationDecision": "This chopped dinner salad uses seasoned ground turkey rather than precooked roast chicken. Warm meat and corn meet cool greens at serving, while pita ensures the plate is substantial."
+    }
+  },
+  {
+    "rosterId": "DI527",
+    "title": "Chicken chorizo chickpea skillet",
+    "description": "Chicken and chickpeas in a smoky tomato sauce with a little mild chorizo and wilted spinach.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 25,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces boneless skinless chicken breast, cut into 3/4-inch pieces",
+      "3 ounces mild fully cooked Spanish chorizo, casing removed and diced",
+      "2 cans (15 ounces each) chickpeas, rinsed and drained",
+      "1 can (14.5 ounces) crushed tomatoes",
+      "5 ounces baby spinach",
+      "1 small onion, diced",
+      "2 garlic cloves, minced",
+      "1/2 cup low-sodium chicken broth",
+      "4 thick slices whole-grain bread",
+      "1 tablespoon olive oil",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Heat oil in a deep 12-inch skillet over medium. Cook chorizo and onion 4 minutes until onion softens. Add garlic for 30 seconds.",
+      "Add chicken, salt and pepper. Cook 4 minutes, turning pieces to color their surfaces; the centers will finish in the sauce.",
+      "Stir in tomatoes, chickpeas and broth. Cover and simmer gently 8 to 10 minutes until chicken reaches 165\u00b0F. Fold in spinach and cook 2 minutes uncovered until wilted.",
+      "Toast bread while the sauce simmers. Divide the skillet among shallow dishes with bread alongside for scooping."
+    ],
+    "notes": "A small amount of mild Spanish chorizo seasons a generous chickpea-and-chicken supper. This specifies fully cooked cured sausage, not raw Mexican chorizo, so the short sequence is unambiguous. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Good Food",
+          "title": "Speedy chorizo with chickpeas",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/speedy-chorizo-chickpeas",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Canned chickpeas and tomato make a quick sausage supper."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Chickpea chorizo and spinach stew",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/10775/chickpea-chorizo-and-spinach-stew",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Chorizo seasons beans; spinach wilts at finish."
+        },
+        {
+          "publisher": "Good Food",
+          "title": "Chicken and chorizo ragu",
+          "url": "https://tollbit.bbcgoodfood.com/recipes/chicken-chorizo-ragu",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Render sausage before chicken and tomato simmer."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Use fully cooked mild Spanish chorizo and check chicken at 165\u00b0F."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Canned chickpeas and tomato make a quick sausage supper. Chorizo seasons beans; spinach wilts at finish. Render sausage before chicken and tomato simmer."
+      ],
+      "repeatedFailureRisks": [
+        "Substituting raw chorizo changes cooking needs and can leave unsafe meat in the short sauce simmer."
+      ],
+      "adaptationDecision": "A small amount of mild Spanish chorizo seasons a generous chickpea-and-chicken supper. This specifies fully cooked cured sausage, not raw Mexican chorizo, so the short sequence is unambiguous."
+    }
+  },
+  {
+    "rosterId": "DI528",
+    "title": "Salmon egg potato dinner salad",
+    "description": "Warm potatoes, flaky salmon and firm-yolk eggs with cucumber, peas and a lemon-dill yogurt dressing.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 30,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "12 ounces skinless salmon, pin bones removed, cut into 4-ounce portions",
+      "4 large eggs",
+      "1 1/2 pounds baby potatoes, halved",
+      "1 cup frozen peas",
+      "1 cucumber, diced",
+      "3/4 cup plain Greek yogurt",
+      "1 lemon, juiced",
+      "1 teaspoon dried dill",
+      "1 teaspoon Dijon mustard",
+      "1 tablespoon olive oil",
+      "1/2 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Put potatoes in a large saucepan with cold water to cover by 1 inch. Add eggs gently, bring to a boil and lower to a simmer. After 10 minutes remove eggs to cold water; continue potatoes until tender, 3 to 5 minutes, adding peas for the last 2 minutes. Drain.",
+      "Meanwhile heat oil in a 10-inch skillet over medium. Season salmon with half the salt and pepper and cook 4 to 5 minutes per side until the thickest part reaches 145\u00b0F. Set aside to flake.",
+      "Mix yogurt, mustard, dill, half the lemon juice and remaining salt. Peel and quarter eggs; yolks should be firm. Let potatoes release steam for 3 minutes before gently coating with half the dressing.",
+      "Divide potatoes, peas and cucumber among serving plates. Add salmon flakes and egg quarters; spoon over remaining dressing and lemon juice to taste."
+    ],
+    "notes": "This warm dinner salad uses freshly cooked salmon and eggs, with no overnight chilling prerequisite. Potatoes and eggs share a saucepan, and the yogurt dressing is added after the steam subsides. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "British Dietetic Association",
+          "title": "Scandinavian salmon and potato salad",
+          "url": "https://www.bda.uk.com/static/e98e39a6-9eca-483c-8a65faec1115c78a/BDA452Scandinavian-Salmon-and-Potato-Salad.pdf",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Firm eggs and potatoes join large salmon flakes."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make hard-boiled eggs",
+          "url": "https://www.budgetbytes.com/how-to-make-hard-boiled-eggs/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Covered off-heat standing produces firm eggs."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "One pan salmon dinner",
+          "url": "https://www.budgetbytes.com/one-pan-salmon-dinner/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Start potatoes before adding faster-cooking fish."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Remove eggs after their timed simmer; check potatoes separately for tenderness."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Firm eggs and potatoes join large salmon flakes. Covered off-heat standing produces firm eggs. Start potatoes before adding faster-cooking fish."
+      ],
+      "repeatedFailureRisks": [
+        "Mixing piping-hot potatoes into yogurt can thin and split the dressing."
+      ],
+      "adaptationDecision": "This warm dinner salad uses freshly cooked salmon and eggs, with no overnight chilling prerequisite. Potatoes and eggs share a saucepan, and the yogurt dressing is added after the steam subsides."
+    }
+  },
+  {
+    "rosterId": "DI529",
+    "title": "Tuna egg white bean dinner salad",
+    "description": "Tuna flakes, firm-yolk eggs and white beans in a crunchy cucumber-tomato salad with mustard dressing.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 15,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "2 cans (5 ounces each) chunk light tuna in water, drained",
+      "4 large eggs",
+      "2 cans (15 ounces each) cannellini beans, rinsed and drained",
+      "1 cucumber, diced",
+      "1 pint cherry tomatoes, halved",
+      "2 scallions, sliced",
+      "1 tablespoon Dijon mustard",
+      "2 tablespoons red wine vinegar",
+      "2 tablespoons olive oil",
+      "4 thick slices whole-grain bread",
+      "1/4 teaspoon fine salt",
+      "1/4 teaspoon black pepper"
+    ],
+    "instructions": [
+      "Place eggs in a medium saucepan with cold water to cover. Bring to a boil, cover, remove from heat and stand 12 minutes. Cool under cold water, peel and quarter; yolks should be firm.",
+      "While eggs stand, whisk mustard, vinegar, oil, salt and pepper in a large serving bowl. Add beans, cucumber, tomatoes and scallions and toss.",
+      "Flake tuna into large pieces and fold through the beans. Toast bread while the eggs cool.",
+      "Divide bean salad among serving plates and top each with an equal share of the eggs. Serve one slice of toast each, leaving the egg pieces intact rather than mashing them into the dressing."
+    ],
+    "notes": "Eggs and white beans make a pantry tuna salad into a complete dinner without mayonnaise. Fresh vegetables remain crunchy, and the simple mustard vinaigrette is mixed before the fish is folded in. Hands-on estimate: 18 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "Budget Bytes",
+          "title": "Tuna and white bean salad",
+          "url": "https://www.budgetbytes.com/tuna-white-bean-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Drain canned ingredients before dressing."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Mediterranean tuna salad",
+          "url": "https://www.budgetbytes.com/mediterranean-tuna-salad/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dress vegetables before gently folding tuna flakes."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "How to make hard-boiled eggs",
+          "url": "https://www.budgetbytes.com/how-to-make-hard-boiled-eggs/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Covered off-heat standing produces firm eggs."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Drain canned ingredients and fold tuna gently after dressing the beans."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Drain canned ingredients before dressing. Dress vegetables before gently folding tuna flakes. Covered off-heat standing produces firm eggs."
+      ],
+      "repeatedFailureRisks": [
+        "Overmixing makes the salad pasty; unmeasured brine waters down the vinaigrette."
+      ],
+      "adaptationDecision": "Eggs and white beans make a pantry tuna salad into a complete dinner without mayonnaise. Fresh vegetables remain crunchy, and the simple mustard vinaigrette is mixed before the fish is folded in."
+    }
+  },
+  {
+    "rosterId": "DI530",
+    "title": "Pork shrimp cabbage noodle skillet",
+    "description": "Savory noodles with browned pork, tender shrimp and cabbage in a mild ginger sauce.",
+    "category": "Dinner",
+    "cuisine": "Contemporary home cooking",
+    "tier": "household-anchor",
+    "yieldQuantity": 4,
+    "yieldUnit": "servings",
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "inactiveMinutes": 0,
+    "artworkIndex": 13,
+    "ingredients": [
+      "8 ounces dried thin egg noodles",
+      "8 ounces ground pork",
+      "8 ounces large raw shrimp, peeled, deveined and thawed",
+      "1 bag (12 ounces) shredded cabbage and carrot slaw",
+      "2 garlic cloves, minced",
+      "1 tablespoon grated ginger",
+      "3 tablespoons reduced-sodium soy sauce",
+      "1 tablespoon rice vinegar",
+      "1 teaspoon honey",
+      "1 teaspoon toasted sesame oil",
+      "1 tablespoon neutral oil",
+      "1/4 cup water"
+    ],
+    "instructions": [
+      "Bring a large pot of water to a boil and cook noodles according to their package. Drain well. Mix soy sauce, vinegar, honey, sesame oil and the measured water in a cup.",
+      "Heat neutral oil in a large wok over medium-high. Add pork and cook 5 to 6 minutes, breaking it into small crumbles, until browned and at least 160\u00b0F.",
+      "Add cabbage-carrot slaw and cook 3 minutes. Stir in garlic, ginger and shrimp and cook 3 to 4 minutes until shrimp is pearly and opaque, tossing to expose all sides.",
+      "Add noodles and sauce. Toss for 1 to 2 minutes until hot and evenly coated, then divide among serving plates. Serve immediately while cabbage retains a little bite."
+    ],
+    "notes": "A small amount of browned pork supplies richness while shrimp provides a second texture. Bagged cabbage and carrot reduce preparation, and the sauce is intentionally mild rather than chili-heavy. Hands-on estimate: 20 minutes. For eight servings, use two pans of the stated size or cook two batches; keep food depth and piece sizes unchanged. Do not double cooking times. Check packaged ingredients for allergens. This original recipe has been desk-reviewed, not kitchen-tested.",
+    "kitchenTestState": "desk-reviewed",
+    "research": {
+      "accessedAt": "2026-10-16",
+      "sources": [
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Chow mein",
+          "url": "https://www.recipetineats.com/chicken-chow-mein/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Prepare sauce before stir-frying; slice vegetables thinly."
+        },
+        {
+          "publisher": "RecipeTin Eats",
+          "title": "Lo mein noodles",
+          "url": "https://www.recipetineats.com/lo-mein-noodles/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Premix sauce and sequence quick-cooking components."
+        },
+        {
+          "publisher": "Budget Bytes",
+          "title": "Quick garlic butter shrimp",
+          "url": "https://www.budgetbytes.com/quick-garlic-butter-shrimp/",
+          "rating": null,
+          "ratingCount": null,
+          "signal": "Dry shrimp; brief cooking protects texture."
+        }
+      ],
+      "nonNegotiableTechniques": [
+        "Brown ground pork fully before adding quick-cooking shrimp."
+      ],
+      "repeatedSuccessSignals": [
+        "Observed recipe-method support (not a claim about reader consensus): Prepare sauce before stir-frying; slice vegetables thinly. Premix sauce and sequence quick-cooking components. Dry shrimp; brief cooking protects texture."
+      ],
+      "repeatedFailureRisks": [
+        "Crowding the pan or adding shrimp with raw pork compromises doneness and texture."
+      ],
+      "adaptationDecision": "A small amount of browned pork supplies richness while shrimp provides a second texture. Bagged cabbage and carrot reduce preparation, and the sauce is intentionally mild rather than chili-heavy."
+    }
+  }
+]

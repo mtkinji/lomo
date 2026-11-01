@@ -18,7 +18,9 @@ export type CuisineFamilyId =
   | "thai"
   | "vietnamese"
   | "southeast-asian"
-  | "australian";
+  | "australian"
+  | "contemporary"
+  | "east-asian";
 
 export type CuisineFamily = {
   id: CuisineFamilyId;
@@ -59,6 +61,8 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
   family("north-american", "North American", "American", [
     "Alaska US",
     "American",
+    "Contemporary American",
+    "Southwestern-inspired",
     "Cajun",
     "Californian",
     "Canadian",
@@ -99,6 +103,7 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
     "Oaxacan Mexican",
     "Puebla Mexican",
     "Tex-Mex",
+    "Tex-Mex-inspired",
     "Texas Mexican",
     "Veracruz Mexican",
     "Yucatecan Mexican",
@@ -142,6 +147,7 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
     "Italian",
     "Italian-inspired",
     "Italian-American",
+    "Italian-American-inspired",
     "Ligurian Italian",
     "Milanese Italian",
     "Neapolitan Italian",
@@ -164,6 +170,7 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
     "Belgian-American",
     "Catalan",
     "Central European-inspired",
+    "Contemporary European-inspired",
     "Danish",
     "Dutch",
     "Eastern European-inspired",
@@ -245,6 +252,7 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
     "Chinese",
     "Chinese-inspired",
     "Chinese-American",
+    "Chinese-American-inspired",
     "Dongbei Chinese",
     "Hunan Chinese",
     "Lanzhou Chinese",
@@ -267,6 +275,12 @@ export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
     "Southeast Asian-inspired",
     "Singaporean",
   ]),
+  family("contemporary", "Contemporary home cooking", "Contemporary", [
+    "Everyday home cooking",
+    "Contemporary home cooking",
+    "Everyday vegetarian",
+  ]),
+  family("east-asian", "East Asian inspired", "East Asian", ["East Asian-inspired"]),
   family("australian", "Australian", "Australian", ["Australian"]),
 ] as const;
 

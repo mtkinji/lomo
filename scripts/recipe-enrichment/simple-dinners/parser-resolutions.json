@@ -1,0 +1,1390 @@
+{
+  "DI334": {
+    "sourceRecipeHash": "sha256:690ba46eabf5926ed4f40c6df8274d7274860a3cf900a65049e721136ebcd12c",
+    "ingredientPatches": {
+      "12": {
+        "ingredientConcept": "water",
+        "preparation": "for boiling noodles",
+        "parseConfidence": 0.98
+      }
+    },
+    "scalingRules": {
+      "12": {
+        "kind": "fixed",
+        "reason": "vessel"
+      }
+    }
+  },
+  "DI336": {
+    "sourceRecipeHash": "sha256:25060880f14781ec71e7e16c96203e7e03bad994b42dc8143385fc5cc364c774",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI337": {
+    "sourceRecipeHash": "sha256:302307a2dc9c91a0c73f6a20a76a664d5a605834da9994a5c097c9f574766cd7",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI338": {
+    "sourceRecipeHash": "sha256:7872e0170648d7794b5de25f476deabfa6262725bcef4a82d8554b44a29cea93",
+    "ingredientPatches": {
+      "5": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI341": {
+    "sourceRecipeHash": "sha256:3286693dd06c21f1ab614fdc9f758b0bc8d17b8fe4ff8fe44bc1d01df99a7242",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (15 ounces) tomato sauce",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI342": {
+    "sourceRecipeHash": "sha256:b69db98de3f0af3ca6dfa0ac46d0bd86b47608494000e6c80dae710e41700239",
+    "ingredientPatches": {
+      "5": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI345": {
+    "sourceRecipeHash": "sha256:bec081eeab1d845a33ca010269aba1ca82476e56f0d31c6fa2c8f43a25887e63",
+    "ingredientPatches": {
+      "8": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI348": {
+    "sourceRecipeHash": "sha256:43286acfdca1f537182586943af20a78ff12c07e845ae0649160641bb48cf15d",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "pouches (8.8 ounces each) ready-cooked plain long-grain rice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI350": {
+    "sourceRecipeHash": "sha256:65f99970552fddd4c4546487e28f8287b2bdb2031b6e4a4294f38873ed2ca33f",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI351": {
+    "sourceRecipeHash": "sha256:db1dfd144fd113e6af24b13a3eaa80764c8a7169261d85f1dbb0dfd2340169ca",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (15 ounces) kidney beans",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI354": {
+    "sourceRecipeHash": "sha256:a657afecef07ceaa7c04d6ee77b37be73210063c5d4c43d2bbea9b8ab778eb31",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "packages (16 ounces) shelf-stable potato gnocchi",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI357": {
+    "sourceRecipeHash": "sha256:a56d9a4e7b4c81dc1276fb77f2e810e1245041017dd40acdd8a1fe489ab81d2d",
+    "ingredientPatches": {
+      "5": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI365": {
+    "sourceRecipeHash": "sha256:4ef2dee8d80c536617f29ade4de73740e7d0fb310c38ed85a4a4a6c8bce0de77",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (15 ounces) tomato sauce",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI366": {
+    "sourceRecipeHash": "sha256:e38b6021207055ceda47b92de866093d0bed0d567bfc7933f37e33e231f3db90",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI367": {
+    "sourceRecipeHash": "sha256:94148c18892e05b4f2fedc0d139f76a91fd7c9e2730c90bdd3a9b2f7352bf313",
+    "ingredientPatches": {
+      "5": {
+        "ingredientConcept": "cans (15 ounces) tomato sauce",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI372": {
+    "sourceRecipeHash": "sha256:97d61d5ca9391065a8b7481c7027e9c61b46fac8f24d28817e8555c292d22e3f",
+    "ingredientPatches": {
+      "5": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI373": {
+    "sourceRecipeHash": "sha256:54bf3ce5c8d01fe3e34897e5a5bef89e7bc6ab529cff722ab7bda65034409d35",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) pinto beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI374": {
+    "sourceRecipeHash": "sha256:2234eb54c0f5db76c03816dccc3641ed309ae4abf4023aa13a23bf82e6a14e96",
+    "ingredientPatches": {
+      "7": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes",
+        "parseConfidence": 0.98
+      },
+      "9": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI375": {
+    "sourceRecipeHash": "sha256:b78fd5aa25b7509d78159ec61f90e4399602122bf304990272cb43310e25f783",
+    "ingredientPatches": {
+      "5": {
+        "ingredientConcept": "packages (20 ounces) frozen chicken dumplings suitable for boiling",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI377": {
+    "sourceRecipeHash": "sha256:809eef3a37fb0366f6cf2cbd00b0d47690f70fa81765d03e2fd1d56ee524bea2",
+    "ingredientPatches": {
+      "6": {
+        "ingredientConcept": "packages (7 ounces each) ready-cooked udon noodles",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI378": {
+    "sourceRecipeHash": "sha256:c99fab9c57f34a0e33b8625c211a70878612b18c12bbdc753174bbc77cb31fe1",
+    "ingredientPatches": {
+      "5": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI383": {
+    "sourceRecipeHash": "sha256:54a939aeb71792525e63de555ee3c3e2b6886dde966f948d70d6ab24f705ea4e",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI386": {
+    "sourceRecipeHash": "sha256:0dedbf938de4e5e5333881da0d87f722e2964c513474a816d827d4610bfc68a2",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces) brown lentils",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI387": {
+    "sourceRecipeHash": "sha256:5812764e40242a051f6f19902ab364ef5d033a54a750f4c2a927fc2971bcb6d1",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI388": {
+    "sourceRecipeHash": "sha256:42f36ff5859375679e741eb3d0e13155cd1d9545299301380677ebc3a4a58a49",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI392": {
+    "sourceRecipeHash": "sha256:19002c90ab104a46899026f48736f28d967a2956447da27254ddc741193bbe43",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI396": {
+    "sourceRecipeHash": "sha256:48b5c36a57c7a6a543bbf3a1abfdb073033ed199af2aed75dda19f5393de780c",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces) pinto beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI398": {
+    "sourceRecipeHash": "sha256:e4ab07f8eea7d7f1f6e58d125668b33e7d46301175798e82e54110c6736aef36",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI399": {
+    "sourceRecipeHash": "sha256:c3bc907abe95f656c9b4181d9072b420fd3c3306912b3feab21d2dae45ccbc13",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "pouches (8.8 ounces) cooked plain brown rice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI400": {
+    "sourceRecipeHash": "sha256:2dba917520b5bdbf80e28737b0376db0fc2d474780b51517beaf8fb03aa4e1bb",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI401": {
+    "sourceRecipeHash": "sha256:43a41b903d329f3030f265a2df91dbe342ca29c269dcd83d8a7342f025b94ab6",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "packages (17.6 ounces) shelf-stable potato gnocchi",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI403": {
+    "sourceRecipeHash": "sha256:166089862e5e8fdb96a689801d46cb0e5a8919e8b417a1578e596e260359dee1",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI405": {
+    "sourceRecipeHash": "sha256:ff78ec25c48f3ead710fc6fb4cf873a56418dc632c82266da63a649460a1547d",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI409": {
+    "sourceRecipeHash": "sha256:d1bb288d91b91512207cade95f5f2860e25cd09a61b17114805d229ebd9c78e6",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (20 ounces) pineapple chunks in juice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI411": {
+    "sourceRecipeHash": "sha256:2c6349da73e646b0b99cb7251e8349cd2b5715275e38e29d192157cf707da3e3",
+    "ingredientPatches": {
+      "0": {
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI412": {
+    "sourceRecipeHash": "sha256:780a2481cb87d7c99dcdaaf5768fcd495feb441efff1c0f36c631fc1758f3999",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (28 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI413": {
+    "sourceRecipeHash": "sha256:78eb1304bf581aee379f0303b0fc356ff247a11097004df2a63da01803b5ae42",
+    "ingredientPatches": {
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI415": {
+    "sourceRecipeHash": "sha256:1f72b1138beb6f123f7ea3db47f56c6e558e4f0e13df0af5a2e626754aa204a6",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) plain pumpkin purée",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI416": {
+    "sourceRecipeHash": "sha256:587c40bdc435ef720f1856a9cff00ceaf413a20fa5d562ae82336a8a6d324de4",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI417": {
+    "sourceRecipeHash": "sha256:769f0f6ee96e2078c34caf34ad69843371425faae6e343028c9094b690a68fba",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI418": {
+    "sourceRecipeHash": "sha256:1d573b4ed02160b388d852f45e4855b0af6e1d7f3b3e5fb52ea0696300522f97",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI419": {
+    "sourceRecipeHash": "sha256:8715bed3a19582848505f1d1e6ac419687f19f4dd5ef6d75cc8728ded4b25613",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "packages (17.6 ounces) shelf-stable potato gnocchi",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI423": {
+    "sourceRecipeHash": "sha256:1beb8bf6dabbbc624e8ef057468ae85351ce6bd4948e9066dc1d754ff6c92920",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) brown lentils",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI426": {
+    "sourceRecipeHash": "sha256:953c895abd92570f860969cbe0ab19533895e28c3d285a6c95d0f6fd3735b2a2",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI428": {
+    "sourceRecipeHash": "sha256:5a0cc5ecccdc2b5cb562ecbe2cdc461762645cade29d001babe0f3ca8153ffd5",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (16 ounces) shelf-stable potato gnocchi",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI429": {
+    "sourceRecipeHash": "sha256:4ceadc707e871aaf54011da3c88fae87f3941c7b7335ca19337ba441a20c671b",
+    "ingredientPatches": {
+      "6": {
+        "ingredientConcept": "bags (12 ounces) shredded cabbage and carrot slaw",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI431": {
+    "sourceRecipeHash": "sha256:6e26255d4b2c5170c4c1583eab8048889d50c91d07d63b30b71345b2073c60e8",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (5 ounces each) skinless boneless pink salmon",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI433": {
+    "sourceRecipeHash": "sha256:39ca67d473a1c1616c3a33abb1afa5c5dca5227bc5b3aa6ea5868ab43bbfa358",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI434": {
+    "sourceRecipeHash": "sha256:1d03ba7ecf5f2906deb5569d17cb6a34be869f4c45ed7fd902374e61c3635c5b",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (13.5 ounces) unsweetened coconut milk",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI437": {
+    "sourceRecipeHash": "sha256:0493283963e61baad156463789f8491c0ca2532f8d88d6ca1c661879bcf8c999",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI438": {
+    "sourceRecipeHash": "sha256:9f63ad17d8c71ca09244d20bbb2eebf225ec2e28d1c8244aaf704a1ca8d3fa74",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (8.8 ounces each) shelf-stable cooked plain rice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI439": {
+    "sourceRecipeHash": "sha256:3b13d3cc207c9eb6cd12c0c41469f72b3d4a3b8c7b24ac88c7327bebcd5f7ffd",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI440": {
+    "sourceRecipeHash": "sha256:9c9d0a4b08504a4aa108579c79981dd9d88e425afe4096880c7b72db00732618",
+    "ingredientPatches": {
+      "4": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI441": {
+    "sourceRecipeHash": "sha256:ad0ae64bfa56534f3423191c3d1a6025e21bb1659dcd575259b32c46b8de84cd",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI442": {
+    "sourceRecipeHash": "sha256:80de9421680a6fc8496607f6cb9032ea7de5d0d545987140d1ec1e5d02e4fb41",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      },
+      "6": {
+        "ingredientConcept": "bags (12 ounces) shredded cabbage-carrot slaw",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI443": {
+    "sourceRecipeHash": "sha256:5effb6217169849d851ed2ea2dd7e340e83213d944ca7ee684e154a5fa8ddec4",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI447": {
+    "sourceRecipeHash": "sha256:ab661c274b59921543a837a9b94e4dfe74cd88af79f85e526da38b18e5a0cc3c",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI448": {
+    "sourceRecipeHash": "sha256:ece0f6d90cf5923504c670807618d33317e2c50d1cecb870c0e5a6b43f721cb9",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI449": {
+    "sourceRecipeHash": "sha256:087af4aa5ab4c53cb807d1018afcb995cd9505027513e440582306b365bf68ae",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "bags (10 ounces) shredded green cabbage",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI450": {
+    "sourceRecipeHash": "sha256:712ce4e1f6775ed686eb93bab8e4a1770f930d2434fe08f15d2f98e3c35b5a4e",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI451": {
+    "sourceRecipeHash": "sha256:d2ef83fb4d487877ba4bf002045781bb31c632efba4e6b48f6abc04224c198f1",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI453": {
+    "sourceRecipeHash": "sha256:5bc1aace98a0a960a2f2f33dd61b386fa35c9ab98671200dacd970bdb70b22fb",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI454": {
+    "sourceRecipeHash": "sha256:a20b66dfead76a4b675de4bb6a95d0c8cc4befb6540ed9c6a64c93e69c838448",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (13.5 ounces) light coconut milk",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI456": {
+    "sourceRecipeHash": "sha256:5e47b57e8ed9b3985f0517de77e8f2f7daaf597e07f27b5b9dee74feafbba78a",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI457": {
+    "sourceRecipeHash": "sha256:170a511438a7a2241100bebd823820d4b26b4a3c80ba30ab555e5dfe5f5e4206",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI459": {
+    "sourceRecipeHash": "sha256:71778aa08fc754cfe351763475d6783226c3c49509e6b5165030cd59b62cc4e3",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) extra-firm tofu",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI461": {
+    "sourceRecipeHash": "sha256:f0e0f6566dba3dd51330993bfb1dd0f81f42b3ac772d373bc288db8bd96e2aec",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI462": {
+    "sourceRecipeHash": "sha256:089968a8447d37d79c90c0cfc3f5e7faa1ce9d4c18cd97c853133541cd1d10bf",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14 ounces) artichoke hearts in water",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI463": {
+    "sourceRecipeHash": "sha256:c88ab64b182ecd6e4e3ca8505aec802bb708e0080140f4a5847ded431004d20b",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI464": {
+    "sourceRecipeHash": "sha256:66b076d10c589178f86f802c4e8e3becbf5db03375fe0f00f57f2e668a1ee03f",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) extra-firm tofu",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI465": {
+    "sourceRecipeHash": "sha256:18e1052f6bc20ec5730986f192b071abc5e246957e6052303c86046e9eac1805",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (15 ounces) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI466": {
+    "sourceRecipeHash": "sha256:4fe5565dac5bccb6c25e848172bf976666788511a612b2f60523505d8aa6ebf5",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI468": {
+    "sourceRecipeHash": "sha256:9783ad1e9ce5939eebadede04164f2dc2cfc1d27d6a8c70dd4bcc0646326edaa",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI470": {
+    "sourceRecipeHash": "sha256:4ce6d78705d21ba92f2105f1550743cb2aac86acb42f0b5dfca963f4dabe85a6",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI471": {
+    "sourceRecipeHash": "sha256:52b906076ab62a9a3a0ffe8ffd67dd9635dd5e550f5c817586caddbd3a02f62f",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI472": {
+    "sourceRecipeHash": "sha256:fc8c91b7d1da253af83c6a54805067c2d3533b3502d3fdf7553f0cb3ca9185e9",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "jars (12 ounces) roasted red peppers",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI473": {
+    "sourceRecipeHash": "sha256:3f4e246d40509b1babeb2c535f794f16529227481851efbb14bd5202038e675e",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) black beans",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI474": {
+    "sourceRecipeHash": "sha256:8b1efaa9e37858b3556fe34b5f2ed36a24308ac5f25bee584398f35b87675d51",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (7 ounces each) shelf-stable cooked udon noodles",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI475": {
+    "sourceRecipeHash": "sha256:ea1ce283137095eeb4e8bd12a2cc39aa3adac54b068008e2e546dd53b5dde226",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) lentils",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI476": {
+    "sourceRecipeHash": "sha256:f809f4c2b10c99dc136f9c93022ff4dc4f1978fac24c08c9cc936702c7d7310e",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) firm tofu",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (13.5 ounces) light coconut milk",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI477": {
+    "sourceRecipeHash": "sha256:c474b7afee4333dd0b6d1df87143dc008fbac4f5e36f62b2a5dd45f2687b20e5",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI479": {
+    "sourceRecipeHash": "sha256:4b666a2571c16125b6f54f95c2bac30fef9afa588492000396ca113efd8acc8b",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "4": {
+        "ingredientConcept": "cans (13.5 ounces) light coconut milk",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI480": {
+    "sourceRecipeHash": "sha256:909e58e5b547dc143f2336708a53a9cdcb5d525457d25a19aba755bd3a326645",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "jars (24 ounces) vegetarian marinara sauce",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI481": {
+    "sourceRecipeHash": "sha256:08af8935908f0a23fdf0b8f6f9c2eb263eb72788bd508642607ed01eaf61d530",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI482": {
+    "sourceRecipeHash": "sha256:08d7a5718da8dd2a7446fcf8028f556558235d2b962d7867fbc36c452ee7fc62",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI483": {
+    "sourceRecipeHash": "sha256:b86fa652f9106f5d161efd505f43da4a51e4c3fc5932f9195f86462f77a1022e",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "4": {
+        "ingredientConcept": "sheets (about 8 ounces) refrigerated ready-to-use puff pastry",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI484": {
+    "sourceRecipeHash": "sha256:32a849c82a0ebfadaf03164f80f12471a8abbb7388f785536f3cbe8932b573bf",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (15 ounces) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI485": {
+    "sourceRecipeHash": "sha256:661302544ac17b0a8febce36cd7bb03c6f806139e3416c5626a3e7f5e5d9b37c",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) extra-firm tofu",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "pouches (8.8 ounces each) ready-cooked plain rice",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "bags (14 ounces) shredded cabbage and carrot slaw",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI486": {
+    "sourceRecipeHash": "sha256:600dc97917dda1a09cc33ed8e9c6a18c890a98cca18f1032bcb1fa9ce26c1a1f",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) lentils",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "jars (24 ounces) vegetarian marinara",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI487": {
+    "sourceRecipeHash": "sha256:0197c4e5b054a05c12f4e726e26e33822608a8500b72d6da4ece1a42d64675cc",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI488": {
+    "sourceRecipeHash": "sha256:dd95ca3b9cd9adcc40864272b721bcb307032ba68cac7ca8304c4a7ce79e6a12",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI490": {
+    "sourceRecipeHash": "sha256:e08013beae05c067a462524deea6f960f1f864a39cf8597ea5ab113757d090e1",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI491": {
+    "sourceRecipeHash": "sha256:5cc84cabbba94213494d6809cd69d594b2957e453dbbde3272befe300d8c3fab",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI492": {
+    "sourceRecipeHash": "sha256:c9010a066a77c3e2a2906fc04cb6061cbb68757fa736bd576230a5e13bcffd06",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI493": {
+    "sourceRecipeHash": "sha256:f4538d9ae6f884d99e7559794ab7296a5cd0419fe8413decdfc5bbc80f37feb0",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI494": {
+    "sourceRecipeHash": "sha256:40b4df2c25840dbca36c2621e449f79fd4e559f23ec8f8fe8de61b206ad8629d",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) extra-firm tofu",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI496": {
+    "sourceRecipeHash": "sha256:7c636284727b74a012b67e89bf448af5fe39eb662ef5d599f8a73d5bd8dc06f7",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (20 ounces) refrigerated vegetarian cheese ravioli",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "jars (24 ounces) vegetarian marinara sauce",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI497": {
+    "sourceRecipeHash": "sha256:bdd44f5170c9c69259dde7a793a0ab0d653be51fa16a783cf7e90c541ee6a526",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI498": {
+    "sourceRecipeHash": "sha256:9069b889b306f34aee916bcd41d46c23991ccabcb731cb7799e8c400ae0bcfb5",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (16 ounces) shelf-stable potato gnocchi",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI499": {
+    "sourceRecipeHash": "sha256:e09f3474b2b2f9e4c07159516389fe4380e5f9e8f4dff5db2a001e6e4c0bad0f",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI500": {
+    "sourceRecipeHash": "sha256:62c994746df0f77873c224cc5d73ad2ca70829ae01e3e6e5ba520da98cd4468e",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "bags (14 ounces) shredded green cabbage",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI501": {
+    "sourceRecipeHash": "sha256:55c2bb0bebbe757019fff94ba450c6edeb77e0364f334c1dc2d3cea51f549483",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI502": {
+    "sourceRecipeHash": "sha256:9e8adca60a791681e4ad7569c2b51e87dc4691f8d92cc191b1b06639acd1d093",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (14 ounces each) extra-firm tofu",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (20 ounces) pineapple chunks in juice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI503": {
+    "sourceRecipeHash": "sha256:139bc6944b9095fd36dfdda5fe93437d626fb98ced199a66ca00a93b6c29e854",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) butter beans",
+        "parseConfidence": 0.98
+      },
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI504": {
+    "sourceRecipeHash": "sha256:32a9b78fd31f6186e63fce735450bc3f23fcf64e60b61a24b23b059aec0b93ee",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (28 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI505": {
+    "sourceRecipeHash": "sha256:030345ce2cedb71f59a0a79f1d73708d8a339f13cbbd9f29850bccdfdceadca7",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "jars (12 ounces) roasted red peppers",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI506": {
+    "sourceRecipeHash": "sha256:aceba528db4be6fce65bc939a4a88492f213193fa13732e41623ec6ff082a17a",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI507": {
+    "sourceRecipeHash": "sha256:c4dc3babd4b52990b0082ce8df0f9e98650ad6e8ca98c03e8fa2104034dea990",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI508": {
+    "sourceRecipeHash": "sha256:f399d251a774a73de6b8a7b10c992301b335189710a1a46a642fe3afd8492c42",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (15 ounces each) black beans",
+        "parseConfidence": 0.98
+      },
+      "1": {
+        "ingredientConcept": "cans (15 ounces) plain pumpkin puree",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI509": {
+    "sourceRecipeHash": "sha256:bc6ff35e0b9333f0bd4a444812a42feb186ddadd8c32a04674f41f9187e153ab",
+    "ingredientPatches": {
+      "2": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI510": {
+    "sourceRecipeHash": "sha256:53e4903370e856b7f38d856be3e9df5e3f79fd51f81fceb6b974856b06a80614",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "jars (12 ounces) roasted red peppers",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI512": {
+    "sourceRecipeHash": "sha256:1e842f2bea1a0255b7b1ec717cdb65c5079c3ce7567e8386fb22837165be57b9",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "packages (8.8 ounces each) shelf-stable cooked plain rice",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI513": {
+    "sourceRecipeHash": "sha256:dc693465e681a5fc74fe74ae6f34dadc39ea7183be74bc84a8552a5f0c581b30",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "packages (8.8 ounces each) shelf-stable cooked plain rice",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI514": {
+    "sourceRecipeHash": "sha256:25a75bce802dbb01117c0ab755fdd686db268d33d19037644af3b7f717e637f1",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces) black beans",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI515": {
+    "sourceRecipeHash": "sha256:fc3b37acceee5030795ccfd14a4934b235242f74256006125882066f9c33a49a",
+    "ingredientPatches": {
+      "5": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI517": {
+    "sourceRecipeHash": "sha256:5b7dc235da941ac657d1c9cd5c7fe7bc0a4113918bc020367a05847c287083c8",
+    "ingredientPatches": {
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI518": {
+    "sourceRecipeHash": "sha256:320289755cdc21e44b5bdcb2e1742078ec4bc39ea62c9ebc665f499fad62ca12",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "4": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI519": {
+    "sourceRecipeHash": "sha256:ffe875c461c23c92f00d69b4096b814d388f4d64f9afecf6073bd3082097460a",
+    "ingredientPatches": {
+      "6": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI520": {
+    "sourceRecipeHash": "sha256:edf16b276ca458f70fe88b990323c499035f866f4aa2ed44a7a238b08a48eb56",
+    "ingredientPatches": {
+      "1": {
+        "ingredientConcept": "cans (15 ounces each) cooked lentils",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI522": {
+    "sourceRecipeHash": "sha256:d4957fa9fb7847a1a422973ce4a388c54aca629d8c6841fe1708b17227a08739",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "bags (12 ounces) fresh stir-fry vegetables",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI523": {
+    "sourceRecipeHash": "sha256:68ee990e419c351bf2592d0d5c3cf5658b2943995ebd26bf46931c282b197e1f",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "bags (10 ounces) shredded green cabbage",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI525": {
+    "sourceRecipeHash": "sha256:205252a909a2b205f1ece6a0be309154185b5c3677b67b3addca96262055272e",
+    "ingredientPatches": {
+      "4": {
+        "ingredientConcept": "cans (14.5 ounces) diced tomatoes with juices",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI526": {
+    "sourceRecipeHash": "sha256:7bf0ed4dea7116d1f8c9f3c777e19e1576cbbdcb544f818dd03711a90edeede2",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "cans (15 ounces) corn",
+        "parseConfidence": 0.98
+      },
+      "5": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI527": {
+    "sourceRecipeHash": "sha256:3e180c2b4a6a70fca6a1f0f56c38be6b24e7b5d6aca69f8e81c82cf8aec267a5",
+    "ingredientPatches": {
+      "2": {
+        "ingredientConcept": "cans (15 ounces each) chickpeas",
+        "parseConfidence": 0.98
+      },
+      "3": {
+        "ingredientConcept": "cans (14.5 ounces) crushed tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI529": {
+    "sourceRecipeHash": "sha256:c3a971afb323cb4c668ccc4d89714837698b851c7e83b933d7d3f800e9313001",
+    "ingredientPatches": {
+      "0": {
+        "ingredientConcept": "cans (5 ounces each) chunk light tuna in water",
+        "parseConfidence": 0.98
+      },
+      "2": {
+        "ingredientConcept": "cans (15 ounces each) cannellini beans",
+        "parseConfidence": 0.98
+      },
+      "4": {
+        "quantityMin": 2,
+        "unit": "cup",
+        "ingredientConcept": "cherry tomatoes",
+        "parseConfidence": 0.98
+      }
+    }
+  },
+  "DI530": {
+    "sourceRecipeHash": "sha256:e901d753b73c9da921dbdb8e1f88318732e01dd75501f04fd90d2bfff35e86be",
+    "ingredientPatches": {
+      "3": {
+        "ingredientConcept": "bags (12 ounces) shredded cabbage and carrot slaw",
+        "parseConfidence": 0.98
+      }
+    }
+  }
+}

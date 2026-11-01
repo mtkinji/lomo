@@ -27,6 +27,8 @@ create index kwilt_conversational_action_receipts_household_created_idx
 alter table public.kwilt_conversational_action_receipts enable row level security;
 revoke all on table public.kwilt_conversational_action_receipts from anon;
 grant select, insert, update on table public.kwilt_conversational_action_receipts to authenticated;
+-- Service-side receipt persistence uses the Data API; RLS bypass is not a grant.
+grant select, insert, update on table public.kwilt_conversational_action_receipts to service_role;
 
 create policy "kwilt_conversational_action_receipts_owner_select"
   on public.kwilt_conversational_action_receipts for select to authenticated
@@ -74,6 +76,7 @@ create index kwilt_conversational_action_handoffs_owner_state_idx
 alter table public.kwilt_conversational_action_handoffs enable row level security;
 revoke all on table public.kwilt_conversational_action_handoffs from anon;
 grant select, insert, update on table public.kwilt_conversational_action_handoffs to authenticated;
+grant select, insert, update on table public.kwilt_conversational_action_handoffs to service_role;
 
 create policy "kwilt_conversational_action_handoffs_owner_select"
   on public.kwilt_conversational_action_handoffs for select to authenticated
