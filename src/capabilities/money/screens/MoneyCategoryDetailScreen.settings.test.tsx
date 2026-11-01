@@ -38,6 +38,35 @@ beforeEach(() => {
   mockMoney.saveCategorySettingsRequest.mockResolvedValue({ outcome: 'confirmed', receipt: {} });
 });
 describe('category settings screen save', () => {
+  it.each(['monthly', 'rollover', 'reserve'])('closes unchanged %s settings without a write or preview', async (mode) => {
+    mockMoney.snapshot = { ...mockMoney.snapshot, categories: mockMoney.snapshot.categories.map((item) => ({ ...item,
+      fundingRhythm: mode === 'reserve' ? 'reserve' as const : 'monthly' as const,
+      rolloverEnabled: mode === 'rollover',
+    })) };
+    const screen = renderWithProviders(tree());
+    fireEvent.press(screen.getByLabelText('Open Household settings'));
+    await waitFor(() => expect(screen.getByLabelText('Name').props.editable).toBe(true));
+    // Formatting differences and edits reverted to their initial value are not changes.
+    fireEvent.changeText(screen.getByLabelText('Name'), 'Household  ');
+    fireEvent.changeText(screen.getByLabelText(mode === 'reserve' ? 'Monthly contribution' : 'Monthly amount'), '500');
+    fireEvent.press(screen.getByText('Save changes'));
+    await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
+    expect(mockMoney.saveCategorySettingsRequest).not.toHaveBeenCalled();
+    expect(mockMoney.previewCategoryPlanAmount).not.toHaveBeenCalled();
+  });
+  it('checks an uncertain save even when its settings match the current snapshot', async () => {
+    const pending = { schemaVersion: 1, actorUserId: mockMoney.userId, categoryId: sourceId,
+      requestId: '10000000-0000-4000-8000-000000000003', expectedCategoryUpdatedAt: version,
+      expectedPlanUpdatedAt: version, governance: null,
+      settings: { name: 'Household', budgetCents: 50000, fundingRhythm: 'monthly', rolloverEnabled: false,
+        rolloverPolicy: null, planRole: 'flexible', expectedNeedCents: null, expectedNeedDueMonth: null } } satisfies CategorySettingsRequest;
+    mockMoney.loadCategorySettingsRequest.mockResolvedValue(pending);
+    const screen = renderWithProviders(tree());
+    fireEvent.press(screen.getByLabelText('Open Household settings'));
+    fireEvent.press(await screen.findByText('Check save'));
+    await waitFor(() => expect(mockMoney.saveCategorySettingsRequest).toHaveBeenCalledWith(pending));
+  });
+
   it('saves name, amount and role together through one request and closes only after confirmation', async () => {
     const screen = renderWithProviders(tree());
     fireEvent.press(screen.getByLabelText('Open Household settings'));

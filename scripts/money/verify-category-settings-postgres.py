@@ -37,10 +37,10 @@ def build_schema():
     create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claims',true)::jsonb->>'sub','')::uuid $$;
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
-    create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at=now(); return new; end $$;
     grant usage on schema auth,private to authenticated;
     grant execute on function auth.uid(),auth.jwt() to authenticated;
     ''']
+    parts.append(fn(read('20260709131031_budget_living_plan_preferences.sql'),'public.set_updated_at'))
     s=read('20260709130916_budget_family_sharing.sql'); parts.append(s[:s.index('create table if not exists public.budget_household_invites')])
     parts.append(fn(s,'public.can_access_budget_household'))
     parts.append(s[s.index('drop policy if exists "Household members can read shared households"'):s.index('drop policy if exists "Household owners can read active invites"')])
@@ -87,6 +87,13 @@ def verify_release_contract():
     assert not failures, 'Valid isolated schema rejected: '+str(failures)
     run((ROOT/'supabase/tests/category_rollover_schema_contract.sql').read_text())
     cases=[
+      ('disabled category timestamp trigger', 'alter table public.budget_categories disable trigger set_budget_categories_updated_at;'),
+      ('disabled plan timestamp trigger', 'alter table public.budget_plans disable trigger set_budget_plans_updated_at;'),
+      ('disabled plan projection trigger', 'alter table public.budget_active_living_plans disable trigger project_active_living_plan_into_budget_plans;'),
+      ('changed timestamp implementation', 'create or replace function public.set_updated_at() returns trigger language plpgsql as $$ begin return new; end; $$;'),
+      ('changed projection implementation', 'create or replace function public.project_active_living_plan_into_budget_plans() returns trigger language plpgsql security definer set search_path=public as $$ begin return new; end; $$;'),
+      ('restricted timestamp trigger', 'drop trigger set_budget_plans_updated_at on public.budget_plans; create trigger set_budget_plans_updated_at before update of status on public.budget_plans for each row execute function public.set_updated_at();'),
+      ('misbound projection trigger', 'drop trigger project_active_living_plan_into_budget_plans on public.budget_active_living_plans; create trigger project_active_living_plan_into_budget_plans after insert or update of plan_version_id on public.budget_active_living_plans for each row execute function public.set_updated_at();'),
       ('missing receipt request column', 'alter table private.budget_category_settings_receipts rename column request to old_request;'),
       ('revoked household helper', 'revoke all on function private.budget_effective_owner_user_id(uuid) from public, authenticated;'),
       ('missing rollover column', 'alter table public.budget_plans rename column rollover_policy to old_rollover_policy;'),
@@ -100,7 +107,7 @@ def verify_release_contract():
     for name,change in cases:
       result=json.loads(run('begin; '+change+' '+observed+' rollback;'))
       assert any(not row['ok'] for row in result), name+' was accepted'
-    print('PASS: release contract rejects missing schema/RPC/grant/policy, changed code and broader access.')
+    print('PASS: release contract rejects missing schema/RPC/grant/policy, disabled or misbound triggers, changed code and broader access.')
 
 
 def verify_concurrent_retry():

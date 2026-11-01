@@ -2,6 +2,7 @@ import { randomUUID } from 'expo-crypto';
 import { useCategorySettingsEditor } from '../runtime/useCategorySettingsEditor';
 import { prepareCategorySettingsRequest } from '../runtime/categorySettingsPreparation';
 import { MoneyRolloverSettings } from '../components/MoneyRolloverSettings';
+import { parseRolloverBalance } from '../domain/categoryRollover';
 import { initialRolloverDraft, reviewRolloverDraft, type RolloverDraft } from '../domain/rolloverDraft';
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -243,6 +244,12 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       if ((expectedNeedCents == null) !== (dueMonth == null)) throw new Error('Enter both an expected amount and due month.');
       const planChanged = budgetCents !== baseline.plannedCents || fundingRhythmDraft !== baseline.fundingRhythm
         || expectedNeedCents !== (baseline.expectedNeed?.amountCents ?? null) || dueMonth !== (baseline.expectedNeed?.dueMonth ?? null);
+      const initialRollover = initialRolloverDraft(baseline, currentMonth);
+      const rolloverChanged = rolloverDraft.enabled !== initialRollover.enabled || (rolloverDraft.enabled
+        && (rolloverDraft.startMonth !== initialRollover.startMonth
+          || parseRolloverBalance(rolloverDraft.balance) !== parseRolloverBalance(initialRollover.balance)));
+      if (!planChanged && !rolloverChanged && parseCategoryName(categoryNameDraft) === baseline.name
+        && planRoleDraft === (baseline.planRole ?? 'flexible')) return null;
       const preview = planChanged ? planImpact ?? await previewCategoryPlanAmount(baseline.sourceId, budgetCents, {
         fundingRhythm: fundingRhythmDraft, expectedNeedCents, expectedNeedDueMonth: dueMonth,
       }) : null;
@@ -256,6 +263,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         preview: preview?.outcome === 'ready' ? preview : undefined });
     });
     if (!result) return;
+    if (result.outcome === 'unchanged') { setSettingsOpen(false); return; }
     if (result.outcome === 'confirmed') {
       setSettingsOpen(false);
       if (rebalanceAnswer) {

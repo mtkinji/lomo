@@ -11,7 +11,9 @@ const good = () => contract.checkIds.map(id => ({ id, ok: true }));
 
 test('the release contract requires actual rollover, atomic command, privileges and household policies', () => {
   for (const key of ['column:public.budget_plans.rollover_policy', 'function:public.save_budget_category_settings',
-    'function:public.get_budget_category_settings_receipt', 'private-receipts', 'policy:Household adults can read the Money plan config', 'rollover-trigger']) {
+    'function:public.get_budget_category_settings_receipt', 'private-receipts', 'policy:Household adults can read the Money plan config', 'rollover-trigger',
+    'function:public.set_updated_at', 'function:public.project_active_living_plan_into_budget_plans',
+    'trigger:set_budget_categories_updated_at', 'trigger:set_budget_plans_updated_at', 'trigger:project_active_living_plan_into_budget_plans']) {
     assert(contract.checkIds.includes(key), key);
   }
   const sql = contractQuery(contract);

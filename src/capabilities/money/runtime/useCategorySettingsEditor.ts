@@ -17,7 +17,7 @@ type EditorState = {
   pending: CategorySettingsRequest | null;
   error: string | null;
 };
-type Prepare = (baseline: MoneyCategory, actorUserId: string) => Promise<CategorySettingsRequest>;
+type Prepare = (baseline: MoneyCategory, actorUserId: string) => Promise<CategorySettingsRequest | null>;
 
 export function useCategorySettingsEditor(input: Input) {
   const [reload, setReload] = useState(0);
@@ -54,7 +54,7 @@ export function useCategorySettingsEditor(input: Input) {
     return () => { epoch.current += 1; };
   }, [key]);
 
-  async function submit(prepare: Prepare): Promise<CategorySettingsOutcome | null> {
+  async function submit(prepare: Prepare): Promise<CategorySettingsOutcome | { outcome: 'unchanged' } | null> {
     if (!input.open || !input.actorUserId || state.key !== key || state.phase !== 'ready' || !state.baseline || submitting.current !== null) return null;
     const generation = epoch.current;
     const isCurrent = () => epoch.current === generation && currentKey.current === key;
@@ -64,6 +64,10 @@ export function useCategorySettingsEditor(input: Input) {
     try {
       pending = pending ?? await prepare(state.baseline, input.actorUserId);
       if (!isCurrent()) return null;
+      if (!pending) {
+        setState((current) => ({ ...current, phase: 'ready', error: null }));
+        return { outcome: 'unchanged' };
+      }
       setState((current) => ({ ...current, pending }));
       const result = await input.save(pending);
       if (!isCurrent()) return null;

@@ -7,6 +7,13 @@ Framework: [Kwilt product and engineering quality index](product-and-engineering
 
 Integration checkpoint: new improvement scope is frozen. Budget changes are now on `codex/budget-reliability-checkpoint`, rebased onto main `c6aa8002711cfb1e1fb5eb4287598dc6ff2bd6c1`, separately from the dinner/SQL PR #197. The three initial commits cover checkpoint policy/evidence, settings/read/release reliability, and transaction rendering/accessibility. Earlier evidence below remains dated to its original checkout. Fresh integration review, uncached verification, CI, backend ordering and native acceptance determine merge readiness; a saved commit is not a merge or deployment receipt.
 
+Review corrections at this checkpoint:
+
+- The first rebased candidate (`1285ff1d`) passed the uncached `verify:changed -- --run --base origin/main` gate: 1,317 Jest suites, 8,303 tests passed, two skipped, two snapshots, plus selected static/tooling checks. This receipt predates the corrections below and does not approve their final candidate.
+- Backend review reproduced a release checker accepting a disabled category timestamp trigger. The checker now covers timestamp/projection implementations and all three required trigger bindings. Seven new PostgreSQL negative fixtures reject disabled, changed, restricted and misbound dependencies. The isolated PostgreSQL 17.11 contract and 15 Node release-wrapper/contract tests passed; follow-up read-only review found no remaining issue in this delta.
+- Client review found unchanged settings still wrote. Three failing screen regressions (monthly, rollover, reserve) now pass without a write or preview; an already pending request still checks its original receipt even when the snapshot matches. Seventeen screen/hook tests passed, and follow-up read-only review found no issue in the delta.
+- The strengthened 46-check catalog query was run read-only against the target backend: 28 passed, 18 failed for the new, undeployed settings command/receipt/policy contract. All added timestamp/projection checks passed. Contract hash: `8eddcceecf46bd5cbc9c5557c4c79d272336cc9d43f77a443970b4362cfdce29`. This is connector catalog evidence, not a test of the Management API transport or native workflow.
+
 Excluded from this batch: seven pre-existing PR #197 SQL/doc files, preserved in a named local stash; full-history read-model redesign; general Money write-owner alignment; other mutation families' refresh-after-commit semantics; and measured physical-device latency. These remain follow-up work, not newly satisfied requirements. Native acceptance gaps in the changed settings and inventory workflows remain gates for this candidate.
 
 | Workstream | Current evidence | Remaining gate |

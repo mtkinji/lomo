@@ -21,7 +21,8 @@ function functionsFrom(source, include = () => true) {
       return { name: parsed[1], type: canonicalType(parsed[2]), default: Boolean(parsed[3]) };
     }) : [];
     return { name: match[1], args, returns: match[3], definer: /security\s+definer/i.test(match[4]),
-      language: match[4].match(/language\s+(\w+)/i)?.[1], bodyHash: digest(match[5], 'md5') };
+      language: match[4].match(/language\s+(\w+)/i)?.[1],
+      searchPath: match[4].match(/set\s+search_path\s*=\s*(''|public)/i)?.[1] ?? null, bodyHash: digest(match[5], 'md5') };
   });
 }
 
@@ -34,7 +35,9 @@ export function buildContract() {
       'private.budget_canonical_adult_owner_user_id', 'private.budget_actor_is_active_household_child',
     ].includes(name)),
   ];
-  if (functions.length !== 12) throw new Error('Budget contract function inventory changed; review its coverage.');
+  functions.push(...functionsFrom(read('supabase/migrations/20260710234659_project_active_living_plan_into_budgets.sql')),
+    ...functionsFrom(read('supabase/migrations/20260709131031_budget_living_plan_preferences.sql'), name => name === 'public.set_updated_at'));
+  if (functions.length !== 14) throw new Error('Budget contract function inventory changed; review its coverage.');
   const columns = [
     ...Object.entries({ actor_user_id: 'uuid', request_id: 'uuid', owner_user_id: 'uuid', category_id: 'uuid',
       request: 'jsonb', receipt: 'jsonb', created_at: 'timestamp with time zone' }).map(([name, type]) => ({ schema: 'private', table: 'budget_category_settings_receipts', name, type })),
@@ -50,9 +53,15 @@ export function buildContract() {
     { table: 'budget_living_plan_config', name: 'Household adults can read the Money plan config', qual: household },
     { table: 'budget_living_plan_config', name: 'Owners read living config', qual: "((COALESCE(( SELECT ((auth.jwt() ->> 'is_anonymous'::text))::boolean AS bool), false) IS FALSE) AND (user_id = ( SELECT auth.uid() AS uid)))" },
   ];
-  const contract = { version: 1, projectRef: 'sqxwjtorodqjdfnuvprf', origin: 'https://auth.kwilt.app', functions, columns, policies };
+  const triggers = [
+    { table: 'budget_categories', name: 'set_budget_categories_updated_at', function: 'set_updated_at', type: 19, columns: [] },
+    { table: 'budget_plans', name: 'set_budget_plans_updated_at', function: 'set_updated_at', type: 19, columns: [] },
+    { table: 'budget_active_living_plans', name: 'project_active_living_plan_into_budget_plans',
+      function: 'project_active_living_plan_into_budget_plans', type: 21, columns: ['plan_version_id'] },
+  ];
+  const contract = { version: 1, projectRef: 'sqxwjtorodqjdfnuvprf', origin: 'https://auth.kwilt.app', functions, columns, policies, triggers };
   contract.checkIds = [...functions.map(fn => `function:${fn.name}`), ...columns.map(c => `column:${c.schema ?? 'public'}.${c.table}.${c.name}`),
-    ...policies.map(p => `policy:${p.name}`), 'command-execute', 'private-receipts', 'household-helper-access', 'preview-read-access', 'policy-select-scope', 'rollover-constraint', 'rollover-trigger'];
+    ...policies.map(p => `policy:${p.name}`), ...triggers.map(t => `trigger:${t.name}`), 'command-execute', 'private-receipts', 'household-helper-access', 'preview-read-access', 'policy-select-scope', 'rollover-constraint', 'rollover-trigger'];
   contract.hash = digest(JSON.stringify(contract));
   return contract;
 }
@@ -63,16 +72,29 @@ export function contractQuery(contract) {
   for (const fn of contract.functions) {
     const [schema, name] = fn.name.split('.');
     const names = fn.args.length ? `array[${fn.args.map(arg => q(arg.name)).join(',')}]::text[]` : 'null::text[]';
+    const searchPathCheck = fn.searchPath === null
+      ? `not exists(select 1 from unnest(p.proconfig) config where config like 'search_path=%')`
+      : `p.proconfig @> array[${q(`search_path=${fn.searchPath === "''" ? '""' : fn.searchPath}`)}]::text[]`;
     check(`function:${fn.name}`, `select count(*)=1 and bool_and(
       pg_catalog.md5(p.prosrc)=${q(fn.bodyHash)} and p.prosecdef=${fn.definer}
       and pg_catalog.format_type(p.prorettype,null)=${q(fn.returns)} and l.lanname=${q(fn.language)}
       and p.proargnames is not distinct from ${names} and p.pronargdefaults=${fn.args.filter(arg => arg.default).length}
-      and p.proconfig @> array['search_path=""']::text[])
+      and ${searchPathCheck})
       from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
       join pg_catalog.pg_language l on l.oid=p.prolang
       where n.nspname=${q(schema)} and p.proname=${q(name)} and p.prokind='f'
       and pg_catalog.oidvectortypes(p.proargtypes)=${q(fn.args.map(arg => arg.type).join(', '))}`);
   }
+  for (const trigger of contract.triggers) check(`trigger:${trigger.name}`, `exists(
+    select 1 from pg_catalog.pg_trigger g join pg_catalog.pg_class t on t.oid=g.tgrelid
+    join pg_catalog.pg_namespace n on n.oid=t.relnamespace join pg_catalog.pg_proc p on p.oid=g.tgfoid
+    join pg_catalog.pg_namespace fn on fn.oid=p.pronamespace
+    where n.nspname='public' and t.relname=${q(trigger.table)} and g.tgname=${q(trigger.name)}
+      and not g.tgisinternal and g.tgenabled in ('O','A') and g.tgtype=${trigger.type}
+      and g.tgqual is null and g.tgnargs=0 and fn.nspname='public' and p.proname=${q(trigger.function)}
+      and p.pronargs=0 and array(select a.attname::text from unnest(g.tgattr) with ordinality cols(num,ord)
+        join pg_catalog.pg_attribute a on a.attrelid=t.oid and a.attnum=cols.num order by cols.ord)
+        =array[${trigger.columns.map(q).join(',')}]::text[] )`);
   for (const c of contract.columns) check(`column:${c.schema ?? 'public'}.${c.table}.${c.name}`, `exists(select 1 from pg_catalog.pg_attribute a
     join pg_catalog.pg_class t on t.oid=a.attrelid join pg_catalog.pg_namespace n on n.oid=t.relnamespace
     where n.nspname=${q(c.schema ?? 'public')} and t.relname=${q(c.table)} and a.attname=${q(c.name)} and not a.attisdropped
