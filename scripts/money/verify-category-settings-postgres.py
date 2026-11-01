@@ -46,9 +46,10 @@ def build_schema():
     parts.append(s[s.index('drop policy if exists "Household members can read shared households"'):s.index('drop policy if exists "Household owners can read active invites"')])
     parts.append('''alter table public.budget_households enable row level security;
     alter table public.budget_household_members enable row level security;''')
-    grants=read('20261020145812_explicit_public_data_api_grants.sql')
-    for table in ['budget_households','budget_household_members']:
-        parts.append(re.search(r'grant select on table public\.'+table+r' to authenticated;',grants).group())
+    # Minimal pre-existing API SELECT privileges for this isolated fixture.
+    # Do not depend on the separate, unmerged full-replay grant-baseline PR.
+    # Real household RLS policies and actor-denial assertions remain in force.
+    parts.append('grant select on public.budget_households,public.budget_household_members to authenticated;')
     s=read('20260728190000_household_foundation.sql'); parts.append(s[:s.index('create table public.kwilt_child_capability_catalog')])
     s=read('20260901040118_canonical_household_money_access.sql')
     for name in ['private.budget_users_share_adult_household','private.budget_canonical_adult_owner_user_id','private.budget_actor_is_active_household_child','private.budget_effective_owner_user_id','public.budget_effective_owner_user_id','public.can_access_budget_user']: parts.append(fn(s,name))

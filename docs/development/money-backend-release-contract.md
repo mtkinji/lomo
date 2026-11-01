@@ -37,4 +37,6 @@ The isolated PostgreSQL runner also executes `supabase/tests/category_rollover_s
 
 The live query reads system catalogs only; it does not read household records or invoke save functions. It does not prove PostgREST's current schema cache, authenticated API round trips, native gestures, installed app persistence, or end-user latency. Those remain separate deployment/native acceptance gates. The isolated database uses real relevant migrations plus explicitly documented JWT/category-read fixtures; it is not a full Supabase replay.
 
+The isolated runner supplies minimal authenticated SELECT privileges on the legacy household tables directly, just as it supplies category/plan read fixtures. It does not require the separate, unmerged full-replay grant-baseline migration from PR #197. Actual household RLS and actor-denial tests remain in place. This fixture correction changes no deployed privileges.
+
 On November 1 the live catalog query correctly found the original rollover schema repaired while rejecting the new, undeployed atomic settings functions and household preview policies. Neither new migration was deployed by implementing this checker. A green local test suite cannot override that failed target result.

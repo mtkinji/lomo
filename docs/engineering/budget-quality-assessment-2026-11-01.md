@@ -5,6 +5,10 @@ Framework: [Kwilt product and engineering quality index](product-and-engineering
 
 ## Latest status
 
+Integration checkpoint: new improvement scope is frozen. Budget changes are now on `codex/budget-reliability-checkpoint`, rebased onto main `c6aa8002711cfb1e1fb5eb4287598dc6ff2bd6c1`, separately from the dinner/SQL PR #197. The three initial commits cover checkpoint policy/evidence, settings/read/release reliability, and transaction rendering/accessibility. Earlier evidence below remains dated to its original checkout. Fresh integration review, uncached verification, CI, backend ordering and native acceptance determine merge readiness; a saved commit is not a merge or deployment receipt.
+
+Excluded from this batch: seven pre-existing PR #197 SQL/doc files, preserved in a named local stash; full-history read-model redesign; general Money write-owner alignment; other mutation families' refresh-after-commit semantics; and measured physical-device latency. These remain follow-up work, not newly satisfied requirements. Native acceptance gaps in the changed settings and inventory workflows remain gates for this candidate.
+
 | Workstream | Current evidence | Remaining gate |
 | --- | --- | --- |
 | Original missing rollover column | Approved production schema repair verified | Confirm Andrew's installed workflow |
