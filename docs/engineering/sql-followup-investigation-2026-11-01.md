@@ -52,9 +52,29 @@ fresh CLI-generated forward migration,
 It changes only the existing trigger function body and preserves its invoker
 security, empty search path, privileges, and bilateral block checks.
 
-No production mutation, app release, or merge was performed. The original
+At the investigation checkpoint, no production mutation, app release, or merge
+had been performed. The original
 `scripts/public-data-api-grants.test.mjs` and its baseline migration are still
 on unmerged PR #197, not current `main`; this branch does not silently import
-that larger change. Deployment of the trigger repair requires its own review
+that larger change. Deployment of the trigger repair required its own review
 and approval. PR #197 still needs service-equivalent SQL validation before its
 historical catalog-crash gate can be closed.
+
+## Production deployment — November 2, 2026
+
+PR #201 merged as `0ffa7844` after review, local verification, and CI. Andrew
+then explicitly approved deploying its trigger repair. Supabase applied the
+reviewed SQL from `9e428f46` and assigned ledger version `20261102140026`.
+The repository migration was renamed to
+`20261102140026_repair_targeted_contact_trigger.sql` to match; its bytes and
+SHA-256 are unchanged. The earlier test manifest retains the original filename
+as historical evidence of the tested candidate.
+
+The [deployment receipt](evidence/contact-trigger-deployment-2026-11-02.json)
+records exact ledger SQL and function-body matches, unchanged function identity,
+owner, invoker security, empty search path, privileges, and both enabled trigger
+bindings. All 444 security advisory findings were unchanged after excluding
+observation timestamps. This is deployment-contract evidence; behavioral tests
+remain the isolated PostgreSQL evidence above. No household rows were written
+for verification, and no signed-in live delivery, physical-device acceptance,
+or app release was performed.
