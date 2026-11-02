@@ -49,14 +49,25 @@ def main():
         run(contract.build_schema())
         for migration in ['20261101213719_atomic_budget_category_settings.sql', '20261101213724_household_category_settings_preview_read.sql']:
             run((ROOT/'supabase/migrations'/migration).read_text())
+        run(contract.transaction_rule_fixture.schema())
+        run((ROOT/'supabase/migrations'/contract.transaction_rule_fixture.MIGRATION).read_text())
         setup = (ROOT/'supabase/tests/category_settings_command.sql').read_text().split('set local role authenticated;')[0]
         fixture = json.loads(run(setup+"select row_to_json(f) from category_settings_fixture f; commit;"))
+        rule_ids = json.loads(run("select json_build_object('partial',gen_random_uuid(),'history',gen_random_uuid(),'transfer',gen_random_uuid(),'incoming',gen_random_uuid());"))
+        for label, identifier in rule_ids.items():
+            is_transfer = label in ('transfer','incoming')
+            name = 'Broker' if is_transfer else 'Online Payment'
+            description = 'Broker account transfer' if is_transfer else 'Online Payment 12345 To Taylor Example 10/23'
+            direction = 'inflow' if label == 'incoming' else 'outflow'
+            meaning = "'transfer'" if label == 'transfer' else 'null'
+            source = "'confirmed'" if label == 'transfer' else 'null'
+            run(f"insert into public.budget_transactions(id,user_id,name,merchant_name,original_description,direction,money_meaning,money_meaning_source) values('{identifier}','{fixture['owner_id']}','{name}','{name}','{description}','{direction}',{meaning},{source});")
         run('create role fixture_authenticator login noinherit; grant anon,authenticated to fixture_authenticator; grant usage on schema public to anon,authenticated;')
         def token(actor, anonymous=False):
             encode = lambda value: base64.urlsafe_b64encode(json.dumps(value, separators=(',', ':')).encode()).rstrip(b'=')
             body = encode({'alg': 'HS256', 'typ': 'JWT'})+b'.'+encode({'role': 'authenticated', 'sub': actor, 'is_anonymous': anonymous, 'exp': int(time.time())+86400})
             return (body+b'.'+base64.urlsafe_b64encode(hmac.new(secret.encode(), body, hashlib.sha256).digest()).rstrip(b'=')).decode()
-        sessions = {name: {'actorUserId': fixture[name+'_id'], 'token': token(fixture[name+'_id']), 'categoryId': fixture['category_id']} for name in ['owner','adult','child','other']}
+        sessions = {name: {'actorUserId': fixture[name+'_id'], 'token': token(fixture[name+'_id']), 'categoryId': fixture['category_id'], 'ruleTransactions': rule_ids} for name in ['owner','adult','child','other']}
         sessions['anonymous'] = {**sessions['owner'], 'token': token(fixture['owner_id'], True), 'isAnonymous': True}
         log = open(scratch+'/postgrest.log', 'w')
         pgrst = subprocess.Popen([args.postgrest], stdout=log, stderr=log, env={**os.environ,
@@ -103,11 +114,11 @@ def main():
                     matched=next((s for s in sessions.values() if hmac.compare_digest(s['token'],bearer)),None)
                     self.reply({'id':matched['actorUserId'],'is_anonymous':matched.get('isAnonymous',False),'aud':'authenticated'} if matched else {'error':'Invalid fixture session'},200 if matched else 401); return
                 path=self.path.removeprefix('/rest/v1')
-                allowed=(self.command=='GET' and (path.startswith('/budget_categories?') or path.startswith('/budget_plans?'))) or (self.command=='POST' and path in ['/rpc/save_budget_category_settings','/rpc/get_budget_category_settings_receipt'])
+                allowed=(self.command=='GET' and (path.startswith('/budget_categories?') or path.startswith('/budget_plans?') or path.startswith('/budget_transactions?') or path.startswith('/budget_transaction_match_rules?'))) or (self.command=='POST' and path in ['/rpc/save_budget_category_settings','/rpc/get_budget_category_settings_receipt','/rpc/upsert_budget_transaction_rule_v2'])
                 if not allowed: self.reply({'error':'Outside isolated Budget contract'},404); return
                 if state['offline_receipt'] and path=='/rpc/get_budget_category_settings_receipt':
                     self.reply({'code':'FIXTURE_OFFLINE','message':'Synthetic offline receipt'},503); return
-                request=urllib.request.Request('http://127.0.0.1:8083'+path, data=body if self.command=='POST' else None, method=self.command, headers={'Content-Type':'application/json','Authorization':self.headers.get('Authorization','')})
+                request=urllib.request.Request('http://127.0.0.1:8083'+path, data=body if self.command=='POST' else None, method=self.command, headers={'Content-Type':'application/json','Accept':self.headers.get('Accept','application/json'),'Authorization':self.headers.get('Authorization','')})
                 try:
                     with urllib.request.urlopen(request, timeout=10) as result: status=result.status; response=result.read()
                 except urllib.error.HTTPError as error: status=error.code; response=error.read()

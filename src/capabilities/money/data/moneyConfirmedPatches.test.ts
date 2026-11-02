@@ -154,6 +154,13 @@ describe('confirmed Money patches', () => {
     expect(result.categories).toBe(snapshot.categories);
   });
 
+  it('confirms the effective transfer rule without inventing recomputed financial totals', () => {
+    const result = applyConfirmedMerchantRulePatch(snapshot, { transactionId: 'transaction-1', categoryId: null, meaning: 'transfer' });
+    expect(result.transactions[0]).toMatchObject({ merchantRuleCategoryId: null, merchantRuleMeaning: 'transfer' });
+    expect(result.transactions[0].moneyMeaning).toBe(snapshot.transactions[0].moneyMeaning);
+    expect(result.totals).toBe(snapshot.totals);
+  });
+
   it('applies a confirmed transaction plan-role override without changing its category', () => {
     const categorized = {
       ...snapshot,

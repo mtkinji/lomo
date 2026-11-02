@@ -2,26 +2,33 @@ import type { MoneyRuleRow } from './moneySnapshot';
 
 /** One matcher per snapshot: rule preparation and repeated merchant names are reused,
  * but edits or a different household can never inherit a previous snapshot's matches. */
-export function createMerchantRuleMatcher(rules: MoneyRuleRow[]): (merchant: string) => MoneyRuleRow | undefined {
+export function createMerchantRuleMatcher(rules: MoneyRuleRow[]): (merchant: string, description?: string, name?: string, direction?: 'inflow' | 'outflow') => MoneyRuleRow | undefined {
   if (!rules.length) return () => undefined;
-  const prepared = rules.map((rule) => ({
+  const prepared = [...rules].sort((left, right) =>
+    Number(right.merchant_match_mode === 'exact') - Number(left.merchant_match_mode === 'exact')
+    || (right.updated_at ?? '').localeCompare(left.updated_at ?? '')
+    || right.id.localeCompare(left.id)).map((rule) => ({
     rule,
     exact: rule.merchant_match_mode === 'exact',
-    key: rule.merchant_match_mode === 'exact'
+    full: rule.match_version === 'contains_v2',
+    key: rule.merchant_match_mode === 'exact' || rule.match_version === 'contains_v2'
       ? normalizeMerchant(rule.merchant_contains)
       : partialMerchantKey(normalizeMerchant(rule.merchant_contains)),
   }));
   const matches = new Map<string, MoneyRuleRow | undefined>();
-  return (merchant) => {
-    if (matches.has(merchant)) return matches.get(merchant);
+  const usesDescriptions = prepared.some(({ exact, full }) => !exact && full);
+  return (merchant, description, name, direction = 'outflow') => {
+    const cacheKey = usesDescriptions ? JSON.stringify([merchant, description, name, direction]) : `${direction}:${merchant}`;
+    if (matches.has(cacheKey)) return matches.get(cacheKey);
     const normalized = normalizeMerchant(merchant);
     const partial = partialMerchantKey(normalized);
-    // Preserve server order across exact and partial rules, including unmatched
-    // category references. Preferring exact matches would change existing behavior.
-    const match = prepared.find(({ exact, key }) => exact
-      ? key === normalized
-      : Boolean(key && partial && partial.includes(key)))?.rule;
-    matches.set(merchant, match);
+    const descriptions = usesDescriptions ? [normalized, normalizeMerchant(description ?? ''), normalizeMerchant(name ?? '')] : [];
+    // Match the server's exact/recency precedence and direction eligibility.
+    const match = prepared.find(({ rule, exact, full, key }) =>
+      (direction === 'outflow' || rule.rule_kind === 'transfer') && (exact
+        ? key === normalized
+        : Boolean(key && (full ? descriptions.some((value) => value.includes(key)) : partial.includes(key)))))?.rule;
+    matches.set(cacheKey, match);
     return match;
   };
 }

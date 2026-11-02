@@ -29,6 +29,8 @@ function functionsFrom(source, include = () => true) {
 export function buildContract() {
   const functions = [
     ...functionsFrom(read(`supabase/migrations/${atomicMigration}`)),
+    ...functionsFrom(read('supabase/migrations/20261102021916_transfer_and_literal_merchant_rules.sql')),
+    ...functionsFrom(read('supabase/migrations/20260728051739_merchant_rules_apply_all_transactions.sql'), name => ['public.normalize_budget_merchant','public.budget_merchant_rule_matches'].includes(name)),
     ...functionsFrom(read(`supabase/migrations/${rolloverMigration}`)),
     ...functionsFrom(read(`supabase/migrations/${ownerMigration}`), name => [
       'public.budget_effective_owner_user_id', 'private.budget_effective_owner_user_id',
@@ -37,8 +39,9 @@ export function buildContract() {
   ];
   functions.push(...functionsFrom(read('supabase/migrations/20260710234659_project_active_living_plan_into_budgets.sql')),
     ...functionsFrom(read('supabase/migrations/20260709131031_budget_living_plan_preferences.sql'), name => name === 'public.set_updated_at'));
-  if (functions.length !== 14) throw new Error('Budget contract function inventory changed; review its coverage.');
+  if (functions.length !== 21) throw new Error('Budget contract function inventory changed; review its coverage.');
   const columns = [
+    ...['rule_kind','match_version'].map(name => ({ table: 'budget_transaction_match_rules', name, type: 'text' })),
     ...Object.entries({ actor_user_id: 'uuid', request_id: 'uuid', owner_user_id: 'uuid', category_id: 'uuid',
       request: 'jsonb', receipt: 'jsonb', created_at: 'timestamp with time zone' }).map(([name, type]) => ({ schema: 'private', table: 'budget_category_settings_receipts', name, type })),
     ...Object.entries({ rollover_policy: 'jsonb', base_budget_cents: 'integer', rollover_enabled: 'boolean',
@@ -54,6 +57,9 @@ export function buildContract() {
     { table: 'budget_living_plan_config', name: 'Owners read living config', qual: "((COALESCE(( SELECT ((auth.jwt() ->> 'is_anonymous'::text))::boolean AS bool), false) IS FALSE) AND (user_id = ( SELECT auth.uid() AS uid)))" },
   ];
   const triggers = [
+    { table: 'budget_transactions', name: 'apply_budget_transaction_match_rule', function: 'apply_budget_transaction_match_rule_to_row', type: 23, columns: ['merchant_name','name','original_description','user_id'] },
+    { table: 'budget_transaction_match_rules', name: 'apply_budget_transaction_match_rule_to_history', function: 'apply_budget_transaction_match_rule_to_history', type: 21, columns: ['budget_id','merchant_contains','merchant_match_mode','rule_kind','match_version'] },
+    { table: 'budget_transaction_match_rules', name: 'remove_budget_transaction_match_rule_from_history', function: 'apply_budget_transaction_match_rule_to_history', type: 9, columns: [] },
     { table: 'budget_categories', name: 'set_budget_categories_updated_at', function: 'set_updated_at', type: 19, columns: [] },
     { table: 'budget_plans', name: 'set_budget_plans_updated_at', function: 'set_updated_at', type: 19, columns: [] },
     { table: 'budget_active_living_plans', name: 'project_active_living_plan_into_budget_plans',
@@ -61,7 +67,7 @@ export function buildContract() {
   ];
   const contract = { version: 1, projectRef: 'sqxwjtorodqjdfnuvprf', origin: 'https://auth.kwilt.app', functions, columns, policies, triggers };
   contract.checkIds = [...functions.map(fn => `function:${fn.name}`), ...columns.map(c => `column:${c.schema ?? 'public'}.${c.table}.${c.name}`),
-    ...policies.map(p => `policy:${p.name}`), ...triggers.map(t => `trigger:${t.name}`), 'command-execute', 'private-receipts', 'household-helper-access', 'preview-read-access', 'policy-select-scope', 'rollover-constraint', 'rollover-trigger'];
+    ...policies.map(p => `policy:${p.name}`), ...triggers.map(t => `trigger:${t.name}`), 'command-execute', 'private-receipts', 'household-helper-access', 'preview-read-access', 'policy-select-scope', 'rollover-constraint', 'rollover-trigger', 'rule-command-execute', 'rule-matcher-execute', 'rule-destination-schema'];
   contract.hash = digest(JSON.stringify(contract));
   return contract;
 }
@@ -103,6 +109,20 @@ export function contractQuery(contract) {
     where p.schemaname='public' and p.tablename=${q(p.table)} and p.policyname=${q(p.name)}
       and p.cmd='SELECT' and p.roles=array['authenticated']::name[] and p.permissive='PERMISSIVE'
       and pg_catalog.regexp_replace(replace(p.qual,'public.',''),'\\s+','','g')=${q(p.qual.replace(/\s+/g, ''))})`);
+  check('rule-command-execute', `select count(*)=2 and bool_and(pg_catalog.has_function_privilege('authenticated',p.oid,'EXECUTE')
+    and not pg_catalog.has_function_privilege('anon',p.oid,'EXECUTE'))
+    from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('upsert_budget_transaction_rule_v2','upsert_budget_transaction_match_rule')`);
+  check('rule-matcher-execute', `select count(*)=3 and bool_and(pg_catalog.has_function_privilege('authenticated',p.oid,'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role',p.oid,'EXECUTE') and not pg_catalog.has_function_privilege('anon',p.oid,'EXECUTE'))
+    from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('budget_rule_matches_version','normalize_budget_merchant','budget_merchant_rule_matches')`);
+  check('rule-destination-schema', `exists(select 1 from pg_catalog.pg_attribute a join pg_catalog.pg_class t on t.oid=a.attrelid
+    join pg_catalog.pg_namespace n on n.oid=t.relnamespace where n.nspname='public' and t.relname='budget_transaction_match_rules'
+    and a.attname='budget_id' and not a.attnotnull and t.relrowsecurity)
+    and exists(select 1 from pg_catalog.pg_constraint c join pg_catalog.pg_class t on t.oid=c.conrelid
+    join pg_catalog.pg_namespace n on n.oid=t.relnamespace where n.nspname='public' and t.relname='budget_transaction_match_rules'
+    and c.conname='budget_rule_destination' and c.convalidated)`);
   check('command-execute', `select count(*)=3 and bool_and(
     case when n.nspname='private' then not pg_catalog.has_function_privilege('authenticated',p.oid,'EXECUTE')
       else pg_catalog.has_function_privilege('authenticated',p.oid,'EXECUTE') end

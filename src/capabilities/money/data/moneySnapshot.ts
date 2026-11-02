@@ -66,7 +66,10 @@ export type MoneyConnectionRow = {
 
 export type MoneyRuleRow = {
   id: string;
-  budget_id: string;
+  budget_id: string | null;
+  rule_kind?: 'category' | 'transfer';
+  match_version?: 'legacy' | 'contains_v2';
+  updated_at?: string;
   merchant_contains: string;
   merchant_match_mode: 'exact' | 'partial';
   label: string;
@@ -173,6 +176,7 @@ export type MoneyTransaction = {
   accountName: string;
   institutionName: string;
   originalDescription?: string;
+  bankName?: string;
   userNote?: string | null;
   authorizedDate?: string | null;
   accountMask?: string | null;
@@ -192,6 +196,7 @@ export type MoneyTransaction = {
   reviewState: 'assigned' | 'needs_review' | 'not_counted';
   matchSource?: MoneyTransactionRow['budget_match_source'];
   merchantRuleCategoryId?: string | null;
+  merchantRuleMeaning?: 'transfer' | null;
   assignmentSource?: MoneyTransactionRow['budget_assignment_source'];
   assignmentPolicyVersion?: string | null;
   assignmentGoverned?: boolean;
@@ -552,21 +557,22 @@ function projectTransaction(
   transaction: MoneyTransactionRow,
   accounts: Map<string, MoneyAccountRow>,
   categories: Map<string, MoneyCategoryRow>,
-  matchMerchantRule: (merchant: string) => MoneyRuleRow | undefined,
+  matchMerchantRule: (merchant: string, description?: string, name?: string, direction?: 'inflow' | 'outflow') => MoneyRuleRow | undefined,
   allocations?: MoneyTransactionAllocation[],
 ): MoneyTransaction {
   const account = transaction.financial_account_id ? accounts.get(transaction.financial_account_id) : undefined;
   const connection = normalizeConnection(account?.budget_financial_connections);
   const category = transaction.budget_id ? categories.get(transaction.budget_id) : undefined;
   const reviewState = reviewStateFor(transaction, categories, allocations);
-  const merchantRule = matchMerchantRule(transaction.merchant_name?.trim() || transaction.name);
-  const merchantRuleCategory = merchantRule ? categories.get(merchantRule.budget_id) : undefined;
+  const merchantRule = matchMerchantRule(transaction.merchant_name?.trim() || transaction.name, transaction.original_description ?? undefined, transaction.name, transaction.direction);
+  const merchantRuleCategory = merchantRule?.budget_id ? categories.get(merchantRule.budget_id) : undefined;
 
   return {
     id: transaction.id,
     accountId: transaction.financial_account_id,
     accountName: account?.official_name?.trim() || account?.name.trim() || 'Unknown account',
     institutionName: connection?.institution_name?.trim() || 'Linked institution',
+    bankName: transaction.name,
     originalDescription: transaction.original_description?.trim() || transaction.name.trim() || transaction.merchant_name?.trim() || 'Transaction',
     userNote: transaction.user_note?.trim() || null,
     authorizedDate: transaction.authorized_date ?? null,
@@ -595,6 +601,7 @@ function projectTransaction(
           : transaction.direction === 'inflow' ? 'Income or transfer' : reviewState === 'not_counted' ? 'Not counted' : 'Needs review'),
     reviewState,
     matchSource: transaction.budget_match_source ?? null,
+    merchantRuleMeaning: merchantRule?.rule_kind === 'transfer' ? 'transfer' : null,
     merchantRuleCategoryId: merchantRuleCategory
       ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
       : null,

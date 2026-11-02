@@ -373,12 +373,13 @@ export function MoneyDataProvider({
     setReviewingTransactionId(transactionId);
     try {
       const result = await mutation();
-      const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === result.categorySourceId);
+      const category = state.snapshot?.categories.find((candidate) => (candidate.sourceId === result.effectiveCategorySourceId || candidate.id === result.effectiveCategorySourceId));
       dispatch({
         type: 'confirmed_merchant_rule_patch',
         patch: {
           transactionId: result.transactionId,
           categoryId: category?.id ?? null,
+          meaning: result.effectiveTargetKind === 'transfer' ? 'transfer' : null,
         },
       });
       const version = ++mutationVersionRef.current;

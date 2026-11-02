@@ -517,7 +517,7 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
     expect(screen.getByText('stale')).toBeTruthy();
   });
 
-  it('finishes the save after confirmation while the full refresh remains in flight', async () => {
+  it('confirms the winning category rather than the saved partial transfer while refresh remains in flight', async () => {
     const backgroundRefresh = deferred<MoneySnapshot>();
     const refreshedSnapshot = {
       ...snapshot,
@@ -530,7 +530,8 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
         .mockImplementationOnce(() => backgroundRefresh.promise),
       saveMerchantRule: jest.fn().mockResolvedValue({
         confirmedAt: '2026-07-29T12:00:00.000Z', ruleId: 'rule-1', transactionId: 'transaction-1',
-        appliedTransactionCount: 12, merchantKey: 'costco', matchMode: 'exact', categorySourceId: 'category-1',
+        appliedTransactionCount: 12, merchantKey: 'costco', matchMode: 'partial', categorySourceId: null, targetKind: 'transfer',
+        effectiveTargetKind: 'category', effectiveCategorySourceId: 'groceries',
       }),
     } as unknown as MoneyRepository;
     const screen = render(

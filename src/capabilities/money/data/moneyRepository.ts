@@ -105,7 +105,10 @@ export type ConfirmedMerchantRuleWrite = {
   appliedTransactionCount: number;
   merchantKey: string;
   matchMode: 'exact' | 'partial';
-  categorySourceId: string;
+  categorySourceId: string | null;
+  targetKind: 'category' | 'transfer';
+  effectiveTargetKind: 'category' | 'transfer';
+  effectiveCategorySourceId: string | null;
 };
 
 export type ConfirmedCategoryOrderWrite = {
@@ -161,8 +164,11 @@ export interface MoneyRepository {
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
-    categoryId: string;
-    categoryName: string;
+    originalDescription?: string;
+    bankName?: string;
+    categoryId?: string;
+    categoryName?: string;
+    targetKind?: 'category' | 'transfer';
     matchMode?: 'exact' | 'partial';
     merchantPattern?: string;
   }): Promise<ConfirmedMerchantRuleWrite>;
@@ -219,12 +225,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
           `).eq('user_id', ownerUserId), 'budget_financial_connections.environment', includeSandbox)
           .order('created_at', { ascending: false })),
-      readPart<MoneyRuleRow[]>('merchant rules',
-        db
-          .from('budget_transaction_match_rules')
-          .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
-          .eq('user_id', ownerUserId)
-          .order('created_at', { ascending: false })),
+      readRuleRows(db, ownerUserId),
       collectAllPages<MoneyTransactionAllocationRow>((from, to) =>
         readOptionalAllocations(db
           .from('budget_transaction_allocations')
@@ -516,7 +517,8 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
       const rule = buildMerchantRuleUpsert({ userId, ...input });
-      const { data, error } = await db.rpc('upsert_budget_transaction_match_rule', {
+      const { data, error } = await db.rpc('upsert_budget_transaction_rule_v2', {
+        p_rule_kind: rule.rule_kind,
         p_transaction_id: rule.created_from_transaction_id,
         p_budget_id: rule.budget_id,
         p_merchant_contains: rule.merchant_contains,
@@ -524,7 +526,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         p_label: rule.label,
       });
       if (error) throw new Error(`Money could not save the merchant rule: ${error.message || 'Unknown database error'}`);
-      return parseMerchantRuleReceipt(data, rule.created_from_transaction_id);
+      return parseMerchantRuleReceipt(data, rule.created_from_transaction_id, rule);
     },
     async createCategory(input) {
       await requireSignedIn(client);
@@ -672,20 +674,27 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
   };
 }
 
-function parseMerchantRuleReceipt(data: unknown, transactionId: string): ConfirmedMerchantRuleWrite {
+function parseMerchantRuleReceipt(data: unknown, transactionId: string, rule: ReturnType<typeof buildMerchantRuleUpsert>): ConfirmedMerchantRuleWrite {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error('Money saved the merchant rule without a valid confirmation receipt.');
   }
   const receipt = data as Record<string, unknown>;
+  const targetKind = rule.rule_kind;
+  const effectiveTargetKind = receipt.effectiveTargetKind;
+  const effectiveCategorySourceId = typeof receipt.effectiveCategoryId === 'string' ? receipt.effectiveCategoryId.trim() : null;
   const ruleId = typeof receipt.ruleId === 'string' ? receipt.ruleId.trim() : '';
   const merchantKey = typeof receipt.merchantKey === 'string' ? receipt.merchantKey.trim() : '';
-  const categorySourceId = typeof receipt.categoryId === 'string' ? receipt.categoryId.trim() : '';
+  const categorySourceId = typeof receipt.categoryId === 'string' ? receipt.categoryId.trim() : null;
   const matchMode = receipt.matchMode;
   const appliedTransactionCount = receipt.appliedTransactionCount;
   if (
     !ruleId
     || !merchantKey
-    || !categorySourceId
+    || merchantKey !== rule.merchant_contains || matchMode !== rule.merchant_match_mode || categorySourceId !== rule.budget_id
+    || (effectiveTargetKind !== 'category' && effectiveTargetKind !== 'transfer')
+    || (effectiveTargetKind === 'category' ? !effectiveCategorySourceId : receipt.effectiveCategoryId !== null)
+    || receipt.targetKind !== targetKind
+    || (targetKind === 'category' ? !categorySourceId : receipt.categoryId !== null)
     || (matchMode !== 'exact' && matchMode !== 'partial')
     || !Number.isInteger(appliedTransactionCount)
     || (appliedTransactionCount as number) < 0
@@ -700,6 +709,9 @@ function parseMerchantRuleReceipt(data: unknown, transactionId: string): Confirm
     merchantKey,
     matchMode,
     categorySourceId,
+    targetKind,
+    effectiveTargetKind,
+    effectiveCategorySourceId,
   };
 }
 
@@ -875,6 +887,20 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   const { data, error } = await query;
   if (error) throw new Error(`Money could not read ${label}: ${error.message || 'Unknown database error'}`);
   return (data ?? []) as T;
+}
+
+async function readRuleRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyRuleRow[]> {
+  const columns = 'id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id,updated_at';
+  const query = (fields: string) => db.from('budget_transaction_match_rules').select(fields)
+    .eq('user_id', ownerUserId).order('created_at', { ascending: false });
+  const result = await query(`${columns},rule_kind,match_version`);
+  if (!result.error) return (result.data ?? []) as MoneyRuleRow[];
+  const { code, message } = result.error;
+  if ((code === '42703' || code === 'PGRST204') && /\b(rule_kind|match_version)\b/.test(message ?? '')) {
+    // Compatibility is read-only. Never retry a new rule through the legacy writer.
+    return readPart<MoneyRuleRow[]>('merchant rules', query(columns));
+  }
+  throw new Error(`Money could not read merchant rules: ${message || 'Unknown database error'}`);
 }
 
 async function readCategoryRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyCategoryRow[]> {

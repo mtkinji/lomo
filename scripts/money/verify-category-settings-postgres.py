@@ -15,8 +15,12 @@ import shutil
 import subprocess
 import tempfile
 import time
+import importlib.util
 
 ROOT = Path(__file__).resolve().parents[2]
+_rule_spec = importlib.util.spec_from_file_location('transaction_rule_fixture', Path(__file__).with_name('transaction_rule_fixture.py'))
+transaction_rule_fixture = importlib.util.module_from_spec(_rule_spec)
+_rule_spec.loader.exec_module(transaction_rule_fixture)
 ENV = {}
 PSQL = []
 
@@ -87,6 +91,14 @@ def verify_release_contract():
     assert not failures, 'Valid isolated schema rejected: '+str(failures)
     run((ROOT/'supabase/tests/category_rollover_schema_contract.sql').read_text())
     cases=[
+      ('revoked authenticated rule matcher', 'revoke execute on function public.budget_rule_matches_version(text,text,text,text,text,text) from authenticated;'),
+      ('revoked import rule matcher', 'revoke execute on function public.budget_rule_matches_version(text,text,text,text,text,text) from service_role;'),
+      ('revoked rule normalization', 'revoke execute on function public.normalize_budget_merchant(text,text) from service_role;'),
+      ('missing literal rule matcher', 'drop function public.budget_rule_matches_version(text,text,text,text,text,text);'),
+      ('missing transfer destination', 'alter table public.budget_transaction_match_rules rename column rule_kind to old_rule_kind;'),
+      ('disabled rule import trigger', 'alter table public.budget_transactions disable trigger apply_budget_transaction_match_rule;'),
+      ('disabled rule history trigger', 'alter table public.budget_transaction_match_rules disable trigger apply_budget_transaction_match_rule_to_history;'),
+      ('revoked rule command', 'revoke execute on function public.upsert_budget_transaction_rule_v2(uuid,text,text,text,text,text,text) from authenticated;'),
       ('disabled category timestamp trigger', 'alter table public.budget_categories disable trigger set_budget_categories_updated_at;'),
       ('disabled plan timestamp trigger', 'alter table public.budget_plans disable trigger set_budget_plans_updated_at;'),
       ('disabled plan projection trigger', 'alter table public.budget_active_living_plans disable trigger project_active_living_plan_into_budget_plans;'),
@@ -203,6 +215,10 @@ def main():
         print(run((ROOT/'supabase/tests/category_settings_command.sql').read_text()))
         fixture=(ROOT/'supabase/tests/category_settings_command.sql').read_text().split('set local role authenticated;')[0]
         print(run(fixture+(ROOT/'supabase/tests/household_category_settings_preview.sql').read_text()))
+        run(transaction_rule_fixture.schema())
+        transaction_rule_fixture.verify_upgrade(run)
+        run((ROOT/'supabase/migrations'/transaction_rule_fixture.MIGRATION).read_text())
+        transaction_rule_fixture.verify(run)
         verify_release_contract()
         verify_concurrent_retry()
         verify_reversal_lock()

@@ -57,3 +57,24 @@ Native acceptance sequence:
 The Mac must be unlocked for CUA to operate the Simulator. Never work around that lock or report unobserved UI cases as passed.
 
 Category/plan SELECT policies and auth-user lookup are fixture substitutes. The provider adapter awaits snapshot reload before confirmation, so this does not prove production MoneyDataProvider confirmation/refresh timing. Restarting the backend regenerates identities and removes receipts; only app/JS relaunch with the same backend instance tests recovery continuity.
+
+## Transaction rule HTTP acceptance
+
+The same disposable server now includes synthetic transaction rows and the reviewed
+rule schema. It permits only the named rule RPC and read endpoints in addition to
+the settings endpoints. No production environment files or accounts are used.
+
+With a freshly started server, run:
+
+```sh
+npm exec --yes --package=node@22.23.2 -c 'node node_modules/jest/bin/jest.js --runInBand --testMatch "**/check-rules.acceptance.ts" --runTestsByPath scripts/money/native-harness/check-rules.acceptance.ts'
+```
+
+This explicit acceptance entry is outside ordinary Jest discovery. It uses the
+production Money repository, Supabase SDK and HTTP transport, verifies history
+readback and a new client's rule reads, and tests caregiver and denied actors.
+The Jest native module substitutes are incidental to importing the repository;
+they do not mock the injected client, RPC responses or network. Auth user lookup
+and selected base schema/policies remain the server's documented fixture boundary.
+This is not a native keyboard or real household test. Restart the disposable server
+before repeating it; the receipt assertions depend on its initial synthetic rows.

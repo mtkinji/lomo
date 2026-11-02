@@ -35,9 +35,9 @@ it.each([
   ['partial matches substrings', [rule('art', 'partial')], 'Cart Supplies', 'first'],
   ['generic partial matches nothing', [rule('The Store 123 LLC', 'partial')], 'The Store', null],
   ['empty exact preserves historical behavior', [rule('', 'exact')], '!!!', 'first'],
-  ['earlier partial beats later exact', [rule('costco', 'partial'), rule('costco 123', 'exact', 'second')], 'Costco #123', 'first'],
+  ['exact beats an earlier partial', [rule('costco', 'partial'), rule('costco 123', 'exact', 'second')], 'Costco #123', 'second'],
   ['earlier exact beats later partial', [rule('costco 123', 'exact', 'second'), rule('costco', 'partial')], 'Costco #123', 'second'],
-  ['missing category stops at the first rule', [rule('costco', 'partial', 'deleted'), rule('costco 123', 'exact')], 'Costco #123', null],
+  ['exact still wins when a partial refers to a deleted category', [rule('costco', 'partial', 'deleted'), rule('costco 123', 'exact')], 'Costco #123', 'first'],
 ] as const)('preserves %s', (_description, rules, merchant, expected) => {
   expect(projectMoneySnapshot(fixture([...rules], [merchant]), now).transactions[0].merchantRuleCategoryId).toBe(expected);
 });

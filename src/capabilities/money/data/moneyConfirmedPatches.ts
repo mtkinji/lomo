@@ -44,6 +44,7 @@ export type ConfirmedTransactionNotePatch = {
 export type ConfirmedMerchantRulePatch = {
   transactionId: string;
   categoryId: string | null;
+  meaning?: 'transfer' | null;
 };
 
 export function applyConfirmedTransactionPatch(
@@ -180,14 +181,14 @@ export function applyConfirmedMerchantRulePatch(
   snapshot: MoneySnapshot,
   patch: ConfirmedMerchantRulePatch,
 ): MoneySnapshot {
-  if (!patch.categoryId || !snapshot.transactions.some((transaction) => transaction.id === patch.transactionId)) {
+  if (!snapshot.transactions.some((transaction) => transaction.id === patch.transactionId)) {
     return snapshot;
   }
   return {
     ...snapshot,
     generatedAt: new Date().toISOString(),
     transactions: snapshot.transactions.map((transaction) => transaction.id === patch.transactionId
-      ? { ...transaction, merchantRuleCategoryId: patch.categoryId }
+      ? { ...transaction, merchantRuleCategoryId: patch.categoryId, merchantRuleMeaning: patch.meaning ?? null }
       : transaction),
   };
 }
