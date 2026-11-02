@@ -339,6 +339,12 @@ const standardHandleLayoutHeight = standardChrome.handleRegionPaddingTop
   + standardChrome.handleRegionPaddingBottom;
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
+export function getBottomDrawerMeasuredHeight({ y, height, paddingBottom, borderBottomWidth, maxHeight }: {
+  y: number; height: number; paddingBottom: number; borderBottomWidth: number; maxHeight: number;
+}): number {
+  return Math.min(maxHeight, Math.max(0, y + height + paddingBottom + borderBottomWidth));
+}
+
 function parseSnapPoint(args: {
   point: BottomDrawerSnapPoint;
   availableHeight: number;
@@ -668,8 +674,8 @@ export function BottomDrawer({
   const backdropOpacity = useDerivedValue(() => {
     // Keep fully opaque through most of the gesture; fade during the last ~25% close.
     const t = clamp((progress.value - 0.75) / 0.25, 0, 1);
-    return hideBackdrop ? 0 : scrimMaxOpacity * (1 - t);
-  }, [hideBackdrop, scrimMaxOpacity]);
+    return hideBackdrop || dynamicMeasurementPending ? 0 : scrimMaxOpacity * (1 - t);
+  }, [dynamicMeasurementPending, hideBackdrop, scrimMaxOpacity]);
 
   const scrimStyle = useAnimatedStyle(() => {
     return { opacity: backdropOpacity.value };
@@ -946,13 +952,25 @@ export function BottomDrawer({
     </View>
   ) : inFlowRenderedChildren;
 
+  const resolvedSheetStyle = StyleSheet.flatten(sheetStyle);
+  const customBottomPadding = resolvedSheetStyle?.paddingBottom ?? resolvedSheetStyle?.paddingVertical ?? resolvedSheetStyle?.padding;
+  const measuredBottomPadding = typeof customBottomPadding === 'number'
+    ? customBottomPadding
+    : hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : contentBottomInset;
+  const measuredBottomBorder = resolvedSheetStyle?.borderBottomWidth ?? resolvedSheetStyle?.borderWidth ?? 0;
+
   const sheetChildren = dynamicSizing ? (
     <View
       testID="bottom-drawer.dynamic-measurement"
       onLayout={(event) => {
         const { y, height } = event.nativeEvent.layout;
-        const safeAreaHeight = hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : contentBottomInset;
-        const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
+        // Native scroll content can report an empty layout before its first
+        // real measurement. It must not settle the drawer at zero height.
+        if (height <= 0) return;
+        const next = getBottomDrawerMeasuredHeight({
+          y, height, paddingBottom: measuredBottomPadding,
+          borderBottomWidth: measuredBottomBorder, maxHeight: maxAllowedHeight,
+        });
         setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
       }}
     >
@@ -990,7 +1008,10 @@ export function BottomDrawer({
           maxHeight: availableHeight,
         },
         sheetAnimatedStyle,
-        dynamicMeasurementPending ? styles.measurementPending : null,
+        // A ScrollView cannot measure its content inside a zero-height sheet.
+        // Lay it out at the allowed height while hidden, then enter at the
+        // measured height. Do not animate layout during this measurement pass.
+        dynamicMeasurementPending ? [styles.measurementPending, { height: maxAllowedHeight }] : null,
         webSheetStaticStyle,
         contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
         sheetStyle,
@@ -1085,6 +1106,7 @@ export function BottomDrawer({
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
               <Animated.View
+                testID="bottom-drawer.scrim"
                 style={[
                   styles.scrim,
                   { backgroundColor: scrimConfig.color },
@@ -1113,6 +1135,7 @@ export function BottomDrawer({
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
               <Animated.View
+                testID="bottom-drawer.scrim"
                 style={[
                   styles.scrim,
                   { backgroundColor: scrimConfig.color },

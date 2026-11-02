@@ -9,21 +9,42 @@ const require = createRequire(import.meta.url);
 const { buildScreenTimeProtectionSwift } = require('../plugins/withAppleEcosystemIntegrations.js');
 const { buildConfigurationSwift, infoPlist } = require('../plugins/appleEcosystem/screenTimeShieldExtensions.js');
 
-test('every Kwilt shield renders solid parchment without a darkening blur', () => {
+test('every Kwilt shield renders an opaque surface without a darkening blur', () => {
   assert.match(generator, /backgroundBlurStyle: nil,/);
   assert.doesNotMatch(generator, /backgroundBlurStyle: isMoney/);
 });
 
-test('every Kwilt shield uses parchment, dark text, and the standard Sumi primary action', () => {
-  assert.match(generator, /private let parchment = UIColor\(red: 0\.980, green: 0\.969, blue: 0\.929, alpha: 1\.0\)/);
-  assert.match(generator, /private let sumi = UIColor\(red: 0\.110, green: 0\.102, blue: 0\.098, alpha: 1\.0\)/);
-  assert.match(generator, /backgroundColor: parchment,/);
-  assert.match(generator, /title: ShieldConfiguration\.Label\(text: title, color: sumi\),/);
-  assert.match(generator, /subtitle: ShieldConfiguration\.Label\(text: subtitle, color: detailColor\),/);
-  assert.match(generator, /primaryButtonLabel: ShieldConfiguration\.Label\(text: KwiltShieldCopy\.buttonLabel\(for: reason\), color: UIColor\.white\),/);
-  assert.match(generator, /primaryButtonBackgroundColor: sumi,/);
-  assert.doesNotMatch(generator, /backgroundColor: pine,/);
-  assert.doesNotMatch(generator, /quiltBlue|0\.106, green: 0\.157, blue: 0\.227/);
+test('shield text and action use paired contrasting colors in either host appearance', () => {
+  const rendered = buildConfigurationSwift('group.test.kwilt');
+  assert.match(rendered, /private let background = UIColor \{ traits in/);
+  assert.match(rendered, /traits\.userInterfaceStyle == \.dark \? KwiltShieldPalette\.sumi : KwiltShieldPalette\.parchment/);
+  assert.match(rendered, /traits\.userInterfaceStyle == \.dark \? KwiltShieldPalette\.parchment : KwiltShieldPalette\.sumi/);
+  assert.match(rendered, /backgroundColor: background,/);
+  assert.match(rendered, /title: ShieldConfiguration\.Label\(text: title, color: foreground\),/);
+  assert.match(rendered, /primaryButtonLabel: ShieldConfiguration\.Label\(text: KwiltShieldCopy\.buttonLabel\(for: reason\), color: background\),/);
+  assert.match(rendered, /primaryButtonBackgroundColor: foreground,/);
+});
+
+test('the shield palette keeps button text and its surrounding surface above 7:1 contrast', () => {
+  const rendered = buildConfigurationSwift('group.test.kwilt');
+  const palette = rendered.split('private enum KwiltShieldPalette {')[1].split('}')[0];
+  const rgb = (name) => {
+    const match = palette.match(new RegExp(`static let ${name} = UIColor\\(red: ([0-9.]+), green: ([0-9.]+), blue: ([0-9.]+), alpha: 1\\.0\\)`));
+    assert.ok(match, `${name} must be opaque`);
+    return match.slice(1).map(Number);
+  };
+  const luminance = (channels) => channels.map((c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const light = luminance(rgb('parchment'));
+  const dark = luminance(rgb('sumi'));
+  assert.ok((light + 0.05) / (dark + 0.05) >= 7);
+});
+
+test('the Screen Time action fits the system button without the extra Open prefix', () => {
+  const rendered = buildConfigurationSwift('group.test.kwilt');
+  assert.doesNotMatch(rendered, /return "Open Screen Time"/);
+  assert.match(rendered, /if reason == "family_prerequisite" \{ return "Screen Time" \}/);
+  assert.match(rendered, /if reason == "personal_usage_limit_reached" \|\| reason == "personal_composite_rule" \{ return "Screen Time" \}/);
 });
 
 test('the shield layers the system restriction hourglass behind Kwilt', () => {
@@ -62,15 +83,15 @@ test('the shield extension bundles and declares the Inter font it uses', () => {
   assert.match(rendered, /<string>KwiltShieldInterBlack\.ttf<\/string>/);
 });
 
-test('the shield extension preserves parchment when the host app uses dark appearance', () => {
+test('the shield follows host appearance so its paired colors resolve together', () => {
   const rendered = infoPlist({
     displayName: 'KwiltShieldConfiguration',
     extensionPointIdentifier: 'com.apple.ManagedSettingsUI.shield-configuration-service',
     principalClass: 'Test.Extension',
   });
 
-  assert.match(rendered, /<key>UIUserInterfaceStyle<\/key><string>Light<\/string>/);
-  assert.match(rendered, /<key>NSExtensionOverridesHostUIAppearance<\/key><true\/>/);
+  assert.doesNotMatch(rendered, /<key>UIUserInterfaceStyle<\/key>/);
+  assert.doesNotMatch(rendered, /<key>NSExtensionOverridesHostUIAppearance<\/key>/);
 });
 
 test('shield actions preserve the reason for an exact in-app handoff', () => {
