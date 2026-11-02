@@ -1,0 +1,1406 @@
+{
+  "observedAt": "2026-11-02T03:18:48.313182+00:00",
+  "sourceBase": "a663a7e710ff51573c7c57fedfce0b13e4767219",
+  "stash": "da6f3b90214a07981b9ce477b70e00cb45e2d8a8",
+  "postgres": "17.11 Homebrew aarch64-apple-darwin25.6.0",
+  "jitSetting": "on",
+  "jitAvailable": false,
+  "networkListener": false,
+  "applicationMigrationCount": 267,
+  "results": [
+    {
+      "test": "supabase/tests/targeted_contact_trigger.sql",
+      "sha256": "c21abd4a001013bc36a296ae88e2b999814f5ad6360fd42838de4b4d1e53608a",
+      "exitCode": 0
+    },
+    {
+      "test": "supabase/tests/contextual_ugc_safety.sql",
+      "sha256": "a4a82f22fe532f50962cd6265040139082e13f4d10aa82080bf3f3b5351369b6",
+      "exitCode": 0
+    },
+    {
+      "test": "supabase/tests/plaid_lifecycle.sql",
+      "sha256": "b5f4a6e8db1869d13d1aa092fcc8d176fa7472be6ff314e292f41c9efafb7a86",
+      "exitCode": 0
+    },
+    {
+      "test": "supabase/tests/unified_chat_trust_contract.sql",
+      "sha256": "f9d0fb310f80db0c0734051304045dbfe1f777f2792ad2bffbcdff3f8a556eb7",
+      "exitCode": 0
+    },
+    {
+      "test": "supabase/tests/shared_home_deliveries.sql",
+      "sha256": "0e28d58289085e88430dd3a3cf947f0cbdae1eedc61693b7194d318f060b2c76",
+      "exitCode": 0
+    },
+    {
+      "test": "supabase/tests/global_recipe_catalog_foundation.sql",
+      "sha256": "70ef4321385ccd91c981f37c7dee916f2370ad8ad447227652946c8394e9bd10",
+      "exitCode": 0
+    }
+  ],
+  "migrationReplay": [
+    {
+      "file": "supabase/migrations/20251223000000_kwilt_ai_proxy.sql",
+      "source": "a663a7e7",
+      "sha256": "02aaeba07009a550185af93cb6ae2eb50e8be7dbed66da2970b860de45a45807"
+    },
+    {
+      "file": "supabase/migrations/20251223000100_kwilt_ai_proxy_monthly.sql",
+      "source": "a663a7e7",
+      "sha256": "91095dea8b5ea1315ffc764b0a1d190a634d8de67a9beca83ffd247fc65f4512"
+    },
+    {
+      "file": "supabase/migrations/20251223000200_kwilt_ai_proxy_rpm.sql",
+      "source": "a663a7e7",
+      "sha256": "8033c0d803eb79bef3dbe27d729dc0b903afb67f56ef17e16e9c4c03a34c6f64"
+    },
+    {
+      "file": "supabase/migrations/20251226000000_kwilt_ai_proxy_onboarding.sql",
+      "source": "a663a7e7",
+      "sha256": "1a3d69fb3003338f61bdfaeddf9bc79ac2c729fc2d812411af25ec18deb027e2"
+    },
+    {
+      "file": "supabase/migrations/20251226000010_kwilt_ai_bonus_monthly.sql",
+      "source": "a663a7e7",
+      "sha256": "ec189104a9cbe1100fe7c8905129dbaa422c6138936c28faf0ea48782b89088d"
+    },
+    {
+      "file": "supabase/migrations/20251226000020_kwilt_referrals.sql",
+      "source": "a663a7e7",
+      "sha256": "5b2e0c1ba6b7156fc01d16795d860de34d688330ca142bbf7175325642f12bc5"
+    },
+    {
+      "file": "supabase/migrations/20251229000000_kwilt_pro_codes.sql",
+      "source": "a663a7e7",
+      "sha256": "40d87595577313c6424e5bf7860e71b555f138a8f6f9594f18b47b86a0a80bba"
+    },
+    {
+      "file": "supabase/migrations/20251230000000_kwilt_shared_goals_v1.sql",
+      "source": "a663a7e7",
+      "sha256": "b327da76d2d74312dcc18516c69375949bac1fc1fe528df07b9e3cf4b999ccb3"
+    },
+    {
+      "file": "supabase/migrations/20251230000010_kwilt_shared_goals_text_ids.sql",
+      "source": "a663a7e7",
+      "sha256": "276ec7a059f712af13dc2f79f9404907c254a6ab0cfe1edd706b40dacd75cc0d"
+    },
+    {
+      "file": "supabase/migrations/20260102000000_kwilt_activity_attachments_and_domain_sync_v0.sql",
+      "source": "a663a7e7",
+      "sha256": "c2cb34db0bbfa8b547ff018cce92e53aad0056092c9c4ff1128c24113f10cdaa"
+    },
+    {
+      "file": "supabase/migrations/20260102000001_kwilt_domain_sync_deletes.sql",
+      "source": "a663a7e7",
+      "sha256": "39e603962576a69033a751361d395fa767d567926da5cb7174d99b9c8437cbb7"
+    },
+    {
+      "file": "supabase/migrations/20260102000002_kwilt_pro_tools_trial_entitlements.sql",
+      "source": "a663a7e7",
+      "sha256": "9161ab42c7b6c0e6355bab0c7139dc5f8fe2fedeab064ca21d20f423a68dc95b"
+    },
+    {
+      "file": "supabase/migrations/20260103000000_kwilt_installs_and_revenuecat_mirror.sql",
+      "source": "a663a7e7",
+      "sha256": "a7737af8e3861d746498071c373aaeb451f3f0c1c23510d20bf965a0502eed1e"
+    },
+    {
+      "file": "supabase/migrations/20260105000000_kwilt_arc_drafts.sql",
+      "source": "a663a7e7",
+      "sha256": "0fc9b35301a08404c692337b52f4fc267b63b47455430ea6e4142ad0b4cb52d5"
+    },
+    {
+      "file": "supabase/migrations/20260106000000_kwilt_mcp_execution_targets_and_handoffs_v0.sql",
+      "source": "a663a7e7",
+      "sha256": "79040c177750adeeb159b29f5edc42621d2f0b8fdfd08fa1d7b452bf6fe4c0c2"
+    },
+    {
+      "file": "supabase/migrations/20260106000001_kwilt_mcp_pat_and_artifacts_v0.sql",
+      "source": "a663a7e7",
+      "sha256": "141393b8d0d5acb586dd73680e5b38dc1e9920f554ade1ef7ea427dc577f89de"
+    },
+    {
+      "file": "supabase/migrations/20260107000000_kwilt_install_identities.sql",
+      "source": "a663a7e7",
+      "sha256": "b0dbf131c0c51544d166f95367f3fe04838604d0116b18b02592ef95982869eb"
+    },
+    {
+      "file": "supabase/migrations/20260107000001_kwilt_install_identities_backfill.sql",
+      "source": "a663a7e7",
+      "sha256": "dcb1f18ff2373e64f1ef9ed01fb33bcf50b7d126275f706e33f8650e6039071a"
+    },
+    {
+      "file": "supabase/migrations/20260107000010_kwilt_admin_use_summary.sql",
+      "source": "a663a7e7",
+      "sha256": "ef2b54b1bf8a8412966293d69fdf299f9fc468f0b05ac20a4d5fc7412f68b93a"
+    },
+    {
+      "file": "supabase/migrations/20260107000011_kwilt_admin_use_summary_fix.sql",
+      "source": "94f6c1ac",
+      "sha256": "325b6fba5257ab571fa689de3dbce749bfa3711367c729dc6833ee7aaee849d1"
+    },
+    {
+      "file": "supabase/migrations/20260107000020_kwilt_admin_use_summary_credit_velocity.sql",
+      "source": "a663a7e7",
+      "sha256": "cf6e4e9d5ec9c127a7f6a68b203dfffca69406c2226fabb35acf945321864029"
+    },
+    {
+      "file": "supabase/migrations/20260107000021_kwilt_admin_use_summary_credit_velocity_fix.sql",
+      "source": "a663a7e7",
+      "sha256": "eadb1b0488bd853b0863f0b5e1c3db3582480f5c9926eaa67ddbfa5f6f916f56"
+    },
+    {
+      "file": "supabase/migrations/20260110000001_kwilt_admin_use_summary_user_quota_keys.sql",
+      "source": "a663a7e7",
+      "sha256": "165902c228597ec75654988152118b6d4ae72329a0fa4fd66b6b0468a90c8f90"
+    },
+    {
+      "file": "supabase/migrations/20260115000000_kwilt_user_milestones.sql",
+      "source": "a663a7e7",
+      "sha256": "e56947360fe766dc1426430a61d31d0a45c998e95a9926c8b7e844bf0d2841e3"
+    },
+    {
+      "file": "supabase/migrations/20260115000001_kwilt_friendships.sql",
+      "source": "a663a7e7",
+      "sha256": "a4714e9d8f90c5cdcea94b8dacb8a88458b2e322638640d83c2cf977b4c62f3d"
+    },
+    {
+      "file": "supabase/migrations/20260115000002_kwilt_follows.sql",
+      "source": "a663a7e7",
+      "sha256": "1d019bb6b1e79dd2893e3edaa481807358ad0959714198ce2c28bf473efeb302"
+    },
+    {
+      "file": "supabase/migrations/20260115000003_kwilt_mcp_push_notifications.sql",
+      "source": "a663a7e7",
+      "sha256": "2ea0694c09a533456eacb5e56c6e546265f80d4cd5decea305b2eb625fdafcd8"
+    },
+    {
+      "file": "supabase/migrations/20260115000004_fix_kwilt_is_member_recursion.sql",
+      "source": "a663a7e7",
+      "sha256": "492dc1a1ecb1c9ebb70de726f2b807c51841d2fbabe637f87ecc45cd9b628f1b"
+    },
+    {
+      "file": "supabase/migrations/20260118000000_kwilt_calendar_integrations.sql",
+      "source": "a663a7e7",
+      "sha256": "f85d527b4629cf88076bdf28fb5e7ac6a6b21319b0468345408bb5e6309796d5"
+    },
+    {
+      "file": "supabase/migrations/20260119000000_kwilt_secret_expirations.sql",
+      "source": "a663a7e7",
+      "sha256": "bc9606519d595e686ee2fcf4dc75332513aac0487b1f8f31c73e200a8ae05f50"
+    },
+    {
+      "file": "supabase/migrations/20260124000000_kwilt_chapters_v0.sql",
+      "source": "a663a7e7",
+      "sha256": "53cd999ebc301c00a4d19bd659e102d4c202299053d20e175e048798ce91c4d1"
+    },
+    {
+      "file": "supabase/migrations/20260125000000_kwilt_chapters_v1_metrics_and_manual.sql",
+      "source": "a663a7e7",
+      "sha256": "65f374d8e1c497514cb03e575eebbb235a68c2566c8d931cb089c654f7578ffc"
+    },
+    {
+      "file": "supabase/migrations/20260128000000_kwilt_hero_images_bucket.sql",
+      "source": "a663a7e7",
+      "sha256": "2fd3c0d379ebb0b7205d78a6918b5530b892f834a19ed5904a79aea107292135"
+    },
+    {
+      "file": "supabase/migrations/20260416213649_kwilt_security_advisor_fixes.sql",
+      "source": "a663a7e7",
+      "sha256": "4ac472781d321be8e00045cf1387bb846a23ee212a6e0d934b362c23c05bd059"
+    },
+    {
+      "file": "supabase/migrations/20260416213700_kwilt_email_infrastructure.sql",
+      "source": "a663a7e7",
+      "sha256": "cbb91927cc22e90d7952176a28a0a117dcabd60509478554cd57000efb25db27"
+    },
+    {
+      "file": "supabase/migrations/20260416213708_kwilt_email_cadence_resend_id_index.sql",
+      "source": "a663a7e7",
+      "sha256": "837a7c5478d089d35c5813e85f3e82e2f7efdd15a96bc16551804d5b558fc036"
+    },
+    {
+      "file": "supabase/migrations/20260417203246_kwilt_chapter_templates_backfill_enabled.sql",
+      "source": "a663a7e7",
+      "sha256": "47a660b4896ff3f1f848c860c235cfc6672328170eddabdfd0b490342edb6e54"
+    },
+    {
+      "file": "supabase/migrations/20260506034302_kwilt_streak_sync.sql",
+      "source": "a663a7e7",
+      "sha256": "f7bd934515ccbbe2964b9eec5a8dff0d812ef18db26cb6dcb67beb0280cb812f"
+    },
+    {
+      "file": "supabase/migrations/20260509052000_kwilt_external_connector_foundation.sql",
+      "source": "a663a7e7",
+      "sha256": "8eab5105882d59cb83196a6213d025e68ab83939f80bc757806dfd66c4e1dd0d"
+    },
+    {
+      "file": "supabase/migrations/20260511124417_kwilt_phone_agent_sms_beta.sql",
+      "source": "a663a7e7",
+      "sha256": "117bd81f7f9f4ceae08a288624e3f772810d7bda6ba1c94118c5c222591cb476"
+    },
+    {
+      "file": "supabase/migrations/20260513184138_external_mcp_write_audit.sql",
+      "source": "a663a7e7",
+      "sha256": "447f1d9d730908aa4f37c6d3e53d685e8f032872aa89fb2039aa477ab7f91c5a"
+    },
+    {
+      "file": "supabase/migrations/20260521170732_schedule_chapters_generate_daily.sql",
+      "source": "a663a7e7",
+      "sha256": "ba8b15af9015bc94e490b5d8f0f4fde8e1e6cc95ff47ba9e03b7a5cf906e7249"
+    },
+    {
+      "file": "supabase/migrations/20260521202617_kwilt_chapter_feedback.sql",
+      "source": "a663a7e7",
+      "sha256": "c569bedef560b4c1cac78504790902a3cb3f95637a937a8bbe884906e5ceda42"
+    },
+    {
+      "file": "supabase/migrations/20260521202625_kwilt_chapters_user_note.sql",
+      "source": "a663a7e7",
+      "sha256": "736f0ab4f84ed67a8d938c5d61cc53e8d101d2fd76556239a864fe41d349c5e5"
+    },
+    {
+      "file": "supabase/migrations/20260523142746_kwilt_health_daily.sql",
+      "source": "a663a7e7",
+      "sha256": "3e69560d64eb96e44b64768ec172b5124182e0d390f67aeee857e7a3a18f9644"
+    },
+    {
+      "file": "supabase/migrations/20260609142318_kwilt_founder_alert_events.sql",
+      "source": "a663a7e7",
+      "sha256": "f01d6fbf460ae015464eff296c567320a6c47151b15e01aab2dac9f32f5fc0af"
+    },
+    {
+      "file": "supabase/migrations/20260609142331_schedule_founder_alerts_digest_daily.sql",
+      "source": "a663a7e7",
+      "sha256": "512022de1db5051b08b751bf306663b89caa6600d9d0969cc8938cab019624b6"
+    },
+    {
+      "file": "supabase/migrations/20260624194825_drop_legacy_kwilt_mcp_pat_surface.sql",
+      "source": "a663a7e7",
+      "sha256": "c73c40cfe3354912ce60c632649d46874d9e0ca69b8c222466065c2bbed5c724"
+    },
+    {
+      "file": "supabase/migrations/20260624194934_legacy_mcp_empty_compat_views.sql",
+      "source": "a663a7e7",
+      "sha256": "141b838dbac3e296a0df24cad9525d1401e691921a167b3e1cda6e0344d625bc"
+    },
+    {
+      "file": "supabase/migrations/20260626003658_drop_legacy_mcp_compat_views_after_deploy.sql",
+      "source": "a663a7e7",
+      "sha256": "1c8526f91f5007b252864f47ffd00b6c1c2eb561b2aabd86f89e204c60d9a9fc"
+    },
+    {
+      "file": "supabase/migrations/20260629150424_enable_domain_sync_realtime.sql",
+      "source": "a663a7e7",
+      "sha256": "272ca43f08178558944fbdab9d1479aeab9fcc3841bf938dbef578ddcb347062"
+    },
+    {
+      "file": "supabase/migrations/20260706160000_budget_transaction_reviews.sql",
+      "source": "94f6c1ac",
+      "sha256": "4bc670ef5d397a1f87b109af609533f41f6f62f6a4ff59da2ff43f25bb7b2d41"
+    },
+    {
+      "file": "supabase/migrations/20260709130754_budget_plaid_transactions.sql",
+      "source": "94f6c1ac",
+      "sha256": "b527b90f86540d501962546c2ac64e64af9eb3e2df7b8ee93d4bd0ba8546168a"
+    },
+    {
+      "file": "supabase/migrations/20260709130805_budget_plaid_token_rpc.sql",
+      "source": "a663a7e7",
+      "sha256": "eb7b406eb7b01557b7987b4170a6b0bda16f40031429585c2a2cb10de1a572f6"
+    },
+    {
+      "file": "supabase/migrations/20260709130826_budget_forecast_settings.sql",
+      "source": "a663a7e7",
+      "sha256": "a90a5204d5b123b1212008e7743909a41109b2413e0e86c56fb4ea63630320ca"
+    },
+    {
+      "file": "supabase/migrations/20260709130840_budget_summary_realtime.sql",
+      "source": "a663a7e7",
+      "sha256": "8c4306c15f24d0d70373f31f1dc11551497a3d3c0c7f38ed79a56933cfa03299"
+    },
+    {
+      "file": "supabase/migrations/20260709130916_budget_family_sharing.sql",
+      "source": "a663a7e7",
+      "sha256": "1762e959223c789073b78431df573da7c6646c0171f550478a2d836aa002a23f"
+    },
+    {
+      "file": "supabase/migrations/20260709130923_budget_access_function_hardening.sql",
+      "source": "a663a7e7",
+      "sha256": "4be693ac22ce176cf0bae64df3a1851bd636e50119550669381dd30fe47f2366"
+    },
+    {
+      "file": "supabase/migrations/20260709131005_budget_categories_and_plans.sql",
+      "source": "a663a7e7",
+      "sha256": "4a1fd206a630862ba00daed9433e7d1e4178a84f5c067b0eb32a1fd6909d1588"
+    },
+    {
+      "file": "supabase/migrations/20260709131031_budget_living_plan_preferences.sql",
+      "source": "a663a7e7",
+      "sha256": "5a198f6f0895abf5971aa9ccdc3176d273c07f154646d63c5afe839559f1d3cd"
+    },
+    {
+      "file": "supabase/migrations/20260709131116_budget_plaid_token_rpc_hardening.sql",
+      "source": "a663a7e7",
+      "sha256": "53949ab3e052d606d21c70fd28dbd147642af8ebe6931d741898c4c6bcd39861"
+    },
+    {
+      "file": "supabase/migrations/20260710034128_budget_transaction_money_meaning.sql",
+      "source": "a663a7e7",
+      "sha256": "aaa5b07d28f90bd9e0f59dab7a80ca14600b72a93fd64d282e8f1e36fc438006"
+    },
+    {
+      "file": "supabase/migrations/20260710164551_financial_security_hardening.sql",
+      "source": "a663a7e7",
+      "sha256": "fb3702799817d3f2e4b9432f8d2f0959e74cfd88a6c7ede2976b1cf1c21131f6"
+    },
+    {
+      "file": "supabase/migrations/20260710232320_automatic_living_plans.sql",
+      "source": "a663a7e7",
+      "sha256": "649838c6b04e753ce4cf2be7b2bb3f0bdd9f0504d562706bc536f005e10bc61c"
+    },
+    {
+      "file": "supabase/migrations/20260710232416_harden_automatic_living_plans.sql",
+      "source": "a663a7e7",
+      "sha256": "cc5fc8689a8313e4bc8338371e766f18ef32248903f43f709b10d2522337ef63"
+    },
+    {
+      "file": "supabase/migrations/20260710233003_finish_automatic_living_plan_hardening.sql",
+      "source": "a663a7e7",
+      "sha256": "6dd7f488f67a06c3be7ea03be0d524cf90300e6dd3c8abe37abb7039485906e6"
+    },
+    {
+      "file": "supabase/migrations/20260710233332_persist_living_plan_source_receipts.sql",
+      "source": "a663a7e7",
+      "sha256": "8698a6a10040050fc7d4c191498ee51a7f8f05fda843ed5ff121b630ad172700"
+    },
+    {
+      "file": "supabase/migrations/20260710234042_version_planning_source_evidence.sql",
+      "source": "a663a7e7",
+      "sha256": "c62b779b2c396acf84c83212f4c8b4614320219e3255eb1a245feae8803c8eff"
+    },
+    {
+      "file": "supabase/migrations/20260710234659_project_active_living_plan_into_budgets.sql",
+      "source": "a663a7e7",
+      "sha256": "3d38ee3f5f8ec5b1063ca9816d5137ea2a436488d1fe730ef5c55e07cfc5311e"
+    },
+    {
+      "file": "supabase/migrations/20260710235538_clarify_living_plan_reversals.sql",
+      "source": "a663a7e7",
+      "sha256": "089ca8ebacacdd0137bb4e5b5cc1460cca85c2025acf981d2cd4a1888c213788"
+    },
+    {
+      "file": "supabase/migrations/20260712131829_kwilt_games_saved_players.sql",
+      "source": "a663a7e7",
+      "sha256": "5368286663b3873815d99d7812b274d595274c9b56ef0d9b0534da7f40def639"
+    },
+    {
+      "file": "supabase/migrations/20260712131907_kwilt_games_saved_players_anon_hardening.sql",
+      "source": "a663a7e7",
+      "sha256": "e853c2cd37b2fceb0c44b80eab1fdc7b459d4eb3d67d5d52852cb7a81243f479"
+    },
+    {
+      "file": "supabase/migrations/20260712143351_remote_bank_rooms.sql",
+      "source": "a663a7e7",
+      "sha256": "729ef6a15672cf10a0953beb776b9bb669829d108d85191ac6eef4acd8130ba0"
+    },
+    {
+      "file": "supabase/migrations/20260712143506_fix_remote_bank_room_game_key.sql",
+      "source": "a663a7e7",
+      "sha256": "1808e47e2bfc9147bbbc0d9179932edf6ad9c3e387f7abf95911982f4582c4a0"
+    },
+    {
+      "file": "supabase/migrations/20260712143543_fix_remote_bank_invite_expiry.sql",
+      "source": "a663a7e7",
+      "sha256": "a1c606aa19a23f3dab3cc6199ada6c8315de755d58b4055a5e8dfa86b034522f"
+    },
+    {
+      "file": "supabase/migrations/20260712143651_fix_remote_bank_commit_version.sql",
+      "source": "a663a7e7",
+      "sha256": "237a94c43ee2acb84d190b842a47ef1cda5e5052c238bd1f866a352fb2a36a7b"
+    },
+    {
+      "file": "supabase/migrations/20260712144445_require_permanent_remote_bank_host.sql",
+      "source": "a663a7e7",
+      "sha256": "e052e2c2157c9043af38b08911c407e793657dcfa53d183db7da12315ca0eb1e"
+    },
+    {
+      "file": "supabase/migrations/20260712202744_add_saved_player_identity.sql",
+      "source": "a663a7e7",
+      "sha256": "0bd931b67f412090d7c5185f06c02f38d28876f718e94f445b3cdd2fda40f49d"
+    },
+    {
+      "file": "supabase/migrations/20260712202750_add_hawk_success_sound.sql",
+      "source": "a663a7e7",
+      "sha256": "ab089d271236c32f35bd90b32452249d8916bf291dac1c9f3b5fcf331cd9931c"
+    },
+    {
+      "file": "supabase/migrations/20260712202804_add_game_player_profiles.sql",
+      "source": "a663a7e7",
+      "sha256": "267dc0e3260dd5f3d51d1aa480d07968b5d10c5dd90f600d824933ee4725dd3b"
+    },
+    {
+      "file": "supabase/migrations/20260712223834_add_remote_pass_pattern.sql",
+      "source": "a663a7e7",
+      "sha256": "64ff79580b8504224c8dedc929335bafbdc00dea34982bd7010438a0887564de"
+    },
+    {
+      "file": "supabase/migrations/20260716023704_create_budget_category_with_plan.sql",
+      "source": "a663a7e7",
+      "sha256": "9d4050bb0695b086e81e16d46e5068b6b3f5b6b642833dc794f7f03664847deb"
+    },
+    {
+      "file": "supabase/migrations/20260719155556_enforce_single_budget_transaction_merchant_rule.sql",
+      "source": "a663a7e7",
+      "sha256": "be3431fab68eceee6fd6c153d725f7f2e84d26c0e8a090bc641b86b0a603cd20"
+    },
+    {
+      "file": "supabase/migrations/20260719160827_add_weekly_heart_report.sql",
+      "source": "a663a7e7",
+      "sha256": "acc790f921c7951a3b55c3b21d195710a0e17a7d28ee9d6816ff811d706ca66c"
+    },
+    {
+      "file": "supabase/migrations/20260719160959_secure_heart_report_function.sql",
+      "source": "a663a7e7",
+      "sha256": "b5e8635bbbd33872b4345e3305bef596a7bdcfa09a5a7ea3ddbda58992a474f6"
+    },
+    {
+      "file": "supabase/migrations/20260720025945_add_game_personal_bests.sql",
+      "source": "a663a7e7",
+      "sha256": "9b39fb6b8a2114bc126ecc1bda8ebae53d966fd9db4fe59023a0d634eb3381c0"
+    },
+    {
+      "file": "supabase/migrations/20260720154115_open_table_nearby_join.sql",
+      "source": "a663a7e7",
+      "sha256": "0f48ee14dd0a4a072d9e9fef6739015299305054bafd05190d371f1c6994f1c3"
+    },
+    {
+      "file": "supabase/migrations/20260720154718_return_open_table_code.sql",
+      "source": "a663a7e7",
+      "sha256": "9ae0d848d29479fcd5bec9fdba0d9c5f29d14efdafc3206b058afec6d6662295"
+    },
+    {
+      "file": "supabase/migrations/20260720155101_qualify_open_table_invite.sql",
+      "source": "a663a7e7",
+      "sha256": "a4ddc02e57d72f9d980ff7854c6ee035f916fe02720bc07482cfae1b5cc6edf8"
+    },
+    {
+      "file": "supabase/migrations/20260720155205_qualify_open_table_claim.sql",
+      "source": "a663a7e7",
+      "sha256": "fbd84616edaa938bc3086cb3c09b8fbefef83a3cb79a32f44999752533f071ba"
+    },
+    {
+      "file": "supabase/migrations/20260720173623_add_slanguage_learning_release.sql",
+      "source": "a663a7e7",
+      "sha256": "f91968557586311f68d8af332a6a83d84fa1481498625241fd77d5fe1488eec3"
+    },
+    {
+      "file": "supabase/migrations/20260722032704_kwilt_unified_chat_foundation.sql",
+      "source": "a663a7e7",
+      "sha256": "81adc6b70f754096e8d1ebe8c065533467ed0dd2ffbcaad0351f0af147ed0571"
+    },
+    {
+      "file": "supabase/migrations/20260722032917_harden_kwilt_unified_chat_policies.sql",
+      "source": "a663a7e7",
+      "sha256": "bc4a0ba14e678cd171485228b2dde4b02307f41c8b78a6dda4bdf9d961411a60"
+    },
+    {
+      "file": "supabase/migrations/20260722151037_unified_chat_trust_contract.sql",
+      "source": "a663a7e7",
+      "sha256": "c4537a15799f9e98fe74f9e5130d9ec10894884f0ccd4a5aa214eaebd09045b9"
+    },
+    {
+      "file": "supabase/migrations/20260722154051_unified_chat_text_attachments.sql",
+      "source": "a663a7e7",
+      "sha256": "7cd2ec0b301d40cd85efac9c7d788604337b7dae4becf3f47b43cb461d027d3d"
+    },
+    {
+      "file": "supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql",
+      "source": "a663a7e7",
+      "sha256": "576371e9bce5c962096278c4fa08c1e2f9e14c994a73f32c6f521766fa266f63"
+    },
+    {
+      "file": "supabase/migrations/20260722200000_unified_chat_intelligent_titles.sql",
+      "source": "a663a7e7",
+      "sha256": "40ba07f1ca81cd2468cd33ad2172c612b33e442e5479a4e8d600f863c8027c41"
+    },
+    {
+      "file": "supabase/migrations/20260723161849_unified_chat_pending_client_actions.sql",
+      "source": "a663a7e7",
+      "sha256": "77d024e95043b439a853c1ab95497ff1f9b75b61bbeb0222899d92f54f896c60"
+    },
+    {
+      "file": "supabase/migrations/20260723164223_canonical_agent_run_channels.sql",
+      "source": "a663a7e7",
+      "sha256": "db8ef9778ed775cbdf2ffa9364541e5dd8a539924834c3af8ead1e0a43a9f53f"
+    },
+    {
+      "file": "supabase/migrations/20260723170039_agent_channel_job_queue.sql",
+      "source": "a663a7e7",
+      "sha256": "a0f244559fce7951eba2ccda157825ff3b99520d1d0238f3aa14bae6813b3d13"
+    },
+    {
+      "file": "supabase/migrations/20260723171559_unified_chat_server_activity_capture.sql",
+      "source": "a663a7e7",
+      "sha256": "a5bbac041c7cc67f329d294d424c21aebdf22967c6e004157a6961e0f4442cfa"
+    },
+    {
+      "file": "supabase/migrations/20260723174500_unified_chat_server_proposal_staging.sql",
+      "source": "a663a7e7",
+      "sha256": "7322235a3554e9aeb75ba63f07628c33d9d871f0b6ff3f71d8f49a3cc5f4ed16"
+    },
+    {
+      "file": "supabase/migrations/20260723181500_phone_agent_timezone.sql",
+      "source": "a663a7e7",
+      "sha256": "eaed96e5f7c4a407020e898924ae8bb4283fb1ac216a62f8189c522912e30e34"
+    },
+    {
+      "file": "supabase/migrations/20260723184500_unified_chat_server_proposal_batch.sql",
+      "source": "a663a7e7",
+      "sha256": "4e746505a70277c65ab930652d8636236e4e48283c421a06f2121119b56d4e79"
+    },
+    {
+      "file": "supabase/migrations/20260723190000_unified_chat_agent_profile_projection.sql",
+      "source": "a663a7e7",
+      "sha256": "250f5e803cade4449a55337cfeeb0744f8eb9d2adf42f4024f7a17e75b191b0a"
+    },
+    {
+      "file": "supabase/migrations/20260723193000_unified_chat_relationship_memory.sql",
+      "source": "a663a7e7",
+      "sha256": "93e663f87e84a34ac6941c68f30d4f3be03839d065edeae3b88f1ba165b68e2b"
+    },
+    {
+      "file": "supabase/migrations/20260723194500_unified_chat_relationship_management.sql",
+      "source": "a663a7e7",
+      "sha256": "9f5155f3a7bb1ff842b628a01f41c8cf4ea1473c1fc3b35ebaf967bdd0874409"
+    },
+    {
+      "file": "supabase/migrations/20260725032643_agent_work_continuity.sql",
+      "source": "a663a7e7",
+      "sha256": "478f7411f4b2d07f3a2dd2a1023e8fe45b09112994983e39007872b036fab2dc"
+    },
+    {
+      "file": "supabase/migrations/20260725043000_unified_chat_multimodal_attachments.sql",
+      "source": "a663a7e7",
+      "sha256": "7b299b1779ae6da0e5972023685376012fceb47728da4f233c4bffb238548dfb"
+    },
+    {
+      "file": "supabase/migrations/20260725044500_unified_chat_artifacts.sql",
+      "source": "a663a7e7",
+      "sha256": "d485c91ecf92d97764363853b1ef40cd3a4b4bbc5ba557eef7f7d44a1a9fdd50"
+    },
+    {
+      "file": "supabase/migrations/20260725050000_harden_unified_chat_artifact_updates.sql",
+      "source": "a663a7e7",
+      "sha256": "abb886456774193c3d2e9336e8afce16ac310451a629922170871e5d7b1574cf"
+    },
+    {
+      "file": "supabase/migrations/20260725145417_add_money_transaction_allocations.sql",
+      "source": "a663a7e7",
+      "sha256": "7639fcf5939ef478142c0ddf2767b3a1b9dcb960e8110d5a9ec3325a74e1cbb5"
+    },
+    {
+      "file": "supabase/migrations/20260725145619_require_permanent_users_for_money_allocations.sql",
+      "source": "a663a7e7",
+      "sha256": "7977f38af5a8c675cb0f7e04aae1c49e049a9d4c70aa38c88338db2b66bf3b70"
+    },
+    {
+      "file": "supabase/migrations/20260725145703_make_money_allocation_policy_auth_explicit.sql",
+      "source": "a663a7e7",
+      "sha256": "2281ba008ee8acee5ccc7ef1350b6def55b73f519675458cf4a17cacb2103608"
+    },
+    {
+      "file": "supabase/migrations/20260727140041_governed_household_money_plan.sql",
+      "source": "a663a7e7",
+      "sha256": "21a27f3049af3b12f9f4c7bfd514becc44317014519a52db0c6402169f73c7c8"
+    },
+    {
+      "file": "supabase/migrations/20260727140246_harden_governed_household_money_plan.sql",
+      "source": "a663a7e7",
+      "sha256": "38a7379bb820534c16db47fc978ee0cdea3740df6c68c11292c7dbf2f5ff8c43"
+    },
+    {
+      "file": "supabase/migrations/20260727140359_make_governed_money_policies_auth_explicit.sql",
+      "source": "a663a7e7",
+      "sha256": "74507f0dbcae3d1aee320b60453998dfc2905dc876789f65fb2d6bc131a45e53"
+    },
+    {
+      "file": "supabase/migrations/20260727150101_move_governed_money_reconciliation_server_side.sql",
+      "source": "a663a7e7",
+      "sha256": "5e5f4f28472e9b2047b6a047ee2fc175ad6f3180553e82fbf189ab613043542c"
+    },
+    {
+      "file": "supabase/migrations/20260727191420_add_budget_category_cover.sql",
+      "source": "a663a7e7",
+      "sha256": "333c8bdc1a5194f0c9ce835fbaf66e65ad6104d3ffa8092d4651aa45672bff66"
+    },
+    {
+      "file": "supabase/migrations/20260728051739_merchant_rules_apply_all_transactions.sql",
+      "source": "a663a7e7",
+      "sha256": "9c84051a74a5d81b7cce276839e8d96387122226f98bdd553cddd6599f81324f"
+    },
+    {
+      "file": "supabase/migrations/20260728052413_ensure_merchant_rule_backfill_on_rule_write.sql",
+      "source": "a663a7e7",
+      "sha256": "fcb6966021a18341987efc1233489490ac787087a8ee76406da2150dd9cada84"
+    },
+    {
+      "file": "supabase/migrations/20260728153555_seed_apple_auth_secret_expiration.sql",
+      "source": "a663a7e7",
+      "sha256": "eedecb651e7edbb26d71b05176675581b3cae9b7147a7657f261439f5ed905ba"
+    },
+    {
+      "file": "supabase/migrations/20260728155206_seed_additional_credential_expirations.sql",
+      "source": "a663a7e7",
+      "sha256": "b100739e8ec184d62480259c27028e7da38482c9fd08680bbdf114c81e8c0da7"
+    },
+    {
+      "file": "supabase/migrations/20260728190000_household_foundation.sql",
+      "source": "a663a7e7",
+      "sha256": "0e72762a62abae224acdb41f5c77d3f10020327d00713521319f6e55ff832bf0"
+    },
+    {
+      "file": "supabase/migrations/20260729024629_harden_friendships.sql",
+      "source": "a663a7e7",
+      "sha256": "5d4fdec56cad6f8b62fe2e1e51a08de61d4d91695813363a0484ba3797e70477"
+    },
+    {
+      "file": "supabase/migrations/20260730042845_household_child_account_invites.sql",
+      "source": "a663a7e7",
+      "sha256": "ffe1185b246161e3bc20ed3f2bc3c63b2018208954882be32c724a366d04f6ae"
+    },
+    {
+      "file": "supabase/migrations/20260730152735_family_screen_time_control_plane.sql",
+      "source": "a663a7e7",
+      "sha256": "f96f48c6d2cd57bc01f0bdaf11f486b04e584328b7e542f2ace26c2429e3349b"
+    },
+    {
+      "file": "supabase/migrations/20260731162059_kwilt_public_audio_assets_bucket.sql",
+      "source": "a663a7e7",
+      "sha256": "6315410fc62182c2ae68ff73dcd8b8af6125868f642ab5d8273c28525cfc0685"
+    },
+    {
+      "file": "supabase/migrations/20260802210412_add_budget_plan_role.sql",
+      "source": "a663a7e7",
+      "sha256": "bd3965d004c26d5f5129b2cc12cdb6d4586c6bf4f9b54c4103601e26abd3ce58"
+    },
+    {
+      "file": "supabase/migrations/20260803202400_add_explore_records.sql",
+      "source": "a663a7e7",
+      "sha256": "baedc64f264ab0e2cb807f1427e2621580525581ec55406a7d07086fd528e557"
+    },
+    {
+      "file": "supabase/migrations/20260803202544_restrict_explore_records_to_permanent_users.sql",
+      "source": "a663a7e7",
+      "sha256": "ebe601acf33f1cc82e0c0062fafc97b7712465b96b63ae0da53dd4b6a1010a4b"
+    },
+    {
+      "file": "supabase/migrations/20260804151537_add_money_transaction_plan_role_override.sql",
+      "source": "a663a7e7",
+      "sha256": "b1e1fb247c826f992984f9f23f4cf0c7c0ecf4c08b745cda96e83ec7887dbbf0"
+    },
+    {
+      "file": "supabase/migrations/20260804151936_grant_money_transaction_plan_role_override.sql",
+      "source": "a663a7e7",
+      "sha256": "ae0d0524dbb08b1efb5ba9789f235f61e8e035a793db01d786cc2dd0848cb9e6"
+    },
+    {
+      "file": "supabase/migrations/20260805010645_reorder_budget_categories.sql",
+      "source": "a663a7e7",
+      "sha256": "81871b31396265e630c55932430ca7f10f9fcf27b7d59bad3f597ad9ba308160"
+    },
+    {
+      "file": "supabase/migrations/20260805015640_targeted_goal_recipients.sql",
+      "source": "a663a7e7",
+      "sha256": "4de08478e15d20a991516c6fac96cef5b0cecfb49ea070a8800e5bd3330ecdd9"
+    },
+    {
+      "file": "supabase/migrations/20260805015646_harden_friend_invite_preview.sql",
+      "source": "a663a7e7",
+      "sha256": "701632014400f479b9050898ad2fb82784dd6635ce7e20e53b8cfc11e77a0617"
+    },
+    {
+      "file": "supabase/migrations/20260805032257_preview_open_game_table.sql",
+      "source": "a663a7e7",
+      "sha256": "c6cf46711ddcc63f9b5bb62a6cd41dc76b67ff1007cebcb72505192aa719563b"
+    },
+    {
+      "file": "supabase/migrations/20260805040433_enable_games_postgres_realtime.sql",
+      "source": "a663a7e7",
+      "sha256": "e93f40506b73327719b987b3c617a78425afa6b9b4308578a9a2bc8e6ba6bfb0"
+    },
+    {
+      "file": "supabase/migrations/20260805042407_index_shared_experience_foreign_keys.sql",
+      "source": "a663a7e7",
+      "sha256": "ff7ab21785bebcc5d3ae45ebe5fc80a03f7a93c23324e6ccdd3a8af59e8c9fe6"
+    },
+    {
+      "file": "supabase/migrations/20260805135914_shared_home_deliveries.sql",
+      "source": "a663a7e7",
+      "sha256": "b69950a0111b96f68071a6deed98f06e077807246c497fdc8fe497c355990413"
+    },
+    {
+      "file": "supabase/migrations/20260805140213_index_shared_home_actor.sql",
+      "source": "a663a7e7",
+      "sha256": "a5702a4669fecaa150e4ddac6a8441b42dda755d2a6acb233325edcb7d9803ee"
+    },
+    {
+      "file": "supabase/migrations/20260805145148_shared_home_goal_checkin_items.sql",
+      "source": "a663a7e7",
+      "sha256": "09bd5302a8f590f803b553783933d1f0e27afac6d492daade29d7e24de65c337"
+    },
+    {
+      "file": "supabase/migrations/20260806010000_private_recipes.sql",
+      "source": "a663a7e7",
+      "sha256": "ce4b0f5bed546a04c4ac3daa223f9bf5b537e179cb9536445f82863a7c19fddb"
+    },
+    {
+      "file": "supabase/migrations/20260806020000_meal_planning.sql",
+      "source": "a663a7e7",
+      "sha256": "555d9b6bc27c99069b5bab368c3beef29970eac1453e7c690f38d0ea061a976c"
+    },
+    {
+      "file": "supabase/migrations/20260806030000_groceries.sql",
+      "source": "a663a7e7",
+      "sha256": "ee56437955f789a9c13c767a6a692f65593698108822053e1901ca07cf685adc"
+    },
+    {
+      "file": "supabase/migrations/20260806040000_recipe_cook_sessions.sql",
+      "source": "a663a7e7",
+      "sha256": "262b8c9589ba35954ba1d91d093d6a07dea6c26751e559afd2d65b26bb3dd21e"
+    },
+    {
+      "file": "supabase/migrations/20260806050000_food_thrift_foundation.sql",
+      "source": "a663a7e7",
+      "sha256": "d124da6cfad0d3aa6bf222877962a97657d00bb9fcb3c3aae6cbb9a9932183ba"
+    },
+    {
+      "file": "supabase/migrations/20260806060000_grocery_savings.sql",
+      "source": "a663a7e7",
+      "sha256": "5923df93a6e19602a0366aa5c597cde6456a87cca2a45e23e6b33863cbf8dea5"
+    },
+    {
+      "file": "supabase/migrations/20260806171230_personal_recipe_favorites.sql",
+      "source": "a663a7e7",
+      "sha256": "9ee35a8a6b17ea9f8dd694d76ef76973c4a36238bfdb226e02f0c14a3152b529"
+    },
+    {
+      "file": "supabase/migrations/20260806193459_personal_recipe_hides.sql",
+      "source": "a663a7e7",
+      "sha256": "445772418214f93abfa34d50237c9cf5eb7ccfccfd676bfe81483838edb63d06"
+    },
+    {
+      "file": "supabase/migrations/20260806193504_meals_household_fit.sql",
+      "source": "a663a7e7",
+      "sha256": "33e02c95ddc4838b18f4bf02465572b6a1ea6538b68810538442f2fa2c94f1c5"
+    },
+    {
+      "file": "supabase/migrations/20260806193801_harden_meals_household_fit.sql",
+      "source": "a663a7e7",
+      "sha256": "c0c2b38334a69fd2a4b2f36860dff7adc23d5c2ac2a7af6def0bdc8dca731459"
+    },
+    {
+      "file": "supabase/migrations/20260807014118_support_bundled_catalog_grocery_sources.sql",
+      "source": "a663a7e7",
+      "sha256": "ffa26dd16d66b7a42c5bc46f2900f45f7829401f621137894c9af68abafa005a"
+    },
+    {
+      "file": "supabase/migrations/20260807014411_preserve_meal_entry_candidate_snapshots.sql",
+      "source": "a663a7e7",
+      "sha256": "f7c111fe90e62152658914f67a76c855dd8b1a59b4f61c3a2ddfd3d3809bffb6"
+    },
+    {
+      "file": "supabase/migrations/20260807025344_stale_groceries_when_revising_meal_plan.sql",
+      "source": "a663a7e7",
+      "sha256": "f582d9051eb59d7f3d1c0aa9ae23316037f2cae5cb87a2a5fe5e6366f2d7ddf5"
+    },
+    {
+      "file": "supabase/migrations/20260807031135_preserve_grocery_item_states_on_rebase.sql",
+      "source": "a663a7e7",
+      "sha256": "197b68d9193079a78bc854b63dd11669f1f06fcaa443c4bdceb0d8ebc2878f5c"
+    },
+    {
+      "file": "supabase/migrations/20260807043758_fix_private_recipe_digest_schema.sql",
+      "source": "a663a7e7",
+      "sha256": "a5a283d0901bddec78e47221080f59c2b50bc219a4b8fa965129a971a4ab9707"
+    },
+    {
+      "file": "supabase/migrations/20260808034329_support_recipe_scoped_grocery_lists.sql",
+      "source": "a663a7e7",
+      "sha256": "f192edb5b12363a6959554c4ffe0f85abdbe2a3c8a78bbcb21dc4980a28162ed"
+    },
+    {
+      "file": "supabase/migrations/20260808034339_shared_meal_cart.sql",
+      "source": "a663a7e7",
+      "sha256": "8524cdc598104ee7f0417b427f444cef3857bca33b07f8997fa4bc93dc13cd19"
+    },
+    {
+      "file": "supabase/migrations/20260808034505_harden_shared_meal_cart_grants.sql",
+      "source": "a663a7e7",
+      "sha256": "2abd5b651195be18055018c95ad53b91d0257b486ae3d43ee544ddf757bb0657"
+    },
+    {
+      "file": "supabase/migrations/20260808034729_fix_shared_meal_cart_candidate_snapshot.sql",
+      "source": "a663a7e7",
+      "sha256": "c80f9d44d244cfc41d39b99357ce115df46437cf3b0bfd1d91cdbff8507049c8"
+    },
+    {
+      "file": "supabase/migrations/20260808034954_hide_shared_meal_cart_policy_helper.sql",
+      "source": "a663a7e7",
+      "sha256": "8b85791027a678c22cd4b48b9cc4ab4203f56b63c52560a02b9fc8949d9140ae"
+    },
+    {
+      "file": "supabase/migrations/20260808132340_progressive_meal_commitment.sql",
+      "source": "a663a7e7",
+      "sha256": "9facba23a872564f4bb552d14da64f670031895c3654c6ae19fcf127f43a40ff"
+    },
+    {
+      "file": "supabase/migrations/20260809051639_kroger_cart_learning_release.sql",
+      "source": "a663a7e7",
+      "sha256": "5ea1b183c2044196bfd9b37b5f23d652f86919569c7f7dd69641add3443ca4ee"
+    },
+    {
+      "file": "supabase/migrations/20260809153742_grocery_retailer_cart_receipts.sql",
+      "source": "a663a7e7",
+      "sha256": "0094bbf356d82f9f9ba04211ff1db57318b72cb4d83a00e7285981b0774c3d6d"
+    },
+    {
+      "file": "supabase/migrations/20260809153823_grocery_retailer_cart_receipt_indexes.sql",
+      "source": "a663a7e7",
+      "sha256": "e83316b1090d6f48879bdc286d26a7a07965003533c38e0150cb26b30a58bb58"
+    },
+    {
+      "file": "supabase/migrations/20260812023544_collaborative_household_recipe_plan.sql",
+      "source": "a663a7e7",
+      "sha256": "db26452b751ef5f395615fc5201716b0e6383400dac618c7bc2333c80cf22c5a"
+    },
+    {
+      "file": "supabase/migrations/20260812030204_allow_plan_contributor_reaction_reversal.sql",
+      "source": "a663a7e7",
+      "sha256": "d4b87af03dc4f66533bfd7804d4c41dee8159368f6cda3aca45f1dd4d6649361"
+    },
+    {
+      "file": "supabase/migrations/20260812040825_plan_positive_reactions.sql",
+      "source": "a663a7e7",
+      "sha256": "ec15ff471c0fda705d3830a96748ee58a05b718ddd1b66d4f3fadf5b523b7971"
+    },
+    {
+      "file": "supabase/migrations/20260812122846_plan_visible_downvotes.sql",
+      "source": "a663a7e7",
+      "sha256": "b6e37ea3f1b20ccd4157f57e3ea797367aed290c6f064e6c05389e9f98f14aba"
+    },
+    {
+      "file": "supabase/migrations/20260812130220_global_recipe_catalog_foundation.sql",
+      "source": "a663a7e7",
+      "sha256": "0ad9b3b481a1fca419b92a7a8b72cc6f3ced519b199742e8505bd585b4226264"
+    },
+    {
+      "file": "supabase/migrations/20260812130227_recipe_image_pipeline.sql",
+      "source": "a663a7e7",
+      "sha256": "23f9d2586d7e3d3d67743f1ede06779790031dcd3652f7334bcff2717c7f22bc"
+    },
+    {
+      "file": "supabase/migrations/20260812131019_recipe_image_qa_leases.sql",
+      "source": "a663a7e7",
+      "sha256": "b88f6df6ed971b110195487e48b99a154e83db04a16e44fd437ca6adb0f0b4e1"
+    },
+    {
+      "file": "supabase/migrations/20260812151449_recipe_image_weekly_batches.sql",
+      "source": "a663a7e7",
+      "sha256": "f75e392c9a865581a124beb848a7f1bdb70326ebd9369823eb0cc01ac20d6e82"
+    },
+    {
+      "file": "supabase/migrations/20260812214921_plan_hard_pass_reactions.sql",
+      "source": "a663a7e7",
+      "sha256": "84c024d633149287b2c1129275e9605bf79671a840097d9204cf0e3de9846e70"
+    },
+    {
+      "file": "supabase/migrations/20260812220619_focus_environment_assets_bucket.sql",
+      "source": "a663a7e7",
+      "sha256": "fcfb1d8e128bc3f284d5bd2622a88acc2149ec97e7c4d721d553d5626050d205"
+    },
+    {
+      "file": "supabase/migrations/20260813001536_guest_meal_plan_feedback.sql",
+      "source": "a663a7e7",
+      "sha256": "a352b1f86b8ecd7dc4583f89f1b9de22089f0a505afad27327ff6a6ea4a9b44d"
+    },
+    {
+      "file": "supabase/migrations/20260813025244_separate_catalog_recipe_ownership.sql",
+      "source": "a663a7e7",
+      "sha256": "5cc9fc153b2eea7f3e0047e649b840834d84d600351fa5a19be0bad3c2e70d6e"
+    },
+    {
+      "file": "supabase/migrations/20260813025446_hide_recipe_use_helper.sql",
+      "source": "a663a7e7",
+      "sha256": "f660f8ac3589d1bbcb694f79ba29f0a7352227c39ee34eb5a4b1b859fb892df4"
+    },
+    {
+      "file": "supabase/migrations/20260813031624_structured_recipe_cook_learning.sql",
+      "source": "a663a7e7",
+      "sha256": "221c0eb967f52de61a0964b846d7c5b7ea2bbc4ded98aa0412cc9b9f53dccc31"
+    },
+    {
+      "file": "supabase/migrations/20260813031723_index_structured_recipe_cook_learning.sql",
+      "source": "a663a7e7",
+      "sha256": "e837f05c114aa8eec0f489d276f6f1d6d65fa8af32402cf2a2bce6fbc8d518af"
+    },
+    {
+      "file": "supabase/migrations/20260813032214_support_bundled_catalog_cook_journal.sql",
+      "source": "a663a7e7",
+      "sha256": "02713a2242d614ba3a21e859a0f41b1e153fddaf0ebe0387e564866f6c32ce3a"
+    },
+    {
+      "file": "supabase/migrations/20260813112810_fix_guest_meal_link_tokens.sql",
+      "source": "a663a7e7",
+      "sha256": "bc7acccec8624e137e826e81c3009cabc245de133c576a16983719657c5b278d"
+    },
+    {
+      "file": "supabase/migrations/20260816135842_optimize_merchant_rule_save.sql",
+      "source": "a663a7e7",
+      "sha256": "563978d6ec3b0d4e2abe91d5efdaa8c76a1948039d0ce6e917a5d9228fa5f5d3"
+    },
+    {
+      "file": "supabase/migrations/20260818152351_household_member_avatars.sql",
+      "source": "a663a7e7",
+      "sha256": "ea96b2c8d223f9b6cf5467f7945b6e16b0abd198adbc54cbb471b6d4712a7d7d"
+    },
+    {
+      "file": "supabase/migrations/20260818153109_provider_account_avatar_fallback.sql",
+      "source": "a663a7e7",
+      "sha256": "67a1660ca38f6b7d04c211f11fa8a64ed0b3c44f8a290d01567dca180ac2889d"
+    },
+    {
+      "file": "supabase/migrations/20260820131305_recipe_editorial_enrichment_pipeline.sql",
+      "source": "a663a7e7",
+      "sha256": "53a5a0b0ca62541762f1da2a3d8a86a08d7b93427285a69bc99110f0583e2e2f"
+    },
+    {
+      "file": "supabase/migrations/20260820192204_recipe_commerce_catalog.sql",
+      "source": "a663a7e7",
+      "sha256": "7e381d8e42afb74ce88ced80eeb7a319efbe2af89f98cc7a74dd5aca01c9d766"
+    },
+    {
+      "file": "supabase/migrations/20260820202140_persist_recipe_equipment_requirements.sql",
+      "source": "a663a7e7",
+      "sha256": "df1f69065209b27e5cdce7804abd114f42ad05bb5bd6e8ef5b51783079808b79"
+    },
+    {
+      "file": "supabase/migrations/20260820213000_manual_grocery_lists.sql",
+      "source": "a663a7e7",
+      "sha256": "8252b4590c94933ccc6578aba9698cf960f6a298ef375c3b364566056b45a5c6"
+    },
+    {
+      "file": "supabase/migrations/20260822005604_allow_editable_partial_merchant_rules.sql",
+      "source": "a663a7e7",
+      "sha256": "53465db96ac58890df3b229371ab2d3820095d462c4978ccc618e81b84d7d254"
+    },
+    {
+      "file": "supabase/migrations/20260822005640_add_budget_transaction_plan_coverage.sql",
+      "source": "a663a7e7",
+      "sha256": "3bd0f79d26ed7642f2537a4d9592f7fc8d76fbaa71461749e6a6d484585c6fd5"
+    },
+    {
+      "file": "supabase/migrations/20260822005804_canonical_money_categories_v2.sql",
+      "source": "a663a7e7",
+      "sha256": "9c2c9965597f3d7e6f63e790f99efc1db99915dc7d0acbc7f23166af924d6211"
+    },
+    {
+      "file": "supabase/migrations/20260822020828_preserve_neutral_payments_in_governed_reconciliation.sql",
+      "source": "a663a7e7",
+      "sha256": "f178a4908a975d4c9387f595c881963618888f111eeca160b6d947df9712f97c"
+    },
+    {
+      "file": "supabase/migrations/20260822171143_return_plan_meal_to_ideas.sql",
+      "source": "a663a7e7",
+      "sha256": "2441e1513638e970ab9c8ec73ae65d762cb81a029ed5c09b3cbffefb9b5360a9"
+    },
+    {
+      "file": "supabase/migrations/20260824145420_hosted_recipe_catalog_v2.sql",
+      "source": "a663a7e7",
+      "sha256": "e7e5895b323f650bee98a9de86f2d495c064c005c6df34a1e434c5f41c964a1e"
+    },
+    {
+      "file": "supabase/migrations/20260824223149_default_user_created_categories_to_flexible.sql",
+      "source": "a663a7e7",
+      "sha256": "c290d30eca7489ffb1d93bd519ae1998c336c5a2f906a248c60ca70bc598555f"
+    },
+    {
+      "file": "supabase/migrations/20260825022943_recipe_ingredient_scaling_rules.sql",
+      "source": "a663a7e7",
+      "sha256": "b6150ee0f7d6f354fa67f7e19f29c9ab4ae1f3916038ecb28f0a45fc70f17d7f"
+    },
+    {
+      "file": "supabase/migrations/20260825154258_publish_scaling_as_immutable_recipe_version.sql",
+      "source": "a663a7e7",
+      "sha256": "cb25c0a6b468dfbb421207a6c9b92d5f8e104bf95b97f4fed10f8f2925bdf7de"
+    },
+    {
+      "file": "supabase/migrations/20260825154412_qualify_scaling_importer_digest.sql",
+      "source": "a663a7e7",
+      "sha256": "f28799e90d2e7e4ffc186f49842e918519052a331bb75d4123bbafafc82168bc"
+    },
+    {
+      "file": "supabase/migrations/20260825215611_reconcile_credit_card_payment_transfers.sql",
+      "source": "a663a7e7",
+      "sha256": "7bfbbdfc9dd5925ecf109b7008a3366fe37f525022a3bb83f788c6e59b59e92b"
+    },
+    {
+      "file": "supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql",
+      "source": "a663a7e7",
+      "sha256": "1b6c8a36f1e31e0dc12af4849b6054ce70043b921bec8731da709c2950623b0d"
+    },
+    {
+      "file": "supabase/migrations/20260826160000_add_external_action_scopes.sql",
+      "source": "a663a7e7",
+      "sha256": "cb7cddf4ccc477ba7aa9b7f68b3336969b640c9a7ed57803a6c1dc1f4f20ea81"
+    },
+    {
+      "file": "supabase/migrations/20260826164059_append_agent_model_step_event.sql",
+      "source": "a663a7e7",
+      "sha256": "4f72387d95fdd7ecb9a9c3eb5c9d2bf85b5daac57c3e5f31db7894e5b699b321"
+    },
+    {
+      "file": "supabase/migrations/20260826164104_append_agent_turn_planning_events.sql",
+      "source": "a663a7e7",
+      "sha256": "a5e19a93c90936dd122468ee999daf87135ce20a0f25d8ae387ab8a297796985"
+    },
+    {
+      "file": "supabase/migrations/20260826201117_household_device_participation.sql",
+      "source": "a663a7e7",
+      "sha256": "525628cd6d036b48f252462a43a67708916b2376f08ee6cefaa4242bf3aac3d5"
+    },
+    {
+      "file": "supabase/migrations/20260826203033_six_digit_household_device_codes.sql",
+      "source": "a663a7e7",
+      "sha256": "2f8383674332370919df5ea22e58f95045e077a41781f14ec389df1a93b46a36"
+    },
+    {
+      "file": "supabase/migrations/20260826204906_allow_revoked_personal_device_without_credential.sql",
+      "source": "a663a7e7",
+      "sha256": "c89be725be0c523590512c606f6af8fcb6d5505c4afbfe3a485f768331a9e628"
+    },
+    {
+      "file": "supabase/migrations/20260826212100_enforce_household_device_access.sql",
+      "source": "a663a7e7",
+      "sha256": "3e2e8d80abdc031ddf781ede3143444a9aa894cf3437ac789fbae46529042fc9"
+    },
+    {
+      "file": "supabase/migrations/20260827125904_unified_chat_household_read_provider.sql",
+      "source": "a663a7e7",
+      "sha256": "88ef4c9193dc2accef3dc6228a115669424034a3904a1b0b15fe32f61b866e0e"
+    },
+    {
+      "file": "supabase/migrations/20260827131101_unified_chat_screen_time_read_provider.sql",
+      "source": "a663a7e7",
+      "sha256": "7c631c4283ac3fca9bd5fdd6368196df3800732897ed77618d710a9cc20159b6"
+    },
+    {
+      "file": "supabase/migrations/20260827151514_enforce_family_screen_time_agreement_prerequisite_selection.sql",
+      "source": "a663a7e7",
+      "sha256": "3badbb39957d4659c1103b15529aa0f8fb155708ca0c2566efa6aa9151bc3e83"
+    },
+    {
+      "file": "supabase/migrations/20260827153000_money_conversational_control.sql",
+      "source": "a663a7e7",
+      "sha256": "ffa87075e7111cf006251f8802ed7a3f1634dd22c4f68c7f709841d8661ef81b"
+    },
+    {
+      "file": "supabase/migrations/20260827181938_conversational_action_handoffs.sql",
+      "source": "a663a7e7",
+      "sha256": "dc963582273e4ca72a5ec6be17a646ed3d6c0beab654db0f93bb4b82daa16a25"
+    },
+    {
+      "file": "supabase/migrations/20260827185456_household_conversational_control.sql",
+      "source": "a663a7e7",
+      "sha256": "cab37b4d37c63b4b6f8bc7e799df20270e2a27af74a44067971bdf0ac9f81aa7"
+    },
+    {
+      "file": "supabase/migrations/20260827221500_food_conversational_control.sql",
+      "source": "a663a7e7",
+      "sha256": "717647948068155311faf4bb45f2fa2843ef2fbf48dea1c4bfc8c229d92be0c5"
+    },
+    {
+      "file": "supabase/migrations/20260828113000_plan_availability_projection.sql",
+      "source": "a663a7e7",
+      "sha256": "580a130e6918b2f7742c269a4bcac6b6e894f3978e06d45cccc012ac4d3690c1"
+    },
+    {
+      "file": "supabase/migrations/20260828114500_version_calendar_preferences.sql",
+      "source": "a663a7e7",
+      "sha256": "68c9610b10f1edd3a72c582eb2450ba791fec64bf420ad8531589ae8084e451c"
+    },
+    {
+      "file": "supabase/migrations/20260828121500_notification_preferences_projection.sql",
+      "source": "a663a7e7",
+      "sha256": "d2c3bed4aa83c2d1c4d3125af67ff8a73f81dedbd41be7216b956141f6e18f12"
+    },
+    {
+      "file": "supabase/migrations/20260828210000_conversational_control_audit.sql",
+      "source": "a663a7e7",
+      "sha256": "3051e8c0c19bad334000edb76374a4ff75ae25e2a2a65598c90b220cc10c87f7"
+    },
+    {
+      "file": "supabase/migrations/20260829054800_activity_backed_chore_profiles.sql",
+      "source": "a663a7e7",
+      "sha256": "9f9b00213f4534e4cc2f168dbf64be54e6bb4b707c5c99bf5b448f13c1a72c98"
+    },
+    {
+      "file": "supabase/migrations/20260829061400_harden_chore_rpc_execute_grants.sql",
+      "source": "a663a7e7",
+      "sha256": "fe446353918abc62e676d0f85dcaa0d944383f1472b15e4cc35f8bca359fb29d"
+    },
+    {
+      "file": "supabase/migrations/20260829174829_unified_chat_retry_message_reuse.sql",
+      "source": "a663a7e7",
+      "sha256": "d121fdcdb4c194e1f2acfa9639265efa14df846aef39361710466ba8fb5108de"
+    },
+    {
+      "file": "supabase/migrations/20260830205220_household_invite_delivery_recovery.sql",
+      "source": "a663a7e7",
+      "sha256": "d4c14dd1a9689faa90bf5031949ca6b05e97c8f131b40e2f9e84520fd76ea30b"
+    },
+    {
+      "file": "supabase/migrations/20260901035727_add_budget_transaction_user_note.sql",
+      "source": "a663a7e7",
+      "sha256": "c11e85f1a3b47c75ce76ffde86cdd3224e2c034dc2a3dc7a71474544fae9d83d"
+    },
+    {
+      "file": "supabase/migrations/20260901040118_canonical_household_money_access.sql",
+      "source": "a663a7e7",
+      "sha256": "0c9cf68f0b5c26faf97734179c4aeb9146310102add709d302d9bab815712472"
+    },
+    {
+      "file": "supabase/migrations/20260901040436_harden_canonical_household_money_access.sql",
+      "source": "a663a7e7",
+      "sha256": "e5911477a22775598c2d34d5ef18a95e9e2688b5c4176874a2532e7f453e144a"
+    },
+    {
+      "file": "supabase/migrations/20260901040803_direct_canonical_household_money_to_owner.sql",
+      "source": "a663a7e7",
+      "sha256": "f92d6dcfb4781a0bd2a24526370aca886c6334c2d2f8795f4a5eb76706acbca0"
+    },
+    {
+      "file": "supabase/migrations/20260901052946_monetization_subscription_lifecycle.sql",
+      "source": "a663a7e7",
+      "sha256": "7089b26240ff849c0eccd179b02673dd377a40129c43627f0ad95c2e5db67bbd"
+    },
+    {
+      "file": "supabase/migrations/20260901055018_creator_acquisition_ledger.sql",
+      "source": "a663a7e7",
+      "sha256": "2e6dd55a0b164fe05eee1d82093843046bad7d9d9cb30d0a7877e18a1b9937ba"
+    },
+    {
+      "file": "supabase/migrations/20260902121922_optimize_exact_merchant_rule_history.sql",
+      "source": "a663a7e7",
+      "sha256": "98bd40f91986ca0885dfeb89a4581c0f3780fa220b6a6ccf51c9171d5f700a18"
+    },
+    {
+      "file": "supabase/migrations/20260903120000_require_pro_for_managed_child_device_setup.sql",
+      "source": "a663a7e7",
+      "sha256": "7b8b701c2940bf19ecc3c37de3e87d03f65722afce99848f2f344c488bb48353"
+    },
+    {
+      "file": "supabase/migrations/20260903142344_restore_personal_meal_plan_grocery_authority.sql",
+      "source": "a663a7e7",
+      "sha256": "73f8b379cbde3d65a4ac4b93df12fe4c592c4d0f416a087fa770f4a58a292193"
+    },
+    {
+      "file": "supabase/migrations/20260903230157_contextual_ugc_safety.sql",
+      "source": "a663a7e7",
+      "sha256": "455c1e6536614edb9f5fd4e3e8a98dc814bfb1f0c7bf03fa1961b3dca5b079d3"
+    },
+    {
+      "file": "supabase/migrations/20260903230301_account_deletion_integrity.sql",
+      "source": "a663a7e7",
+      "sha256": "89360941b4d4f45323e26eb8ceffc3402e033a8a5a46e1c05235339c18898934"
+    },
+    {
+      "file": "supabase/migrations/20260903230307_repair_legacy_planned_recipe_scale.sql",
+      "source": "a663a7e7",
+      "sha256": "1a32a3bb7831688d5d1fbfe4af5a784bab694cad230242b5e97c545eb206fab6"
+    },
+    {
+      "file": "supabase/migrations/20260908172819_plaid_production_lifecycle.sql",
+      "source": "a663a7e7",
+      "sha256": "d085d98333e5535d7af1575eee9488271eee0c6079baf51617e62aff93fe6c03"
+    },
+    {
+      "file": "supabase/migrations/20260908172957_schedule_plaid_sync_worker.sql",
+      "source": "a663a7e7",
+      "sha256": "b78595aabffc6eff895e1679f831254bb90d015324d1c0cb63104c85f6c120d4"
+    },
+    {
+      "file": "supabase/migrations/20260908193625_cache_money_transaction_read_authority.sql",
+      "source": "a663a7e7",
+      "sha256": "03c87f2b0230920459a850096f8a07bc57e8bc6340a95b1b85981ea20ba814d6"
+    },
+    {
+      "file": "supabase/migrations/20260909032319_home_shared_life.sql",
+      "source": "a663a7e7",
+      "sha256": "31325124cbde620cf4c24e6b39067242cb9f3f2eecf70136abf6a26d410ee8ea"
+    },
+    {
+      "file": "supabase/migrations/20260909032858_home_storage_policy_isolation.sql",
+      "source": "a663a7e7",
+      "sha256": "22a64638a7b646e354899aafc336571ba0a7d9d212795aa1dc926880748ed791"
+    },
+    {
+      "file": "supabase/migrations/20260909043604_goal_completion_home_moments.sql",
+      "source": "a663a7e7",
+      "sha256": "f0ca7c8a082b2bcf68e8de2ae70516a91e8158edfe8fcabe32e1bceb57fdef41"
+    },
+    {
+      "file": "supabase/migrations/20260909135005_home_chore_updates.sql",
+      "source": "a663a7e7",
+      "sha256": "f056153e66f595a6b7d115f8b55df54bec9f9cc8cce8c7ac5800a4b4df576315"
+    },
+    {
+      "file": "supabase/migrations/20260909135354_chore_occurrence_version_comparison.sql",
+      "source": "a663a7e7",
+      "sha256": "4987005138576446525f0e63fef8e22d094a46212f597dbeb36f5edebb4bca45"
+    },
+    {
+      "file": "supabase/migrations/20260909135513_home_chore_report_subject.sql",
+      "source": "a663a7e7",
+      "sha256": "9cf68e74012dfb5945c9ac8e336f3324e3e7e20c2ea0985c5b55cb8b0cb25bc6"
+    },
+    {
+      "file": "supabase/migrations/20260909154123_home_connected_moments.sql",
+      "source": "a663a7e7",
+      "sha256": "64039ff2afd1febd02f60ee44a565aa9cf09b6a0f1f124a0d3e4a6cb7ee0cca9"
+    },
+    {
+      "file": "supabase/migrations/20260909155117_home_photo_dimensions.sql",
+      "source": "a663a7e7",
+      "sha256": "e435e9df8296c990ef4a3cbff42edf724746449d692c23f5be6ae237122f6e71"
+    },
+    {
+      "file": "supabase/migrations/20260909160213_home_saved_destinations.sql",
+      "source": "a663a7e7",
+      "sha256": "23fb8eb42ea8983312c8e8fa3f03ce6155c47fad277e69e76824a2f4a0899682"
+    },
+    {
+      "file": "supabase/migrations/20260910003221_home_chore_command_authority.sql",
+      "source": "a663a7e7",
+      "sha256": "2cc6228474cc62c6eeda544480e30b0784004ef6e61a54eee0efac045cc14328"
+    },
+    {
+      "file": "supabase/migrations/20260910222443_accept_hosted_catalog_grocery_snapshots.sql",
+      "source": "a663a7e7",
+      "sha256": "e8c21204a159ce73b2bf11d9c10aa9339e4d2421b2a9ac590181b964e37d8499"
+    },
+    {
+      "file": "supabase/migrations/20260915164527_household_money_transaction_write_authority.sql",
+      "source": "a663a7e7",
+      "sha256": "c186ccca9262171ff196c57e9130187ca3c7275f924240d00508c92ac4f1aec0"
+    },
+    {
+      "file": "supabase/migrations/20260915164712_household_money_receipt_permission_fix.sql",
+      "source": "a663a7e7",
+      "sha256": "71d5aa5c319664eba88a0bbe2fadfd7028c535fb74c7ccde2f65d1ba12bf7601"
+    },
+    {
+      "file": "supabase/migrations/20260915165041_harden_household_money_transaction_writes_for_permanent_users.sql",
+      "source": "a663a7e7",
+      "sha256": "cac73290c0e82692691eda6a7d89e8f1cd62ed6ef7cd57a58751ee8f43863d7b"
+    },
+    {
+      "file": "supabase/migrations/20260915165131_optimize_household_money_transaction_policies.sql",
+      "source": "a663a7e7",
+      "sha256": "60f2e0f0da52a5c968e0d373483ec9b810465d124a4cd3bd571a43d75d6a9bc8"
+    },
+    {
+      "file": "supabase/migrations/20260915165809_fix_household_transfer_review_meaning_source.sql",
+      "source": "a663a7e7",
+      "sha256": "eca38216333bc0fa10731c5197d0e411f01a7c3b299fe73afd27c78b5a97eacf"
+    },
+    {
+      "file": "supabase/migrations/20260915173000_server_money_category_rename.sql",
+      "source": "a663a7e7",
+      "sha256": "0459bd2d815a8650ed71644ae5186acb2d7eff7420868a4e13e48dae4719e617"
+    },
+    {
+      "file": "supabase/migrations/20260915235858_recover_household_device_pairing.sql",
+      "source": "a663a7e7",
+      "sha256": "ab0e570570511ef9f9718e9bc5a05afd1ce128a4cc0724fe51e8e6c092cd59a2"
+    },
+    {
+      "file": "supabase/migrations/20260916181958_keep_external_operations_out_of_chat_list.sql",
+      "source": "a663a7e7",
+      "sha256": "8df6b1ee3963f7b575f5ac8aa0b5e0a10fbc4482d53bc1f96fd57be5ff5f8e4c"
+    },
+    {
+      "file": "supabase/migrations/20260917123217_schedule_phone_agent_workers.sql",
+      "source": "a663a7e7",
+      "sha256": "83c9f709601cad32ec7b30a90df3033197ec42abdf4d1fc22fdee6c5d671f109"
+    },
+    {
+      "file": "supabase/migrations/20261012051853_external_mcp_direct_execution.sql",
+      "source": "a663a7e7",
+      "sha256": "5734df7cee45fa6e2c9f78b60b851e5cae55f88c1b45ad3b9820d7db5b263a86"
+    },
+    {
+      "file": "supabase/migrations/20261013123903_category_rollover_start_policy.sql",
+      "source": "a663a7e7",
+      "sha256": "5cef1b7a1fe388c229c588a64dd56654c91da421267d14e031d5989e4b269dfc"
+    },
+    {
+      "file": "supabase/migrations/20261026021448_external_food_actor_execution.sql",
+      "source": "a663a7e7",
+      "sha256": "1f5a06c71e9b1e9232a4d7558f245ed754a0cf64c4cd7c3ed8dbbb954b7c2f22"
+    },
+    {
+      "file": "supabase/migrations/20261026021538_preserve_catalog_ingredient_parsing.sql",
+      "source": "a663a7e7",
+      "sha256": "4be05e98eea0e80de1ad169a76b82787260bbea04fc4d5573e4e92e216f5e75e"
+    },
+    {
+      "file": "supabase/migrations/20261031185405_weekly_food_external_completion.sql",
+      "source": "a663a7e7",
+      "sha256": "7cb039be40a5515e3c91ceff6dab5ccbdba1d3fda1fa1c248571af3d559152d6"
+    },
+    {
+      "file": "supabase/migrations/20261101213719_atomic_budget_category_settings.sql",
+      "source": "a663a7e7",
+      "sha256": "fbd42aea7293cdbb6eebbf5294f87b88a8b8256ddb152d8ab63419b6e4f658e8"
+    },
+    {
+      "file": "supabase/migrations/20261101213724_household_category_settings_preview_read.sql",
+      "source": "a663a7e7",
+      "sha256": "48ee62effe9e8a1214c31c538b0a5bf7c62edbdeedb6eeae3313e4d9bf56e6e5"
+    },
+    {
+      "file": "supabase/migrations/20261102023219_transfer_and_literal_merchant_rules.sql",
+      "source": "a663a7e7",
+      "sha256": "4c37c34036170875223ea10e6d405dccab0101273effc835a238779b8e1548d4"
+    }
+  ],
+  "additionalPrerequisite": {
+    "file": "supabase/migrations/20261020145812_explicit_public_data_api_grants.sql",
+    "source": "94f6c1ac"
+  },
+  "substitutes": [
+    "Minimal auth.users and JWT functions",
+    "Minimal storage buckets/objects and foldername helper",
+    "No-op cron schedule/unschedule and empty Vault; pg_cron/pg_net extension statements omitted",
+    "Minimal realtime.messages/topic and publication"
+  ],
+  "liveReadOnly": {
+    "postgres": "17.6 aarch64 Linux",
+    "contactTrigger": "Original failing body still deployed",
+    "matchingErrorsLast24Hours": 0
+  },
+  "limits": [
+    "Diagnostic application replay, not full Supabase-service replay",
+    "No live mutation or crash probe",
+    "Local catalog pass does not resolve the historical Supabase 17.6 crash",
+    "PR197 full grant replay and dinner work remain separate"
+  ],
+  "repairMigration": {
+    "path": "supabase/migrations/20261102031926_repair_targeted_contact_trigger.sql",
+    "sha256": "6338b2ce33c79c87f4030104114000deb2dbec02472a733225c41a25d0a496df",
+    "stashedOriginal": "20261024145056_sql_regression_contact_trigger_repair.sql",
+    "contentsUnchanged": true
+  }
+}
