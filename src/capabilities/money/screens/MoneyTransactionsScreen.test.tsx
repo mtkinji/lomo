@@ -96,6 +96,27 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', { transactionId: 'large-text', economicRoleReview: false });
   });
 
+  it('discards stale native list measurements on text-size changes without resetting the inventory selection', () => {
+    const dimensions = jest.spyOn(require('react-native'), 'useWindowDimensions');
+    dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+    mockSnapshot.transactions = [transaction('resize', 'Resize merchant')];
+    const navigation = { canGoBack: () => true, goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn(), setParams: jest.fn() };
+    const route = { key: 'resize', name: 'MoneyTransactions' as const, params: { inventoryTitle: 'Review selected activity', reviewTransactionIds: ['resize'] } };
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+    const originalList = screen.UNSAFE_getByType(FlatList).instance;
+    screen.rerender(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+    expect(screen.UNSAFE_getByType(FlatList).instance).toBe(originalList);
+    dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 3.571 });
+    screen.rerender(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+    // Native measurement caches must be rebuilt: changing text props alone left
+    // the count, date headings and amounts clipped in the iOS Simulator.
+    expect(screen.UNSAFE_getByType(FlatList).instance).not.toBe(originalList);
+    expect(screen.getByText('Review selected activity')).toBeTruthy();
+    expect(screen.getByText('Resize merchant').props.numberOfLines).toBeUndefined();
+    fireEvent.press(screen.getByLabelText(/Open Resize merchant transaction/));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', { transactionId: 'resize', economicRoleReview: true });
+  });
+
   it('replaces global navigation with back navigation for an account inventory', () => {
     const navigation = {
       canGoBack: jest.fn(() => true),

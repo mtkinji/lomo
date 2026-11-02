@@ -8,6 +8,14 @@ appId: com.andrewwatanabe.kwilt
 
 - openLink: "${DEV_CLIENT_URL}"
 
+# Fresh iOS simulators ask before the first development-client deep link.
+# Keep the app's sign-in assertions mandatory after accepting that OS prompt.
+- runFlow:
+    when:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn: "Open"
+
 - extendedWaitUntil:
     visible: "Continue with Apple"
     timeout: 30000
