@@ -11,13 +11,17 @@ import { MoneyTransactionsScreen } from '../../../src/capabilities/money/screens
 import { MoneyTransactionDetailScreen } from '../../../src/capabilities/money/screens/MoneyTransactionDetailScreen';
 import { MoneyCategoryDetailScreen } from '../../../src/capabilities/money/screens/MoneyCategoryDetailScreen';
 import { settingsFault } from './settings';
-import { selectFixture, selectSettingsFixture, useMoneyData } from './fixture';
+import { selectFixture, selectSettingsFixture, selectRuleFixture, useMoneyData } from './fixture';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
 function FixturePicker({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const dimensions = useWindowDimensions();
   useEffect(() => { console.info('[Budget fixture] dimensions', dimensions); }, [dimensions]);
   const [fixtureMessage, setFixtureMessage] = useState('');
+  const rule = async (kind: 'partial' | 'transfer') => {
+    try { const transactionId = await selectRuleFixture(kind); navigation.navigate('MoneyTransactionDetail', { transactionId }); }
+    catch (error) { setFixtureMessage(error instanceof Error ? error.message : 'Fixture could not open'); }
+  };
   const settings = async () => {
     try { const categoryId = await selectSettingsFixture(); navigation.navigate('MoneyCategoryDetail', { categoryId }); }
     catch (error) { setFixtureMessage(error instanceof Error ? error.message : 'Fixture could not open'); }
@@ -33,12 +37,14 @@ function FixturePicker({ navigation }: NativeStackScreenProps<MoneyStackParamLis
   };
   return <SafeAreaView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 24, gap: 18 }}>
     <Text style={{ fontSize: 24 }}>Budget native fixture</Text>
-    <Text>Synthetic data only. Production backend disabled. Settings use isolated local PostgreSQL; other writes remain disabled.</Text>
+    <Text>Synthetic data only. Production backend disabled. Settings and rules use isolated local PostgreSQL; other writes remain disabled.</Text>
     <Text>Completed refreshes: {refreshes}</Text>
     <Text accessibilityLiveRegion="polite">{fixtureMessage}</Text>
     <Button title="Category settings — isolated API" onPress={() => void settings()} />
     <Button title="Lose next save response" onPress={() => void fault('lose-response')} />
     <Button title="Restore receipt network" onPress={() => void fault('recover')} />
+    <Button title="Partial rule — isolated API" onPress={() => void rule('partial')} />
+    <Button title="Transfer rule — isolated API" onPress={() => void rule('transfer')} />
     {[0, 1000, 4000, 10000].map((count) => <Button key={count} title={`${count} transactions`} onPress={() => open(count)} />)}
     <Button title="Stale data and refresh" onPress={() => open(4000, 'stale')} />
     <Button title="Initial error and retry" onPress={() => open(0, 'error')} />

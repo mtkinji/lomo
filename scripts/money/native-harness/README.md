@@ -1,6 +1,6 @@
 # Budget native fixture
 
-Runs the real transaction inventory, frame, owned UI and transaction-detail screen with synthetic snapshots. The optional settings fixture below adds an isolated authenticated API. Neither mode provides bank-sync or production household acceptance.
+Runs the real transaction inventory, frame, owned UI and transaction-detail screen with synthetic snapshots. The optional settings and rule fixtures below add an isolated authenticated API. Neither mode provides bank-sync or production household acceptance.
 
 From the repository root, with its installed dependencies:
 
@@ -11,7 +11,7 @@ EXPO_NO_DOTENV=1 EXPO_OFFLINE=1 REACT_NATIVE_PACKAGER_HOSTNAME=localhost \
 
 Use one Simulator/runtime owner. Open that Metro URL in a compatible development client. The `exp+kwilt` scheme can use an existing Kwilt development host; record its installed native version/build separately from the current JavaScript source. Do not start the repository's real entry point to run this fixture. The explicit hostname avoids an IPv6 localhost listener advertising an unreachable IPv4 address.
 
-Isolation: this project has its own credential-free Expo config, does not import the root app, substitutes the Money provider, blocks Supabase construction and analytics, and substitutes in-memory AsyncStorage for host account/store state. Only the optional settings journal below uses a separate fixture-owned native storage namespace. The entry point permits fetch/XHR only to loopback for Metro assets and the isolated API. Inventory mutations reject with a fixture-only error; the optional settings mode permits only synthetic local category-setting commands. Do not weaken these boundaries to make a test pass. This is not a general security sandbox for arbitrary native code.
+Isolation: this project has its own credential-free Expo config, does not import the root app, substitutes the Money provider, blocks Supabase construction and analytics, and substitutes in-memory AsyncStorage for host account/store state. Only the optional settings journal below uses a separate fixture-owned native storage namespace. The entry point permits fetch/XHR only to loopback for Metro assets and the isolated API. Inventory mutations reject with a fixture-only error; the optional settings and rule modes permit only their synthetic local commands. Do not weaken these boundaries to make a test pass. This is not a general security sandbox for arbitrary native code.
 
 Cases: 0/1k/4k/10k transactions (90% forced into the device's current month), initial loading/error, stale data, refresh and overage review. The remainder comes from the dated two-year synthetic benchmark, including credits, transfers and split assignments; some dates can be in the future relative to the device clock. No real household data is used.
 
@@ -78,3 +78,31 @@ they do not mock the injected client, RPC responses or network. Auth user lookup
 and selected base schema/policies remain the server's documented fixture boundary.
 This is not a native keyboard or real household test. Restart the disposable server
 before repeating it; the receipt assertions depend on its initial synthetic rows.
+
+## Transaction rule native acceptance
+
+Choose **Partial rule — isolated API** or **Transfer rule — isolated API** in
+the Simulator picker. These mount the production transaction-detail and rule
+editor with the production repository, Supabase SDK, and isolated HTTP backend.
+The partial case starts with a presentation-only category assignment so the offer
+is visible; dates and account presentation are synthetic. Category assignment
+writes and other mutations remain disabled. The adapter awaits snapshot reload
+before returning, so this does not prove production-provider refresh/busy timing.
+
+1. In Partial rule, review the offered rule, choose Partial match and enter
+   `Taylor Example`. The match example must include the original description
+   `Online Payment 12345 To Taylor Example 10/23`, although the merchant is only
+   `Online Payment`. Create the rule, return to the picker and reopen it.
+2. In Transfer rule, verify **Use Internal transfer next time?**, review and create
+   the rule, then return to the picker and reopen. The active rule must remain.
+3. Read the isolated API to verify both payment rows were categorized and the
+   incoming Broker row was marked as a transfer by the rule.
+
+A separate adapter acceptance test requires a fresh disposable server:
+
+```sh
+npm exec --yes --package=node@22.23.2 -c 'node node_modules/jest/bin/jest.js --runInBand --testMatch "**/check-native-rules.acceptance.ts" --runTestsByPath scripts/money/native-harness/check-native-rules.acceptance.ts'
+```
+
+This test checks that the adapter starts at the intended corrected-category offer
+and reloads durable results. It does not replace the native interaction sequence.

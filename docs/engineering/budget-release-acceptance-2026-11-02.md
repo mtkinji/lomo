@@ -46,10 +46,62 @@ physical-device behavior, production-provider refresh timing, or release-binary
 parity. The signed-JWT HTTP settings acceptance also passed freshly, including
 actor denial, concurrent taps, durable stale rejection, rollback and recovery.
 
+## Rule native acceptance
+
+Using the same native host and a fresh disposable backend, both rule flows passed
+native save and reopen, with independent API readback:
+
+- Partial match: entering `Taylor Example` found the full original description
+  `Online Payment 12345 To Taylor Example 10/23` despite the short merchant name
+  `Online Payment`. Create rule succeeded; reopening showed the active category
+  rule. Both synthetic history rows had `budget_match_source=merchant_rule`.
+- Internal transfer: the offer **Use Internal transfer next time?** was present.
+  Review/Create succeeded; reopening showed the active transfer rule. Backend
+  readback showed the matching incoming Broker transaction marked as a transfer
+  with `money_meaning_source=rule`.
+
+The native adapter overlays only the initial manual category assignment and
+presentation dates/accounts; rule writes and readback use the real repository
+and HTTP API. Independent review found no blocking issues in this adapter.
+Its focused HTTP acceptance and separate harness TypeScript check passed.
+Production provider orchestration and live identity/entitlements remain unproven.
+
+## Inventory observations and unresolved cases
+
+A coordinate swipe in the 4,000-row fixture moved beyond the initial rows.
+Opened Synthetic vendor43 store (-$12.83), then returned to the same visible
+position (vendor29/-$12.69 through vendor51/-$12.91). This does not prove reaching
+the final item. Downward drag attempts did not produce a refresh; one opened a
+transaction, another left the stale warning unchanged. Pull acceptance remains
+unresolved rather than being counted as a pass.
+
+Changing from `large` to `accessibility-extra-extra-extra-large` in-session did
+update text, but clipped the count/date header in the existing list. Reopening
+Transactions at that size laid out the count, heading, merchant, category and
+amount without that clipping. This reproduces an in-session layout invalidation
+gap; no fix is claimed. The Simulator was restored to `large` afterward.
+
+## Hosted validation at checkpoint
+
+[PR CI 41479676407](https://github.com/mtkinji/lomo/actions/runs/41479676407)
+finished with 1,319 suites passing and one failure in
+`HouseholdDeviceSetupScreen.test.tsx`: the pairing receipt assertion ran while
+the screen still showed its loading state. This file is unchanged by this branch;
+the test waits for the request invocation rather than its rendered result. No
+production change or assertion removal was made to hide this unrelated failure.
+The native smoke run 41479673911 was still building at this checkpoint.
+
+The rule-harness checkpoint passed `verify:local -- --run --base HEAD`:
+1,320 suites, 8,331 tests passed, two skipped, plus whitespace, code health and
+release-contract checks. The separate harness TypeScript check passed. This
+local full-suite pass does not replace the failed hosted gate or native evidence.
+The fixture Metro and disposable backend were stopped; the private database was
+removed by its normal shutdown. No local runtime remains owned by this pass.
+
 ## Remaining gates
 
-- Native transaction-rule matching/save/reopen and Accounts navigation.
-- Inventory scroll/pull behavior and in-session Dynamic Type acceptance.
+- Native Accounts/main-menu navigation and signed-in provider integration.
+- Inventory final-item/pull behavior and repair/verification of in-session Dynamic Type clipping.
 - Hosted CI runtime rerun and authenticated/data fixture prerequisites.
 - Configure and exercise `SUPABASE_RELEASE_READ_TOKEN`; it was absent from the
   repository's Actions secrets and the local process at this checkpoint.

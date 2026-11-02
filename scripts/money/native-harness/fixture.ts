@@ -1,5 +1,6 @@
 import type { CategorySettingsRequest } from '../../../src/capabilities/money/domain/categorySettingsCommand';
 import { openSettingsFixture, pendingSettings, reloadSettingsSnapshot, saveSettings } from './settings';
+import { openRuleFixture, reloadRuleSnapshot, saveRuleFixture } from './rules';
 import { useSyncExternalStore } from 'react';
 import { projectMoneySnapshot, type MoneySnapshot } from '../../../src/capabilities/money/data/moneySnapshot';
 import { snapshotPerformanceFixture } from '../snapshot-performance-fixture';
@@ -7,8 +8,10 @@ import { snapshotPerformanceFixture } from '../snapshot-performance-fixture';
 type State = { snapshot: MoneySnapshot | null; status: 'ready' | 'loading' | 'error'; error: string | null; refreshes: number; userId: string | null; settingsMode: boolean; savingCategory: boolean };
 const listeners = new Set<() => void>();
 let state: State = { snapshot: null, status: 'loading', error: null, refreshes: 0, userId: null, settingsMode: false, savingCategory: false };
+let rulesMode = false;
 function update(next: Partial<State>) { state = { ...state, ...next }; listeners.forEach((listener) => listener()); }
 export function selectFixture(count: number, mode = 'ready') {
+  rulesMode = false;
   const now = new Date();
   const rows = snapshotPerformanceFixture(count);
   // Stress the default month, not just the all-history option. Preserve some
@@ -23,9 +26,22 @@ export function selectFixture(count: number, mode = 'ready') {
     settingsMode: false, userId: null, error: mode === 'stale' || mode === 'error' ? 'Synthetic offline fixture. Pull to retry.' : null, refreshes: 0 });
 }
 export async function selectSettingsFixture() {
+  rulesMode = false;
   const value = await openSettingsFixture();
   update({ snapshot: value.snapshot, userId: value.actorUserId, status: 'ready', error: null, settingsMode: true });
   return value.snapshot.categories[0].id;
+}
+export async function selectRuleFixture(kind: 'partial' | 'transfer') {
+  const value = await openRuleFixture(kind);
+  rulesMode = true;
+  update({ snapshot: value.snapshot, userId: value.actorUserId, status: 'ready', error: null, settingsMode: false });
+  return value.transactionId;
+}
+async function submitRule(input: Parameters<typeof saveRuleFixture>[0]) {
+  if (!rulesMode) return blockedWrite();
+  const result = await saveRuleFixture(input);
+  update({ snapshot: await reloadRuleSnapshot() });
+  return result;
 }
 async function submitSettings(request: CategorySettingsRequest) {
   update({ savingCategory: true });
@@ -39,6 +55,7 @@ async function submitSettings(request: CategorySettingsRequest) {
   } finally { update({ savingCategory: false }); }
 }
 async function refresh() {
+  if (rulesMode) { update({ snapshot: await reloadRuleSnapshot(), error: null }); return; }
   if (state.settingsMode) { update({ snapshot: await reloadSettingsSnapshot(), error: null }); return; }
 
   await new Promise((resolve) => setTimeout(resolve, 500));
@@ -56,5 +73,5 @@ export function useMoneyData() {
     assignTransactionCategory: blockedWrite, createCategory: blockedWrite,
     markTransactionNotCounted: blockedWrite, reviewTransactionMeaning: blockedWrite,
     setTransactionPlanRoleOverride: blockedWrite, setTransactionPlanCoverage: blockedWrite,
-    setTransactionNote: blockedWrite, saveMerchantRule: blockedWrite, splitTransaction: blockedWrite };
+    setTransactionNote: blockedWrite, saveMerchantRule: submitRule, splitTransaction: blockedWrite };
 }
