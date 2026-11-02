@@ -98,12 +98,32 @@ local full-suite pass does not replace the failed hosted gate or native evidence
 The fixture Metro and disposable backend were stopped; the private database was
 removed by its normal shutdown. No local runtime remains owned by this pass.
 
+## Release preflight credential and hosted verification
+
+Andrew saved `SUPABASE_RELEASE_READ_TOKEN` in the repository's Actions secrets on
+November 2. Its prepared Supabase scope was only project
+`sqxwjtorodqjdfnuvprf`, Database Read and Custom Domains Read, with a 90-day
+expiry. The token value was not copied into the repository or this record.
+Replace the GitHub secret before the token expires to preserve the release gate.
+
+[Backend-only run 41484087573](https://github.com/mtkinji/lomo/actions/runs/41484087573)
+completed successfully at 09:44 MST on November 2 against clean source commit
+`c99ee7485648ff9c759a5819205a127a749ad64b`. All **61** contract checks passed for
+`https://auth.kwilt.app`, profile `testflight-widgets`, contract version 1,
+hash `a67616078742667083ccb52b8a4c8ebe0d910b2be4e32bc3d7e3c28c29a444d2`.
+The `build_and_submit` job was skipped. This verifies the GitHub credential and
+live database catalog contract; it does not establish native or API workflow
+acceptance, and it must run again for the actual release candidate.
+
+[PR CI 41482952344](https://github.com/mtkinji/lomo/actions/runs/41482952344)
+also passed on `c99ee748`, superseding the earlier failed hosted test run for
+this candidate. Native CI remains a separate gate.
+
 ## Remaining gates
 
 - Native Accounts/main-menu navigation and signed-in provider integration.
 - Inventory final-item/pull behavior and repair/verification of in-session Dynamic Type clipping.
 - Hosted CI runtime rerun and authenticated/data fixture prerequisites.
-- Configure and exercise `SUPABASE_RELEASE_READ_TOKEN`; it was absent from the
-  repository's Actions secrets and the local process at this checkpoint.
+- Re-run the backend contract check for the actual release candidate.
 - Signed-in live workflow acceptance and physical-device/TestFlight validation.
 - No app build, upload, production mutation, or release was performed in this pass.
