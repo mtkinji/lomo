@@ -54,6 +54,11 @@ export function buildVerificationPlan(files, base) {
     add('npm run test:code-health', 'unit-test the code-health ratchet rules');
   }
 
+  if (matches(/^(scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/maestro\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
+    add('node --test scripts/e2e-maestro-runtime.test.mjs',
+      'require a ready JavaScript runtime and retained diagnostics for native CI');
+  }
+
   if (needsEasUploadPolicy(files)) {
     add(
       'npm run test:eas-upload-policy',

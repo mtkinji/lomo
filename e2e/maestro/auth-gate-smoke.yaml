@@ -6,6 +6,12 @@ appId: com.andrewwatanabe.kwilt
 - launchApp:
     clearState: true
 
+- openLink: "${DEV_CLIENT_URL}"
+
+- extendedWaitUntil:
+    visible: "Continue with Apple"
+    timeout: 30000
+
 - assertVisible: "Continue with Apple"
 - assertVisible: "Continue with Google"
 
