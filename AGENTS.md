@@ -107,6 +107,8 @@ Validates JTBD front-matter, `parent` references, and `serves:` references in fe
 
 Match verification cost to the stage of work. Do not use the full repository suite as an inner-loop command.
 
+Use the [quality index checkpoint guidance](docs/engineering/product-and-engineering-quality-index.md#checkpoints-and-integration-cadence) after a coherent behavior contract is checked, before expanding into another workstream, and at session handoff. Long-running goals must not become indefinitely growing uncommitted changes. Freeze a bounded batch, preserve unrelated work, checkpoint it within existing authorization, and evaluate integration separately from release and completion of the broader goal.
+
 #### Tier 1 — implementation loop
 
 - Run the smallest test or check that exercises the behavior being changed.

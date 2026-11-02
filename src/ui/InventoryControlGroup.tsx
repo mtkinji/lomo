@@ -62,7 +62,8 @@ const styles = StyleSheet.create({
   controlDivider: { width: 1, backgroundColor: colors.border },
   controlSurface: {
     minWidth: INVENTORY_CONTROL_MIN_WIDTH_PX,
-    height: INVENTORY_CONTROL_HEIGHT_PX,
+    minHeight: INVENTORY_CONTROL_HEIGHT_PX,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-money-native-harness",
+  "private": true,
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "55.0.28",
+    "react": "19.2.0",
+    "react-native": "0.83.10"
+  }
+}

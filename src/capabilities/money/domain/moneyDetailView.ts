@@ -105,14 +105,13 @@ export function getSimilarMerchantTransactions(
 ): MoneyTransaction[] {
   const target = mode === 'exact'
     ? normalizeExactMerchant(selected.merchantName)
-    : normalizePartialMerchant(partialPattern ?? selected.merchantName);
+    : normalizeExactMerchant(partialPattern ?? selected.merchantName);
   if (!target) return [];
   return transactions.filter((transaction) => {
     if (transaction.id === selected.id) return false;
-    const candidate = mode === 'exact'
-      ? normalizeExactMerchant(transaction.merchantName)
-      : normalizePartialMerchant(transaction.merchantName);
-    return mode === 'exact' ? candidate === target : Boolean(candidate && candidate.includes(target));
+    const candidate = normalizeExactMerchant(transaction.merchantName);
+    return mode === 'exact' ? candidate === target
+      : [candidate, normalizeExactMerchant(transaction.originalDescription ?? ''), normalizeExactMerchant(transaction.bankName ?? '')].some((value) => value.includes(target));
   });
 }
 

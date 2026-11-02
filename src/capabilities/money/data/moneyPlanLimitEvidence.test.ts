@@ -37,11 +37,18 @@ const active = {
 } as ActiveLivingPlan;
 
 describe('getMoneyPlanLimitEvidence', () => {
+  it.each([null, { code: 'PGRST205', message: 'table missing' }])('does not hide an evidence permission error when the other source is unavailable (%s)', async (otherError) => {
+    const error = { code: '42501', message: 'permission denied for table budget_planning_income_sources' };
+    await expect(getMoneyPlanLimitEvidence(clientWith({
+      budget_planning_basis_overrides: { data: null, error: otherError },
+      budget_planning_income_sources: { data: null, error },
+    }), active, 'owner')).rejects.toEqual(error);
+  });
   it('recognizes a matching user-set basis before detected income', async () => {
     const result = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: { monthly_basis_cents: 500000, updated_at: '2026-07-24T13:00:00Z' }, error: null },
       budget_planning_income_sources: { data: [{ confidence: 'high', planning_role: 'recurring_planning_income', expected_monthly_cents: 500000, updated_at: '2026-07-24T12:00:00Z' }], error: null },
-    }), active);
+    }), active, 'user-1');
 
     expect(result).toEqual({ resourceBasisKind: 'user_set', resourceBasisUpdatedAtIso: '2026-07-24T13:00:00Z' });
   });
@@ -54,7 +61,7 @@ describe('getMoneyPlanLimitEvidence', () => {
         { confidence: 'high', planning_role: 'irregular_planning_income', expected_monthly_cents: 200000, updated_at: '2026-07-24T12:00:00Z' },
         { confidence: 'medium', planning_role: 'recurring_planning_income', expected_monthly_cents: 99999, updated_at: '2026-07-25T12:00:00Z' },
       ], error: null },
-    }), active);
+    }), active, 'user-1');
 
     expect(result).toEqual({ resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z' });
   });
@@ -65,7 +72,7 @@ describe('getMoneyPlanLimitEvidence', () => {
       budget_planning_income_sources: { data: [
         { evidence_hash: 'evidence-2', confidence: 'high', planning_role: 'irregular_planning_income', expected_monthly_cents: 500000, updated_at: '2026-07-31T20:35:54Z' },
       ], error: null },
-    }), active);
+    }), active, 'user-1');
 
     expect(result).toEqual({ resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-31T20:35:54Z' });
   });
@@ -74,7 +81,7 @@ describe('getMoneyPlanLimitEvidence', () => {
     const result = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: null },
       budget_planning_income_sources: { data: [], error: null },
-    }), { ...active, status: 'blocked' });
+    }), { ...active, status: 'blocked' }, 'user-1');
 
     expect(result).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
   });
@@ -83,13 +90,13 @@ describe('getMoneyPlanLimitEvidence', () => {
     const mismatched = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: null },
       budget_planning_income_sources: { data: [{ confidence: 'high', planning_role: 'recurring_planning_income', expected_monthly_cents: 450000, updated_at: '2026-07-24T12:00:00Z' }], error: null },
-    }), active);
+    }), active, 'user-1');
     expect(mismatched).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
 
     const missing = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: { code: 'PGRST205', message: 'table missing' } },
       budget_planning_income_sources: { data: null, error: { code: 'PGRST205', message: 'table missing' } },
-    }), active);
+    }), active, 'user-1');
     expect(missing).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
   });
 });

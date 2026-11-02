@@ -12,6 +12,7 @@ export const REQUIRED_EAS_IGNORE_ENTRIES = Object.freeze([
   'eas_logs_local/',
   'eas_cloud_logs/',
   '.env',
+  '.env*',
   '.env*.local',
   'credentials.json',
   '*.jks',

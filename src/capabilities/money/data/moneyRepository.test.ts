@@ -13,7 +13,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; rpcError?: { code: string; message: string }; functionResult?: unknown } = {}) {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; rpcError?: { code: string; message: string }; functionResult?: unknown; ruleReadError?: { code: string; message: string } } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -58,19 +58,20 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
           return query;
         },
         then: (
-          resolve: (value: { data: unknown[]; error: null }) => unknown,
+          resolve: (value: { data: unknown[]; error: { code: string; message: string } | null }) => unknown,
           reject?: (reason: unknown) => unknown,
         ) => Promise.resolve({
           data: call.update
             ? Array.from({ length: options.updatedRowCount ?? 1 }, (_, index) => ({ id: `updated-${index + 1}`, category_id: `updated-${index + 1}` }))
             : [],
-          error: null,
+          error: table === 'budget_transaction_match_rules' && call.selected?.includes('rule_kind') ? options.ruleReadError ?? null : null,
         }).then(resolve, reject),
       };
       return query;
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
+      if (name === 'budget_effective_owner_user_id') return Promise.resolve({ data: 'user-1', error: null });
       return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: options.rpcError ?? null });
     },
     functions: {
@@ -415,6 +416,8 @@ describe('createMoneyRepository transaction review', () => {
         merchantKey: 'costco 01234',
         matchMode: 'exact',
         categoryId: 'category-1',
+        targetKind: 'category',
+        effectiveTargetKind: 'category', effectiveCategoryId: 'category-1',
       },
     });
     const repository = createMoneyRepository(client);
@@ -427,8 +430,9 @@ describe('createMoneyRepository transaction review', () => {
     });
 
     expect(rpcCalls).toContainEqual({
-      name: 'upsert_budget_transaction_match_rule',
+      name: 'upsert_budget_transaction_rule_v2',
       args: {
+        p_rule_kind: 'category',
         p_transaction_id: 'transaction-1',
         p_budget_id: 'category-1',
         p_merchant_contains: 'costco 01234',
@@ -446,6 +450,8 @@ describe('createMoneyRepository transaction review', () => {
       merchantKey: 'costco 01234',
       matchMode: 'exact',
       categorySourceId: 'category-1',
+      targetKind: 'category',
+      effectiveTargetKind: 'category', effectiveCategorySourceId: 'category-1',
     });
   });
 
@@ -454,9 +460,11 @@ describe('createMoneyRepository transaction review', () => {
       rpcResult: {
         ruleId: 'rule-2',
         appliedTransactionCount: 4,
-        merchantKey: 'trader joe',
+        merchantKey: 'trader',
         matchMode: 'partial',
         categoryId: 'category-1',
+        targetKind: 'category',
+        effectiveTargetKind: 'category', effectiveCategoryId: 'category-1',
       },
     });
     const repository = createMoneyRepository(client);
@@ -471,8 +479,9 @@ describe('createMoneyRepository transaction review', () => {
     });
 
     expect(rpcCalls).toContainEqual({
-      name: 'upsert_budget_transaction_match_rule',
+      name: 'upsert_budget_transaction_rule_v2',
       args: {
+        p_rule_kind: 'category',
         p_budget_id: 'category-1',
         p_label: 'Groceries merchant rule',
         p_match_mode: 'partial',
@@ -499,7 +508,7 @@ describe('createMoneyRepository transaction review', () => {
         p_description: null,
         p_accent_color: '#315545',
       },
-    }]);
+    }, { name: 'budget_effective_owner_user_id', args: undefined }]);
     expect(result.categoryId).toBe('groceries-a1b2c3d4');
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
   });
@@ -628,4 +637,28 @@ describe('rollover policy persistence', () => {
     await expect(createMoneyRepository(client).updateCategoryPlan('category-1', { rolloverPolicy: { ...rolloverPolicy, startMonth: '2026-13' } })).rejects.toThrow();
     expect(calls).toHaveLength(0);
   });
+});
+
+
+it('keeps legacy rules readable when only the new rule columns are absent', async () => {
+  const { client, calls } = createClient({ ruleReadError: { code: '42703', message: 'column budget_transaction_match_rules.rule_kind does not exist' } });
+  await expect(createMoneyRepository(client).loadSnapshot()).resolves.toBeDefined();
+  expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(2);
+});
+it('does not mask rule permissions or unrelated missing schema with a fallback', async () => {
+  for (const error of [{ code: '42501', message: 'permission denied for rule_kind' }, { code: '42703', message: 'column budget_id does not exist' }]) {
+    const { client, calls } = createClient({ ruleReadError: error });
+    await expect(createMoneyRepository(client).loadSnapshot()).rejects.toThrow(error.message);
+    expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(1);
+  }
+});
+it('confirms a transfer rule with a null category and rejects a mismatched destination receipt', async () => {
+  const receipt = { ruleId: 'rule', appliedTransactionCount: 2, merchantKey: 'broker', matchMode: 'exact', categoryId: null, targetKind: 'transfer', effectiveTargetKind: 'transfer', effectiveCategoryId: null };
+  const { client, rpcCalls } = createClient({ rpcResult: receipt });
+  await expect(createMoneyRepository(client).saveMerchantRule({ transactionId: 'tx', merchantName: 'Broker', targetKind: 'transfer' }))
+    .resolves.toMatchObject({ targetKind: 'transfer', categorySourceId: null });
+  expect(rpcCalls[0].args).toMatchObject({ p_rule_kind: 'transfer', p_budget_id: null });
+  const wrong = createClient({ rpcResult: { ...receipt, targetKind: 'category', categoryId: 'category' } });
+  await expect(createMoneyRepository(wrong.client).saveMerchantRule({ transactionId: 'tx', merchantName: 'Broker', targetKind: 'transfer' }))
+    .rejects.toThrow('valid confirmation receipt');
 });

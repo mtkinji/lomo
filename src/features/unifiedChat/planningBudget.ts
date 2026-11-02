@@ -40,7 +40,12 @@ export async function runWithPlanningBudget<TResult, TFallback>(
   });
 
   try {
-    return await Promise.race([run(controller.signal), timeout, parentAbort]);
+    const result = await Promise.race([run(controller.signal), timeout, parentAbort]);
+    // Abort listeners can resolve the request before the timeout/cancellation
+    // promise settles. Those values must not turn an exhausted budget into success.
+    if (options.parentSignal?.aborted) throw abortError(options.parentSignal);
+    if (timedOut) return options.fallback;
+    return result;
   } catch (error) {
     if (options.parentSignal?.aborted) throw abortError(options.parentSignal);
     if (timedOut || controller.signal.aborted) return options.fallback;

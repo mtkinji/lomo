@@ -1443,6 +1443,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   }, [activeChatThreadId, chatRepository, chatThreads, navigateAfterChatRemoval]);
 
   const capabilityMenuNavigationHandlers = createCapabilityMenuNavigationHandlers({
+    activeRouteName: activeRoute?.name,
     dispatch: (action) => rootNavigationRef.dispatch(action),
     coverMenu,
     captureSelection: (id) => {

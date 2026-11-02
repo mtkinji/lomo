@@ -24,6 +24,9 @@ npm run verify:changed -- --run --base "$verification_base"
 echo "[kwilt] Running the complete Jest coverage suite…"
 npm run test:ci
 
+echo "[kwilt] Checking the release target Budget backend…"
+npm run money:verify-backend -- --profile "$testflight_profile"
+
 echo "[kwilt] Building iOS (${testflight_profile}) + auto-submitting to TestFlight…"
 npx eas-cli@22.0.0 build \
   --platform ios \

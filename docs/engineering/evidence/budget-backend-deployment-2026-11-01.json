@@ -1,0 +1,281 @@
+{
+  "observedAt": "2026-11-01",
+  "sourceCommit": "81c428e694b2859cee0364a1351acb359f6151d6",
+  "projectRef": "sqxwjtorodqjdfnuvprf",
+  "origin": "https://auth.kwilt.app",
+  "authorizedBy": "Andrew approved both migrations in this task before application",
+  "migrations": [
+    {
+      "name": "atomic_budget_category_settings",
+      "reviewedVersion": "20261101154005",
+      "deployedVersion": "20261101213719",
+      "sha256": "fbd42aea7293cdbb6eebbf5294f87b88a8b8256ddb152d8ab63419b6e4f658e8"
+    },
+    {
+      "name": "household_category_settings_preview_read",
+      "reviewedVersion": "20261101163341",
+      "deployedVersion": "20261101213724",
+      "sha256": "48ee62effe9e8a1214c31c538b0a5bf7c62edbdeedb6eeae3313e4d9bf56e6e5"
+    }
+  ],
+  "contractHash": "8eddcceecf46bd5cbc9c5557c4c79d272336cc9d43f77a443970b4362cfdce29",
+  "checks": [
+    {
+      "id": "column:private.budget_category_settings_receipts.actor_user_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.category_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.created_at",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.receipt",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.request",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.request_id",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.name",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.status",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.updated_at",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.base_budget_cents",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.expected_need_cents",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.expected_need_due_month",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.funding_rhythm",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.plan_role",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.rollover_enabled",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.rollover_policy",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.updated_at",
+      "ok": true
+    },
+    {
+      "id": "command-execute",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_actor_is_active_household_child",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_canonical_adult_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_effective_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:private.promote_budget_living_plan_for_owner",
+      "ok": true
+    },
+    {
+      "id": "function:public.apply_governed_category_plan_change",
+      "ok": true
+    },
+    {
+      "id": "function:public.budget_effective_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:public.get_budget_category_settings_receipt",
+      "ok": true
+    },
+    {
+      "id": "function:public.project_active_living_plan_into_budget_plans",
+      "ok": true
+    },
+    {
+      "id": "function:public.promote_budget_living_plan",
+      "ok": true
+    },
+    {
+      "id": "function:public.reverse_budget_living_plan",
+      "ok": true
+    },
+    {
+      "id": "function:public.save_budget_category_settings",
+      "ok": true
+    },
+    {
+      "id": "function:public.set_updated_at",
+      "ok": true
+    },
+    {
+      "id": "function:public.track_budget_rollover_amount",
+      "ok": true
+    },
+    {
+      "id": "function:public.valid_budget_rollover_policy",
+      "ok": true
+    },
+    {
+      "id": "household-helper-access",
+      "ok": true
+    },
+    {
+      "id": "policy-select-scope",
+      "ok": true
+    },
+    {
+      "id": "policy:Household adults can read the Money plan config",
+      "ok": true
+    },
+    {
+      "id": "policy:Household adults can read the Money planning basis",
+      "ok": true
+    },
+    {
+      "id": "policy:Owners read living config",
+      "ok": true
+    },
+    {
+      "id": "policy:Users can read their Money planning basis",
+      "ok": true
+    },
+    {
+      "id": "preview-read-access",
+      "ok": true
+    },
+    {
+      "id": "private-receipts",
+      "ok": true
+    },
+    {
+      "id": "rollover-constraint",
+      "ok": true
+    },
+    {
+      "id": "rollover-trigger",
+      "ok": true
+    },
+    {
+      "id": "trigger:project_active_living_plan_into_budget_plans",
+      "ok": true
+    },
+    {
+      "id": "trigger:set_budget_categories_updated_at",
+      "ok": true
+    },
+    {
+      "id": "trigger:set_budget_plans_updated_at",
+      "ok": true
+    }
+  ],
+  "readOnlyActorDenial": "Authenticated database role with empty JWT claims: save and receipt RPCs both rejected with insufficient_privilege before writes; transaction rolled back.",
+  "postgrestAnonymousChecks": [
+    {
+      "rpc": "get_budget_category_settings_receipt",
+      "httpStatus": 401,
+      "code": "42501",
+      "outcome": "permission denied for function"
+    },
+    {
+      "rpc": "save_budget_category_settings",
+      "httpStatus": 401,
+      "code": "42501",
+      "outcome": "permission denied for function"
+    }
+  ],
+  "addedOrChangedSecurityAdvisories": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "detail": "Table \\`private.budget_category_settings_receipts\\` has RLS enabled, but no policies exist",
+      "metadata": {
+        "name": "budget_category_settings_receipts",
+        "type": "table",
+        "schema": "private"
+      },
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "detail": "Function `public.get_budget_category_settings_receipt(p_expected_actor_user_id uuid, p_request_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_budget_category_settings_receipt`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "metadata": {
+        "name": "get_budget_category_settings_receipt",
+        "schema": "public",
+        "language": "plpgsql",
+        "arguments": "p_expected_actor_user_id uuid, p_request_id uuid",
+        "security_definer": true
+      },
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "detail": "Function `public.promote_budget_living_plan(expected_active_version_id uuid, candidate jsonb, components jsonb, receipt jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/promote_budget_living_plan`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "metadata": {
+        "name": "promote_budget_living_plan",
+        "schema": "public",
+        "language": "sql",
+        "arguments": "expected_active_version_id uuid, candidate jsonb, components jsonb, receipt jsonb",
+        "security_definer": true
+      },
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "detail": "Function `public.save_budget_category_settings(p_expected_actor_user_id uuid, p_request_id uuid, p_category_id uuid, p_expected_category_updated_at timestamp with time zone, p_expected_plan_updated_at timestamp with time zone, p_settings jsonb, p_governance jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/save_budget_category_settings`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "metadata": {
+        "name": "save_budget_category_settings",
+        "schema": "public",
+        "language": "plpgsql",
+        "arguments": "p_expected_actor_user_id uuid, p_request_id uuid, p_category_id uuid, p_expected_category_updated_at timestamp with time zone, p_expected_plan_updated_at timestamp with time zone, p_settings jsonb, p_governance jsonb",
+        "security_definer": true
+      },
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+    }
+  ],
+  "limits": [
+    "No existing household rows were changed for verification.",
+    "No signed-in API or native save/reopen/retry acceptance.",
+    "Management API release-token transport remains unverified.",
+    "No app build, upload or release."
+  ]
+}

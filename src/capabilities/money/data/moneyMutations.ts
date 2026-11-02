@@ -38,7 +38,9 @@ export function buildTransactionPlanRoleOverrideUpdate(
 
 export type MerchantRuleUpsert = {
   user_id: string;
-  budget_id: string;
+  budget_id: string | null;
+  rule_kind: 'category' | 'transfer';
+  match_version: 'contains_v2';
   merchant_contains: string;
   merchant_match_mode: 'exact' | 'partial';
   label: string;
@@ -49,34 +51,40 @@ export function buildMerchantRuleUpsert(input: {
   userId: string;
   transactionId: string;
   merchantName: string;
-  categoryId: string;
-  categoryName: string;
+  originalDescription?: string;
+    bankName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  targetKind?: 'category' | 'transfer';
   matchMode?: 'exact' | 'partial';
   merchantPattern?: string;
 }): MerchantRuleUpsert {
   const userId = input.userId.trim();
   const transactionId = input.transactionId.trim();
-  const categoryId = input.categoryId.trim();
+  const categoryId = input.categoryId?.trim() ?? '';
+  const targetKind = input.targetKind ?? 'category';
   const matchMode = input.matchMode ?? 'exact';
   const partialPattern = input.merchantPattern ?? input.merchantName;
   const partialPatternError = matchMode === 'partial'
-    ? getPartialMerchantRulePatternError(input.merchantName, partialPattern)
+    ? getPartialMerchantRulePatternError(input.merchantName, partialPattern, input.originalDescription, input.bankName)
     : null;
   if (partialPatternError) throw new Error(partialPatternError);
   const merchantContains = matchMode === 'partial'
-    ? normalizePartialMerchant(partialPattern)
+    ? normalizeExactMerchant(partialPattern)
     : normalizeExactMerchant(input.merchantName);
   if (!userId) throw new Error('Sign in before saving a merchant rule.');
   if (!transactionId) throw new Error('Choose a transaction before saving a merchant rule.');
-  if (!categoryId) throw new Error('Choose a category before saving a merchant rule.');
+  if (targetKind === 'category' && !categoryId) throw new Error('Choose a category before saving a merchant rule.');
   if (!merchantContains) throw new Error('This transaction does not have a usable merchant name.');
 
   return {
     user_id: userId,
-    budget_id: categoryId,
+    budget_id: targetKind === 'transfer' ? null : categoryId,
+    rule_kind: targetKind,
+    match_version: 'contains_v2',
     merchant_contains: merchantContains,
     merchant_match_mode: matchMode,
-    label: `${input.categoryName.trim() || 'Category'} merchant rule`,
+    label: `${targetKind === 'transfer' ? 'Internal transfer' : input.categoryName?.trim() || 'Category'} merchant rule`,
     created_from_transaction_id: transactionId,
   };
 }
@@ -176,9 +184,9 @@ export function normalizePartialMerchant(value: string): string {
     .join(' ');
 }
 
-export function getPartialMerchantRulePatternError(sourceMerchant: string, pattern: string): string | null {
-  const sourceKey = normalizePartialMerchant(sourceMerchant);
-  const patternKey = normalizePartialMerchant(pattern);
+export function getPartialMerchantRulePatternError(sourceMerchant: string, pattern: string, originalDescription?: string, bankName?: string): string | null {
+  const patternKey = normalizeExactMerchant(pattern);
   if (!patternKey) return 'Enter merchant words to match.';
-  return sourceKey.includes(patternKey) ? null : 'Use words that appear in this merchant name.';
+  return [sourceMerchant, originalDescription ?? '', bankName ?? ''].some((value) => normalizeExactMerchant(value).includes(patternKey))
+    ? null : 'Use words that appear in this transaction’s description.';
 }

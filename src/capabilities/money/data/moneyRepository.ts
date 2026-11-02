@@ -31,6 +31,7 @@ import {
   type TransactionReviewUpdate,
 } from './moneyMutations';
 import { loadMoneyPlanProjection } from './moneyPlanProjection';
+import { resolveMoneyOwnerUserId } from './moneyHouseholdScope';
 import { canReadSandboxMoneyData } from '../domain/demoMoneyEnvironment';
 import { normalizeTransactionNote } from '../domain/transactionNote';
 
@@ -104,7 +105,10 @@ export type ConfirmedMerchantRuleWrite = {
   appliedTransactionCount: number;
   merchantKey: string;
   matchMode: 'exact' | 'partial';
-  categorySourceId: string;
+  categorySourceId: string | null;
+  targetKind: 'category' | 'transfer';
+  effectiveTargetKind: 'category' | 'transfer';
+  effectiveCategorySourceId: string | null;
 };
 
 export type ConfirmedCategoryOrderWrite = {
@@ -160,8 +164,11 @@ export interface MoneyRepository {
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
-    categoryId: string;
-    categoryName: string;
+    originalDescription?: string;
+    bankName?: string;
+    categoryId?: string;
+    categoryName?: string;
+    targetKind?: 'category' | 'transfer';
     matchMode?: 'exact' | 'partial';
     merchantPattern?: string;
   }): Promise<ConfirmedMerchantRuleWrite>;
@@ -187,6 +194,8 @@ export interface MoneyRepository {
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
   const loadSnapshot = async (): Promise<MoneySnapshot> => {
     const signedInUser = await requireSignedInUser(client);
+    if (signedInUser.is_anonymous) throw new Error('Sign in to see your Money data.');
+    const ownerUserId = await resolveMoneyOwnerUserId(client);
     const includeSandbox = canReadSandboxMoneyData(
       signedInUser,
       typeof __DEV__ !== 'undefined' && __DEV__,
@@ -194,12 +203,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
     const db = client as unknown as MoneyReadClient;
     const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
-      readCategoryRows(db),
-      readPlanRows(db),
+      readCategoryRows(db, ownerUserId),
+      readPlanRows(db, ownerUserId),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
           .from('budget_financial_connections')
-          .select('id,environment,institution_name,status,last_synced_at,updated_at'), 'environment', includeSandbox)
+          .select('id,environment,institution_name,status,last_synced_at,updated_at')
+          .eq('user_id', ownerUserId), 'environment', includeSandbox)
           .order('created_at', { ascending: false })),
       readPart<MoneyAccountRow[]>('accounts',
         environmentQuery(db
@@ -213,17 +223,14 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               type,
               subtype,
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
-          `), 'budget_financial_connections.environment', includeSandbox)
+          `).eq('user_id', ownerUserId), 'budget_financial_connections.environment', includeSandbox)
           .order('created_at', { ascending: false })),
-      readPart<MoneyRuleRow[]>('merchant rules',
-        db
-          .from('budget_transaction_match_rules')
-          .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
-          .order('created_at', { ascending: false })),
+      readRuleRows(db, ownerUserId),
       collectAllPages<MoneyTransactionAllocationRow>((from, to) =>
         readOptionalAllocations(db
           .from('budget_transaction_allocations')
           .select('transaction_id,budget_id,amount_cents')
+          .eq('user_id', ownerUserId)
           .order('transaction_id', { ascending: true })
           .order('budget_id', { ascending: true })
           .range(from, to)),
@@ -260,7 +267,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 personal_finance_category_confidence,
                 updated_at,
                 budget_financial_connections!inner(environment)
-            `), 'budget_financial_connections.environment', includeSandbox)
+            `).eq('user_id', ownerUserId), 'budget_financial_connections.environment', includeSandbox)
             .order('date', { ascending: false })
             .order('id', { ascending: false })
             .range(from, to)),
@@ -277,7 +284,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       allocations,
       transactions,
     });
-    const projection = await loadMoneyPlanProjection(client, snapshot);
+    const projection = await loadMoneyPlanProjection(client, snapshot, undefined, ownerUserId);
     return projection?.snapshot ?? snapshot;
   };
 
@@ -510,7 +517,8 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
       const rule = buildMerchantRuleUpsert({ userId, ...input });
-      const { data, error } = await db.rpc('upsert_budget_transaction_match_rule', {
+      const { data, error } = await db.rpc('upsert_budget_transaction_rule_v2', {
+        p_rule_kind: rule.rule_kind,
         p_transaction_id: rule.created_from_transaction_id,
         p_budget_id: rule.budget_id,
         p_merchant_contains: rule.merchant_contains,
@@ -518,7 +526,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         p_label: rule.label,
       });
       if (error) throw new Error(`Money could not save the merchant rule: ${error.message || 'Unknown database error'}`);
-      return parseMerchantRuleReceipt(data, rule.created_from_transaction_id);
+      return parseMerchantRuleReceipt(data, rule.created_from_transaction_id, rule);
     },
     async createCategory(input) {
       await requireSignedIn(client);
@@ -666,20 +674,27 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
   };
 }
 
-function parseMerchantRuleReceipt(data: unknown, transactionId: string): ConfirmedMerchantRuleWrite {
+function parseMerchantRuleReceipt(data: unknown, transactionId: string, rule: ReturnType<typeof buildMerchantRuleUpsert>): ConfirmedMerchantRuleWrite {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error('Money saved the merchant rule without a valid confirmation receipt.');
   }
   const receipt = data as Record<string, unknown>;
+  const targetKind = rule.rule_kind;
+  const effectiveTargetKind = receipt.effectiveTargetKind;
+  const effectiveCategorySourceId = typeof receipt.effectiveCategoryId === 'string' ? receipt.effectiveCategoryId.trim() : null;
   const ruleId = typeof receipt.ruleId === 'string' ? receipt.ruleId.trim() : '';
   const merchantKey = typeof receipt.merchantKey === 'string' ? receipt.merchantKey.trim() : '';
-  const categorySourceId = typeof receipt.categoryId === 'string' ? receipt.categoryId.trim() : '';
+  const categorySourceId = typeof receipt.categoryId === 'string' ? receipt.categoryId.trim() : null;
   const matchMode = receipt.matchMode;
   const appliedTransactionCount = receipt.appliedTransactionCount;
   if (
     !ruleId
     || !merchantKey
-    || !categorySourceId
+    || merchantKey !== rule.merchant_contains || matchMode !== rule.merchant_match_mode || categorySourceId !== rule.budget_id
+    || (effectiveTargetKind !== 'category' && effectiveTargetKind !== 'transfer')
+    || (effectiveTargetKind === 'category' ? !effectiveCategorySourceId : receipt.effectiveCategoryId !== null)
+    || receipt.targetKind !== targetKind
+    || (targetKind === 'category' ? !categorySourceId : receipt.categoryId !== null)
     || (matchMode !== 'exact' && matchMode !== 'partial')
     || !Number.isInteger(appliedTransactionCount)
     || (appliedTransactionCount as number) < 0
@@ -694,6 +709,9 @@ function parseMerchantRuleReceipt(data: unknown, transactionId: string): Confirm
     merchantKey,
     matchMode,
     categorySourceId,
+    targetKind,
+    effectiveTargetKind,
+    effectiveCategorySourceId,
   };
 }
 
@@ -769,9 +787,10 @@ function parseConnectionDisconnectReceipt(
   return { confirmedAt, connectionId, disconnectedAccountCount };
 }
 
-async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
+async function readPlanRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyPlanRow[]> {
   const withRollover = await db.from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,rollover_policy,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active');
   if (!withRollover.error) return (withRollover.data ?? []) as MoneyPlanRow[];
   if (withRollover.error.code !== 'PGRST204' && withRollover.error.code !== '42703') {
@@ -780,6 +799,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   const expanded = await db
     .from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active');
   if (!expanded.error) return (expanded.data ?? []) as MoneyPlanRow[];
   const missingPlanRole = expanded.error.code === 'PGRST204'
@@ -788,6 +808,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
     const withoutPlanRole = await db
       .from('budget_plans')
       .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,updated_at')
+      .eq('user_id', ownerUserId)
       .eq('status', 'active');
     if (!withoutPlanRole.error) return (withoutPlanRole.data ?? []) as MoneyPlanRow[];
     expanded.error = withoutPlanRole.error;
@@ -801,6 +822,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   return readPart<MoneyPlanRow[]>('legacy plans', db
     .from('budget_plans')
     .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active'));
 }
 
@@ -867,10 +889,25 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   return (data ?? []) as T;
 }
 
-async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
+async function readRuleRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyRuleRow[]> {
+  const columns = 'id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id,updated_at';
+  const query = (fields: string) => db.from('budget_transaction_match_rules').select(fields)
+    .eq('user_id', ownerUserId).order('created_at', { ascending: false });
+  const result = await query(`${columns},rule_kind,match_version`);
+  if (!result.error) return (result.data ?? []) as MoneyRuleRow[];
+  const { code, message } = result.error;
+  if ((code === '42703' || code === 'PGRST204') && /\b(rule_kind|match_version)\b/.test(message ?? '')) {
+    // Compatibility is read-only. Never retry a new rule through the legacy writer.
+    return readPart<MoneyRuleRow[]>('merchant rules', query(columns));
+  }
+  throw new Error(`Money could not read merchant rules: ${message || 'Unknown database error'}`);
+}
+
+async function readCategoryRows(db: MoneyReadClient, ownerUserId: string): Promise<MoneyCategoryRow[]> {
   const withCover = await db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];
@@ -879,7 +916,8 @@ async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]
   }
   return readPart<MoneyCategoryRow[]>('categories', db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order,updated_at')
+    .eq('user_id', ownerUserId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true }));
 }
@@ -893,7 +931,7 @@ function isMissingCoverColumnError(error: NonNullable<ReadResult['error']>): boo
 async function readOptionalAllocations(query: PromiseLike<ReadResult>): Promise<MoneyTransactionAllocationRow[]> {
   const { data, error } = await query;
   if (!error) return (data ?? []) as MoneyTransactionAllocationRow[];
-  if (error.code === 'PGRST205' || error.message?.includes('budget_transaction_allocations')) return [];
+  if (error.code === 'PGRST205' || error.code === '42P01') return [];
   throw new Error(`Money could not read transaction allocations: ${error.message || 'Unknown database error'}`);
 }
 

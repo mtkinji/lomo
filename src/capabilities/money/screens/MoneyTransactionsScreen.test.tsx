@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { FlatList } from 'react-native';
 import { MoneyTransactionsScreen } from './MoneyTransactionsScreen';
 
 const mockRefresh = jest.fn(async () => undefined);
@@ -26,10 +27,11 @@ jest.mock('../data/MoneyDataContext', () => ({
 jest.mock('./MoneyScreenFrame', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
+  const { SafeAreaProvider } = require('react-native-safe-area-context');
 
   return {
     MoneyScreenFrame: ({ children, headerRightElement, onPressBack, onRefresh, title }: {
-      children?: React.ReactNode;
+      children?: React.ReactNode | ((props: import('./MoneyScreenFrame').MoneyFrameScrollProps) => React.ReactNode);
       headerRightElement?: React.ReactNode;
       onPressBack?: () => void;
       onRefresh?: () => Promise<unknown>;
@@ -37,6 +39,7 @@ jest.mock('./MoneyScreenFrame', () => {
     }) => {
       mockMoneyScreenFrameOnRefresh = onRefresh;
       return (
+        <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, right: 0, bottom: 34, left: 0 } }}>
         <View>
           <Text>{title}</Text>
           {headerRightElement}
@@ -45,20 +48,52 @@ jest.mock('./MoneyScreenFrame', () => {
           ) : (
             <View accessibilityLabel="Open navigation menu" />
           )}
-          {children}
+          {typeof children === 'function' ? children({ warning: null }) : children}
         </View>
+        </SafeAreaProvider>
       );
     },
   };
 });
 
 describe('MoneyTransactionsScreen navigation hierarchy', () => {
+  afterEach(() => jest.restoreAllMocks());
   beforeEach(() => {
     jest.clearAllMocks();
     mockSnapshot.categories = [];
     mockSnapshot.transactions = [];
     mockSnapshot.lastSyncedAt = null;
     mockMoneyScreenFrameOnRefresh = undefined;
+  });
+
+  it('opens a large inventory without mounting thousands of offscreen transaction controls', () => {
+    mockSnapshot.transactions = Array.from({ length: 4000 }, (_, index) => transaction(`large-${index}`, `Synthetic merchant ${index}`));
+    const navigation = { canGoBack: () => true, goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn(), setParams: jest.fn() };
+    const route = { key: 'large-inventory', name: 'MoneyTransactions' as const, params: undefined };
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+    const mountedRows = screen.getAllByLabelText(/^Open Synthetic merchant .* transaction/);
+    expect(mountedRows.length).toBeGreaterThan(0);
+    expect(mountedRows.length).toBeLessThan(100);
+    // Offscreen rows must remain reachable: virtualization is not a data limit.
+    const list = screen.UNSAFE_getByType(FlatList);
+    expect(list.props.data.filter((row: { kind: string }) => row.kind === 'transaction')
+      .map((row: { transaction: { id: string } }) => row.transaction.id))
+      .toEqual(mockSnapshot.transactions.map((row) => row.id));
+    fireEvent.press(mountedRows[0]);
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', { transactionId: 'large-0', economicRoleReview: false });
+  });
+
+  it('lets merchant and review text wrap at accessibility sizes while preserving the open action', () => {
+    jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 2.35 });
+    const merchant = 'A long merchant name that must remain readable at large text sizes';
+    mockSnapshot.transactions = [transaction('large-text', merchant)];
+    const navigation = { canGoBack: () => true, goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn(), setParams: jest.fn() };
+    const route = { key: 'large-text', name: 'MoneyTransactions' as const, params: undefined };
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+    expect(screen.getByText(merchant).props.numberOfLines).toBeUndefined();
+    expect(screen.getByText('Needs review').props.numberOfLines).toBeUndefined();
+    fireEvent.press(screen.getByLabelText(new RegExp(`Open ${merchant} transaction`)));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', { transactionId: 'large-text', economicRoleReview: false });
   });
 
   it('replaces global navigation with back navigation for an account inventory', () => {
@@ -207,6 +242,10 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
     expect(screen.getAllByText('Miscellaneous')).toHaveLength(1);
     expect(screen.getByLabelText('Open Venmo transaction, Miscellaneous, -$470')).toBeTruthy();
     expect(screen.getByLabelText('Open Venmo transaction, Miscellaneous, -$170.47')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open Venmo transaction, Miscellaneous, -$170.47'));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', {
+      transactionId: 'venmo-two', coverageReview: true,
+    });
   });
 
   it('shows category truth for pending purchases instead of settlement status', () => {

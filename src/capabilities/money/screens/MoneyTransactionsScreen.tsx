@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon, type IconName } from '../../../ui/Icon';
 import {
@@ -27,6 +27,11 @@ import { isProviderIncome } from '../domain/transactionMeaning';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
+import { CanvasFlatList } from '../../../ui/layout/CanvasFlatList';
+
+type InventoryRow =
+  | { kind: 'heading'; key: string; label: string; first: boolean; overageCents?: number }
+  | { kind: 'transaction'; key: string; transaction: MoneyTransaction; last: boolean };
 
 type Filter = 'all' | 'unmatched' | 'matched' | 'outflow' | 'inflow';
 type Sort = 'newest' | 'oldest' | 'amount_high' | 'merchant';
@@ -53,6 +58,8 @@ const DATE_OPTIONS: Array<{ value: DateScope; label: string }> = [
 ];
 
 export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactions'>) {
+  const { width, fontScale } = useWindowDimensions();
+  const expandedRows = width / fontScale < 280;
   const { snapshot, reconcileConnectedActivity } = useMoneyData();
   const [dateScope, setDateScope] = useState<DateScope>('current_month');
   const [filter, setFilter] = useState<Filter>(route.params?.reviewState === 'needs_review' ? 'unmatched' : 'all');
@@ -101,6 +108,16 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     transactions: snapshot.transactions,
   }) : null, [overageReview, route.params?.flexibleRoomCents, snapshot]);
 
+  const listRows = useMemo<InventoryRow[]>(() => overageProjection
+    ? overageProjection.groups.flatMap((group, index): InventoryRow[] => [
+      { kind: 'heading', key: `overage-${group.categoryId}`, label: group.categoryName, first: index === 0, overageCents: group.overageCents },
+      ...group.transactions.map((transaction, rowIndex): InventoryRow => ({ kind: 'transaction', key: `${group.categoryId}:${transaction.id}`, transaction, last: rowIndex === group.transactions.length - 1 })),
+    ])
+    : groups.flatMap((group, index): InventoryRow[] => [
+      { kind: 'heading', key: `date-${group.label}`, label: group.label, first: index === 0 },
+      ...group.rows.map((transaction, rowIndex): InventoryRow => ({ kind: 'transaction', key: `transaction-${transaction.id}`, transaction, last: rowIndex === group.rows.length - 1 })),
+    ]), [groups, overageProjection]);
+
   const selectDateScope = (next: DateScope) => {
     setDateScope(next);
     if (monthStart || monthEnd || monthLabel) {
@@ -130,89 +147,95 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
 
   return (
     <MoneyScreenFrame
-      headerRightElement={snapshot?.lastSyncedAt
+      headerRightElement={!expandedRows && snapshot?.lastSyncedAt
         ? <MoneyFreshnessStamp lastSyncedAt={snapshot.lastSyncedAt} />
         : undefined}
       onRefresh={checkActivity}
       title={title}
       onPressBack={returnFromTransactions}
     >
-      {overageProjection ? (
-        <View style={styles.overageReview}>
-          <Text style={styles.overageIntro}>Budgets over their {snapshot?.periodLabel.split(' ')[0]} amounts</Text>
-          {overageProjection.offsetCents > 0 ? (
-            <Text style={styles.overageOffset}>Other flexible budgets are {formatMoney(overageProjection.offsetCents)} under their amounts.</Text>
-          ) : null}
-          {overageProjection.groups.map((group) => (
-            <View key={group.categoryId} style={styles.overageGroup}>
-              <View style={styles.overageHeader}>
-                <Text style={styles.overageCategory}>{group.categoryName}</Text>
-                <Text style={styles.overageAmount}>{formatMoney(group.overageCents)} over</Text>
+      {({ warning, ...scrollProps }) => (
+        <CanvasFlatList
+          {...scrollProps}
+          data={listRows}
+          keyExtractor={(row) => row.key}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          contentContainerStyle={[styles.listContent, overageProjection ? styles.overageListContent : null]}
+          ListHeaderComponent={(
+            <View>
+              {warning ? <View style={styles.warningSlot}>{warning}</View> : null}
+              {expandedRows && snapshot?.lastSyncedAt ? <View style={styles.warningSlot}><MoneyFreshnessStamp lastSyncedAt={snapshot.lastSyncedAt} /></View> : null}
+              {overageProjection ? (
+                <View style={styles.overageReview}>
+                  <Text style={styles.overageIntro}>Budgets over their {snapshot?.periodLabel.split(' ')[0]} amounts</Text>
+                  {overageProjection.offsetCents > 0 ? <Text style={styles.overageOffset}>Other flexible budgets are {formatMoney(overageProjection.offsetCents)} under their amounts.</Text> : null}
+                </View>
+              ) : (
+                      <MoneyInventoryListFrame
+                        controls={(
+                          <MoneyInventoryControlGroup>
+                            <IconMenu iconName="calendar" active={Boolean(monthStart) || dateScope !== 'current_month'} count={Boolean(monthStart) || dateScope !== 'current_month' ? 1 : 0} accessibilityLabel="Date scope">
+                              {DATE_OPTIONS.map((option) => <TransactionMenuItem key={option.value} active={!monthStart && dateScope === option.value} label={option.label} onPress={() => selectDateScope(option.value)} />)}
+                            </IconMenu>
+                            <IconMenu iconName="funnel" active={filter !== 'all'} count={filter !== 'all' ? 1 : 0} accessibilityLabel="Filter transactions">
+                              {FILTER_OPTIONS.map((option) => <TransactionMenuItem key={option.value} active={filter === option.value} label={option.label} onPress={() => setFilter(option.value)} />)}
+                              {filter !== 'all' ? <><DropdownMenuSeparator /><TransactionMenuItem active={false} iconName="close" label="Clear filter" onPress={() => setFilter('all')} /></> : null}
+                            </IconMenu>
+                            <IconMenu iconName="sort" active={sort !== 'newest'} count={sort !== 'newest' ? 1 : 0} accessibilityLabel="Sort transactions">
+                              {SORT_OPTIONS.map((option, index) => (
+                                <View key={option.value}>{index === 2 ? <DropdownMenuSeparator /> : null}<TransactionMenuItem active={sort === option.value} label={option.label} onPress={() => setSort(option.value)} /></View>
+                              ))}
+                            </IconMenu>
+                          </MoneyInventoryControlGroup>
+                        )}
+                        count={{
+                          visible: inventoryTransactions.length,
+                          total: collapseLinkedCreditCardPaymentTransfers(scopedInventory).length,
+                        }}
+                        action={(
+                          <Pressable accessibilityRole="button" accessibilityLabel="Check for new activity" disabled={syncing} hitSlop={10} onPress={() => void checkActivity()} style={({ pressed }) => [styles.iconButton, syncing ? styles.iconButtonDisabled : null, pressed ? styles.iconButtonPressed : null]}>
+                            <Icon name="refresh" size={18} color={colors.textPrimary} />
+                          </Pressable>
+                        )}
+                        variant="list"
+                      >
+                        {null}
+                      </MoneyInventoryListFrame>
+              )}
+            </View>
+          )}
+          renderItem={({ item }) => item.kind === 'heading' ? (
+            item.overageCents != null ? (
+              <View style={[styles.overageHeader, expandedRows ? styles.expandedOverageHeader : null, !item.first ? styles.nextOverageGroup : null]}>
+                <Text style={styles.overageCategory}>{item.label}</Text>
+                <Text style={styles.overageAmount}>{formatMoney(item.overageCents)} over</Text>
               </View>
-              {group.transactions.map((transaction) => (
-                <TransactionInventoryRow
-                  key={transaction.id}
-                  showCategoryMeta={false}
-                  transaction={transaction}
-                  onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, coverageReview: true })}
-                />
-              ))}
+            ) : <Text style={[styles.dateGroupHeader, !item.first ? styles.nextDateGroup : null]}>{item.label}</Text>
+          ) : (
+            <View style={!item.last ? (overageProjection ? styles.overageRowGap : styles.rowGap) : undefined}>
+              <TransactionInventoryRow
+                expanded={expandedRows}
+                transaction={item.transaction}
+                showCategoryMeta={!overageProjection}
+                onPress={() => navigation.navigate('MoneyTransactionDetail', overageProjection
+                  ? { transactionId: item.transaction.id, coverageReview: true }
+                  : { transactionId: item.transaction.id, economicRoleReview: Boolean(reviewTransactionIds) })}
+              />
             </View>
-          ))}
-        </View>
-      ) : (
-      <MoneyInventoryListFrame
-        controls={(
-          <MoneyInventoryControlGroup>
-            <IconMenu iconName="calendar" active={Boolean(monthStart) || dateScope !== 'current_month'} count={Boolean(monthStart) || dateScope !== 'current_month' ? 1 : 0} accessibilityLabel="Date scope">
-              {DATE_OPTIONS.map((option) => <TransactionMenuItem key={option.value} active={!monthStart && dateScope === option.value} label={option.label} onPress={() => selectDateScope(option.value)} />)}
-            </IconMenu>
-            <IconMenu iconName="funnel" active={filter !== 'all'} count={filter !== 'all' ? 1 : 0} accessibilityLabel="Filter transactions">
-              {FILTER_OPTIONS.map((option) => <TransactionMenuItem key={option.value} active={filter === option.value} label={option.label} onPress={() => setFilter(option.value)} />)}
-              {filter !== 'all' ? <><DropdownMenuSeparator /><TransactionMenuItem active={false} iconName="close" label="Clear filter" onPress={() => setFilter('all')} /></> : null}
-            </IconMenu>
-            <IconMenu iconName="sort" active={sort !== 'newest'} count={sort !== 'newest' ? 1 : 0} accessibilityLabel="Sort transactions">
-              {SORT_OPTIONS.map((option, index) => (
-                <View key={option.value}>{index === 2 ? <DropdownMenuSeparator /> : null}<TransactionMenuItem active={sort === option.value} label={option.label} onPress={() => setSort(option.value)} /></View>
-              ))}
-            </IconMenu>
-          </MoneyInventoryControlGroup>
-        )}
-        count={{
-          visible: inventoryTransactions.length,
-          total: collapseLinkedCreditCardPaymentTransfers(scopedInventory).length,
-        }}
-        action={(
-          <Pressable accessibilityRole="button" accessibilityLabel="Check for new activity" disabled={syncing} hitSlop={10} onPress={() => void checkActivity()} style={({ pressed }) => [styles.iconButton, syncing ? styles.iconButtonDisabled : null, pressed ? styles.iconButtonPressed : null]}>
-            <Icon name="refresh" size={18} color={colors.textPrimary} />
-          </Pressable>
-        )}
-        variant="list"
-      >
-        {groups.length > 0 ? groups.map((group) => (
-          <View key={group.label} style={styles.dateGroup}>
-            <Text style={styles.dateGroupHeader}>{group.label}</Text>
-            <View style={styles.dateGroupRows}>
-              {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, economicRoleReview: Boolean(reviewTransactionIds) })} />)}
+          )}
+          ListEmptyComponent={overageProjection ? null : scopedInventory.length === 0 && !isScopedInventory ? (
+            <EmptyState illustration={null} title="Transactions start with an account"
+              instructions="Connect an account, then Kwilt will sync its activity here."
+              primaryAction={{ label: 'Connect an account', onPress: () => navigation.navigate('MoneyAccounts') }} />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No transactions in this view</Text>
+              <Text style={styles.emptyCopy}>Adjust the date scope or filter to review the rest of the inventory.</Text>
             </View>
-          </View>
-        )) : scopedInventory.length === 0 && !isScopedInventory ? (
-          <EmptyState
-            illustration={null}
-            title="Transactions start with an account"
-            instructions="Connect an account, then Kwilt will sync its activity here."
-            primaryAction={{
-              label: 'Connect an account',
-              onPress: () => navigation.navigate('MoneyAccounts'),
-            }}
-          />
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No transactions in this view</Text>
-            <Text style={styles.emptyCopy}>Adjust the date scope or filter to review the rest of the inventory.</Text>
-          </View>
-        )}
-      </MoneyInventoryListFrame>
+          )}
+        />
       )}
     </MoneyScreenFrame>
   );
@@ -226,7 +249,7 @@ function TransactionMenuItem({ active, iconName, label, onPress }: { active: boo
   return <DropdownMenuItem onPress={onPress} accessibilityLabel={label}><View style={menuStyles.menuItemRow}><Icon name={iconName ?? (active ? 'check' : 'dot')} size={18} color={active ? colors.pine700 : colors.textSecondary} /><Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text></View></DropdownMenuItem>;
 }
 
-function TransactionInventoryRow({ onPress, showCategoryMeta = true, transaction }: { onPress: () => void; showCategoryMeta?: boolean; transaction: MoneyTransaction }) {
+function TransactionInventoryRow({ expanded, onPress, showCategoryMeta = true, transaction }: { expanded: boolean; onPress: () => void; showCategoryMeta?: boolean; transaction: MoneyTransaction }) {
   const transferPair = transaction.transferPair;
   const state = transferPair
     ? 'Transfer'
@@ -245,13 +268,15 @@ function TransactionInventoryRow({ onPress, showCategoryMeta = true, transaction
     ? `Open credit card payment, ${transferPair.sourceAccountName} to ${transferPair.destinationAccountName}, ${amountLabel}`
     : `Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
-      <View style={styles.merchantBlock}>
-        <Text numberOfLines={1} style={styles.merchant}>{title}</Text>
-        {detail ? <Text numberOfLines={1} style={styles.assignmentMeta}>{detail}</Text> : null}
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [styles.transactionRow, expanded ? styles.expandedRow : null, pressed ? styles.transactionRowPressed : null]}>
+      <View style={[styles.merchantBlock, expanded ? styles.expandedMerchant : null]}>
+        <Text numberOfLines={expanded ? undefined : 1} style={styles.merchant}>{title}</Text>
+        {detail ? <Text numberOfLines={expanded ? undefined : 1} style={styles.assignmentMeta}>{detail}</Text> : null}
       </View>
-      {state ? <Text numberOfLines={1} style={[styles.assignmentChip, stateStyle]}>{state}</Text> : null}
+      <View style={[styles.transactionTrailing, expanded ? styles.expandedTrailing : null]}>
+      {state ? <Text numberOfLines={expanded ? undefined : 1} style={[styles.assignmentChip, expanded ? styles.expandedChip : null, stateStyle]}>{state}</Text> : null}
       <Text style={[styles.amount, transaction.direction === 'inflow' && !transferPair ? styles.inflowAmount : null]}>{amountLabel}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -287,9 +312,13 @@ function sortTransactions(rows: MoneyTransaction[], sort: Sort): MoneyTransactio
 
 function groupByDate(rows: MoneyTransaction[]) {
   const groups = new Map<string, MoneyTransaction[]>();
+  const labels = new Map<string, string>();
   rows.forEach((row) => {
-    const label = formatDateGroup(row.date);
-    groups.set(label, [...(groups.get(label) ?? []), row]);
+    let label = labels.get(row.date);
+    if (label == null) { label = formatDateGroup(row.date); labels.set(row.date, label); }
+    const group = groups.get(label);
+    if (group) group.push(row);
+    else groups.set(label, [row]);
   });
   return [...groups.entries()].map(([label, groupedRows]) => ({ label, rows: groupedRows }));
 }
@@ -300,20 +329,30 @@ function formatDateGroup(date: string) {
 }
 
 const styles = StyleSheet.create({
-  overageReview: { gap: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'] },
+  listContent: { paddingHorizontal: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing['3xl'] },
+  overageListContent: { paddingHorizontal: spacing.sm + spacing.md },
+  warningSlot: { marginBottom: spacing.md },
+  overageReview: { gap: spacing.lg, paddingBottom: spacing.lg },
   overageIntro: { ...typography.bodySm, color: colors.textSecondary },
   overageOffset: { ...typography.bodyXs, color: colors.textSecondary },
-  overageGroup: { gap: spacing.xs },
-  overageHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  nextOverageGroup: { marginTop: spacing.lg },
+  overageRowGap: { marginBottom: spacing.xs },
+  overageHeader: { marginBottom: spacing.xs, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  expandedOverageHeader: { flexDirection: 'column', alignItems: 'stretch', gap: spacing.xs },
   overageCategory: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
   overageAmount: { ...typography.bodySm, fontFamily: fonts.semibold, color: colors.destructive },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
   iconButtonDisabled: { opacity: 0.35 },
-  dateGroup: { gap: spacing.xs },
-  dateGroupHeader: { ...typography.bodyXs, fontFamily: fonts.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, paddingTop: spacing.sm },
-  dateGroupRows: { gap: 2 },
+  nextDateGroup: { marginTop: spacing.sm },
+  rowGap: { marginBottom: 2 },
+  dateGroupHeader: { ...typography.bodyXs, fontFamily: fonts.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, paddingTop: spacing.sm, paddingBottom: spacing.xs },
   transactionRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  expandedRow: { flexDirection: 'column', alignItems: 'stretch' },
+  expandedMerchant: { flex: 0 },
+  transactionTrailing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  expandedTrailing: { flexWrap: 'wrap', justifyContent: 'space-between' },
+  expandedChip: { maxWidth: '100%' },
   transactionRowPressed: { backgroundColor: colors.gray50 },
   merchantBlock: { flex: 1, minWidth: 0 },
   merchant: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 21, fontWeight: '500', color: colors.textPrimary },

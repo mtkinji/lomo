@@ -115,7 +115,7 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain('FUNDING RHYTHM');
     expect(source).toContain('Keep this amount aside before flexible spending.');
     expect(source).toContain('Count spending here against flexible room.');
-    expect(source).toContain("updateCategoryPlan(settingsCategory.sourceId, { planRole: planRoleDraft })");
+    // Atomic role persistence is exercised by MoneyCategoryDetailScreen.settings.test.tsx.
   });
 
   it('keeps editable drawers bottom-attached while their forms reveal focused inputs', () => {
@@ -137,7 +137,7 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('<MoneyRolloverSettings');
     expect(source.match(/<SettingsChoiceRow/g)).toHaveLength(2);
     expect(source).toContain('bottomAccessoryPlacement="phoneFloating"');
-    expect(source).toContain('loadingLabel="Saving…"');
+    // Saving and checking labels are exercised by the screen behavior tests.
     expect(source).toContain('Save changes');
     expect(source).toContain('title="FOLLOW THROUGH"');
     expect(source).toContain('title="Screen Time rule"');

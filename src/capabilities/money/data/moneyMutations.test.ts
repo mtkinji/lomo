@@ -125,6 +125,8 @@ describe('buildMerchantRuleUpsert', () => {
     })).toEqual({
       user_id: 'user-1',
       budget_id: 'category-1',
+      rule_kind: 'category',
+      match_version: 'contains_v2',
       merchant_contains: 'costco 01234',
       merchant_match_mode: 'exact',
       label: 'Groceries merchant rule',
@@ -132,7 +134,7 @@ describe('buildMerchantRuleUpsert', () => {
     });
   });
 
-  it('reduces a partial merchant rule to the stable merchant key', () => {
+  it('keeps the full description as the default partial pattern', () => {
     expect(buildMerchantRuleUpsert({
       userId: 'user-1',
       transactionId: 'transaction-1',
@@ -141,7 +143,7 @@ describe('buildMerchantRuleUpsert', () => {
       categoryName: 'Groceries',
       matchMode: 'partial',
     })).toMatchObject({
-      merchant_contains: 'trader joe',
+      merchant_contains: 'trader joe s 01234 market',
       merchant_match_mode: 'partial',
     });
   });
@@ -170,7 +172,7 @@ describe('buildMerchantRuleUpsert', () => {
       categoryId: 'category-1',
       categoryName: 'Shopping',
       matchMode: 'partial',
-    })).toThrow('Use words that appear in this merchant name.');
+    })).toThrow('Use words that appear in this transaction’s description.');
   });
 
   it('rejects a rule without a usable merchant or category', () => {

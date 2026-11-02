@@ -32,6 +32,8 @@ Target audiences, named representative personas, and JTBDs are peer demand-side 
 
 ### Engineering playbooks
 
+- **Product and engineering quality index**: [Reusable criteria with Kwilt-specific evidence and assessments](engineering/product-and-engineering-quality-index.md)
+- **Budget quality assessment**: [November 1, 2026 baseline and improvement program](engineering/budget-quality-assessment-2026-11-01.md)
 - **Keyboard & Input Safety — Implementation Guide**: `docs/keyboard-input-safety-implementation.md` (companion to `docs/feature-briefs/keyboard-input-safety.md`)
 - **Haptics strategy**: `docs/haptics-strategy.md`
 - **Automated testing strategy**: `docs/automated-testing-strategy.md`
