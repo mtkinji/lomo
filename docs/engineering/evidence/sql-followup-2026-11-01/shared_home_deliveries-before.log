@@ -1,0 +1,6 @@
+WARNING:  there is already a transaction in progress
+ERROR:  record "new" has no field "intended_recipient_user_id"
+CONTEXT:  SQL expression "tg_table_name = 'kwilt_invites'
+    and new.intended_recipient_user_id is not null
+    and public.kwilt_users_blocked(new.created_by, new.intended_recipient_user_id)"
+PL/pgSQL function public.suppress_blocked_targeted_contact() line 3 at IF

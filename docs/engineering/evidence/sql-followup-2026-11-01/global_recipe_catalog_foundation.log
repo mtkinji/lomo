@@ -1,0 +1,6 @@
+{"sub":"81000000-0000-0000-0000-000000000001","role":"authenticated","is_anonymous":false}
+{"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":false}
+{"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":true}
+{"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":false}
+WARNING:  there is already a transaction in progress
+WARNING:  there is no transaction in progress
