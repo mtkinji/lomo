@@ -29,7 +29,7 @@ function functionsFrom(source, include = () => true) {
 export function buildContract() {
   const functions = [
     ...functionsFrom(read(`supabase/migrations/${atomicMigration}`)),
-    ...functionsFrom(read('supabase/migrations/20261102021916_transfer_and_literal_merchant_rules.sql')),
+    ...functionsFrom(read('supabase/migrations/20261102023219_transfer_and_literal_merchant_rules.sql')),
     ...functionsFrom(read('supabase/migrations/20260728051739_merchant_rules_apply_all_transactions.sql'), name => ['public.normalize_budget_merchant','public.budget_merchant_rule_matches'].includes(name)),
     ...functionsFrom(read(`supabase/migrations/${rolloverMigration}`)),
     ...functionsFrom(read(`supabase/migrations/${ownerMigration}`), name => [

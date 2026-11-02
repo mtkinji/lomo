@@ -7,7 +7,7 @@ canonical household access and the real entitlement trigger still execute.
 from pathlib import Path
 import re
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = '20261102021916_transfer_and_literal_merchant_rules.sql'
+MIGRATION = '20261102023219_transfer_and_literal_merchant_rules.sql'
 def schema():
     def read(name): return (ROOT/'supabase/migrations'/name).read_text()
     def fn(source, name):

@@ -89,7 +89,7 @@ describe('createCapabilityMenuNavigationHandlers', () => {
     expect(coverMenu).toHaveBeenCalledTimes(1);
   });
 
-  it('only covers when reselecting the active destination', () => {
+  it('only covers when reselecting the Budget overview itself', () => {
     const dispatch = jest.fn();
     const coverMenu = jest.fn();
     const captureSelection = jest.fn();
@@ -97,6 +97,7 @@ describe('createCapabilityMenuNavigationHandlers', () => {
       dispatch,
       coverMenu,
       captureSelection,
+      activeRouteName: 'MoneySummary',
     });
 
     handlers.onReselectCapability('money-summary');
