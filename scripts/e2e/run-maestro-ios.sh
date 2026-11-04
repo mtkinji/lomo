@@ -8,10 +8,8 @@ if [ "$#" -eq 0 ]; then
 fi
 artifact_dir=artifacts/maestro
 project_dir=.
-bundle_path=.expo/.virtual-metro-entry.bundle
 if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
   project_dir=scripts/money/native-harness
-  bundle_path=index.bundle
   artifact_dir=artifacts/maestro/budget-fixture
 fi
 case "${KWILT_MAESTRO_APP_FIXTURE:-}" in
@@ -22,8 +20,7 @@ case "${KWILT_MAESTRO_APP_FIXTURE:-}" in
       exit 1
     fi
     project_dir=scripts/e2e/native-harness
-    bundle_path=index.bundle
-    artifact_dir="artifacts/maestro/${KWILT_MAESTRO_APP_FIXTURE}-fixture"
+      artifact_dir="artifacts/maestro/${KWILT_MAESTRO_APP_FIXTURE}-fixture"
     ;;
   *) echo "Unknown native app fixture." >&2; exit 1 ;;
 esac
@@ -57,9 +54,19 @@ if [ "$ready" != true ]; then
   echo "Metro did not become ready; see metro.log." >&2
   exit 1
 fi
-curl --fail --silent --show-error --max-time 180 \
-  "http://localhost:8081/$bundle_path?platform=ios&dev=true&minify=false" \
-  --output /dev/null
+# Warm the actual development-client launch asset, including Hermes/lazy
+# transforms. A generic .bundle request builds a different cache entry and
+# leaves cold hosted runners compiling during the UI assertion timeout.
+launch_asset=$(curl --fail --silent --show-error --max-time 60 \
+  -H 'expo-platform: ios' -H 'accept: application/expo+json' \
+  http://localhost:8081/ | node -e '
+    const fs = require("node:fs");
+    const manifest = JSON.parse(fs.readFileSync(0, "utf8"));
+    const url = new URL(manifest.launchAsset?.url);
+    if (url.origin !== "http://localhost:8081") throw new Error("Expected local Metro launch asset");
+    process.stdout.write(url.href);
+  ')
+curl --fail --silent --show-error --max-time 900 "$launch_asset" --output /dev/null
 # Expo's development-tools tutorial otherwise covers the app on fresh installs.
 # This affects the dev menu only; Kwilt's onboarding and sign-in remain enabled.
 DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081%3FdisableOnboarding%3D1'

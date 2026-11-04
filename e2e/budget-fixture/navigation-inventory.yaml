@@ -66,7 +66,8 @@ appId: com.andrewwatanabe.kwilt
       text: "Open End of synthetic transaction history transaction.*"
     direction: DOWN
     speed: 100
-    timeout: 600000
+    # Cold hosted Simulators traverse the same 4,000 rows more slowly.
+    timeout: 1200000
 - takeScreenshot: "budget-final-transaction"
 - tapOn: "Open End of synthetic transaction history transaction.*"
 - assertVisible: "End of synthetic transaction history"

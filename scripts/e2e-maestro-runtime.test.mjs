@@ -33,6 +33,11 @@ if [[ "$*" == *"/status"* ]]; then
   if [[ "$TEST_MODE" == busy ]]; then echo packager-status:running; exit 0; fi
   if [[ ! -f "$TEST_SEEN" ]]; then touch "$TEST_SEEN"; exit 7; fi
   echo packager-status:running
+elif [[ "$*" == *"application/expo+json"* ]]; then
+  if [[ "$TEST_MODE" == malformed_manifest ]]; then echo '{}'; exit 0; fi
+  if [[ "$TEST_MODE" == foreign_manifest ]]; then echo '{"launchAsset":{"url":"https://example.com/private.bundle"}}'; exit 0; fi
+  if [[ "$KWILT_MAESTRO_BUDGET_FIXTURE" == 1 || -n "$KWILT_MAESTRO_APP_FIXTURE" ]]; then entry=index; else entry=.expo/.virtual-metro-entry; fi
+  echo '{"launchAsset":{"url":"http://localhost:8081/'"$entry"'.bundle?platform=ios&lazy=true&transform.engine=hermes&transform.bytecode=1"}}'
 elif [[ "$TEST_MODE" == bundle_failure ]]; then exit 22; fi
 `);
   write(path.join(bin, 'xcrun'), 'echo "xcrun $*" >> "$TEST_LOG"\n');
@@ -144,4 +149,21 @@ test('native smoke configuration ignores real backend environment values', () =>
   assert.equal(extra.supabaseUrl, 'http://127.0.0.1:55439');
   assert.equal(extra.supabasePublishableKey, 'sb_publishable_native_smoke_not_a_real_key');
   assert.equal(extra.nativeSmokeMode, 'auth');
+});
+
+// The hosted device requested Hermes/lazy transforms after the old generic
+// warm-up, leaving UI assertions racing a second seven-minute cold build.
+test('readiness warms the exact iOS launch asset before any UI test', () => {
+  const result = run('ready', false, '/bin/bash', 'auth');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.commands, /application\/expo\+json/);
+  assert.match(result.commands, /index\.bundle\?platform=ios&lazy=true&transform.engine=hermes&transform.bytecode=1/);
+  assert.ok(result.commands.indexOf('transform.bytecode=1') < result.commands.indexOf('maestro --device'));
+});
+test('missing or nonlocal launch assets stop before UI testing', () => {
+  for (const mode of ['malformed_manifest', 'foreign_manifest']) {
+    const result = run(mode);
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(result.commands, /maestro --device|xcrun/);
+  }
 });
