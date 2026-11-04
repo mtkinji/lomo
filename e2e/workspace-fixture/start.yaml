@@ -15,8 +15,9 @@ appId: com.andrewwatanabe.kwilt
       - waitForAnimationToEnd
 - assertNotVisible: 'Open in .*Kwilt.*'
 - extendedWaitUntil:
-    visible: "Workspace native fixture"
+    visible: "Workspace native fixture|There was a problem loading the project.*"
     timeout: 180000
+- assertVisible: "Workspace native fixture"
 - assertNotVisible:
     id: "gearshape.fill"
 - runFlow:

@@ -47,8 +47,8 @@ test('Money release contract and release-entry changes retain automated failure-
 });
 
 test('native fixture-only flow edits retain the protected assertion-parity check', () => {
-  for (const file of ['e2e/workspace-fixture/onboarding-plan-ready-touch-regression.yaml', 'e2e/budget-fixture/navigation-inventory.yaml']) {
+  for (const file of ['e2e/workspace-fixture/onboarding-plan-ready-touch-regression.yaml', 'e2e/budget-fixture/navigation-inventory.yaml', '.github/actions/native-test-runtime/action.yml', 'scripts/e2e/native-host.mjs']) {
     const plan = buildVerificationPlan([file], 'origin/main');
-    assert(plan.commands.some(entry => entry.command === 'node --test scripts/e2e-maestro-runtime.test.mjs'), file);
+    assert(plan.commands.some(entry => entry.command === 'node --test scripts/e2e-maestro-runtime.test.mjs scripts/e2e/fixture-manifest.test.mjs scripts/e2e/metro-fixture.test.mjs scripts/e2e/native-host.test.mjs scripts/e2e/native-suite.test.mjs'), file);
   }
 });

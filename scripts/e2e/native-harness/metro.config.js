@@ -11,4 +11,9 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.startsWith('@/')) moduleName = path.join(root, moduleName.slice(2));
   return context.resolveRequest(context, moduleName, platform);
 };
+// Metro owns content-based invalidation; reuse transforms, never test receipts.
+if (process.env.KWILT_METRO_CACHE_DIR) {
+  const { FileStore } = require('metro-cache');
+  config.cacheStores = [new FileStore({ root: path.join(process.env.KWILT_METRO_CACHE_DIR, 'app') })];
+}
 module.exports = config;

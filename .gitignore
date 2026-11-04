@@ -75,3 +75,8 @@ JWT Key Generator
 /ios
 /android
 modules/*/android/build/
+
+# Reusable native CI hosts, Metro caches, and diagnostic receipts
+/.cache/native-ci/
+/artifacts/native-ci/
+/artifacts/maestro/

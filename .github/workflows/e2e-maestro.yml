@@ -1,238 +1,192 @@
 name: E2E (Maestro)
-
+run-name: Native ${{ inputs.suite || 'scheduled-full' }} / ${{ inputs.group || 'all' }} / ${{ inputs.workspace_flow || 'all' }}
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Smoke is quick feedback; acceptance includes the complete 4000-row Budget traversal
+        type: choice
+        options: [acceptance, smoke]
+        default: acceptance
+      group:
+        description: A focused group is diagnostic evidence, not full release acceptance
+        type: choice
+        options: [all, auth, workspace, budget]
+        default: all
+      workspace_flow:
+        description: Select one workspace flow for diagnosis, or all for acceptance
+        type: choice
+        options: [all, smoke-devtools, onboarding-plan-ready-touch-regression, arc-banner-touch-regression, activity-detail-key-actions]
+        default: all
+      force_native_build:
+        description: Ignore the exact native-host cache and compile a fresh host
+        type: boolean
+        default: false
   schedule:
-    - cron: "0 6 * * *"
-
+    - cron: '0 6 * * *'
+permissions:
+  contents: read
 jobs:
-  maestro-smoke:
-    if: github.event_name == 'workflow_dispatch'
+  native-host:
     runs-on: macos-latest
+    timeout-minutes: 45
+    outputs:
+      key: ${{ steps.identity.outputs.key }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22.23.2"
+          node-version: '22.23.2'
           cache: npm
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - run: npm ci
+      - name: Generate native inputs
+        run: CI=1 EXPO_NO_DOTENV=1 npx expo prebuild --platform ios --clean
+      - name: Fingerprint native inputs and toolchain
+        id: identity
+        run: node scripts/e2e/native-host.mjs identity
+      - name: Restore exact compatible native host
+        id: host_cache
+        if: ${{ !inputs.force_native_build }}
+        uses: actions/cache/restore@v4
         with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Generate iOS project
-        run: CI=1 npx expo prebuild --platform ios --clean
-
-      - name: Install Maestro
+          path: artifacts/native-ci/host
+          key: ${{ steps.identity.outputs.key }}
+      - name: Compile only on native cache miss
+        if: steps.host_cache.outputs.cache-hit != 'true'
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-
-      - name: Boot iOS simulator
-        run: |
-          SIMULATOR=$(xcrun simctl list devices available --json | jq -r '.devices | to_entries[] | select(.key | startswith("com.apple.CoreSimulator.SimRuntime.iOS-")) | .value[] | select(.isAvailable == true and (.name | startswith("iPhone"))) | "\(.name)|\(.udid)"' | head -n 1)
-          if [ -z "$SIMULATOR" ]; then
-            echo "No iPhone simulator found."
-            xcrun simctl list devices available
-            exit 1
-          fi
-          IFS='|' read -r SIMULATOR_NAME SIMULATOR_ID <<< "$SIMULATOR"
-          echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
-          echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
-          xcrun simctl boot "$SIMULATOR_ID" || true
-          for attempt in {1..30}; do
-            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
-            if [ "$SIMULATOR_STATE" = "Booted" ]; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
-          xcrun simctl list devices available
-          exit 1
-
-      - name: Build iOS debug
-        run: |
-          xcodebuild \
-            -workspace ios/Kwilt.xcworkspace \
-            -scheme Kwilt \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath ios/build \
-            build
-
-      - name: Install app on simulator
-        id: install_app
-        run: |
-          APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "App build not found."
-            exit 1
-          fi
-          xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
-
-      - name: Verify real app signed-out gate (isolated configuration)
+          set -o pipefail
+          node scripts/e2e/native-host.mjs build 2>&1 | tee artifacts/native-ci/build.log
+      - name: Verify native host receipt
+        run: node scripts/e2e/native-host.mjs verify
+      # Save before any UI job: a failed assertion must never discard this build.
+      - name: Save compatible native host
+        if: steps.host_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/native-ci/host
+          key: ${{ steps.identity.outputs.key }}
+      - name: Publish immutable host for this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-native-host
+          path: artifacts/native-ci/host
+          compression-level: 0
+          retention-days: 7
+      - name: Native build summary
+        if: always()
         env:
-          KWILT_MAESTRO_APP_FIXTURE: "auth"
-        run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro/auth-gate-smoke.yaml
-
-      - name: Verify isolated workspace interactions
-        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
-        env:
-          KWILT_MAESTRO_APP_FIXTURE: "workspace"
-        run: |
-          bash scripts/e2e/run-maestro-ios.sh \
-            e2e/workspace-fixture/smoke-devtools.yaml \
-            e2e/workspace-fixture/onboarding-plan-ready-touch-regression.yaml \
-            e2e/workspace-fixture/arc-banner-touch-regression.yaml \
-            e2e/workspace-fixture/activity-detail-key-actions.yaml
-
-      - name: Verify isolated Budget navigation and inventory gestures
-        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
-        env:
-          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
-        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
-
-      - name: Preserve native test diagnostics
+          CACHE_HIT: ${{ steps.host_cache.outputs.cache-hit }}
+        run: echo "Native host exact-cache hit = ${CACHE_HIT:-false}. Source $GITHUB_SHA. See individual job timings; queue delay is separate." >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-smoke-diagnostics
-          path: artifacts/maestro
+          name: native-build-diagnostics
+          path: |
+            artifacts/native-ci/build.log
+            artifacts/native-ci/expected-host.json
           if-no-files-found: warn
-          retention-days: 7
 
-      - name: Notify Slack on failure
-        if: failure()
+  native-tests:
+    if: github.event_name == 'workflow_dispatch'
+    needs: native-host
+    runs-on: macos-latest
+    timeout-minutes: 55
+    env:
+      KWILT_NATIVE_SUITE: ${{ inputs.suite }}
+      KWILT_WORKSPACE_FLOW: ${{ inputs.workspace_flow }}
+      KWILT_METRO_CACHE_DIR: ${{ github.workspace }}/.cache/native-ci/metro
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/native-test-runtime
+        with:
+          native-key: ${{ needs.native-host.outputs.key }}
+      - name: Signed-out app
+        id: auth
+        if: ${{ inputs.group == 'all' || inputs.group == 'auth' }}
+        timeout-minutes: 15
+        run: node scripts/e2e/native-suite.mjs auth
+      - name: Publish auth diagnostics immediately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-auth-diagnostics
+          path: artifacts/maestro/auth-fixture
+          if-no-files-found: ignore
+      - name: Workspace interactions
+        id: workspace
+        if: ${{ !cancelled() && (inputs.group == 'all' || inputs.group == 'workspace') }}
+        timeout-minutes: 20
+        run: node scripts/e2e/native-suite.mjs workspace
+      - name: Publish workspace diagnostics immediately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-workspace-diagnostics
+          path: artifacts/maestro/workspace-fixture
+          if-no-files-found: ignore
+      - name: Budget navigation and selected inventory scope
+        id: budget
+        if: ${{ !cancelled() && (inputs.group == 'all' || inputs.group == 'budget') }}
+        timeout-minutes: 30
+        run: node scripts/e2e/native-suite.mjs budget
+      - name: Publish Budget diagnostics immediately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-budget-diagnostics
+          path: artifacts/maestro/budget-fixture
+          if-no-files-found: ignore
+      - name: Save Metro transforms even when a UI assertion fails
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/native-ci/metro
+          key: metro-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', '**/metro.config.*', '**/babel.config.*') }}-${{ github.sha }}
+      - name: Record exact acceptance scope
+        if: always()
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification."
-            exit 0
-          fi
-          payload=$(jq -n \
-            --arg repo "$GITHUB_REPOSITORY" \
-            --arg ref "$GITHUB_REF_NAME" \
-            --arg sha "$GITHUB_SHA" \
-            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{text: ("Maestro smoke failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
-          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          SUITE: ${{ inputs.suite }}
+          GROUP: ${{ inputs.group }}
+          FLOW: ${{ inputs.workspace_flow }}
+          AUTH: ${{ steps.auth.outcome }}
+          WORKSPACE: ${{ steps.workspace.outcome }}
+          BUDGET: ${{ steps.budget.outcome }}
+        run: node scripts/e2e/native-suite.mjs summary
 
   maestro-full:
     if: github.event_name == 'schedule'
+    needs: native-host
     runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      KWILT_METRO_CACHE_DIR: ${{ github.workspace }}/.cache/native-ci/metro
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/native-test-runtime
         with:
-          node-version: "22.23.2"
-          cache: npm
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Generate iOS project
-        run: CI=1 npx expo prebuild --platform ios --clean
-
-      - name: Install Maestro
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-
-      - name: Boot iOS simulator
-        run: |
-          SIMULATOR=$(xcrun simctl list devices available --json | jq -r '.devices | to_entries[] | select(.key | startswith("com.apple.CoreSimulator.SimRuntime.iOS-")) | .value[] | select(.isAvailable == true and (.name | startswith("iPhone"))) | "\(.name)|\(.udid)"' | head -n 1)
-          if [ -z "$SIMULATOR" ]; then
-            echo "No iPhone simulator found."
-            xcrun simctl list devices available
-            exit 1
-          fi
-          IFS='|' read -r SIMULATOR_NAME SIMULATOR_ID <<< "$SIMULATOR"
-          echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
-          echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
-          xcrun simctl boot "$SIMULATOR_ID" || true
-          for attempt in {1..30}; do
-            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
-            if [ "$SIMULATOR_STATE" = "Booted" ]; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
-          xcrun simctl list devices available
-          exit 1
-
-      - name: Build iOS debug
-        run: |
-          xcodebuild \
-            -workspace ios/Kwilt.xcworkspace \
-            -scheme Kwilt \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath ios/build \
-            build
-
-      - name: Install app on simulator
-        id: install_app
-        run: |
-          APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "App build not found."
-            exit 1
-          fi
-          xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
-
-      - name: Run Maestro full suite (iOS simulator)
-        run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro
-
-      - name: Verify isolated Budget navigation and inventory gestures
-        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
-        env:
-          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
-        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
-
-      - name: Preserve native test diagnostics
-        if: always()
+          native-key: ${{ needs.native-host.outputs.key }}
+      # Existing authenticated flows remain separate; they still need test identity/data.
+      - run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-full-diagnostics
           path: artifacts/maestro
           if-no-files-found: warn
-          retention-days: 7
-
-      - name: Notify Slack on failure
-        if: failure()
+      - if: ${{ !cancelled() }}
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification."
-            exit 0
-          fi
-          payload=$(jq -n \
-            --arg repo "$GITHUB_REPOSITORY" \
-            --arg ref "$GITHUB_REF_NAME" \
-            --arg sha "$GITHUB_SHA" \
-            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{text: ("Maestro full suite failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
-          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          KWILT_NATIVE_SUITE: acceptance
+        run: node scripts/e2e/native-suite.mjs budget
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-full-budget-diagnostics
+          path: artifacts/maestro/budget-fixture
+          if-no-files-found: warn
+      - name: Save Metro transforms even when a UI assertion fails
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/native-ci/metro
+          key: metro-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', '**/metro.config.*', '**/babel.config.*') }}-${{ github.sha }}
