@@ -84,3 +84,12 @@ test('Budget native acceptance selects only the isolated entry and separate diag
   assert.doesNotMatch(result.commands, /virtual-metro-entry/);
   assert.match(result.commands, /--test-output-dir artifacts\/maestro\/budget-fixture/);
 });
+
+test('Budget startup does not pre-open a project that Maestro will launch again', () => {
+  const result = run('ready', true);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.commands, /xcrun simctl openurl/);
+  const [, flow] = yaml.loadAll(fs.readFileSync(path.join(root, 'e2e/budget-fixture/navigation-inventory.yaml'), 'utf8'));
+  assert.deepEqual(flow[0], { launchApp: { clearState: true } });
+  assert.equal(flow.filter(command => command.openLink).length, 1);
+});

@@ -1,7 +1,8 @@
 appId: com.andrewwatanabe.kwilt
 ---
 # Only with KWILT_MAESTRO_BUDGET_FIXTURE=1. No production identity or writes.
-- launchApp
+- launchApp:
+    clearState: true
 - openLink: "${DEV_CLIENT_URL}"
 - repeat:
     times: 3

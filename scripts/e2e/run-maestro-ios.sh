@@ -48,7 +48,12 @@ curl --fail --silent --show-error --max-time 180 \
   "http://localhost:8081/$bundle_path?platform=ios&dev=true&minify=false" \
   --output /dev/null
 DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
-xcrun simctl openurl "$SIMULATOR_ID" "$DEV_CLIENT_URL"
+# The isolated flow clears development-client state and owns its one URL open.
+# Pre-opening it here saves a recent project that can auto-load during launchApp
+# while the flow opens the same project again.
+if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" != 1 ]; then
+  xcrun simctl openurl "$SIMULATOR_ID" "$DEV_CLIENT_URL"
+fi
 maestro --device "$SIMULATOR_ID" test \
   --debug-output "$artifact_dir" --test-output-dir "$artifact_dir" --flatten-debug-output \
   -e "DEV_CLIENT_URL=$DEV_CLIENT_URL" "$@"

@@ -162,3 +162,40 @@ with owner access to Kwilt. The repository release script uses `testflight-widge
 protected verification, full coverage, live backend contract validation, and EAS
 build/submit. No build/upload was started; user-authorized merge/build remains
 conditional on completing the native gates and candidate review.
+
+## November 4 manual acceptance and hosted startup failures
+
+Andrew tested the isolated fixture served from clean commit `2a7a8305` on the
+existing local development host. He confirmed that pulling the stale transaction
+list removed its warning; both Accounts back and menu-to-Budgets paths returned
+to Budget; and All history scrolling reached the final synthetic transaction and
+preserved its position after opening detail and returning. The completed-refresh
+counter was not separately reported. These are user-observed Simulator results,
+not production-provider or newly built binary acceptance.
+
+PR CI `41853601322` and backend-only preflight `41853744958` passed for that
+commit; the latter passed 61 catalog checks and skipped build/submission.
+Native run `41853589814` attempt 1 could not acquire a macOS runner. Attempt 2
+built and installed version 2.0.2 (135) on iPhone 17 Pro / iOS 26.4, then found:
+
+- The ordinary runner exited before Metro because macOS Bash 3.2 treats its
+  empty `project_args` array as unbound under `set -u`. Commit `226cd6b4` uses an
+  initialized project directory instead. A regression invoking `/bin/bash`
+  failed before the fix and passed afterward; all seven runner tests, local
+  verification, independent review and the uncached integration gate passed.
+- The isolated flow dismissed the iOS Open confirmation but timed out waiting
+  for its picker. Its screenshot showed SpringBoard. The retained crash report
+  records SIGTRAP in `_xzm_xzone_malloc_freelist_outlined`, through OSLogHandler
+  and Expo ModuleRegistry initialization, before the fixture's JavaScript logged
+  startup. Two React JavaScript threads were initializing native modules.
+
+The runner pre-opened the project, then Maestro relaunched and opened it again.
+The next isolated run removes that pre-open and clears the development client's
+recent-project state before its one explicit URL open. This tests a possible
+concurrent-startup cause; it does not establish that the native crash is fixed.
+All UI assertions remain mandatory. The superseded queued run `41863027622`
+was canceled before replacing it with this startup change.
+
+Artifacts from attempt 2 were downloaded to
+`/tmp/kwilt-maestro-41853589814`; GitHub retains `maestro-smoke-diagnostics` for
+seven days. PR #203 remains draft, with no merge or TestFlight build performed.
