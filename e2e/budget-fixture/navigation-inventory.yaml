@@ -37,6 +37,10 @@ appId: com.andrewwatanabe.kwilt
     id: "capability.menu.money-summary"
 - assertVisible: "Budget"
 - tapOn: "Choose fixture"
+- scrollUntilVisible:
+    element: "Stale data and refresh"
+    direction: DOWN
+    centerElement: true
 - tapOn: "Stale data and refresh"
 - assertVisible: "Synthetic offline fixture. Pull to retry."
 - swipe:
@@ -48,6 +52,10 @@ appId: com.andrewwatanabe.kwilt
     timeout: 15000
 - tapOn: "Choose fixture"
 - assertVisible: "Completed refreshes: 1"
+- scrollUntilVisible:
+    element: "4000 transactions"
+    direction: DOWN
+    centerElement: true
 - tapOn: "4000 transactions"
 - tapOn: "Date scope"
 - tapOn: "All history"

@@ -47,7 +47,9 @@ fi
 curl --fail --silent --show-error --max-time 180 \
   "http://localhost:8081/$bundle_path?platform=ios&dev=true&minify=false" \
   --output /dev/null
-DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+# Expo's development-tools tutorial otherwise covers the app on fresh installs.
+# This affects the dev menu only; Kwilt's onboarding and sign-in remain enabled.
+DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081%3FdisableOnboarding%3D1'
 # The isolated flow clears development-client state and owns its one URL open.
 # Pre-opening it here saves a recent project that can auto-load during launchApp
 # while the flow opens the same project again.

@@ -93,3 +93,14 @@ test('Budget startup does not pre-open a project that Maestro will launch again'
   assert.deepEqual(flow[0], { launchApp: { clearState: true } });
   assert.equal(flow.filter(command => command.openLink).length, 1);
 });
+
+test('fresh development clients do not cover app tests with the Expo tools tutorial', () => {
+  for (const fixture of [false, true]) {
+    const result = run('ready', fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const link = result.commands.match(/-e DEV_CLIENT_URL=(\S+)/)?.[1];
+    assert.ok(link);
+    const projectUrl = new URL(new URL(link).searchParams.get('url'));
+    assert.equal(projectUrl.searchParams.get('disableOnboarding'), '1');
+  }
+});
