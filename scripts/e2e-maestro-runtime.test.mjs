@@ -20,7 +20,7 @@ test('every native CI job supplies JavaScript and preserves failure artifacts', 
   }
 });
 
-function run(mode, fixture = false) {
+function run(mode, fixture = false, shell = 'bash') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwilt-maestro-runtime-'));
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
@@ -38,7 +38,7 @@ elif [[ "$TEST_MODE" == bundle_failure ]]; then exit 22; fi
   write(path.join(bin, 'xcrun'), 'echo "xcrun $*" >> "$TEST_LOG"\n');
   write(path.join(bin, 'maestro'), 'echo "maestro $*" >> "$TEST_LOG"\nif [[ "$TEST_MODE" == test_failure ]]; then exit 9; fi\n');
   try {
-    const result = spawnSync('bash', [runner, 'e2e/maestro/auth-gate-smoke.yaml'], {
+    const result = spawnSync(shell, [runner, 'e2e/maestro/auth-gate-smoke.yaml'], {
       cwd: dir, encoding: 'utf8', timeout: 10000,
       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SIMULATOR_ID: 'synthetic-simulator', KWILT_MAESTRO_BUDGET_FIXTURE: fixture ? '1' : '0', TEST_MODE: mode, TEST_LOG: path.join(dir, 'commands'), TEST_SEEN: path.join(dir, 'seen') },
     });
@@ -54,6 +54,12 @@ test('native tests start only after the bundle is available and the dev client i
   assert.ok(result.commands.indexOf('xcrun simctl openurl') < result.commands.indexOf('maestro --device'));
   assert.match(result.commands, /--test-output-dir artifacts\/maestro/);
   assert.match(result.commands, /--flatten-debug-output/);
+});
+test('the default app starts under macOS system Bash with unset-variable checks', { skip: process.platform !== 'darwin' }, () => {
+  const result = run('ready', false, '/bin/bash');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.commands, /expo start /, 'Metro must actually start before the mocked readiness response');
+  assert.match(result.commands, /maestro --device/);
 });
 test('a failed JavaScript bundle stops before launching or testing the app', () => {
   const result = run('bundle_failure');

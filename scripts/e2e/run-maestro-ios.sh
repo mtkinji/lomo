@@ -7,10 +7,10 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 artifact_dir=artifacts/maestro
-project_args=()
+project_dir=.
 bundle_path=.expo/.virtual-metro-entry.bundle
 if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
-  project_args=(scripts/money/native-harness)
+  project_dir=scripts/money/native-harness
   bundle_path=index.bundle
   artifact_dir=artifacts/maestro/budget-fixture
 fi
@@ -23,7 +23,7 @@ fi
 # Debug simulator builds skip the embedded bundle. Own Metro for this run and
 # fail before UI assertions when JavaScript cannot be served.
 CI=1 EXPO_NO_DOTENV=1 EXPO_OFFLINE=1 REACT_NATIVE_PACKAGER_HOSTNAME=localhost \
-  node_modules/.bin/expo start "${project_args[@]}" --dev-client --localhost --port 8081 \
+  node_modules/.bin/expo start "$project_dir" --dev-client --localhost --port 8081 \
   >"$artifact_dir/metro.log" 2>&1 &
 metro_pid=$!
 cleanup() { kill "$metro_pid" 2>/dev/null || true; wait "$metro_pid" 2>/dev/null || true; }
