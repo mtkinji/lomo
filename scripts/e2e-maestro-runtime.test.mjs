@@ -20,13 +20,13 @@ test('every native CI job supplies JavaScript and preserves failure artifacts', 
   }
 });
 
-function run(mode) {
+function run(mode, fixture = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwilt-maestro-runtime-'));
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   fs.mkdirSync(path.join(dir, 'node_modules/.bin'), { recursive: true });
   const write = (name, body) => fs.writeFileSync(name, '#!/bin/bash\nset -eu\n' + body, { mode: 0o755 });
-  write(path.join(dir, 'node_modules/.bin/expo'), 'echo expo >> "$TEST_LOG"\ntrap "exit 0" TERM\nwhile true; do sleep 0.1; done\n');
+  write(path.join(dir, 'node_modules/.bin/expo'), 'echo "expo $*" >> "$TEST_LOG"\ntrap "exit 0" TERM\nwhile true; do sleep 0.1; done\n');
   write(path.join(bin, 'curl'), `
 echo "curl $*" >> "$TEST_LOG"
 if [[ "$*" == *"/status"* ]]; then
@@ -40,7 +40,7 @@ elif [[ "$TEST_MODE" == bundle_failure ]]; then exit 22; fi
   try {
     const result = spawnSync('bash', [runner, 'e2e/maestro/auth-gate-smoke.yaml'], {
       cwd: dir, encoding: 'utf8', timeout: 10000,
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SIMULATOR_ID: 'synthetic-simulator', TEST_MODE: mode, TEST_LOG: path.join(dir, 'commands'), TEST_SEEN: path.join(dir, 'seen') },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SIMULATOR_ID: 'synthetic-simulator', KWILT_MAESTRO_BUDGET_FIXTURE: fixture ? '1' : '0', TEST_MODE: mode, TEST_LOG: path.join(dir, 'commands'), TEST_SEEN: path.join(dir, 'seen') },
     });
     return { ...result, commands: fs.existsSync(path.join(dir, 'commands')) ? fs.readFileSync(path.join(dir, 'commands'), 'utf8') : '' };
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -67,4 +67,14 @@ test('the runner refuses to reuse an unrelated Metro process', () => {
   const result = run('busy');
   assert.equal(result.status, 1, result.stderr);
   assert.doesNotMatch(result.commands, /maestro --device|xcrun/);
+});
+
+// A fixture run must neither warm the real app nor overwrite its diagnostics.
+test('Budget native acceptance selects only the isolated entry and separate diagnostics', () => {
+  const result = run('ready', true);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.commands, /expo start scripts\/money\/native-harness/);
+  assert.match(result.commands, /http:\/\/localhost:8081\/index\.bundle/);
+  assert.doesNotMatch(result.commands, /virtual-metro-entry/);
+  assert.match(result.commands, /--test-output-dir artifacts\/maestro\/budget-fixture/);
 });

@@ -20,6 +20,10 @@ export function selectFixture(count: number, mode = 'ready') {
     if (index < Math.ceil(count * 0.9)) row.date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(index % Math.max(1, now.getDate()) + 1).padStart(2, '0')}`;
     if (index === 1) row.name = 'Synthetic merchant with a very long name for accessibility layout review';
   });
+  // A unique oldest row lets native gestures prove the entire inventory is
+  // reachable without substituting sort-to-oldest or imperative scrolling.
+  const oldest = rows.transactions[count - 1];
+  if (oldest) { oldest.date = '2020-01-01'; oldest.name = 'End of synthetic transaction history'; }
   const snapshot = projectMoneySnapshot(rows, now);
   update({ snapshot: mode === 'error' || mode === 'loading' ? null : snapshot,
     status: mode === 'error' ? 'error' : mode === 'loading' ? 'loading' : 'ready',

@@ -106,3 +106,28 @@ npm exec --yes --package=node@22.23.2 -c 'node node_modules/jest/bin/jest.js --r
 
 This test checks that the adapter starts at the intended corrected-category offer
 and reloads durable results. It does not replace the native interaction sequence.
+
+## Navigation and inventory CI acceptance
+
+**Budget and Accounts navigation** mounts the real Budget/Accounts screens,
+CapabilityMenu, shell, menu handlers and MoneyEntry in a fixture-owned navigator.
+The bottom **Fixture menu** control only opens the real menu state; it does not
+replace the menu's selection handlers. **Choose fixture** returns to the picker.
+External identity remains unavailable, so MoneyEntry exercises its automatic
+fallback destination path. This does not verify signed-in onboarding evidence or
+the production root drawer. Accounts' back button and menu reselection are tested
+separately.
+
+The existing final synthetic transaction is dated January 1, 2020 and named
+**End of synthetic transaction history**. With All history/newest sorting, it is
+last. The native flow scrolls to it; it does not sort to oldest or call an
+imperative list scroll. This marker changes only synthetic fixture presentation.
+
+CI runs `e2e/budget-fixture/navigation-inventory.yaml` with
+`KWILT_MAESTRO_BUDGET_FIXTURE=1` through the shared native runner after installing
+the newly built app. It starts only the isolated Metro project and writes separate
+`artifacts/maestro/budget-fixture` diagnostics. It runs even if the ordinary smoke
+step fails; neither result masks the other. The flow asserts the stale warning
+before a real pull gesture, then checks that it disappears and the fixture records
+exactly one completed refresh. No app auth bypass or production credential is
+introduced. These cases remain pending until the hosted native run passes.

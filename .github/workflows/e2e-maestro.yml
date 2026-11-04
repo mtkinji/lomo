@@ -71,6 +71,7 @@ jobs:
             build
 
       - name: Install app on simulator
+        id: install_app
         run: |
           APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -87,6 +88,12 @@ jobs:
             e2e/maestro/onboarding-plan-ready-touch-regression.yaml \
             e2e/maestro/arc-banner-touch-regression.yaml \
             e2e/maestro/activity-detail-key-actions.yaml
+
+      - name: Verify isolated Budget navigation and inventory gestures
+        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
+        env:
+          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
 
       - name: Preserve native test diagnostics
         if: always()
@@ -179,6 +186,7 @@ jobs:
             build
 
       - name: Install app on simulator
+        id: install_app
         run: |
           APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -189,6 +197,12 @@ jobs:
 
       - name: Run Maestro full suite (iOS simulator)
         run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro
+
+      - name: Verify isolated Budget navigation and inventory gestures
+        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
+        env:
+          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
 
       - name: Preserve native test diagnostics
         if: always()

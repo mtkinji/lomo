@@ -1,0 +1,66 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Only with KWILT_MAESTRO_BUDGET_FIXTURE=1. No production identity or writes.
+- launchApp
+- openLink: "${DEV_CLIENT_URL}"
+- repeat:
+    times: 3
+    while:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn:
+          text: "Open"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- assertNotVisible: 'Open in .*Kwilt.*'
+- extendedWaitUntil:
+    visible: "Budget native fixture"
+    timeout: 180000
+- tapOn: "Budget and Accounts navigation"
+- extendedWaitUntil:
+    visible: "Budget"
+    timeout: 15000
+- tapOn: "Budget options"
+- tapOn: "Accounts & connections"
+- tapOn: "Manage accounts"
+- assertVisible: "Go back from Accounts"
+- tapOn: "Go back from Accounts"
+- assertVisible: "Budget"
+- tapOn: "Budget options"
+- tapOn: "Accounts & connections"
+- tapOn: "Manage accounts"
+- assertVisible: "Accounts"
+# Main-menu routing uses production handlers and MoneyEntry's offline fallback.
+- tapOn: "Fixture menu"
+- tapOn:
+    id: "capability.menu.money-summary"
+- assertVisible: "Budget"
+- tapOn: "Choose fixture"
+- tapOn: "Stale data and refresh"
+- assertVisible: "Synthetic offline fixture. Pull to retry."
+- swipe:
+    start: "50%,35%"
+    end: "50%,85%"
+    duration: 1200
+- extendedWaitUntil:
+    notVisible: "Synthetic offline fixture. Pull to retry."
+    timeout: 15000
+- tapOn: "Choose fixture"
+- assertVisible: "Completed refreshes: 1"
+- tapOn: "4000 transactions"
+- tapOn: "Date scope"
+- tapOn: "All history"
+- assertVisible: "4000 of 4000 shown"
+- assertNotVisible: "Open End of synthetic transaction history transaction.*"
+- scrollUntilVisible:
+    element:
+      text: "Open End of synthetic transaction history transaction.*"
+    direction: DOWN
+    speed: 100
+    timeout: 600000
+- takeScreenshot: "budget-final-transaction"
+- tapOn: "Open End of synthetic transaction history transaction.*"
+- assertVisible: "End of synthetic transaction history"
+- tapOn: "Go back from End of synthetic transaction history"
+- assertVisible: "Open End of synthetic transaction history transaction.*"
+- takeScreenshot: "budget-final-position-retained"

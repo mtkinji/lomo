@@ -127,3 +127,38 @@ this candidate. Native CI remains a separate gate.
 - Re-run the backend contract check for the actual release candidate.
 - Signed-in live workflow acceptance and physical-device/TestFlight validation.
 - No app build, upload, production mutation, or release was performed in this pass.
+
+## Follow-up: text layout and native navigation
+
+The in-session Dynamic Type issue is fixed in `f8316a19`: changing font scale
+rebuilds the list's native measurements. Screen-level inventory selection remains,
+while scroll position deliberately restarts at the top. The regression failed
+before the fix, then all 13 transaction-screen tests passed; independent review
+found no blocking issue. Native before/after images and navigation observations
+are in [the November 2 evidence](evidence/budget-native-2026-11-02/README.md).
+
+Accounts' back button and Accounts → main-menu Budgets both returned to the real
+Budget overview in the isolated native harness. The latter uses the real menu
+handlers and MoneyEntry's offline automatic fallback, not production sign-in.
+These observations supersede the corresponding unresolved layout/navigation
+entries above within that stated scope. Pull and final-row scrolling remain open.
+
+PR CI [41488161850](https://github.com/mtkinji/lomo/actions/runs/41488161850)
+passed at `f8316a19`. Native CI
+[41488149296](https://github.com/mtkinji/lomo/actions/runs/41488149296) built and
+installed the app but failed all five smoke flows. Its retained screenshot still
+showed the iOS Open confirmation after Maestro's first tap. Commit `3cafaf18`
+adds bounded confirmation retries, asserts dismissal, and allows up to 180 seconds
+for first-load bundling. This is a test-startup repair pending hosted confirmation.
+
+A separate isolated Budget CI flow now covers Accounts back/menu routing, an
+actual pull gesture with refresh-count readback, and All history scrolling through
+4,000 transactions to a unique oldest row followed by detail/return-position
+acceptance. It preserves the existing smoke suite and runs separately after app
+installation even when that suite fails. Pending execution is not a passing gate.
+
+TestFlight preparation: the existing local EAS identity was verified as `mtkinji`
+with owner access to Kwilt. The repository release script uses `testflight-widgets`,
+protected verification, full coverage, live backend contract validation, and EAS
+build/submit. No build/upload was started; user-authorized merge/build remains
+conditional on completing the native gates and candidate review.
