@@ -199,3 +199,20 @@ was canceled before replacing it with this startup change.
 Artifacts from attempt 2 were downloaded to
 `/tmp/kwilt-maestro-41853589814`; GitHub retains `maestro-smoke-diagnostics` for
 seven days. PR #203 remains draft, with no merge or TestFlight build performed.
+
+
+## November 4 fresh local build and completed Budget gestures
+
+A new local 2.0.2 (135) Simulator build now passes the complete isolated Budget
+navigation/inventory flow with JavaScript candidate `4a69616f`: Accounts Back,
+main-menu Budgets routing, real pull-to-refresh with exactly one refresh receipt,
+4,000-row All history scrolling, and oldest-row detail/return position retention.
+The native menu's zero-height animated accessibility ancestor and Expo developer
+tutorial startup obstruction were repaired and reviewed. See the
+[fresh-build evidence and retained commands](evidence/budget-native-2026-11-04/README.md).
+
+General native smoke acceptance remains open: the credential-free full app lacks
+Supabase configuration; supplying isolated loopback configuration makes its auth
+screen test pass, but DevTools remains correctly behind sign-in. The remaining
+legacy tests need isolated signed-in test setup. PR #203 is still draft; no merge
+or TestFlight build has been performed.
