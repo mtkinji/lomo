@@ -43,10 +43,43 @@ Every assessment should identify the product owner, implementation owner, applic
 | Build | One behavior contract, affected actors, invariants, failure states, and concrete acceptance cases. |
 | Local handoff | Focused regressions plus `npm run verify:local -- --run` scoped to the work when sharing a dirty checkout. Preserve omitted files and manual follow-ups. |
 | Integrate | Reviewed actual candidate and uncached `npm run verify:changed -- --run`, plus applicable CI and integration checks. |
-| Release | Compatibility with the target backend, relevant native/provider/physical-device evidence, authorized rollout, and recovery plan. |
+| Internal beta | Reviewed, identified candidate; passing focused regressions and protected verification; target-backend compatibility; successful signed build; authorized internal audience; no known data-integrity, authorization, or startup blocker. Broad hosted native acceptance may run alongside phone testing. |
+| Broader beta / production release | Compatibility with the target backend, applicable broader regression and native/provider/physical-device acceptance, authorized rollout, and recovery plan. |
 | Call successful | Observed completion, reliability, and latency against the capability's requirements; update its delivery evidence. |
 
 These connect existing Kwilt rules; they do not replace `AGENTS.md`, weaken gates, authorize production writes, or demand a full ceremony for a cosmetic change. A global criterion is consistent across products; its risk level and acceptance thresholds depend on the actual product.
+
+## Internal beta feedback and delivery policy
+
+Approved by Andrew on 2026-11-04. Internal TestFlight distribution is a testing
+stage, not a claim of production readiness. It may use a reviewed branch commit;
+merging is a separate decision and retains its applicable integration checks.
+An unfinished comprehensive hosted Simulator suite alone does not block an
+internal build. Relevant focused regressions, compatibility checks and known
+safety defects still matter, especially when the beta uses the live backend.
+Code review does not replace runtime evidence; phone testing supplies additional
+native, gesture, accessibility and signed-build evidence.
+
+Every blocking check must identify its failure mode, applicable stage and reason
+for blocking. Distinguish a confirmed product defect from test-infrastructure
+failure. Record incomplete evidence and exceptions against the exact candidate;
+do not silently mark them passed. A known financial-integrity, authorization,
+destructive-mutation or startup defect blocks internal distribution. Broader
+beta and production still require applicable native acceptance and device proof.
+
+Measure review-to-installable-build time, ordinary check duration, queue time,
+native compilation, Apple processing, false failures and unnecessary rebuilds.
+Target ordinary automated feedback within ten minutes; this is a target, not a
+claim about current performance or Apple processing. Reuse successful evidence
+only where its inputs and verification rules allow it. Do not add an unmeasured
+pipeline-optimization benchmark as a release gate. Infrastructure improvements
+must remain bounded increments rather than indefinitely expanding a release.
+
+For each internal beta retain: commit/build number, intended testers, completed
+checks, known limitations, backend contract, recovery/forward-fix path, and phone
+acceptance cases. An uploaded build is not proof it is available or tested on a
+phone. Internal beta approval does not authorize public distribution or new
+production backend mutations.
 
 ## Checkpoints and integration cadence
 
