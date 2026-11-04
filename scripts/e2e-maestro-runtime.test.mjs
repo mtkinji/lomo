@@ -167,3 +167,19 @@ test('missing or nonlocal launch assets stop before UI testing', () => {
     assert.doesNotMatch(result.commands, /maestro --device|xcrun/);
   }
 });
+
+// A fresh hosted Simulator asks separately for exp+kwilt and kwilt schemes.
+// The first workspace flow previously left the second OS confirmation open.
+test('workspace startup handles first-use confirmation for each URL scheme', () => {
+  const [, commands] = yaml.loadAll(fs.readFileSync(path.join(root, 'e2e/workspace-fixture/start.yaml'), 'utf8'));
+  const links = commands.flatMap((command, index) => command.openLink ? [index] : []);
+  assert.equal(links.length, 2);
+  for (const index of links) {
+    const confirmation = commands[index + 1]?.repeat;
+    assert.equal(confirmation?.times, 3);
+    assert.equal(confirmation?.while?.visible, 'Open in .*Kwilt.*');
+    assert.equal(confirmation?.commands[0]?.tapOn?.text, 'Open');
+    assert.equal(commands[index + 2]?.assertNotVisible, 'Open in .*Kwilt.*');
+  }
+  assert.equal(commands.at(-1).extendedWaitUntil.visible, 'Dev tools');
+});

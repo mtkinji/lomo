@@ -85,3 +85,27 @@ Original full diagnostics are retained locally at
 [41881686222](https://github.com/mtkinji/lomo/actions/runs/41881686222) and backend
 preflight [41881409765](https://github.com/mtkinji/lomo/actions/runs/41881409765)
 passed on `c490f49c`. No merge or TestFlight upload occurred.
+
+## Hosted attempt 2: Budget passes; second URL confirmation repaired
+
+Run `41894523986`, attempt 2, completed the full hosted Budget flow successfully:
+both Accounts return paths, one real pull refresh, all 4,000 rows through the
+unique final transaction, and retained position after detail/return. Auth,
+onboarding, Arc banner, and Focus/Schedule also passed.
+
+Only `smoke-devtools` failed. Its screenshot and accessibility tree show the iOS
+**Open in “Kwilt”?** prompt after `kwilt://__dev/tools`. Startup already handled
+confirmation for `exp+kwilt`, but these are separate first-use URL schemes.
+The workspace startup now performs the same bounded confirmation and mandatory
+prompt-disappearance assertion after the second link, then still requires the
+DevTools screen. No production app changes or acceptance assertions were removed.
+
+The runner regression failed before repair; all 17 runner tests and local
+verification passed after repair. Independent review found no blockers. The
+owned disposable Simulator was erased, booted, and reinstalled with the same
+fresh Debug host described above. Its first-use smoke flow visibly encountered
+and accepted both prompts and reached DevTools successfully. This is local iOS
+26.5 evidence; hosted confirmation remains required before merge/TestFlight.
+
+Hosted diagnostics: `/tmp/kwilt-maestro-41894523986-a2`.
+Fresh local command trace: `second-url-confirmation-local.log`.

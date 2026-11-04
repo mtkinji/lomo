@@ -25,6 +25,16 @@ appId: com.andrewwatanabe.kwilt
     commands:
       - tapOn: "Got it"
 - openLink: "kwilt://__dev/tools"
+- repeat:
+    times: 3
+    while:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn:
+          text: "Open"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- assertNotVisible: 'Open in .*Kwilt.*'
 - extendedWaitUntil:
     visible: "Dev tools"
     timeout: 15000
