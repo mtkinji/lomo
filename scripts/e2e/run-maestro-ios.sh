@@ -14,6 +14,19 @@ if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
   bundle_path=index.bundle
   artifact_dir=artifacts/maestro/budget-fixture
 fi
+case "${KWILT_MAESTRO_APP_FIXTURE:-}" in
+  '') ;;
+  auth|workspace)
+    if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
+      echo "Choose one isolated native fixture per run." >&2
+      exit 1
+    fi
+    project_dir=scripts/e2e/native-harness
+    bundle_path=index.bundle
+    artifact_dir="artifacts/maestro/${KWILT_MAESTRO_APP_FIXTURE}-fixture"
+    ;;
+  *) echo "Unknown native app fixture." >&2; exit 1 ;;
+esac
 mkdir -p "$artifact_dir"
 if curl --fail --silent --max-time 2 http://localhost:8081/status >/dev/null 2>&1; then
   echo "Port 8081 already serves a runtime; refusing to test unrelated JavaScript." >&2
@@ -53,7 +66,7 @@ DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%
 # The isolated flow clears development-client state and owns its one URL open.
 # Pre-opening it here saves a recent project that can auto-load during launchApp
 # while the flow opens the same project again.
-if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" != 1 ]; then
+if [ "$project_dir" = . ]; then
   xcrun simctl openurl "$SIMULATOR_ID" "$DEV_CLIENT_URL"
 fi
 maestro --device "$SIMULATOR_ID" test \

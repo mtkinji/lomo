@@ -54,7 +54,7 @@ export function buildVerificationPlan(files, base) {
     add('npm run test:code-health', 'unit-test the code-health ratchet rules');
   }
 
-  if (matches(/^(scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/maestro\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
+  if (matches(/^(scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/(maestro|workspace-fixture|budget-fixture)\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
     add('node --test scripts/e2e-maestro-runtime.test.mjs',
       'require a ready JavaScript runtime and retained diagnostics for native CI');
   }
@@ -137,7 +137,7 @@ export function buildVerificationPlan(files, base) {
     addManual('npm run mcp:smoke', 'requires MCP environment credentials; run when connector behavior changed');
   }
 
-  if (matches(/^(e2e\/maestro\/|src\/features\/(activities|arcs|goals|onboarding|ai)\/)/)) {
+  if (matches(/^(e2e\/(maestro|workspace-fixture|budget-fixture)\/|src\/features\/(activities|arcs|goals|onboarding|ai)\/)/)) {
     addManual('maestro test e2e/maestro/<relevant-flow>.yaml', 'native interaction flows need a simulator or device');
   }
 

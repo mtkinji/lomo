@@ -1,0 +1,30 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Only with KWILT_MAESTRO_APP_FIXTURE=workspace. No real identity or backend.
+- launchApp:
+    clearState: true
+- openLink: "${DEV_CLIENT_URL}"
+- repeat:
+    times: 3
+    while:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn:
+          text: "Open"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- assertNotVisible: 'Open in .*Kwilt.*'
+- extendedWaitUntil:
+    visible: "Workspace native fixture"
+    timeout: 180000
+- assertNotVisible:
+    id: "gearshape.fill"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
+- openLink: "kwilt://__dev/tools"
+- extendedWaitUntil:
+    visible: "Dev tools"
+    timeout: 15000

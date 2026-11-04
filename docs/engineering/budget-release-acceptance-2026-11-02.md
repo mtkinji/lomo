@@ -216,3 +216,19 @@ Supabase configuration; supplying isolated loopback configuration makes its auth
 screen test pass, but DevTools remains correctly behind sign-in. The remaining
 legacy tests need isolated signed-in test setup. PR #203 is still draft; no merge
 or TestFlight build has been performed.
+
+
+## November 4 consolidated general smoke acceptance
+
+The remaining five smoke tests now pass locally: real-app signed-out rendering
+and four isolated workspace interaction flows. A dedicated fixture supplies
+loopback configuration, memory-only storage and external fetch/XHR guards without
+changing production authentication. The stale interaction selectors and initial
+navigation readiness were repaired. Tests also exposed and verified a real Focus
+portal accessibility repair, plus a developer-FAB touch obstruction confined to
+the test host. See [the consolidated evidence](evidence/native-smoke-2026-11-04/README.md).
+
+This supersedes the local general-smoke blocker above, within the documented
+fixture boundaries. Hosted native run `41874825438` executed no steps and failed
+while acquiring a runner. Hosted native confirmation, merge and TestFlight remain
+separate gates; no merge or TestFlight build is recorded here.

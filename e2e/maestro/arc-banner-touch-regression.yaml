@@ -38,8 +38,13 @@ appId: com.andrewwatanabe.kwilt
     id: "e2e.seed.showFirstArcCelebration"
 
 # The onboarding handoff guide can cover the canvas; dismiss it so we can interact with the banner.
-- tapOn:
-    text: "Explore first"
+- assertVisible: "Your first identity Arc is ready"
+- tapOn: "Got it"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
 
 # Open the Arc banner sheet (tap hero banner).
 - tapOn:
@@ -48,7 +53,15 @@ appId: com.andrewwatanabe.kwilt
 - assertVisible:
     text: "Arc Banner"
 
-# Select a deterministic curated banner tile (first item in ARC_HERO_LIBRARY).
+- tapOn: "Curated"
+
+# Reach the stable bundled banner; newer curated images can precede it.
+- scrollUntilVisible:
+    element:
+      id: "e2e.arcBanner.curated.arc-sandstone-waves-01"
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
 - tapOn:
     id: "e2e.arcBanner.curated.arc-sandstone-waves-01"
 
