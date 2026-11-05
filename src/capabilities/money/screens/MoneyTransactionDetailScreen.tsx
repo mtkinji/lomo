@@ -741,7 +741,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             <View style={styles.createPanel}>
               <Text style={styles.createTitle}>New category</Text>
               <Input label="Name" value={newCategoryName} onChangeText={setNewCategoryName} />
-              <Input label="Monthly amount" value={newCategoryAmount} onChangeText={setNewCategoryAmount} keyboardType="decimal-pad" />
+              <Input label="Monthly amount" value={newCategoryAmount} onChangeText={setNewCategoryAmount} keyboardType="number-pad" />
               <Button disabled={savingCategory || saving} fullWidth onPress={() => void createAndSelectCategory()}>{savingCategory ? 'Creating…' : 'Create and choose'}</Button>
               <Button fullWidth variant="ghost" onPress={() => setCreatingCategory(false)}>Cancel</Button>
             </View>
