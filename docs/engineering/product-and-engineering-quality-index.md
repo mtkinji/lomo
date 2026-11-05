@@ -52,8 +52,15 @@ These connect existing Kwilt rules; they do not replace `AGENTS.md`, weaken gate
 ## Internal beta feedback and delivery policy
 
 Approved by Andrew on 2026-11-04. Internal TestFlight distribution is a testing
-stage, not a claim of production readiness. It may use a reviewed branch commit;
-merging is a separate decision and retains its applicable integration checks.
+stage, not a claim of production readiness. Updated by Andrew on 2026-11-04:
+merge reviewed work into main before building TestFlight. The normal local and
+hosted release entry points require a clean commit matching freshly fetched
+origin/main; detached CI/tag checkouts must match that same commit. The source
+check runs again immediately before EAS. Selected verification defaults to the
+latest main integration (HEAD^1), with an explicit earlier release base available
+to widen coverage; full Jest and backend preflight remain required. Build 136
+was the previously authorized branch-build exception, not the ongoing convention.
+Integration retains its applicable checks and records unresolved evidence explicitly.
 An unfinished comprehensive hosted Simulator suite alone does not block an
 internal build. Relevant focused regressions, compatibility checks and known
 safety defects still matter, especially when the beta uses the live backend.
