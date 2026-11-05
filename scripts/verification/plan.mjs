@@ -54,8 +54,8 @@ export function buildVerificationPlan(files, base) {
     add('npm run test:code-health', 'unit-test the code-health ratchet rules');
   }
 
-  if (matches(/^(scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/(maestro|workspace-fixture|budget-fixture)\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
-    add('node --test scripts/e2e-maestro-runtime.test.mjs',
+  if (matches(/^(\.github\/actions\/native-test-runtime\/|scripts\/money\/native-harness\/metro\.config\.js$|scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/(maestro|workspace-fixture|budget-fixture)\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
+    add('node --test scripts/e2e-maestro-runtime.test.mjs scripts/e2e/fixture-manifest.test.mjs scripts/e2e/metro-fixture.test.mjs scripts/e2e/native-host.test.mjs scripts/e2e/native-suite.test.mjs',
       'require a ready JavaScript runtime and retained diagnostics for native CI');
   }
 

@@ -6,7 +6,9 @@
     "node": ">=22.13.0 <23"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "scripts/e2e/native-harness",
+    "scripts/money/native-harness"
   ],
   "scripts": {
     "start": "expo start",

@@ -41,6 +41,7 @@ modules/*/android/build/
 
 # generated review, prototype, and store-presentation artifacts
 /artifacts/
+/.cache/native-ci/
 /prototypes/
 app-store-screenshots/
 

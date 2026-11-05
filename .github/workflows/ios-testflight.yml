@@ -41,6 +41,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Require the current main candidate
+        run: bash scripts/ios-testflight-main.sh
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

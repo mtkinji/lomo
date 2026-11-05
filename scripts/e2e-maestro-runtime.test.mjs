@@ -9,15 +9,30 @@ import yaml from 'js-yaml';
 const root = path.resolve(import.meta.dirname, '..');
 const runner = path.join(root, 'scripts/e2e/run-maestro-ios.sh');
 
-test('every native CI job supplies JavaScript and preserves failure artifacts', () => {
+test('native CI publishes the host before UI jobs and retains each group diagnostics', () => {
   const workflow = yaml.load(fs.readFileSync(path.join(root, '.github/workflows/e2e-maestro.yml'), 'utf8'));
-  for (const job of Object.values(workflow.jobs)) {
-    const run = job.steps.find(step => step.run?.includes('scripts/e2e/run-maestro-ios.sh'));
-    assert.ok(run, 'Debug simulator must load Metro before testing app UI');
-    const upload = job.steps.find(step => step.uses?.startsWith('actions/upload-artifact@'));
-    assert.equal(upload?.if, 'always()');
-    assert.equal(upload?.with.path, 'artifacts/maestro');
+  const host = workflow.jobs['native-host'];
+  assert.ok(host, 'native compilation must survive a later UI failure');
+  assert.ok(host.steps.some(s => s.uses === 'actions/cache/save@v4'));
+  const restore = host.steps.find(s => s.uses === 'actions/cache/restore@v4');
+  assert.ok(restore);
+  assert.equal(restore.with['restore-keys'], undefined, 'never reuse a partially compatible binary');
+  assert.ok(host.steps.some(s => s.uses === 'actions/upload-artifact@v4'));
+  for (const name of ['native-tests', 'maestro-full']) {
+    const job = workflow.jobs[name];
+    assert.equal(job.needs, 'native-host');
+    assert.ok(job.steps.some(s => s.uses === './.github/actions/native-test-runtime'));
+    assert.ok(job.steps.some(s => s.uses === 'actions/upload-artifact@v4' && s.if === 'always()'));
   }
+  const steps = workflow.jobs['native-tests'].steps;
+  for (const group of ['auth', 'workspace', 'budget']) {
+    const index = steps.findIndex(s => s.id === group);
+    assert.ok(index >= 0);
+    assert.equal(steps[index + 1].uses, 'actions/upload-artifact@v4');
+    assert.equal(steps[index + 1].if, 'always()');
+    assert.notEqual(steps[index]['continue-on-error'], true, 'failed assertions must keep the job failed');
+  }
+  assert.equal(workflow.on.workflow_dispatch.inputs.suite.default, 'acceptance');
 });
 
 function run(mode, fixture = false, shell = 'bash', appFixture = '') {
@@ -94,7 +109,7 @@ test('Budget startup does not pre-open a project that Maestro will launch again'
   const result = run('ready', true);
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.commands, /xcrun simctl openurl/);
-  const [, flow] = yaml.loadAll(fs.readFileSync(path.join(root, 'e2e/budget-fixture/navigation-inventory.yaml'), 'utf8'));
+  const [, flow] = yaml.loadAll(fs.readFileSync(path.join(root, 'e2e/budget-fixture/navigation-refresh.yaml'), 'utf8'));
   assert.deepEqual(flow[0], { launchApp: { clearState: true } });
   assert.equal(flow.filter(command => command.openLink).length, 1);
 });
@@ -182,4 +197,23 @@ test('workspace startup handles first-use confirmation for each URL scheme', () 
     assert.equal(commands[index + 2]?.assertNotVisible, 'Open in .*Kwilt.*');
   }
   assert.equal(commands.at(-1).extendedWaitUntil.visible, 'Dev tools');
+});
+
+test('quick Budget smoke retains navigation and refresh; acceptance still traverses 4000 rows', () => {
+  const read = name => yaml.loadAll(fs.readFileSync(path.join(root, `e2e/budget-fixture/${name}.yaml`), 'utf8'))[1];
+  const quick = read('navigation-refresh');
+  const full = read('navigation-inventory');
+  assert.deepEqual(full[0], { runFlow: 'navigation-refresh.yaml' });
+  assert.ok(quick.some(c => c.assertVisible === 'Completed refreshes: 1'));
+  assert.ok(quick.some(c => c.swipe));
+  assert.ok(full.some(c => c.assertVisible === '4000 of 4000 shown'));
+  assert.ok(full.some(c => c.scrollUntilVisible?.element?.text?.includes('End of synthetic')));
+  assert.ok(full.some(c => c.tapOn === 'Go back from End of synthetic transaction history'));
+});
+
+test('workspace startup stops on a native loading error and still requires the real fixture', () => {
+  const [, commands] = yaml.loadAll(fs.readFileSync(path.join(root, 'e2e/workspace-fixture/start.yaml'), 'utf8'));
+  const index = commands.findIndex(c => c.extendedWaitUntil?.visible?.includes('problem loading'));
+  assert.ok(index >= 0, 'known loading error should stop waiting immediately');
+  assert.equal(commands[index + 1].assertVisible, 'Workspace native fixture');
 });
