@@ -6,6 +6,26 @@ appId: com.andrewwatanabe.kwilt
 - launchApp:
     clearState: true
 
+- openLink: "${DEV_CLIENT_URL}"
+
+# Fresh iOS simulators ask before the first development-client deep link.
+# Keep the app's sign-in assertions mandatory after accepting that OS prompt.
+- repeat:
+    times: 3
+    while:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn:
+          text: "Open"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+
+- assertNotVisible: 'Open in .*Kwilt.*'
+
+- extendedWaitUntil:
+    visible: "Continue with Apple"
+    timeout: 180000
+
 - assertVisible: "Continue with Apple"
 - assertVisible: "Continue with Google"
 

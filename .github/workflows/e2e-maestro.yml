@@ -71,6 +71,7 @@ jobs:
             build
 
       - name: Install app on simulator
+        id: install_app
         run: |
           APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -79,14 +80,36 @@ jobs:
           fi
           xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
-      - name: Run Maestro smoke suite (iOS simulator)
+      - name: Verify real app signed-out gate (isolated configuration)
+        env:
+          KWILT_MAESTRO_APP_FIXTURE: "auth"
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro/auth-gate-smoke.yaml
+
+      - name: Verify isolated workspace interactions
+        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
+        env:
+          KWILT_MAESTRO_APP_FIXTURE: "workspace"
         run: |
-          maestro test \
-            e2e/maestro/auth-gate-smoke.yaml \
-            e2e/maestro/smoke-devtools.yaml \
-            e2e/maestro/onboarding-plan-ready-touch-regression.yaml \
-            e2e/maestro/arc-banner-touch-regression.yaml \
-            e2e/maestro/activity-detail-key-actions.yaml
+          bash scripts/e2e/run-maestro-ios.sh \
+            e2e/workspace-fixture/smoke-devtools.yaml \
+            e2e/workspace-fixture/onboarding-plan-ready-touch-regression.yaml \
+            e2e/workspace-fixture/arc-banner-touch-regression.yaml \
+            e2e/workspace-fixture/activity-detail-key-actions.yaml
+
+      - name: Verify isolated Budget navigation and inventory gestures
+        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
+        env:
+          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
+
+      - name: Preserve native test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-smoke-diagnostics
+          path: artifacts/maestro
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Notify Slack on failure
         if: failure()
@@ -170,6 +193,7 @@ jobs:
             build
 
       - name: Install app on simulator
+        id: install_app
         run: |
           APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -179,7 +203,22 @@ jobs:
           xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
       - name: Run Maestro full suite (iOS simulator)
-        run: maestro test e2e/maestro
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/maestro
+
+      - name: Verify isolated Budget navigation and inventory gestures
+        if: ${{ !cancelled() && steps.install_app.outcome == 'success' }}
+        env:
+          KWILT_MAESTRO_BUDGET_FIXTURE: "1"
+        run: bash scripts/e2e/run-maestro-ios.sh e2e/budget-fixture/navigation-inventory.yaml
+
+      - name: Preserve native test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-full-diagnostics
+          path: artifacts/maestro
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Notify Slack on failure
         if: failure()

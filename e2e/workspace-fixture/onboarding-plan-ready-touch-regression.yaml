@@ -1,0 +1,52 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Regression: after dismissing onboarding overlays on Goal detail, the Activity
+# detail screen (reached via the "Open To-do" guide CTA) must be fully
+# tappable. Reproduces the "ghost overlay intercepting touches" failure mode
+# that occurs when FullScreenInterstitial / BottomGuide / Coachmark layers
+# leave an invisible touch-blocking layer after the onboarding sequence.
+
+- runFlow: start.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showOnboardingPlanReadyHandoff"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.seed.showOnboardingPlanReadyHandoff"
+
+# The "Your first plan is ready" guide should appear on Goal detail.
+- assertVisible:
+    text: "Your first plan is ready"
+
+- takeScreenshot: "plan-ready-guide-visible"
+
+# Tap "Open To-do" to navigate into Activity detail.
+- tapOn:
+    text: "Open To-do"
+
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
+
+# Verify we landed on Activity detail and the dock is interactive.
+# If an invisible overlay is intercepting touches, this tap will fail.
+- assertVisible:
+    id: "e2e.activityDetail.nextAction.primary"
+
+- tapOn:
+    id: "e2e.activityDetail.nextAction.primary"
+
+# The focus mode sheet opened — prove it by asserting the start button is visible.
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+
+- takeScreenshot: "activity-detail-interactive"

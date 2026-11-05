@@ -143,7 +143,9 @@ export function ActivityFocusExperience({
       <BottomDrawer visible={setupVisible} onClose={controller.close} snapPoints={snapPoints} scrimToken="pineSubtle">
         <View style={{ flex: 1 }}>
           {Platform.OS === 'ios' ? (
-            <FullWindowOverlay><PortalHost name={portalHostName} /></FullWindowOverlay>
+            <FullWindowOverlay unstable_accessibilityContainerViewIsModal={false}>
+              <PortalHost name={portalHostName} />
+            </FullWindowOverlay>
           ) : <PortalHost name={portalHostName} />}
           <FocusSetupContent
             minutes={controller.minutes}

@@ -156,6 +156,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     >
       {({ warning, ...scrollProps }) => (
         <CanvasFlatList
+          // iOS retains measured text/cell heights across Dynamic Type changes.
+          // Rebuild the list at the new scale; screen-level scope/filter/sort stay
+          // selected, while scrolling restarts at the top with valid geometry.
+          key={`text-scale-${fontScale}`}
           {...scrollProps}
           data={listRows}
           keyExtractor={(row) => row.key}

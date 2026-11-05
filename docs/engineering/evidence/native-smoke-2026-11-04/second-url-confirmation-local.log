@@ -1,0 +1,25 @@
+Running on Kwilt PR203 acceptance - iOS 26.5 - 282D12B9-82BD-4D37-8DAF-A8A08F2EECAD
+ > Flow smoke-devtools
+Run start.yaml...
+  Launch app "com.andrewwatanabe.kwilt" with clear state... COMPLETED
+  Open ${DEV_CLIENT_URL}... COMPLETED
+  Repeat while "Open in .*Kwilt.*" is visible (up to 3 times)...
+    Tap on "Open"... COMPLETED
+    Wait for animation to end... COMPLETED
+  Repeat while "Open in .*Kwilt.*" is visible (up to 3 times)... COMPLETED
+  Assert that "Open in .*Kwilt.*" is not visible... COMPLETED
+  Assert that "Workspace native fixture" is visible... COMPLETED
+  Assert that id: gearshape.fill is not visible... COMPLETED
+  Run flow when "Got it" is visible...
+    Tap on "Got it"... COMPLETED
+  Run flow when "Got it" is visible... COMPLETED
+  Open kwilt://__dev/tools... COMPLETED
+  Repeat while "Open in .*Kwilt.*" is visible (up to 3 times)...
+    Tap on "Open"... COMPLETED
+    Wait for animation to end... COMPLETED
+  Repeat while "Open in .*Kwilt.*" is visible (up to 3 times)... COMPLETED
+  Assert that "Open in .*Kwilt.*" is not visible... COMPLETED
+  Assert that "Dev tools" is visible... COMPLETED
+Run start.yaml... COMPLETED
+Assert that "Dev tools" is visible... COMPLETED
+Take screenshot devtools... COMPLETED

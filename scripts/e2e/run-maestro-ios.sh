@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${SIMULATOR_ID:?Set SIMULATOR_ID to the installed test simulator}"
+if [ "$#" -eq 0 ]; then
+  echo "Pass the Maestro flow files or directory to run." >&2
+  exit 1
+fi
+artifact_dir=artifacts/maestro
+project_dir=.
+if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
+  project_dir=scripts/money/native-harness
+  artifact_dir=artifacts/maestro/budget-fixture
+fi
+case "${KWILT_MAESTRO_APP_FIXTURE:-}" in
+  '') ;;
+  auth|workspace)
+    if [ "${KWILT_MAESTRO_BUDGET_FIXTURE:-0}" = 1 ]; then
+      echo "Choose one isolated native fixture per run." >&2
+      exit 1
+    fi
+    project_dir=scripts/e2e/native-harness
+      artifact_dir="artifacts/maestro/${KWILT_MAESTRO_APP_FIXTURE}-fixture"
+    ;;
+  *) echo "Unknown native app fixture." >&2; exit 1 ;;
+esac
+mkdir -p "$artifact_dir"
+if curl --fail --silent --max-time 2 http://localhost:8081/status >/dev/null 2>&1; then
+  echo "Port 8081 already serves a runtime; refusing to test unrelated JavaScript." >&2
+  exit 1
+fi
+
+# Debug simulator builds skip the embedded bundle. Own Metro for this run and
+# fail before UI assertions when JavaScript cannot be served.
+CI=1 EXPO_NO_DOTENV=1 EXPO_OFFLINE=1 REACT_NATIVE_PACKAGER_HOSTNAME=localhost \
+  node_modules/.bin/expo start "$project_dir" --dev-client --localhost --port 8081 \
+  >"$artifact_dir/metro.log" 2>&1 &
+metro_pid=$!
+cleanup() { kill "$metro_pid" 2>/dev/null || true; wait "$metro_pid" 2>/dev/null || true; }
+trap cleanup EXIT
+ready=false
+for attempt in {1..60}; do
+  if ! kill -0 "$metro_pid" 2>/dev/null; then
+    echo "Metro exited before readiness; see metro.log." >&2
+    exit 1
+  fi
+  if curl --fail --silent --max-time 2 http://localhost:8081/status | grep -q 'packager-status:running'; then
+    ready=true
+    break
+  fi
+  sleep 1
+done
+if [ "$ready" != true ]; then
+  echo "Metro did not become ready; see metro.log." >&2
+  exit 1
+fi
+# Warm the actual development-client launch asset, including Hermes/lazy
+# transforms. A generic .bundle request builds a different cache entry and
+# leaves cold hosted runners compiling during the UI assertion timeout.
+launch_asset=$(curl --fail --silent --show-error --max-time 60 \
+  -H 'expo-platform: ios' -H 'accept: application/expo+json' \
+  http://localhost:8081/ | node -e '
+    const fs = require("node:fs");
+    const manifest = JSON.parse(fs.readFileSync(0, "utf8"));
+    const url = new URL(manifest.launchAsset?.url);
+    if (url.origin !== "http://localhost:8081") throw new Error("Expected local Metro launch asset");
+    process.stdout.write(url.href);
+  ')
+curl --fail --silent --show-error --max-time 900 "$launch_asset" --output /dev/null
+# Expo's development-tools tutorial otherwise covers the app on fresh installs.
+# This affects the dev menu only; Kwilt's onboarding and sign-in remain enabled.
+DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081%3FdisableOnboarding%3D1'
+# The isolated flow clears development-client state and owns its one URL open.
+# Pre-opening it here saves a recent project that can auto-load during launchApp
+# while the flow opens the same project again.
+if [ "$project_dir" = . ]; then
+  xcrun simctl openurl "$SIMULATOR_ID" "$DEV_CLIENT_URL"
+fi
+maestro --device "$SIMULATOR_ID" test \
+  --debug-output "$artifact_dir" --test-output-dir "$artifact_dir" --flatten-debug-output \
+  -e "DEV_CLIENT_URL=$DEV_CLIENT_URL" "$@"

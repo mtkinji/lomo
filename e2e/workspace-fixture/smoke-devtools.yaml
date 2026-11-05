@@ -1,0 +1,10 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Minimal smoke: prove the app boots and DevTools is reachable (Dev builds).
+
+- runFlow: start.yaml
+
+- assertVisible:
+    text: "Dev tools"
+
+- takeScreenshot: "devtools"
