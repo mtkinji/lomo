@@ -232,7 +232,7 @@ export function SettingsRow({
       <Text
         selectable={false}
         numberOfLines={multiline ? undefined : 1}
-        style={[styles.rowTitle, destructive ? styles.rowTitleDestructive : null]}
+        style={[styles.rowTitle, styles.inlineRowTitle, destructive ? styles.rowTitleDestructive : null]}
       >
         {title}
       </Text>
@@ -602,9 +602,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  inlineRowTitle: {
+    flex: 1,
+  },
   rowTitle: {
     color: colors.textPrimary,
-    flex: 1,
     minWidth: 0,
     fontFamily: fonts.regular,
     fontSize: 15,

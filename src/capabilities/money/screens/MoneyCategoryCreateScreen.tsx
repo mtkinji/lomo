@@ -49,10 +49,10 @@ export function MoneyCategoryCreateScreen({
           value={name}
         />
         <Input
-          keyboardType="decimal-pad"
+          keyboardType="number-pad"
           label="Monthly amount"
           onChangeText={setMonthlyAmount}
-          placeholder="$0.00"
+          placeholder="$0"
           value={monthlyAmount}
         />
         {error ? <Text tone="destructive">{error}</Text> : null}

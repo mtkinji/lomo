@@ -1,0 +1,15 @@
+import React from 'react';
+import { ScrollView, View, Text } from 'react-native';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black } from '@expo-google-fonts/inter';
+import { SettingsGroup, SettingsToggleRow, SettingsRow, SettingsChoiceRow } from '../../../src/ui/SettingsSurface';
+export function Harness() {
+ const [ready] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black });
+ if (!ready) return null;
+ return <ScrollView style={{ flex: 1, backgroundColor: '#f4f4f4' }} contentContainerStyle={{ padding: 24, paddingTop: 90, gap: 24 }}>
+  <Text>Rollover alignment — synthetic settings</Text>
+  <SettingsGroup title="ROLLOVER"><SettingsToggleRow title="Rollover" enabled={false} onPress={() => {}} /></SettingsGroup>
+  <SettingsGroup title="ROLLOVER ENABLED"><SettingsToggleRow title="Rollover" enabled onPress={() => {}} /><SettingsRow title="Roll over from" value="November 2026" onPress={() => {}} /><SettingsRow title="Starting balance" value="0.00" /></SettingsGroup>
+  <SettingsGroup title="WITH DESCRIPTION"><SettingsToggleRow title="Rollover" description="Unused money carries forward to the next month." enabled onPress={() => {}} /></SettingsGroup>
+  <SettingsGroup title="COUNTS AS"><SettingsChoiceRow title="Protected" description="Keep this amount aside before flexible spending." selected onPress={() => {}} /></SettingsGroup>
+ </ScrollView>;
+}
