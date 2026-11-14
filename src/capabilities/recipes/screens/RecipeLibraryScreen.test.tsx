@@ -1,3 +1,5 @@
+import { renderWithProviders } from '../../../test/renderWithProviders';
+import { Coachmark } from '../../../ui/Coachmark';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { createRef, type ReactNode } from 'react';
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -785,6 +787,54 @@ describe('Recipe library', () => {
     expect(drawer.getAllByTestId('plan-remove-minus-candidate-1').length).toBeGreaterThan(0);
     fireEvent.press(drawer.getByRole('button', { name: 'Remove Meal 1 from Meal ideas' }));
     expect(onRemove).toHaveBeenCalledWith(items[0]);
+  });
+
+  it.each(['share-plan', 'send-to-groceries'] as const)('hides the %s guide while inspecting a recipe and restores it on return', (guideStep) => {
+    const props = {
+      visible: true, canManage: true, items: [], guideStep,
+      onClose: jest.fn(), onRemove: jest.fn(), onSharePlan: jest.fn(),
+    };
+    const drawer = renderWithProviders(<MealPlanDrawer {...props} />);
+    expect(drawer.UNSAFE_getByType(Coachmark).props.visible).toBe(true);
+    drawer.rerender(<MealPlanDrawer {...props} suspended />);
+    expect(drawer.UNSAFE_getByType(Coachmark).props.visible).toBe(false);
+    drawer.rerender(<MealPlanDrawer {...props} />);
+    expect(drawer.UNSAFE_getByType(Coachmark).props.visible).toBe(true);
+  });
+
+  it.each(['idea', 'sent'] as const)('opens a %s recipe from its title or image without changing the plan', (lifecycle) => {
+    const onOpenRecipe = jest.fn();
+    const onClose = jest.fn();
+    const onRemove = jest.fn();
+    const item = {
+      id: 'meal-1', candidateId: 'candidate-1', recipeId: 'recipe-tacos',
+      title: 'Tacos', storageRef: null, lifecycle,
+      createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+      voteCount: 0, missingItemCount: null, canRemove: true,
+    };
+    const drawer = render(<MealPlanDrawer visible items={[item]} canManage
+      onClose={onClose} onRemove={onRemove} onOpenRecipe={onOpenRecipe} />);
+
+    fireEvent.press(drawer.getByRole('button', { name: 'Open Tacos' }));
+    fireEvent.press(drawer.getByTestId('plan-artwork-candidate-1'));
+    expect(onOpenRecipe.mock.calls).toEqual([['recipe-tacos'], ['recipe-tacos']]);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onRemove).not.toHaveBeenCalled();
+    if (lifecycle === 'idea') {
+      fireEvent.press(drawer.getByRole('button', { name: 'Remove Tacos from Meal ideas' }));
+      expect(onRemove).toHaveBeenCalledWith(item);
+      expect(onOpenRecipe).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it('does not offer recipe navigation for a meal note', () => {
+    const drawer = render(<MealPlanDrawer visible canManage onClose={jest.fn()} onRemove={jest.fn()}
+      onOpenRecipe={jest.fn()} items={[{
+        id: 'note', candidateId: 'note', title: 'Dinner out', storageRef: null,
+        lifecycle: 'sent', createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+        voteCount: 0, missingItemCount: null,
+      }]} />);
+    expect(drawer.queryByRole('button', { name: 'Open Dinner out' })).toBeNull();
   });
 
   it('keeps household sharing inside the native Share entry point', () => {

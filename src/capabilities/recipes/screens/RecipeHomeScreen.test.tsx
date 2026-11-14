@@ -59,6 +59,25 @@ describe("Recipe Home", () => {
     expect(navigation.goBack).not.toHaveBeenCalled();
   });
 
+  it.each([0, 1])('returns a meal-plan recipe to the plan at stack index %s', (index) => {
+    const navigation = {
+      getState: jest.fn(() => ({ index })),
+      goBack: jest.fn(),
+      replace: jest.fn(),
+    };
+    const screen = render(<RecipeHomeScreen navigation={navigation as never}
+      route={{ key: 'recipe-home', name: 'RecipeHome', params: {
+        recipeId: getStarterRecipeProjections()[0].recipe.id, source: 'meal_plan',
+      } }} />);
+    fireEvent.press(screen.getByLabelText('Back to Meal plan'));
+    if (index > 0) {
+      expect(navigation.goBack).toHaveBeenCalledTimes(1);
+      expect(navigation.replace).not.toHaveBeenCalled();
+    } else {
+      expect(navigation.replace).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true });
+    }
+  });
+
   it("keeps the previous Food screen as the back destination when recipe detail was pushed", () => {
     const navigation = {
       getState: jest.fn(() => ({ index: 1 })),

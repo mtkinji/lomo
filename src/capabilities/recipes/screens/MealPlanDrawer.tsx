@@ -85,6 +85,7 @@ export function buildMealReactionReportTarget(person: PlanSupporter): UgcReportT
 export type MealPlanTrayItem = {
   id: string;
   candidateId: string;
+  recipeId?: string | null;
   title: string;
   storageRef: string | null;
   lifecycle: PlanLifecycle;
@@ -307,6 +308,8 @@ function MealMoveHandle({
 
 export function MealPlanDrawer({
   visible,
+  suspended = false,
+  onOpenRecipe,
   items,
   canManage,
   onClose,
@@ -332,6 +335,8 @@ export function MealPlanDrawer({
   getIdeasDisabled = false,
 }: {
   visible: boolean;
+  suspended?: boolean;
+  onOpenRecipe?(recipeId: string): void;
   items: MealPlanTrayItem[];
   canManage: boolean;
   onClose(): void;
@@ -646,6 +651,7 @@ export function MealPlanDrawer({
     <>
       <BottomDrawer
       visible={visible}
+      suspended={suspended}
       onClose={onClose}
       snapPoints={["100%"]}
       snapIndex={0}
@@ -853,15 +859,32 @@ export function MealPlanDrawer({
                       onMove={moveNow}
                     />
                   ) : null}
-                  <View style={section === "ideas" ? styles.planDrawerArtworkFrame : styles.planPlannedMealArtworkFrame}>
+                  <Pressable
+                    testID={`plan-artwork-${item.candidateId}`}
+                    accessible={false}
+                    disabled={!item.recipeId || !onOpenRecipe}
+                    onPress={() => { if (item.recipeId) onOpenRecipe?.(item.recipeId); }}
+                    style={({ pressed }) => [
+                      section === "ideas" ? styles.planDrawerArtworkFrame : styles.planPlannedMealArtworkFrame,
+                      pressed && styles.pressed,
+                    ]}
+                  >
                     <RecipeArtwork
                       storageRef={item.storageRef}
                       accessibilityLabel={item.title}
                       style={section === "ideas" ? styles.planDrawerArtwork : styles.planPlannedMealArtwork}
                     />
-                  </View>
+                  </Pressable>
                   <View testID={`plan-copy-${item.candidateId}`} style={styles.planDrawerMealCopy}>
-                    <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
+                    <Pressable
+                      accessibilityRole={item.recipeId && onOpenRecipe ? "button" : undefined}
+                      accessibilityLabel={item.recipeId && onOpenRecipe ? `Open ${item.title}` : undefined}
+                      disabled={!item.recipeId || !onOpenRecipe}
+                      onPress={() => { if (item.recipeId) onOpenRecipe?.(item.recipeId); }}
+                      style={({ pressed }) => [styles.planRecipeTitleTarget, pressed && styles.pressed]}
+                    >
+                      <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
+                    </Pressable>
                     <View testID={`plan-reaction-row-${item.candidateId}`} style={styles.planDrawerReactionRow}>
                       <PlanReactionBar
                         item={item}
@@ -909,7 +932,7 @@ export function MealPlanDrawer({
         onHidden={onSafetyHidden}
       />
       {guideStep === 'share-plan' ? <Coachmark
-        visible={visible && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}
+        visible={visible && !suspended && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}
         targetRef={shareTargetRef}
         title={<Text style={{ fontWeight: '700' }}>Want a quick gut check?</Text>}
         body={<Text tone="secondary">Share this Plan for feedback. It won’t add anyone to your Household.</Text>}
@@ -931,7 +954,7 @@ export function MealPlanDrawer({
         onDismiss={() => onGuideAdvance?.('sharing-skipped')}
       /> : null}
       {guideStep === 'send-to-groceries' ? <Coachmark
-        visible={visible && guideStep === 'send-to-groceries' && !guideSendStarted}
+        visible={visible && !suspended && guideStep === 'send-to-groceries' && !guideSendStarted}
         targetRef={groceryTargetRef}
         title={<Text style={{ fontWeight: '700' }}>Make one grocery list</Text>}
         body={<Text tone="secondary">Drag a meal into Planned when you’re ready to make it.</Text>}
