@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import { GroceryListScreen } from './GroceryListScreen';
 import { createGroceryRepository } from '../data/groceryRepository';
 import { groceryEducation } from '../data/groceryEducation';
-import { reconcileGroceryOfflineQueue } from '../data/groceryOfflineQueue';
+import { syncGroceryOfflineQueue } from '../data/groceryOfflineQueue';
 
 const mockOpenMenu = jest.fn();
 let mockCapabilityMenuOpen = false;
@@ -79,9 +79,9 @@ jest.mock('../data/groceryCache', () => ({
 }));
 jest.mock('../data/groceryOfflineQueue', () => ({
   applyQueuedGroceryStates: (lists: unknown) => lists,
-  groceryOfflineQueue: { read: jest.fn().mockResolvedValue([]), enqueue: mockEnqueue },
-  reconcileGroceryOfflineQueue: jest.fn(async ({ lists }: { lists: unknown[] }) => ({
-    lists,
+  groceryOfflineQueue: { read: jest.fn().mockResolvedValue([]), enqueue: (...args: unknown[]) => mockEnqueue(...args) },
+  syncGroceryOfflineQueue: jest.fn(async ({ loadLists }: { loadLists: () => Promise<unknown[]> }) => ({
+    lists: await loadLists(),
     pendingCount: 0,
     interrupted: false,
   })),
@@ -228,12 +228,12 @@ describe('Grocery List primary capability', () => {
     mockHasStartedCartFlow.mockResolvedValue(false);
     mockMarkAlreadyHaveSeen.mockResolvedValue(undefined);
     mockMarkCartFlowStarted.mockResolvedValue(undefined);
-    (reconcileGroceryOfflineQueue as jest.Mock).mockImplementation(async ({ lists }: { lists: unknown[] }) => ({
-      lists,
+    (syncGroceryOfflineQueue as jest.Mock).mockImplementation(async ({ loadLists }: { loadLists: () => Promise<unknown[]> }) => ({
+      lists: await loadLists(),
       pendingCount: 0,
       interrupted: false,
     }));
-    mockEnqueue.mockResolvedValue([]);
+    mockEnqueue.mockReset().mockResolvedValue([]);
     mockAddItem.mockResolvedValue({});
     mockBuildAffiliateProductSearch.mockReturnValue('https://www.amazon.com/s?k=immersion%20blender&tag=kwiltapp-20');
     mockOpenAffiliateProductSearch.mockResolvedValue(true);
@@ -511,6 +511,70 @@ describe('Grocery List primary capability', () => {
     expect(screen.queryByLabelText('Go back from Groceries')).toBeNull();
   });
 
+  it('a rapid second tap undoes the first before local storage finishes', async () => {
+    const screen = await renderAfterInitialLoad(<GroceryListScreen
+      navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+      route={{ params: { entryPoint: 'capability-menu' } } as never}
+    />);
+    mockEnqueue.mockImplementation(() => new Promise(() => {}));
+    fireEvent.press(screen.getByTestId('ingredient-check-item-1'));
+    expect(screen.queryByTestId('ingredient-check-item-1')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Checked items (1)'));
+    fireEvent.press(screen.getByTestId('ingredient-check-item-1'));
+    expect(mockEnqueue.mock.calls.map((call) => call[1].state)).toEqual(['already_have', 'needed']);
+  });
+
+  it('restores each unsaved item when two rapid checks both fail to persist', async () => {
+    const repository = (createGroceryRepository as jest.Mock)();
+    const lists = await repository.list();
+    lists[0].items.push({ ...lists[0].items[0], id: 'item-2', concept: 'rice' });
+    const screen = await renderAfterInitialLoad(<GroceryListScreen
+      navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+      route={{ params: { entryPoint: 'capability-menu' } } as never}
+    />);
+    const rejectSaves: Array<(error: Error) => void> = [];
+    mockEnqueue.mockImplementation(() => new Promise((_resolve, reject) => rejectSaves.push(reject)));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    fireEvent.press(screen.getByTestId('ingredient-check-item-1'));
+    fireEvent.press(screen.getByTestId('ingredient-check-item-2'));
+    await act(async () => {
+      rejectSaves[0](new Error('storage full'));
+      rejectSaves[1](new Error('storage full'));
+    });
+    expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy();
+    expect(screen.getByTestId('ingredient-check-item-2')).toBeTruthy();
+    expect(screen.queryByLabelText('Checked items (1)')).toBeNull();
+    alert.mockRestore();
+  });
+
+  it('waits for the previous refresh before fetching another revision for a new check', async () => {
+    const repository = (createGroceryRepository as jest.Mock)();
+    const screen = await renderAfterInitialLoad(<GroceryListScreen
+      navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+      route={{ params: { entryPoint: 'capability-menu' } } as never}
+    />);
+    let release!: (lists: unknown[]) => void;
+    const lists = await repository.list();
+    repository.list.mockClear();
+    repository.list.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    fireEvent.press(screen.getByTestId('ingredient-check-item-1'));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByLabelText('Checked items (1)'));
+    fireEvent.press(screen.getByTestId('ingredient-check-item-1'));
+    await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+    expect(repository.list).toHaveBeenCalledTimes(1);
+    let releaseLatest!: (value: unknown) => void;
+    repository.list.mockImplementationOnce(() => new Promise((resolve) => { releaseLatest = resolve; }));
+    await act(async () => { release(lists.map((list: { items: object[] }) => ({ ...list,
+      items: list.items.map((item) => ({ ...item, state: 'already_have' })),
+    }))); });
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(2));
+    // The older save completed as checked, but the user's newer undo must stay visible.
+    expect(screen.queryByLabelText('Checked items (1)')).toBeNull();
+    expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy();
+    await act(async () => { releaseLatest(lists); });
+  });
+
   it('is the checklist itself, using the Recipe ingredient checked treatment without review chrome', async () => {
     const navigate = jest.fn();
     const screen = render(
@@ -676,7 +740,7 @@ describe('Grocery List primary capability', () => {
   });
 
   it('keeps a queued completion layout-stable while updating the handoff count', async () => {
-    (reconcileGroceryOfflineQueue as jest.Mock).mockResolvedValue({
+    (syncGroceryOfflineQueue as jest.Mock).mockResolvedValue({
       lists: [
         {
           id: 'list-1',

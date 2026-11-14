@@ -45,6 +45,7 @@ import {
   type MealPlanProjection,
 } from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
+import { createGroceryCheckTracker } from '../data/groceryOptimisticChecks';
 import { groceryEducation } from '../data/groceryEducation';
 import {
   createGroceryRepository,
@@ -53,7 +54,8 @@ import {
 import {
   applyQueuedGroceryStates,
   groceryOfflineQueue,
-  reconcileGroceryOfflineQueue,
+  syncGroceryOfflineQueue,
+  type QueuedGroceryItemState,
 } from '../data/groceryOfflineQueue';
 import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
@@ -140,7 +142,7 @@ function GroceriesMenu({
           icon="check"
           label={
             reviewingCovered
-              ? 'Show full list'
+              ? 'Show remaining items'
               : `Review checked items${coveredCount ? ` (${coveredCount})` : ''}`
           }
           disabled={!coveredCount && !reviewingCovered}
@@ -173,6 +175,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const manualItemInputRef = useRef<TextInput | null>(null);
   const firstGroceryItemRef = useRef<View | null>(null);
   const [reviewingCovered, setReviewingCovered] = useState(false);
+  const [checkedExpanded, setCheckedExpanded] = useState(false);
   const [alreadyHaveEducationLoaded, setAlreadyHaveEducationLoaded] = useState(false);
   const [alreadyHaveEducationSeen, setAlreadyHaveEducationSeen] = useState(true);
   const [cartFlowStarted, setCartFlowStarted] = useState(true);
@@ -190,38 +193,51 @@ export function GroceryListScreen({ navigation, route }: Props) {
     [requestedListId],
   );
 
-  const load = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const [cached, pending] = await Promise.all([
-      groceryCache.read(userId),
-      groceryOfflineQueue.read(userId),
-    ]);
-    const cachedWithPending = applyQueuedGroceryStates(cached, pending);
-    const cachedList = chooseList(cachedWithPending);
-    if (cachedList) setList(cachedList);
-    setPendingCount(pending.length);
-    try {
-      const repository = createGroceryRepository();
-      const lists = await repository.list();
-      const reconciled = await reconcileGroceryOfflineQueue({
-        userId,
-        lists,
-        queue: groceryOfflineQueue,
-        setItemState: repository.setItemState,
-      });
-      setList(chooseList(reconciled.lists));
-      setPendingCount(reconciled.pendingCount);
-      setOffline(reconciled.interrupted);
-      await groceryCache.write(userId, reconciled.lists);
-    } catch {
-      setOffline(Boolean(cachedList));
-    } finally {
-      setLoading(false);
-    }
+  const listRef = useRef(list);
+  listRef.current = list;
+  const editGeneration = useRef(0);
+  const pendingChecks = useMemo(createGroceryCheckTracker, []);
+  const loadTail = useRef<Promise<void>>(Promise.resolve());
+  const load = useCallback(() => {
+    const run = async () => {
+      const generation = editGeneration.current;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      let cachedList: GroceryProjection | null = null;
+      try {
+        const [cached, pending] = await Promise.all([
+          groceryCache.read(userId),
+          groceryOfflineQueue.read(userId),
+        ]);
+        const cachedWithPending = applyQueuedGroceryStates(cached, pending);
+        cachedList = chooseList(cachedWithPending);
+        if (cachedList && !listRef.current) setList(cachedList);
+        setPendingCount(pending.length);
+        const repository = createGroceryRepository();
+        const reconciled = await syncGroceryOfflineQueue({
+          userId,
+          loadLists: repository.list,
+          queue: groceryOfflineQueue,
+          setItemState: repository.setItemState,
+        });
+        if (generation === editGeneration.current) {
+          setList(chooseList(reconciled.lists));
+        }
+        setPendingCount(reconciled.pendingCount);
+        setOffline(reconciled.interrupted);
+        await groceryCache.write(userId, reconciled.lists);
+      } catch {
+        setOffline(Boolean(listRef.current ?? cachedList));
+      } finally {
+        setLoading(false);
+      }
+    };
+    const result = loadTail.current.then(run, run);
+    loadTail.current = result.catch(() => undefined);
+    return result;
   }, [chooseList, userId]);
   const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: load });
 
@@ -380,7 +396,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
     const grouped = new Map<string, GroceryProjection['items']>();
     for (const item of list?.items ?? []) {
       if (item.state === 'skipped') continue;
-      if (reviewingCovered && item.state === 'needed') continue;
+      if (reviewingCovered ? item.state === 'needed' : item.state !== 'needed') continue;
       grouped.set(item.aisle, [...(grouped.get(item.aisle) ?? []), item]);
     }
     return [...grouped.entries()].flatMap(([aisle, items]) =>
@@ -395,22 +411,44 @@ export function GroceryListScreen({ navigation, route }: Props) {
     );
   }, [list, reviewingCovered]);
 
+  const checkedItems = useMemo(() => (list?.items ?? [])
+    .filter((item) => item.state !== 'needed' && item.state !== 'skipped')
+    .map((item) => ({ id: item.id, display: groceryItemDisplay(item) })), [list]);
+
   const toggle = async (itemId: string) => {
-    if (!list || !userId || list.status === 'stale') return;
-    const item = list.items.find((candidate) => candidate.id === itemId);
+    const current = listRef.current;
+    if (!current || !userId || current.status === 'stale') return;
+    const item = current.items.find((candidate) => candidate.id === itemId);
     if (!item) return;
-    const mutations = await groceryOfflineQueue.enqueue(userId, {
-      listId: list.id,
-      itemId,
-      state: item.state === 'needed' ? 'already_have' : 'needed',
-      queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}`,
-    });
-    const cached = await groceryCache.read(userId);
-    const optimistic = applyQueuedGroceryStates(cached.length ? cached : [list], mutations);
-    await groceryCache.write(userId, optimistic);
-    setList(chooseList(optimistic));
-    setPendingCount(mutations.length);
-    void load();
+    const state = item.state === 'needed' ? 'already_have' : 'needed';
+    ++editGeneration.current;
+    const mutation: QueuedGroceryItemState = { listId: current.id, itemId, state, queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}` };
+    const key = `${userId}:${current.id}:${itemId}`;
+    pendingChecks.begin(key, item.state, mutation);
+    const settle = (persisted: boolean) => {
+      const settledState = pendingChecks.settle(key, mutation.queuedAt, persisted);
+      const latest = listRef.current;
+      if (settledState === null || latest?.id !== current.id) return;
+      const next = { ...latest, items: latest.items.map((entry) => entry.id === itemId ? { ...entry, state: settledState } : entry) };
+      ++editGeneration.current;
+      listRef.current = next;
+      setList(next);
+    };
+    const optimistic = {
+      ...current,
+      items: current.items.map((candidate) => candidate.id === itemId ? { ...candidate, state } : candidate),
+    } satisfies GroceryProjection;
+    listRef.current = optimistic;
+    setList(optimistic);
+    try {
+      const mutations = await groceryOfflineQueue.enqueue(userId, mutation);
+      settle(true);
+      setPendingCount(mutations.length);
+      void load();
+    } catch {
+      settle(false);
+      Alert.alert('Item not saved', 'Your check could not be saved on this device. Try again.');
+    }
   };
 
   const refreshWithChanges = async () => {
@@ -632,6 +670,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
             />
           ) : list && reviewingCovered ? (
             <Text tone="secondary">No checked items yet.</Text>
+          ) : list && checkedItems.length ? (
+            <Text tone="secondary">Everything is checked off.</Text>
           ) : list && list.status !== 'stale' ? (
             <EmptyState
               variant="screen"
@@ -640,6 +680,31 @@ export function GroceryListScreen({ navigation, route }: Props) {
               instructions="Add an item when something comes to mind."
               style={styles.empty}
             />
+          ) : null}
+          {list && !reviewingCovered && checkedItems.length > 0 ? (
+            <View style={styles.checkedSection}>
+              <Button
+                variant="ghost"
+                accessibilityLabel={`Checked items (${checkedItems.length})`}
+                accessibilityState={{ expanded: checkedExpanded }}
+                onPress={() => setCheckedExpanded((expanded) => !expanded)}
+              >
+                <View style={styles.checkedSectionLabel}>
+                  <Text>{`Checked items (${checkedItems.length})`}</Text>
+                  <Icon name={checkedExpanded ? 'chevronUp' : 'chevronDown'} size={18} color={colors.textSecondary} />
+                </View>
+              </Button>
+              {checkedExpanded ? (
+                <RecipeIngredientChecklist
+                  items={checkedItems}
+                  checked={coveredIds}
+                  disabled={list.status === 'stale'}
+                  onToggle={(itemId) => { void toggle(itemId); }}
+                  onLongPress={(itemId) => navigation.navigate('GroceryItemEdit', { listId: list.id, itemId })}
+                  accessibilityHint={() => 'Double tap to mark as needed. Long press to edit.'}
+                />
+              ) : null}
+            </View>
           ) : null}
           {list && !reviewingCovered && list.status !== 'stale' && actionableEquipmentSuggestions.length ? (
             <View testID="recipe-equipment-suggestions" style={styles.equipmentSection}>
@@ -808,6 +873,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  checkedSection: { marginTop: spacing.lg },
+  checkedSectionLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   list: {
     flex: 1,
   },
