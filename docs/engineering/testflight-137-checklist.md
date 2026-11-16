@@ -68,3 +68,14 @@ Run 43907905237 passed changed checks, 1324-suite coverage and the 61-check
 hosted backend contract, then correctly stopped because verification regenerated
 stale code-map line counts. The generated map is refreshed in this follow-up;
 the clean-checkout gate remains intact. No build was uploaded by that attempt.
+
+Run 43910172256 reached credential validation after all release gates passed.
+CI Expo authentication is now configured with Kwilt build permissions and personal
+account read access required by the EAS identity query. Its third attempt exposed
+missing entitlements in the EAS extension declarations: EAS interpreted them as
+empty and tried to disable App Groups. The declarations now match generated native
+entitlements (App Groups on all four extensions, Family Controls on the three
+Screen Time extensions). A regression test reproduces the omission and passes for
+all widget/Screen Time enablement combinations. Apple API/profile decoding verified
+all five renewed profiles are ACTIVE and retain the required capabilities. Capability
+sync remains enabled; signed archive and TestFlight processing are still pending.
