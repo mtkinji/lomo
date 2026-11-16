@@ -196,3 +196,29 @@ for (const movement of ['KWILT_TEST_MOVE_MAIN', 'KWILT_TEST_MOVE_BOTH']) test(`$
     assert.doesNotMatch(commands, /npx/);
   } finally { fs.rmSync(binDir, { recursive: true, force: true }); }
 });
+
+function extensions(widgets, screenTime) {
+  const result = spawnSync(process.execPath, ['-e',
+    "console.log(JSON.stringify(require('./app.config.ts').extra.eas.build.experimental.ios.appExtensions ?? []))",
+  ], {
+    cwd: new URL('..', import.meta.url),
+    env: { ...process.env, KWILT_ENABLE_WIDGETS: String(widgets), KWILT_ENABLE_SCREEN_TIME: String(screenTime) },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout.trim());
+}
+
+for (const [widgets, screenTime] of [[1, 1], [1, 0], [0, 1], [0, 0]]) {
+  test(`EAS preserves native extension capabilities with widgets=${widgets}, Screen Time=${screenTime}`, () => {
+    const targets = extensions(widgets, screenTime);
+    assert.equal(targets.length, widgets + 3 * screenTime);
+    for (const target of targets) {
+      assert.deepEqual(target.entitlements?.['com.apple.security.application-groups'],
+        ['group.com.andrewwatanabe.kwilt'], `${target.targetName} must retain shared container access`);
+      assert.equal(target.entitlements?.['com.apple.developer.family-controls'],
+        target.targetName === 'KwiltWidgets' ? undefined : true,
+        `${target.targetName} must preserve its native Family Controls requirement`);
+    }
+  });
+}
