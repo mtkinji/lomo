@@ -7,6 +7,14 @@ create temporary table category_settings_fixture as select
 grant select on category_settings_fixture to authenticated;
 insert into auth.users(id) select owner_id from category_settings_fixture union all select adult_id from category_settings_fixture
   union all select child_id from category_settings_fixture union all select other_id from category_settings_fixture;
+-- Full migration replay enforces Money Pro writes; isolated fixture users own
+-- temporary entitlements so the test exercises the real write gate.
+insert into public.kwilt_pro_entitlements(quota_key,is_pro,source)
+  select 'user:'||owner_id,true,'test' from category_settings_fixture union all
+  select 'user:'||adult_id,true,'test' from category_settings_fixture union all
+  select 'user:'||child_id,true,'test' from category_settings_fixture union all
+  select 'user:'||other_id,true,'test' from category_settings_fixture;
+do $$ begin perform set_config('request.jwt.claims', '{"role":"service_role"}', true); end $$;
 insert into public.kwilt_people(id,display_name,kind,created_by_user_id)
   select owner_id,'Settings owner','adult',owner_id from category_settings_fixture union all
   select adult_id,'Settings adult','adult',owner_id from category_settings_fixture union all

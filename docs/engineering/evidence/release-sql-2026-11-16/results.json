@@ -1,0 +1,127 @@
+[
+  {
+    "test": "account_deletion_integrity.sql",
+    "exit": 0,
+    "sha256": "25e3ba60d853772c12af6f6802e0b4e6e6681338e530ecfc3f3340de17badbbe"
+  },
+  {
+    "test": "catalog_ingredient_parsing.sql",
+    "exit": 0,
+    "sha256": "32c1eea0a24fe5aee3af910a2c84d8e9db8eb29cd227bac32df4bbba9261e9aa"
+  },
+  {
+    "test": "category_rollover_policy.sql",
+    "exit": 0,
+    "sha256": "7e0b524b606bc05e1a37bcb93e3240b5e11a2def65395e27218ab55c93cc430f"
+  },
+  {
+    "test": "category_rollover_schema_contract.sql",
+    "exit": 0,
+    "sha256": "a212ed66b7f61c24a345052b45a0708aeb9c9a1f2fc1c8385280ce874ed72dc0"
+  },
+  {
+    "test": "category_settings_command.sql",
+    "exit": 0,
+    "sha256": "072df85bafda217f39b51e2e0c8037dc3599a30c2231fcd62cdade985cfd3c92"
+  },
+  {
+    "test": "collaborative_household_recipe_plan.sql",
+    "exit": 0,
+    "sha256": "ad0b8b8b08056696097c2ab0479ae0836b7fde073118b04b9dab63d9fbadfdaa"
+  },
+  {
+    "test": "contextual_ugc_safety.sql",
+    "exit": 0,
+    "sha256": "a4a82f22fe532f50962cd6265040139082e13f4d10aa82080bf3f3b5351369b6"
+  },
+  {
+    "test": "external_food_actor_execution.sql",
+    "exit": 0,
+    "sha256": "85aa7c9d7db7300265d1b59ea055766abb1e1c98d3140488411d9a4f243a989a"
+  },
+  {
+    "test": "external_mcp_direct_execution.sql",
+    "exit": 0,
+    "sha256": "be2e64c00d10c6d4e741c166e058158351adaf05fd36f8ae3fda21a5a09b9543"
+  },
+  {
+    "test": "global_recipe_catalog_foundation.sql",
+    "exit": 0,
+    "sha256": "70ef4321385ccd91c981f37c7dee916f2370ad8ad447227652946c8394e9bd10"
+  },
+  {
+    "test": "hosted_catalog_groceries.sql",
+    "exit": 0,
+    "sha256": "e6015c565dbb9c17a3cc1ad0f601aacd51e42692171a47a316396623da2b6e28"
+  },
+  {
+    "test": "household_category_settings_preview.sql",
+    "exit": 0,
+    "sha256": "173b46a277028eeb841653607c2b292dcb4c61e7e124c20ebf0236cc066b8ccb"
+  },
+  {
+    "test": "household_member_avatars.sql",
+    "exit": 0,
+    "sha256": "bd848b4d76d4e0dbe7faca691ece30bb36f3fe65d17e7f0a869edeb8a0389493"
+  },
+  {
+    "test": "meals_household_fit.sql",
+    "exit": 0,
+    "sha256": "aee4c0bdd3379aa2337a7fb23e5ce836daef2e480ede54a8e711464b89c51a42"
+  },
+  {
+    "test": "money_transaction_read_authority.sql",
+    "exit": 0,
+    "sha256": "924850a30f77806431ddd3eb9dbc07885922928ebe686fb02b97e0741a2e429b"
+  },
+  {
+    "test": "personal_recipe_hides.sql",
+    "exit": 0,
+    "sha256": "d1d97b58dacca3a8f883c6367b89dc85cc30a9d701cd94e075833a0e0666f350"
+  },
+  {
+    "test": "plaid_lifecycle.sql",
+    "exit": 0,
+    "sha256": "b5f4a6e8db1869d13d1aa092fcc8d176fa7472be6ff314e292f41c9efafb7a86"
+  },
+  {
+    "test": "private_recipes.sql",
+    "exit": 0,
+    "sha256": "52047e4e25587d139c01a3a24caee2b9d97ef179ce2a6a511f27f850c09eff28"
+  },
+  {
+    "test": "recipe_commerce_catalog.sql",
+    "exit": 0,
+    "sha256": "ce676be9f7150c45a496acd5a561e1ec64efc3f15426f71743b03b0217cde704"
+  },
+  {
+    "test": "recipe_editorial_enrichment_pipeline.sql",
+    "exit": 0,
+    "sha256": "df9afa114947f882b19c75e06cf591c8a9b470666f9682a67d4a45b19ea56834"
+  },
+  {
+    "test": "recipe_image_pipeline.sql",
+    "exit": 0,
+    "sha256": "1c29492cce4ff7215ea373207b592504daef8f831e9a4e2618b35542ac90563e"
+  },
+  {
+    "test": "shared_home_deliveries.sql",
+    "exit": 0,
+    "sha256": "0e28d58289085e88430dd3a3cf947f0cbdae1eedc61693b7194d318f060b2c76"
+  },
+  {
+    "test": "targeted_contact_trigger.sql",
+    "exit": 0,
+    "sha256": "c21abd4a001013bc36a296ae88e2b999814f5ad6360fd42838de4b4d1e53608a"
+  },
+  {
+    "test": "unified_chat_trust_contract.sql",
+    "exit": 0,
+    "sha256": "f9d0fb310f80db0c0734051304045dbfe1f777f2792ad2bffbcdff3f8a556eb7"
+  },
+  {
+    "test": "weekly_food_external_completion.sql",
+    "exit": 0,
+    "sha256": "8ede5c1919c9866116940bccf3e03fb679754d636ac04a11028270bbe9f7112b"
+  }
+]

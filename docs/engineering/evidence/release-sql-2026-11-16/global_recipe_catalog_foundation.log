@@ -1,0 +1,41 @@
+BEGIN
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 3
+UPDATE 2
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+                                         set_config                                         
+--------------------------------------------------------------------------------------------
+ {"sub":"81000000-0000-0000-0000-000000000001","role":"authenticated","is_anonymous":false}
+(1 row)
+
+DO
+                                         set_config                                         
+--------------------------------------------------------------------------------------------
+ {"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":false}
+(1 row)
+
+DO
+                                        set_config                                         
+-------------------------------------------------------------------------------------------
+ {"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":true}
+(1 row)
+
+DO
+RESET
+UPDATE 1
+SET
+                                         set_config                                         
+--------------------------------------------------------------------------------------------
+ {"sub":"81000000-0000-0000-0000-000000000002","role":"authenticated","is_anonymous":false}
+(1 row)
+
+DO
+RESET
+ROLLBACK

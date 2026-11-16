@@ -129,3 +129,39 @@ No permissions were broadened to make these tests pass. Do not treat migration
 replay or the JavaScript gate as resolution of these SQL failures. Investigate
 the crash and contact trigger, refresh the fixtures, and rerun the affected
 SQL tests before merging this branch.
+
+
+## Release follow-up — November 16, 2026
+
+The branch now includes current main (`c03a97ec`) through merge `46dfaefa`.
+Main already contains the November contact-trigger repair and UGC/Plaid/Chat
+fixture corrections; the trigger repair was deployed November 2 as documented
+in `docs/engineering/sql-followup-investigation-2026-11-01.md`.
+
+All 270 application migrations replayed in a disposable Supabase PostgreSQL
+17.6.1.106 ARM Linux container, with network disabled, no published ports and
+cron jobs disabled. Auth/storage/realtime definitions came from a schema-only
+local Supabase dump; unrelated application storage policies were excluded.
+Application function/table ownership was set to postgres, matching migration
+ownership. No hosted data was copied or mutated.
+
+All 25 applicable SQL regression files pass on that replay. The household
+preview test uses its canonical category fixture. The transaction-rule SQL file
+requires the dedicated runner's simplified transaction schema, and passes via
+that runner with the actual rule migrations, household checks, Pro gate,
+release-contract negative controls, concurrency and rollback tests on PG17.11.
+The runner itself required a compatibility correction: review DDL moved into
+its foundation migration, so its old source had become a no-op. The category
+fixture also now grants temporary Pro entitlements and sets a service-role claim
+only during administrative fixture setup; authenticated assertions replace it.
+
+The unchanged catalog regression passes on PG17.6 ARM, including after assigning
+its SECURITY DEFINER functions and tables to postgres. The historical signal-11
+crash was not reproduced; this is fresh passing evidence for the current
+candidate, not an identified PostgreSQL crash fix. JIT is configured on but its
+provider is unavailable in the installed image, so JIT-enabled behavior remains
+outside this result. Do not claim hosted execution or device acceptance.
+
+[Results, fixture hashes, migration manifest and targeted logs](../engineering/evidence/release-sql-2026-11-16/)
+record this run. JavaScript integration verification and CI must still pass on
+the final candidate before merge. No new hosted migration is implied by merge.

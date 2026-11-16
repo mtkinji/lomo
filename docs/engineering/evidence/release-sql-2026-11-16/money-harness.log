@@ -1,0 +1,8 @@
+Atomic settings, rollback, replay, governance, and actor boundaries passed
+Household snapshot/preview reads, unchanged write authority, and revoked/child/anonymous denial passed
+PASS: upgrading existing rules neither rewrites transaction history nor switches legacy matching.
+PASS: literal partial matching, transfer history/imports, household authorization, Pro gate, split/meaning protection and deletion.
+PASS: release contract rejects missing schema/RPC/grant/policy, disabled or misbound triggers, changed code and broader access.
+PASS: concurrent identical request waits, returns the exact committed receipt, and creates one receipt.
+PASS: reversal acquires the owner lock before reading/locking active-plan state.
+PASS: isolated category settings contract on postgres (PostgreSQL) 17.11 (Homebrew)
