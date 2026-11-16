@@ -72,4 +72,7 @@ jobs:
           # Project-scoped read-only Database and Custom Domain permissions.
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_RELEASE_READ_TOKEN }}
         run: |
-          npm run -s ios:testflight
+          # Apple capabilities are provisioned separately. EAS 22 maps Family Controls
+          # to its development capability even when Distribution is already approved.
+          # Preserve the verified portal settings; signing/profile validation still runs.
+          EXPO_NO_CAPABILITY_SYNC=1 npm run -s ios:testflight

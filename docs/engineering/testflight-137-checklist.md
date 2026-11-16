@@ -79,3 +79,14 @@ Screen Time extensions). A regression test reproduces the omission and passes fo
 all widget/Screen Time enablement combinations. Apple API/profile decoding verified
 all five renewed profiles are ACTIVE and retain the required capabilities. Capability
 sync remains enabled; signed archive and TestFlight processing are still pending.
+
+Run 43916381513 passed all gates and synced widgets and both shield extensions
+without updates. The activity monitor identifier `YUMWM8RW57` has approved
+`FAMILY_CONTROLS_DISTRIBUTION` and App Groups; its decoded App Store profile includes
+the required Family Controls entitlement. EAS 22 nevertheless maps that entitlement
+to `FAMILY_CONTROLS` (Development) and Apple's API rejects that redundant addition.
+The release workflow now uses Expo's documented `EXPO_NO_CAPABILITY_SYNC=1` option
+to preserve manually provisioned capabilities. This does not skip signing/profile
+validation or the protected release wrapper. Any future entitlement change requires
+updating the Apple identifiers and regenerating/verifying matching profiles before
+release. Do not remove Distribution approval or replace it with Development.
