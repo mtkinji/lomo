@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Alert, FlatList, InteractionManager, ScrollView, StyleSheet, View } from "react-native";
 import * as Crypto from "expo-crypto";
 
@@ -188,6 +188,7 @@ type FilterKey = keyof RecipeInventoryFilters;
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeLibrary">;
 
 export function RecipeLibraryScreen({ navigation, route }: Props) {
+  const isFocused = useIsFocused();
   const [recommendationPlanningContext] = useState(() =>
     buildRecipeRecommendationPlanningContext(),
   );
@@ -467,6 +468,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       return {
         id: candidate.id,
         candidateId: candidate.id,
+        recipeId: typeof candidate.recipeSnapshot?.recipeId === "string"
+          ? candidate.recipeSnapshot.recipeId : null,
         title: candidate.title,
         storageRef,
         lifecycle: candidate.lifecycle,
@@ -982,6 +985,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       {planBrowsing ? (
         <MealPlanDrawer
           visible
+          suspended={!isFocused}
+          onOpenRecipe={(recipeId) => navigation.navigate("RecipeHome", { recipeId, source: "meal_plan" })}
           items={mealPlanTrayItems}
           canManage={Boolean(sharedCart?.viewer.canManage)}
           onClose={() => setPlanBrowsing(false)}

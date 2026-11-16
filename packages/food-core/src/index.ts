@@ -146,16 +146,30 @@ const conversion:Record<string,{dimension:'volume'|'mass';factor:number}>={milli
 function compatible(a:string|null,b:string|null):boolean{return a===b||Boolean(a&&b&&conversion[a]&&conversion[b]&&conversion[a].dimension===conversion[b].dimension);}
 function convert(value:number|null,from:string|null,to:string|null):number|null{if(value===null||from===to)return value;if(!from||!to||!compatible(from,to))return null;return Math.round(value*(conversion[from].factor/conversion[to].factor)*1e9)/1e9;}
 
-export function assignAisle(concept:string):Aisle{
-  if(/onion|carrot|tomato|cilantro|lettuce|apple|banana|garlic|potato|pepper/.test(concept))return'produce';
-  if(/bread|tortilla|bun/.test(concept))return'bakery';
-  if(/milk|cheese|butter|yogurt|egg/.test(concept))return'dairy_eggs';
-  if(/chicken|beef|pork|fish|shrimp/.test(concept))return'meat_seafood';
-  if(/frozen|ice cream/.test(concept))return'frozen';
-  if(/juice|soda|water|coffee|tea/.test(concept))return'beverages';
-  if(/foil|soap|paper towel|trash bag/.test(concept))return'household';
-  if(/flour|sugar|salt|oil|rice|pasta|bean|spice/.test(concept))return'pantry';
-  return'other';
+// Shopping location, not dietary content: dairy alternatives share the refrigerated aisle.
+// Match specific product forms before their base ingredient (e.g. garlic powder / garlic).
+// Whole-word boundaries prevent matches such as tea in steak or egg in eggplant.
+const aisleRules: ReadonlyArray<{ aisle: Aisle; matches: RegExp }> = [
+  { aisle: 'frozen', matches: /\b(?:frozen|ice cream)\b/ },
+  { aisle: 'household', matches: /\b(?:foil|soap|paper towels?|trash bags?|parchment|plastic wrap)\b/ },
+  { aisle: 'pantry', matches: /\b(?:canned|tinned|jarred|shelf stable)\b/ },
+  { aisle: 'pantry', matches: /\b(?:broth|stock|marinara|vinegar|soy sauce|tamari|ketchup|mustard|mayonnaise|tomato (?:paste|sauce|puree)|coconut milk)\b/ },
+  { aisle: 'pantry', matches: /\b(?:(?:garlic|onion|chili|chilli|curry|mustard) powder|(?:black|white|ground|cayenne) pepper|peppercorns?|paprika|cumin|cinnamon|nutmeg|turmeric|spices?|seasoning|dried (?:[a-z]+ )?(?:herbs?|basil|oregano|thyme|rosemary|parsley|dill)|ground (?:ginger|coriander|cloves?))\b/ },
+  { aisle: 'bakery', matches: /\b(?:flour|corn) tortillas?\b/ },
+  { aisle: 'dairy_eggs', matches: /\b(?:oat|rice|almond|soy) milk\b/ },
+  { aisle: 'produce', matches: /\b(?:sugar snap peas?|butter lettuce)\b/ },
+  { aisle: 'pantry', matches: /\b(?:flour|sugar|salt|oil|rice|pasta|spaghetti|macaroni|penne|fusilli|noodles?|lasagna|lasagne|chickpeas?|garbanzo beans?|lentils?|oats?|quinoa|couscous|breadcrumbs?|bread crumbs|baking (?:powder|soda)|yeast|honey|syrup|(?:peanut|almond|sunflower) butter)\b/ },
+  { aisle: 'beverages', matches: /\b(?:juice|soda|water|coffee|tea)\b/ },
+  { aisle: 'bakery', matches: /\b(?:bread|tortillas?|buns?|bagels?|pita)\b/ },
+  { aisle: 'dairy_eggs', matches: /\b(?:milk|cheese|cheddar|mozzarella|parmesan|feta|ricotta|butter|yogurt|yoghurt|eggs?|cream)\b/ },
+  { aisle: 'meat_seafood', matches: /\b(?:chicken|beef|pork|fish|shrimp|prawns?|turkey|ham|steak|salmon|tuna|cod|tilapia|sausage|bacon|lamb)\b/ },
+  { aisle: 'produce', matches: /\b(?:onions?|carrots?|tomato(?:es)?|cilantro|lettuce|apples?|bananas?|garlic|potato(?:es)?|peppers?|lemons?|limes?|cabbage|cucumbers?|broccoli|cauliflower|ginger|green beans?|snap peas?|snow peas?|peas?|spinach|kale|celery|zucchini|courgettes?|squash|eggplants?|aubergines?|mushrooms?|avocados?|oranges?|clementines?|grapes?|berries|strawberries|blueberries|scallions?|spring onions?|basil|parsley|dill|mint|thyme|rosemary)\b/ },
+  { aisle: 'pantry', matches: /\b(?:beans?|legumes?)\b/ },
+];
+
+export function assignAisle(concept: string): Aisle {
+  const normalized = concept.toLowerCase().replace(/[‐‑‒–—-]/g, ' ').replace(/\s+/g, ' ').trim();
+  return aisleRules.find((rule) => rule.matches.test(normalized))?.aisle ?? 'other';
 }
 
 export function buildGroceryCompilation(lines:GroceryCompilerLine[]):{items:CompiledGroceryItem[]}{

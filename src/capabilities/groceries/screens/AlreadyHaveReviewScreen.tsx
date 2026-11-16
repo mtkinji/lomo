@@ -1,5 +1,5 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Alert, PixelRatio, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
@@ -15,7 +15,8 @@ import { Heading, Text } from '../../../ui/Typography';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
 import { useAppStore } from '../../../store/useAppStore';
 import { groceryCache } from '../data/groceryCache';
-import { applyQueuedGroceryStates, groceryOfflineQueue, reconcileGroceryOfflineQueue, shouldStackGroceryItemLayout } from '../data/groceryOfflineQueue';
+import { createGroceryCheckTracker } from '../data/groceryOptimisticChecks';
+import { applyQueuedGroceryStates, groceryOfflineQueue, syncGroceryOfflineQueue, shouldStackGroceryItemLayout } from '../data/groceryOfflineQueue';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'AlreadyHaveReview'>;
 
@@ -33,25 +34,36 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
   const [pendingCount, setPendingCount] = useState(0);
   const { width, fontScale } = useWindowDimensions();
   const stackRows = shouldStackGroceryItemLayout({ width, fontScale: Math.max(fontScale, PixelRatio.getFontScale()) });
-  const load = async () => {
-    if (!userId) return;
-    const [cached, pending] = await Promise.all([groceryCache.read(userId), groceryOfflineQueue.read(userId)]);
-    const cachedWithPending = applyQueuedGroceryStates(cached, pending);
-    const cachedList = cachedWithPending.find((item) => item.id === route.params.listId) ?? null;
-    if (cachedList) setList(cachedList);
-    setPendingCount(pending.length);
-    try {
-      const repository = createGroceryRepository();
-      const remote = await repository.list();
-      const reconciled = await reconcileGroceryOfflineQueue({ userId, lists: remote, queue: groceryOfflineQueue, setItemState: repository.setItemState });
-      const next = reconciled.lists.find((item) => item.id === route.params.listId) ?? null;
-      setList(next);
-      setPendingCount(reconciled.pendingCount);
-      setOffline(reconciled.interrupted);
-      await groceryCache.write(userId, reconciled.lists);
-    } catch {
-      setOffline(Boolean(cachedList));
-    }
+  const listRef = useRef(list);
+  listRef.current = list;
+  const editGeneration = useRef(0);
+  const pendingChecks = useMemo(createGroceryCheckTracker, []);
+  const loadTail = useRef<Promise<void>>(Promise.resolve());
+  const load = () => {
+    const run = async () => {
+      const generation = editGeneration.current;
+      if (!userId) return;
+      let cachedList: GroceryProjection | null = null;
+      try {
+        const [cached, pending] = await Promise.all([groceryCache.read(userId), groceryOfflineQueue.read(userId)]);
+        cachedList = applyQueuedGroceryStates(cached, pending).find((item) => item.id === route.params.listId) ?? null;
+        if (cachedList && !listRef.current) setList(cachedList);
+        setPendingCount(pending.length);
+        const repository = createGroceryRepository();
+        const reconciled = await syncGroceryOfflineQueue({ userId, loadLists: repository.list, queue: groceryOfflineQueue, setItemState: repository.setItemState });
+        if (generation === editGeneration.current) {
+          setList(reconciled.lists.find((item) => item.id === route.params.listId) ?? null);
+        }
+        setPendingCount(reconciled.pendingCount);
+        setOffline(reconciled.interrupted);
+        await groceryCache.write(userId, reconciled.lists);
+      } catch {
+        setOffline(Boolean(listRef.current ?? cachedList));
+      }
+    };
+    const result = loadTail.current.then(run, run);
+    loadTail.current = result.catch(() => undefined);
+    return result;
   };
   const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: load });
 
@@ -60,14 +72,34 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
   }, [route.params.listId]);
 
   const toggle = async (id: string, state: 'needed' | 'already_have') => {
-    if (!list || !userId) return;
-    const mutations = await groceryOfflineQueue.enqueue(userId, { listId: list.id, itemId: id, state, queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}` });
-    const cached = await groceryCache.read(userId);
-    const optimistic = applyQueuedGroceryStates(cached.length ? cached : [list], mutations);
-    await groceryCache.write(userId, optimistic);
-    setList(optimistic.find((item) => item.id === list.id) ?? list);
-    setPendingCount(mutations.length);
-    void load();
+    const current = listRef.current;
+    const item = current?.items.find((entry) => entry.id === id);
+    if (!current || !item || !userId || current.status === 'stale') return;
+    ++editGeneration.current;
+    const mutation = { listId: current.id, itemId: id, state, queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}` };
+    const key = `${userId}:${current.id}:${id}`;
+    pendingChecks.begin(key, item.state, mutation);
+    const optimistic = { ...current, items: current.items.map((entry) => entry.id === id ? { ...entry, state } : entry) };
+    listRef.current = optimistic;
+    setList(optimistic);
+    const settle = (persisted: boolean) => {
+      const settledState = pendingChecks.settle(key, mutation.queuedAt, persisted);
+      const latest = listRef.current;
+      if (settledState === null || latest?.id !== current.id) return;
+      const next = { ...latest, items: latest.items.map((entry) => entry.id === id ? { ...entry, state: settledState } : entry) };
+      ++editGeneration.current;
+      listRef.current = next;
+      setList(next);
+    };
+    try {
+      const mutations = await groceryOfflineQueue.enqueue(userId, mutation);
+      settle(true);
+      setPendingCount(mutations.length);
+      void load();
+    } catch {
+      settle(false);
+      Alert.alert('Item not saved', 'Your check could not be saved on this device. Try again.');
+    }
   };
 
   const finish = async () => {

@@ -111,6 +111,8 @@ export function shouldBottomDrawerResizeContents(
 
 type BottomDrawerProps = {
   visible: boolean;
+  /** Temporarily hide an inline workspace while preserving its content and scroll position. */
+  suspended?: boolean;
   onClose: () => void;
   children: ReactNode;
   /**
@@ -381,6 +383,7 @@ function getClosestIndex(args: { snapY: number; snapYs: number[] }) {
 
 export function BottomDrawer({
   visible,
+  suspended = false,
   onClose,
   children,
   keyboardBehavior = 'lift',
@@ -415,6 +418,7 @@ export function BottomDrawer({
   const { height: windowHeight } = useWindowDimensions();
   const { reduceMotionEnabled } = useAccessibilityPreferences();
   const portalNameRef = useRef(`bottom-drawer-${Math.random().toString(36).slice(2)}-${Date.now()}`);
+  const inlineSuspended = presentation === 'inline' && suspended;
   const accessibilityModal = isBottomDrawerAccessibilityModal(presentation, hideBackdrop);
   const shouldLiftAboveKeyboard = shouldBottomDrawerLiftAboveKeyboard({
     keyboardBehavior,
@@ -556,12 +560,12 @@ export function BottomDrawer({
   // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
   // animation completion callback), ensure it cannot block taps on the underlying canvas.
   const overlayPointerEvents = useMemo<'auto' | 'none' | 'box-none'>(() => {
-    if (dynamicMeasurementPending) return 'none';
+    if (dynamicMeasurementPending || inlineSuspended) return 'none';
     // Inline drawers can optionally be "non-blocking" to allow interaction with the canvas.
     if (presentation === 'inline' && hideBackdrop) return 'box-none';
     // For modal presentation, treat `visible=false` as fully transparent to touch input.
     return visible ? 'auto' : 'none';
-  }, [dynamicMeasurementPending, hideBackdrop, presentation, visible]);
+  }, [dynamicMeasurementPending, hideBackdrop, inlineSuspended, presentation, visible]);
 
   const setScrollableGesture = useCallback((
     gesture: ReturnType<typeof Gesture.Native> | null,
@@ -1098,7 +1102,10 @@ export function BottomDrawer({
           // KeyboardAvoidingView at the overlay level is the most reliable way to
           // lift the entire sheet above the keyboard without fighting the sheet's
           // own height/transform animations.
-          style={styles.overlay}
+          testID="bottom-drawer.host"
+          style={[styles.overlay, inlineSuspended && { opacity: 0 }]}
+          accessibilityElementsHidden={inlineSuspended}
+          importantForAccessibility={inlineSuspended ? 'no-hide-descendants' : 'auto'}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
           pointerEvents={overlayPointerEvents}
@@ -1129,7 +1136,10 @@ export function BottomDrawer({
         </KeyboardAvoidingView>
       ) : (
         <View
-          style={styles.overlay}
+          testID="bottom-drawer.host"
+          style={[styles.overlay, inlineSuspended && { opacity: 0 }]}
+          accessibilityElementsHidden={inlineSuspended}
+          importantForAccessibility={inlineSuspended ? 'no-hide-descendants' : 'auto'}
           pointerEvents={overlayPointerEvents}
         >
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">

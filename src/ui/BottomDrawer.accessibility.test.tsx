@@ -4,6 +4,7 @@ import { act, fireEvent } from '@testing-library/react-native';
 import { KeyboardAvoidingView, StyleSheet, Text } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { PortalHost } from './Portal';
 import { bottomDockGeometry } from '../theme';
 import * as keyboardHeight from './hooks/useKeyboardHeight';
 import { shouldStackBottomDrawerFooterActions } from './layout/BottomDrawerSemanticFooter';
@@ -21,6 +22,30 @@ import {
 } from './BottomDrawer';
 
 describe('BottomDrawer accessibility contract', () => {
+  it('hides an inline drawer during recipe inspection without losing its mounted content', () => {
+    const mounted = jest.fn();
+    const unmounted = jest.fn();
+    function PlanContent() {
+      React.useEffect(() => { mounted(); return unmounted; }, []);
+      return <Text>Meal plan</Text>;
+    }
+    const surface = (suspended: boolean) => <>
+      <BottomDrawer visible suspended={suspended} presentation="inline" onClose={jest.fn()}>
+        <PlanContent />
+      </BottomDrawer>
+      <PortalHost />
+    </>;
+    const screen = renderWithProviders(surface(false));
+    expect(screen.getByText('Meal plan')).toBeTruthy();
+    screen.rerender(surface(true));
+    expect(screen.queryByText('Meal plan')).toBeNull();
+    expect(screen.getByTestId('bottom-drawer.host', { includeHiddenElements: true }).props.pointerEvents).toBe('none');
+    expect(unmounted).not.toHaveBeenCalled();
+    screen.rerender(surface(false));
+    expect(screen.getByText('Meal plan')).toBeTruthy();
+    expect(mounted).toHaveBeenCalledTimes(1);
+  });
+
   it('stacks responsive footer actions when enlarged text would make them compete horizontally', () => {
     expect(shouldStackBottomDrawerFooterActions('responsive', 1)).toBe(false);
     expect(shouldStackBottomDrawerFooterActions('responsive', 1.4)).toBe(true);

@@ -23,9 +23,10 @@ function isQueuedState(value: unknown): value is QueuedGroceryItemState {
 
 export function createGroceryOfflineQueue(storage: Storage) {
   const read = async (userId: string): Promise<QueuedGroceryItemState[]> => {
+    // A transient storage failure is not an empty queue: keep it intact and retry.
+    const raw = await storage.getItem(groceryOfflineQueueKey(userId));
+    if (!raw) return [];
     try {
-      const raw = await storage.getItem(groceryOfflineQueueKey(userId));
-      if (!raw) return [];
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed?.mutations)) throw new Error('invalid grocery queue');
       return parsed.mutations.filter(isQueuedState);
@@ -43,25 +44,40 @@ export function createGroceryOfflineQueue(storage: Storage) {
     await storage.setItem(groceryOfflineQueueKey(userId), JSON.stringify({ mutations }));
   };
 
+  // Storage read-modify-write operations must not lose another tap or acknowledgement.
+  const pendingWrites = new Map<string, Promise<unknown>>();
+  const serialize = <T>(userId: string, operation: () => Promise<T>): Promise<T> => {
+    const result = (pendingWrites.get(userId) ?? Promise.resolve()).then(operation, operation);
+    pendingWrites.set(userId, result);
+    void result.finally(() => {
+      if (pendingWrites.get(userId) === result) pendingWrites.delete(userId);
+    }).catch(() => undefined);
+    return result;
+  };
+
   return {
-    read,
-    async enqueue(userId: string, mutation: QueuedGroceryItemState) {
-      const current = await read(userId);
-      const next = current.filter((item) => item.listId !== mutation.listId || item.itemId !== mutation.itemId);
-      next.push(mutation);
-      await write(userId, next);
-      return next;
+    read: (userId: string) => serialize(userId, () => read(userId)),
+    enqueue(userId: string, mutation: QueuedGroceryItemState) {
+      return serialize(userId, async () => {
+        const current = await read(userId);
+        const next = current.filter((item) => item.listId !== mutation.listId || item.itemId !== mutation.itemId);
+        next.push(mutation);
+        await write(userId, next);
+        return next;
+      });
     },
-    async acknowledge(userId: string, mutation: QueuedGroceryItemState) {
-      const current = await read(userId);
-      const next = current.filter((item) => item.listId !== mutation.listId
-        || item.itemId !== mutation.itemId
-        || item.queuedAt !== mutation.queuedAt);
-      await write(userId, next);
-      return next;
+    acknowledge(userId: string, mutation: QueuedGroceryItemState) {
+      return serialize(userId, async () => {
+        const current = await read(userId);
+        const next = current.filter((item) => item.listId !== mutation.listId
+          || item.itemId !== mutation.itemId
+          || item.queuedAt !== mutation.queuedAt);
+        await write(userId, next);
+        return next;
+      });
     },
     clear(userId: string) {
-      return storage.removeItem(groceryOfflineQueueKey(userId));
+      return serialize(userId, () => storage.removeItem(groceryOfflineQueueKey(userId)));
     },
   };
 }
@@ -135,6 +151,33 @@ export async function reconcileGroceryOfflineQueue({
     pendingCount: remaining.length,
     interrupted,
   };
+}
+
+const syncTails = new WeakMap<GroceryOfflineQueue, Map<string, Promise<unknown>>>();
+
+/** Fetch and reconcile as one operation so screens cannot acknowledge an undo
+ * against a snapshot taken before another screen's in-flight save. */
+export async function syncGroceryOfflineQueue(options: {
+  userId: string;
+  queue: GroceryOfflineQueue;
+  loadLists(): Promise<GroceryProjection[]>;
+  setItemState: Parameters<typeof reconcileGroceryOfflineQueue>[0]['setItemState'];
+}) {
+  let tails = syncTails.get(options.queue);
+  if (!tails) {
+    tails = new Map();
+    syncTails.set(options.queue, tails);
+  }
+  const run = async () => {
+    const lists = await options.loadLists();
+    return reconcileGroceryOfflineQueue({ ...options, lists });
+  };
+  const result = (tails.get(options.userId) ?? Promise.resolve()).then(run, run);
+  tails.set(options.userId, result);
+  void result.finally(() => {
+    if (tails.get(options.userId) === result) tails.delete(options.userId);
+  }).catch(() => undefined);
+  return result;
 }
 
 export function shouldStackGroceryItemLayout({ width, fontScale }: { width: number; fontScale: number }): boolean {
