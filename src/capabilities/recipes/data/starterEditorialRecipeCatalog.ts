@@ -92,6 +92,11 @@ import { STARTER_RECIPE_BATCH_091 } from "./starterRecipeBatch091";
 import { STARTER_RECIPE_BATCH_092 } from "./starterRecipeBatch092";
 import { STARTER_RECIPE_BATCH_093 } from "./starterRecipeBatch093";
 import { STARTER_RECIPE_MEAL_KIT_EXPANSION } from "./starterRecipeMealKitExpansion";
+import { SIMPLE_DINNER_POULTRY } from "./simpleDinnerPoultry";
+import { SIMPLE_DINNER_MEAT } from "./simpleDinnerMeat";
+import { SIMPLE_DINNER_SEAFOOD } from "./simpleDinnerSeafood";
+import { SIMPLE_DINNER_VEGETARIAN } from "./simpleDinnerVegetarian";
+import { SIMPLE_DINNER_MIXED } from "./simpleDinnerMixed";
 
 /** Canonical bundled corpus. Hosted publication remains a separate reviewed release gate. */
 export const STARTER_EDITORIAL_RECIPE_CATALOG = [
@@ -170,6 +175,11 @@ export const STARTER_EDITORIAL_RECIPE_CATALOG = [
   ...STARTER_RECIPE_BATCH_073,
   ...STARTER_RECIPE_BATCH_074,
   ...STARTER_RECIPE_MEAL_KIT_EXPANSION,
+  ...SIMPLE_DINNER_POULTRY,
+  ...SIMPLE_DINNER_MEAT,
+  ...SIMPLE_DINNER_SEAFOOD,
+  ...SIMPLE_DINNER_VEGETARIAN,
+  ...SIMPLE_DINNER_MIXED,
   ...STARTER_RECIPE_BATCH_075,
   ...STARTER_RECIPE_BATCH_076,
   ...STARTER_RECIPE_BATCH_077,

@@ -1,0 +1,55 @@
+{
+  "completedAt": "2026-10-16T14:31:04.434440+00:00",
+  "sourceCheckout": "/Users/andrewwatanabe/Kwilt",
+  "branch": "codex/simple-dinner-expansion",
+  "baseCommit": "8336ada62484618204115fe244e6645a553ea36b",
+  "workingTree": "task changes, before commit",
+  "localVerification": {
+    "command": "npm run verify:local -- --run",
+    "exitCode": 0,
+    "omittedChangedFiles": 0,
+    "logSha256": "25e0da9821bbfb53caedafb25b51a503591df045f2f8d290615848888ba030fe"
+  },
+  "integrationVerification": {
+    "command": "npm run verify:changed -- --run",
+    "exitCode": 0,
+    "jestSuitesPassed": 1303,
+    "jestTestsPassed": 8126,
+    "jestTestsSkipped": 2,
+    "logSha256": "906bc249c595c169223c67dabce66355e1bccf02e710abe5fbd12bd84fecec7d"
+  },
+  "additionalVerification": {
+    "imageAdminDenoTestsPassed": 9,
+    "catalogImportIntegrityTestsPassed": 3,
+    "liveMissingStructuredIngredientsRejection": true,
+    "canonicalHostedIngredientAndInstructionHashesMatched": 200,
+    "cdnImageHashesMatched": 200,
+    "equipmentRequirementsReadBack": 449,
+    "independentFinalReview": "No blockers; all source, compiled, seed, image and readback artifacts reconciled."
+  },
+  "simulator": {
+    "device": "iPhone 17 Pro",
+    "os": "iOS 26.5",
+    "installedNativeVersion": "1.0.127 (127)",
+    "metro": "http://localhost:8081",
+    "observations": [
+      "Signed-in library shows802meals including2private recipes.",
+      "Dinner filter shows530of802.",
+      "DI331 renders dedicated hero and ingredient list after repair.",
+      "DI331 scaling yields4/8/12servings and2.5/5/7.5cups ricewater; restored1x.",
+      "DI530 renders dedicated hero,30minute total,4servings and ingredient list."
+    ],
+    "newNativeBuild": false,
+    "physicalDeviceTest": false,
+    "testFlightRelease": false
+  },
+  "publication": {
+    "catalogRecipes": 800,
+    "catalogDinners": 530,
+    "newDinners": 200,
+    "dedicatedImages": 200,
+    "generation": "built-in image_gen only",
+    "kitchenTestState": "desk-reviewed",
+    "marketingSiteDeployment": false
+  }
+}

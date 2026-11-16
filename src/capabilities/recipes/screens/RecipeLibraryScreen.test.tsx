@@ -617,7 +617,7 @@ describe('Recipe library', () => {
     });
     const iconIds = icons.map((icon) => icon.props.testID);
 
-    expect(icons).toHaveLength(35);
+    expect(icons).toHaveLength(37);
     expect(new Set(iconIds).size).toBe(iconIds.length);
   });
 

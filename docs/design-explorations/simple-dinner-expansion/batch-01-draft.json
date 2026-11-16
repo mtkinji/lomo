@@ -1,0 +1,478 @@
+{
+  "batchId": "simple-dinners-01",
+  "state": "draft",
+  "recipes": [
+    {
+      "rosterId": "DI331",
+      "title": "Ginger chicken and cabbage with rice",
+      "category": "Dinner",
+      "cuisine": "Chinese-inspired",
+      "tier": "household-anchor",
+      "description": "Golden chicken, sweet cabbage, and crisp carrots in a light ginger-soy glaze, served beside fluffy rice for a gentle, savory weeknight dinner.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 8,
+      "cookMinutes": 27,
+      "inactiveMinutes": 0,
+      "artworkIndex": 0,
+      "ingredients": [
+        "1 1/4 cups long-grain white rice",
+        "2 3/4 cups water, divided",
+        "1 pound boneless skinless chicken thighs, cut into thin strips",
+        "14 ounces bagged shredded green cabbage and carrots, without dressing",
+        "2 tablespoons low-sodium soy sauce",
+        "1 tablespoon rice vinegar",
+        "2 teaspoons honey",
+        "2 teaspoons cornstarch",
+        "1 tablespoon finely grated fresh ginger",
+        "2 garlic cloves, finely grated",
+        "2 tablespoons neutral oil, divided",
+        "2 scallions, thinly sliced"
+      ],
+      "instructions": [
+        "Combine the rice with 2 1/2 cups of the water in a small saucepan. Bring to a boil, cover, and reduce to low. Cook for 18 minutes, then remove from the heat and leave covered for 5 minutes. If your rice package specifies a different water ratio or cook time, follow it and allow that extra time.",
+        "While the rice cooks, pat the chicken strips dry. Whisk the remaining 1/4 cup water with the soy sauce, vinegar, honey, cornstarch, ginger, and garlic until smooth. Keep the cabbage mixture and scallions ready beside the stove.",
+        "Heat 1 tablespoon oil in a 12-inch skillet over medium-high heat. Spread the chicken in one layer and cook for 6–8 minutes, turning occasionally, until browned and the thickest pieces reach 165°F. Transfer to a clean plate. If the chicken overlaps, cook in two batches and allow extra time.",
+        "Add the remaining tablespoon oil and the cabbage mixture to the skillet. Cook for 3–4 minutes, stirring, until the cabbage softens but the carrots retain a little bite. Stir the sauce again to lift any settled cornstarch, then pour it into the pan.",
+        "Return the chicken and any collected juices. Toss over medium heat for 1–2 minutes until the sauce bubbles and lightly coats everything. Fold in the scallions. Fluff the rice and divide it among four plates with the chicken and vegetables. When scaling up, use another skillet or cook in batches; do not multiply the cooking time or crowd the pan."
+      ],
+      "notes": "This original Kwilt dinner borrows the quick, staged cooking of Chinese home stir-fries without claiming to be a traditional named dish. Bagged cabbage and carrots keep preparation manageable; a small amount of ginger-soy sauce coats rather than floods the vegetables. Rice cooks alongside the skillet, so the meal does not depend on leftovers or an uncounted side. Allow about 20 minutes of hands-on work within the 35-minute total.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "Budget Bytes",
+            "title": "Chicken Stir Fry",
+            "url": "https://www.budgetbytes.com/chicken-stir-fry/",
+            "rating": 4.84,
+            "ratingCount": 37,
+            "signal": "Staged cooking and a wide pan protect vegetable texture. Reader comments praise the sauce and vegetable flexibility; one notes that rice needs adequate sauce."
+          },
+          {
+            "publisher": "RecipeTin Eats",
+            "title": "Chop Suey (Chicken Stir Fry)",
+            "url": "https://www.recipetineats.com/chicken-stir-fry-chop-suey/",
+            "rating": 4.94,
+            "ratingCount": 138,
+            "signal": "The method distinguishes firm vegetables from leaves and thickens sauce at the end. Notes say thigh meat does not need the optional tenderizing step."
+          },
+          {
+            "publisher": "Oh Snap! Let's Eat!",
+            "title": "Chinese Chicken Cabbage Stir Fry",
+            "url": "https://ohsnapletseat.com/2024/05/29/chicken-cabbage-stir-fry/",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Chicken thighs, ginger, garlic, and cabbage form a coherent combination. Its method adds a 30-minute marinade beyond the advertised 30-minute total, so that timing is not adopted."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Prepare sauce before heating the skillet and rewhisk immediately before adding.",
+          "Brown chicken separately and cook cabbage briefly to limit released water.",
+          "Cook rice concurrently and verify chicken reaches 165°F."
+        ],
+        "repeatedSuccessSignals": [
+          "Source methods favor staged vegetable cooking and a sauce that clings.",
+          "Available reader comments support flexible vegetables; they do not establish acceptance of this formulation."
+        ],
+        "repeatedFailureRisks": [
+          "Editorial risk: overcrowding steams chicken and extends cooking.",
+          "Editorial risk: uncounted rice or marinating makes a quick-dinner claim misleading."
+        ],
+        "adaptationDecision": "Original mild cabbage-forward dinner using bagged vegetables, uncooked rice included in the schedule, a lighter soy-vinegar glaze, and no marinade. Distinct from the existing spicy dakgalbi, noodle dishes, and composed meal-kit bowls."
+      }
+    },
+    {
+      "rosterId": "DI332",
+      "title": "Chicken Parmesan cutlets with green beans and couscous",
+      "category": "Dinner",
+      "cuisine": "Italian-American-inspired",
+      "tier": "household-anchor",
+      "description": "Oven-crisp chicken cutlets with tomato sauce and melted mozzarella, roasted green beans, and fluffy couscous to catch the juices.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 15,
+      "cookMinutes": 25,
+      "inactiveMinutes": 0,
+      "artworkIndex": 1,
+      "ingredients": [
+        "4 thin chicken breast cutlets, 5 ounces each and 1/2 inch thick",
+        "3/4 cup panko breadcrumbs",
+        "1/4 cup finely grated Parmesan",
+        "1 teaspoon dried Italian seasoning",
+        "3 tablespoons olive oil, divided",
+        "1 cup marinara sauce",
+        "3/4 cup shredded low-moisture mozzarella",
+        "12 ounces trimmed green beans",
+        "1 cup dry plain couscous",
+        "1 cup water",
+        "1/2 teaspoon fine salt, divided",
+        "1/4 teaspoon black pepper"
+      ],
+      "instructions": [
+        "Heat the oven to 425°F with a rack in the upper middle. Lightly oil a large rimmed sheet pan with 1 teaspoon of the measured oil. Mix the panko, Parmesan, Italian seasoning, and pepper on a plate. Brush the cutlets with 1 tablespoon oil and sprinkle with 1/4 teaspoon salt, then press into the crumbs on both sides.",
+        "Arrange the cutlets with space between them on one side of the sheet pan. Toss the green beans with the remaining 1 tablespoon plus 2 teaspoons oil and spread beside the chicken. Roast for 15 minutes; turn the beans and check the chicken. The crumbs should be golden and the chicken almost cooked through.",
+        "Spoon the marinara over the centers of the cutlets, leaving crumbed edges exposed, and scatter the mozzarella over the sauce. Return to the oven for 5–8 minutes, until the cheese melts and the thickest part of each cutlet reaches 165°F. Remove individual cutlets sooner if needed; leave firm beans in the oven until tender.",
+        "Meanwhile, bring the water and remaining 1/4 teaspoon salt to a boil in a small saucepan. Stir in the couscous, cover, and remove from the heat. Let stand for 5 minutes, then fluff. Use the package water ratio if it differs; choose plain quick-cooking couscous, not pearl couscous.",
+        "Divide the couscous and green beans among four plates and add one cutlet to each. When increasing servings, use an additional sheet pan so the chicken and beans remain in a single layer; rotate pans if they occupy different oven racks."
+      ],
+      "notes": "A weeknight interpretation of Italian-American chicken Parmesan, built as a complete meal. Oven cooking and purchased marinara limit hands-on work to about 20 minutes, with vegetables roasting alongside. Thin, evenly sized cutlets and a thermometer matter more than the clock; this version does not promise the same crust as shallow-fried restaurant chicken.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "RecipeTin Eats",
+            "title": "Chicken Parmigiana",
+            "url": "https://www.recipetineats.com/chicken-parmigiana/",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Highlights uneven thickness, overcooking, and soggy crumbs as practical failure modes; offers an oven alternative."
+          },
+          {
+            "publisher": "Serious Eats",
+            "title": "The Best Chicken Parmesan",
+            "url": "https://www.seriouseats.com/the-best-chicken-parmesan-recipe",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Technique comparison supports even cutlets, lower-moisture cheese, and exposed crumb edges. Its lengthy brine is outside this dinner brief."
+          },
+          {
+            "publisher": "Skinnytaste",
+            "title": "Chicken Parmesan Recipe",
+            "url": "https://www.skinnytaste.com/baked-chicken-parmesan/",
+            "rating": 4.9,
+            "ratingCount": 484,
+            "signal": "Demonstrates an oil-or-butter crumb coating and oven cooking, with tomato sauce and mozzarella added near the end."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Use evenly thin cutlets and verify 165°F.",
+          "Leave some crumb edges uncovered and melt the cheese only at the end.",
+          "Choose quick couscous and roast the vegetable alongside the chicken."
+        ],
+        "repeatedSuccessSignals": [
+          "Source techniques converge on thin chicken, Parmesan crumbs, and late cheese addition."
+        ],
+        "repeatedFailureRisks": [
+          "Source discussions identify dry chicken and wet breading; crowding the sheet pan is an additional editorial risk."
+        ],
+        "adaptationDecision": "Original complete plate using a single oven pass, measured oil, green beans, and a quick couscous side. No brining or shallow frying, and no claim that this exact formulation has been kitchen-tested."
+      }
+    },
+    {
+      "rosterId": "DI333",
+      "title": "Orange chicken with snap peas and rice",
+      "category": "Dinner",
+      "cuisine": "Chinese-American-inspired",
+      "tier": "household-anchor",
+      "description": "Tender chicken and crisp snap peas in a bright orange glaze, with steamed rice to make a complete, mild family supper.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 8,
+      "cookMinutes": 27,
+      "inactiveMinutes": 0,
+      "artworkIndex": 2,
+      "ingredients": [
+        "1 1/4 cups long-grain white rice",
+        "2 1/2 cups water",
+        "1 1/4 pounds boneless skinless chicken breast, cut into 3/4-inch pieces",
+        "10 ounces stringless sugar snap peas",
+        "3/4 cup orange juice",
+        "1 teaspoon finely grated orange zest",
+        "2 tablespoons low-sodium soy sauce",
+        "1 tablespoon rice vinegar",
+        "1 tablespoon honey",
+        "2 teaspoons cornstarch",
+        "1 teaspoon finely grated fresh ginger",
+        "2 tablespoons neutral oil"
+      ],
+      "instructions": [
+        "Start the rice in a covered saucepan with the measured water. Bring to a boil, reduce the heat to low, and cook for 18 minutes. Remove from the heat and rest, still covered, for 5 minutes. Follow the package ratio if it differs, allowing extra time for a longer-cooking rice.",
+        "While the rice cooks, whisk the orange juice, zest, soy sauce, vinegar, honey, cornstarch, and ginger in a bowl. Pat the chicken pieces dry. Keep the sauce and snap peas next to the stove before cooking.",
+        "Heat the oil in a wide 12-inch skillet over medium-high heat. Arrange the chicken in one layer. Cook for 7–9 minutes, turning occasionally, until the pieces are lightly golden and reach 165°F. Transfer to a clean plate; cook in batches and allow extra time if the pan is crowded.",
+        "Add the snap peas to the skillet and cook for 2–3 minutes, stirring, until bright green with a slight bite. Rewhisk the orange sauce, pour it into the pan, and lower the heat to medium. Simmer for 2 minutes until the sauce turns glossy and coats a spoon.",
+        "Return the chicken and its juices and toss for 1 minute to coat and heat through. Fluff the rice and serve with the chicken and snap peas. The glaze should cling lightly rather than set like jelly. For larger yields, use another skillet or work in batches rather than piling everything into one pan."
+      ],
+      "notes": "An original weeknight take on Chinese-American orange chicken. It uses orange zest as well as juice for fragrance and skips batter to keep the method and cleanup simple. Snap peas supply crunch, and rice is included in the schedule rather than assumed to be ready. The result is glazed chicken, not a crispy fried takeout replica; allow about 20 minutes of hands-on work.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "Budget Bytes",
+            "title": "Easy Orange Chicken",
+            "url": "https://www.budgetbytes.com/easy-orange-chicken/",
+            "rating": 4.61,
+            "ratingCount": 68,
+            "signal": "Orange zest strengthens the citrus character. The author documents batter slipping and separating when the pan is cool or chicken is disturbed too often."
+          },
+          {
+            "publisher": "Confetti and Bliss",
+            "title": "Easy Orange Chicken Recipe",
+            "url": "https://www.confettiandbliss.com/easy-orange-chicken-recipe/",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Combines orange chicken, snap peas, and rice as a complete plate. Its oven-coated method requires more equipment than this skillet adaptation."
+          },
+          {
+            "publisher": "Dinner Twist",
+            "title": "Orange Chicken",
+            "url": "https://www.dinnertwist.com.au/pdf/A2_orange-chicken-3.pdf",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "A meal-kit method cooks rice alongside unbreaded chicken and thickens a ginger-orange-honey sauce in the skillet."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Rewhisk cornstarch before adding sauce.",
+          "Cook chicken in a single layer to 165°F.",
+          "Add snap peas late so they retain some crunch."
+        ],
+        "repeatedSuccessSignals": [
+          "The compared methods pair orange sauce with rice and vegetables; zest supplies aroma without more sugar."
+        ],
+        "repeatedFailureRisks": [
+          "Batter separation is explicitly documented by Budget Bytes; omitting batter removes that step.",
+          "Editorial risks: crowded chicken and overcooked snap peas undermine texture."
+        ],
+        "adaptationDecision": "Original mild, unbreaded skillet dinner with a defined rice schedule, snap peas, and a restrained honey-orange glaze. No copied source method, invented reviewer consensus, or kitchen-test claim."
+      }
+    },
+    {
+      "rosterId": "DI334",
+      "title": "Chicken Marsala with peas and egg noodles",
+      "category": "Dinner",
+      "cuisine": "Italian-American",
+      "tier": "household-anchor",
+      "description": "Golden chicken cutlets in a savory mushroom-Marsala sauce, spooned over tender egg noodles and sweet peas.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 8,
+      "cookMinutes": 32,
+      "inactiveMinutes": 0,
+      "artworkIndex": 3,
+      "ingredients": [
+        "4 chicken breast cutlets, 5 ounces each and 1/4 inch thick",
+        "2 tablespoons all-purpose flour",
+        "1/2 teaspoon fine salt, divided",
+        "1/4 teaspoon black pepper",
+        "1 tablespoon olive oil",
+        "2 tablespoons unsalted butter, divided",
+        "8 ounces sliced cremini mushrooms",
+        "1/2 cup dry Marsala wine",
+        "3/4 cup low-sodium chicken broth",
+        "1/4 cup heavy cream",
+        "8 ounces dry egg noodles",
+        "2 cups frozen peas",
+        "3 quarts water"
+      ],
+      "instructions": [
+        "Set a large saucepan of the measured water over high heat. Pat the cutlets dry and season with 1/4 teaspoon salt and the pepper. Dust with flour, shaking excess back onto the plate; discard the leftover flour after it has touched raw chicken.",
+        "Heat the oil and 1 tablespoon butter in a 12-inch skillet over medium-high heat. Cook the thin cutlets for 3–4 minutes per side, until golden and 165°F in the thickest part. Transfer to a clean plate. If they do not fit in one layer, use two batches and allow extra time.",
+        "Add the remaining tablespoon butter and the mushrooms to the skillet. Cook for 5–6 minutes, stirring occasionally, until the mushrooms have released their liquid and begun to brown. Move the pan off the burner, pour in the Marsala, then return to medium heat. Simmer for 3–4 minutes to reduce by about half, scraping up browned bits.",
+        "Add the broth, cream, and remaining 1/4 teaspoon salt. Simmer gently, uncovered, for 6–8 minutes until the sauce lightly coats a spoon. Meanwhile, boil the noodles according to their package, adding the frozen peas during the final 3 minutes. Drain the noodles and peas together.",
+        "Return the chicken and collected juices to the mushroom sauce and warm gently for 1–2 minutes. Divide the noodles and peas among four plates, add the cutlets, and spoon over the sauce. When scaling, preserve the pan space and reduce the sauce by its appearance rather than multiplying the cooking time."
+      ],
+      "notes": "Chicken Marsala belongs to Italian-American home and restaurant cooking. This complete supper keeps the defining fortified-wine and mushroom sauce while adding peas and egg noodles within the stated time. Pre-sliced mushrooms and purchased thin cutlets keep hands-on work around 20 minutes. Marsala is an alcoholic ingredient; a short reduction does not make the dish alcohol-free.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Chicken Marsala",
+            "url": "https://www.onceuponachef.com/recipes/chicken-marsala.html",
+            "rating": 4.91,
+            "ratingCount": 1615,
+            "signal": "Browns flour-dusted thin chicken separately from mushrooms and reduces a cream sauce before returning chicken. Reader evidence includes both praise and a sauce-thickening failure."
+          },
+          {
+            "publisher": "RecipeTin Eats",
+            "title": "Chicken Marsala",
+            "url": "https://www.recipetineats.com/chicken-marsala/",
+            "rating": 4.88,
+            "ratingCount": 54,
+            "signal": "Reduces the Marsala before adding stock and cream, and cautions that the sauce continues thickening as it cools."
+          },
+          {
+            "publisher": "Laura in the Kitchen",
+            "title": "Ultimate Classic Chicken Marsala",
+            "url": "https://www.laurainthekitchen.com/all/recipepdf.php?episodeno=1524",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Laura Vitale offers a thigh-based, mushroom-heavy variation using dry Marsala and stock, showing that cream is a variation rather than the defining ingredient."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Use thin chicken and brown mushrooms before adding liquid.",
+          "Reduce Marsala deliberately and avoid claiming all alcohol evaporates.",
+          "Keep finished chicken out of the pan during most of the sauce reduction."
+        ],
+        "repeatedSuccessSignals": [
+          "Compared methods build mushroom flavor and finish chicken in a reduced pan sauce."
+        ],
+        "repeatedFailureRisks": [
+          "Source discussions identify dry chicken and sauce that is too thin or over-reduced."
+        ],
+        "adaptationDecision": "Original four-serving complete dinner with a smaller cream quantity, presliced mushrooms, and peas cooked in the noodle water. This is a Marsala dish, not an alcohol-free mushroom-sauce substitution."
+      }
+    },
+    {
+      "rosterId": "DI335",
+      "title": "Chicken florentine with lemon orzo",
+      "category": "Dinner",
+      "cuisine": "Contemporary European-inspired",
+      "tier": "household-anchor",
+      "description": "Tender chicken cutlets nestled in creamy lemon orzo with plenty of spinach and a savory Parmesan finish.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 8,
+      "cookMinutes": 27,
+      "inactiveMinutes": 0,
+      "artworkIndex": 4,
+      "ingredients": [
+        "4 chicken breast cutlets, 5 ounces each and 1/2 inch thick",
+        "1 tablespoon olive oil",
+        "1/2 teaspoon fine salt, divided",
+        "1/4 teaspoon black pepper",
+        "2 garlic cloves, finely grated",
+        "1 cup dry orzo",
+        "2 1/2 cups low-sodium chicken broth",
+        "1/4 cup heavy cream",
+        "8 ounces baby spinach",
+        "1/3 cup finely grated Parmesan",
+        "1 tablespoon lemon juice",
+        "1 teaspoon finely grated lemon zest"
+      ],
+      "instructions": [
+        "Pat the chicken dry and season with 1/4 teaspoon salt and the pepper. Heat the oil in a wide, deep lidded skillet over medium-high heat. Brown the cutlets for 3 minutes per side, then transfer to a plate; they will finish cooking with the orzo.",
+        "Lower the heat to medium. Add the garlic and stir for 20 seconds, then add the orzo and stir for 1 minute. Pour in the broth and scrape the bottom of the pan. Bring to a simmer, stir in the cream and remaining 1/4 teaspoon salt, and return the chicken and any juices.",
+        "Cover and simmer gently for 10–12 minutes. Stir under the chicken every few minutes so the orzo does not stick. Check that the pasta is tender and the chicken reaches 165°F. Remove a finished cutlet if the pasta needs longer, or simmer a little longer if either is not ready. If the pan dries before the pasta softens, add a small splash of water.",
+        "Transfer the cooked chicken to a clean plate. Add the spinach to the orzo in two handfuls, stirring for 2–3 minutes until wilted. Remove from the heat and stir in the Parmesan, lemon juice, and zest. The orzo should be creamy and spoonable; loosen with a little water if needed.",
+        "Return the chicken to the pan and serve one cutlet with a quarter of the spinach-orzo mixture. For larger yields, use two pans rather than stacking the chicken; check pasta absorption and chicken temperature independently."
+      ],
+      "notes": "Florentine-style dishes commonly pair a main ingredient with spinach. This original Kwilt version folds the spinach into lemony orzo, making the starch and vegetable part of the same pan. It uses broth and lemon instead of wine and is not presented as a traditional recipe from Florence. Hands-on work is estimated at 18–20 minutes; keep an eye on the orzo because pan width affects evaporation.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "Jow",
+            "title": "Chicken Florentine with Orzo",
+            "url": "https://jow.com/recipes/chicken-florentine-with-orzo-92qkm8bxjj7k03jh078h",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Combines seared chicken, orzo, spinach, broth, and cream, then oven-finishes; explicitly calls for checking moisture during cooking."
+          },
+          {
+            "publisher": "Giant / Savory",
+            "title": "Skillet Chicken Florentine with Orzo",
+            "url": "https://recipecenter.giantfoodstores.com/recipes/255830/skillet-chicken-florentine-with-orzo",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Uses a covered stovetop orzo-and-chicken method with occasional stirring. The jarred Alfredo approach provides a different convenience tradeoff."
+          },
+          {
+            "publisher": "Simply Recipes",
+            "title": "Creamy Chicken Florentine",
+            "url": "https://www.simplyrecipes.com/creamy-chicken-florentine-recipe-5221334",
+            "rating": 4.5,
+            "ratingCount": 20,
+            "signal": "Uses thin cutlets and a spinach cream sauce; identifies broth and lemon as an alternative to wine."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Stir the orzo while covered cooking to prevent scorching.",
+          "Verify chicken temperature and pasta texture separately.",
+          "Add lemon and Parmesan off heat after wilting spinach."
+        ],
+        "repeatedSuccessSignals": [
+          "Compared recipes combine seared chicken with spinach and cream; two incorporate orzo directly. Reader consensus for this formulation is not established."
+        ],
+        "repeatedFailureRisks": [
+          "Editorial risks from compared methods: dry orzo, uneven chicken thickness, and insufficient spinach-wilting space."
+        ],
+        "adaptationDecision": "Original stovetop dinner with lemon, fresh spinach, and a measured broth-to-orzo ratio; omits jarred Alfredo, onion, flour coating, and oven transfer to simplify execution."
+      }
+    },
+    {
+      "rosterId": "DI336",
+      "title": "Chicken enchilada skillet with black beans",
+      "category": "Dinner",
+      "cuisine": "Tex-Mex-inspired",
+      "tier": "household-anchor",
+      "description": "A bubbling skillet of chicken, black beans, peppers, and tender corn-tortilla pieces in mild red sauce, finished with melted cheese.",
+      "yieldQuantity": 4,
+      "yieldUnit": "servings",
+      "prepMinutes": 10,
+      "cookMinutes": 20,
+      "inactiveMinutes": 0,
+      "artworkIndex": 5,
+      "ingredients": [
+        "1 tablespoon olive oil",
+        "1 red bell pepper, diced",
+        "1 teaspoon ground cumin",
+        "2 cups shredded cooked rotisserie chicken, skin and bones removed",
+        "1 can (15 ounces) black beans, rinsed and drained",
+        "1 cup frozen corn",
+        "2 cups mild red enchilada sauce",
+        "1/4 cup water",
+        "6 small corn tortillas, cut into wide strips",
+        "3/4 cup shredded Monterey Jack",
+        "1/4 cup plain Greek yogurt",
+        "1 tablespoon lime juice"
+      ],
+      "instructions": [
+        "Heat the oil in a deep 12-inch lidded skillet over medium heat. Add the bell pepper and cook for 5 minutes until softened. Stir in the cumin for 20 seconds.",
+        "Add the cooked chicken, drained beans, frozen corn, enchilada sauce, and water. Stir and bring to a steady simmer. Cook for 5–6 minutes, stirring occasionally, until the chicken and sauce are steaming hot and the chicken reaches 165°F.",
+        "Fold in the tortilla strips until coated, then simmer gently for 3–4 minutes. Turn them carefully once so they soften without breaking down into paste. The skillet should be thick and spoonable rather than dry.",
+        "Scatter the Monterey Jack over the top, cover, and reduce the heat to low. Cook for 2–3 minutes until the cheese melts. Meanwhile, stir the yogurt and lime juice together in a small bowl.",
+        "Divide the skillet among four shallow bowls and add the lime yogurt. This timing assumes purchased cooked chicken; cooking raw chicken first adds time. For larger batches, use a wider pan or two skillets and confirm the filling heats through before adding tortillas."
+      ],
+      "notes": "This is an original Tex-Mex-inspired tortilla skillet rather than rolled traditional enchiladas. Purchased cooked chicken, canned beans, and mild prepared sauce keep the whole meal within about 30 minutes. The pepper and corn provide vegetables without a separate side, and the stovetop cheese finish avoids an oven transfer. The tortillas soften into the sauce; they are not intended to stay crisp.",
+      "kitchenTestState": "desk-reviewed",
+      "research": {
+        "accessedAt": "2026-10-16",
+        "sources": [
+          {
+            "publisher": "Budget Bytes",
+            "title": "Creamy Chicken and Black Bean Enchiladas",
+            "url": "https://www.budgetbytes.com/snap-challenge-creamy-chicken-black-bean-enchiladas/",
+            "rating": 4.76,
+            "ratingCount": 37,
+            "signal": "Uses chicken, beans, and corn for a substantial filling. Its rolled, oven-baked approach is slower and requires a second vessel."
+          },
+          {
+            "publisher": "Skinnytaste",
+            "title": "Cheesy Rotisserie Chicken Enchilada Skillet",
+            "url": "https://www.skinnytaste.com/cheesy-rotisserie-chicken-enchilada-skillet/",
+            "rating": 4.94,
+            "ratingCount": 194,
+            "signal": "Explicitly describes a tortilla casserole instead of rolled enchiladas; cooked chicken and cut corn tortillas support a simpler method."
+          },
+          {
+            "publisher": "Simply Recipes",
+            "title": "Easy Chicken Skillet Enchiladas",
+            "url": "https://www.simplyrecipes.com/recipes/easy_chicken_skillet_enchiladas/",
+            "rating": null,
+            "ratingCount": null,
+            "signal": "Uses a skillet and cooked chicken while retaining rolled tortillas; highlights the difference between pliable flour tortillas and corn tortillas."
+          }
+        ],
+        "nonNegotiableTechniques": [
+          "Use cooked chicken and include reheating in the method.",
+          "Heat the filling before folding in tortillas.",
+          "Melt cheese gently under a lid."
+        ],
+        "repeatedSuccessSignals": [
+          "Compared recipes use cooked chicken and prepared components to simplify assembly; this exact formulation has no cook feedback yet."
+        ],
+        "repeatedFailureRisks": [
+          "Editorial risks: stirring softened tortillas too much and treating uncooked chicken as a time-neutral substitution."
+        ],
+        "adaptationDecision": "Original stovetop version with bell pepper, corn, a mild prepared sauce, and lime yogurt added after cooking. Unlike existing rolled enchiladas, it needs no filling, rolling, baking, or separate side."
+      }
+    }
+  ]
+}

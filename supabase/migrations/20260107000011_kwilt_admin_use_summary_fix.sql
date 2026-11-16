@@ -1,5 +1,8 @@
 -- Fix: kwilt_admin_use_summary() had an ambiguous reference because RETURNS TABLE
 -- output columns are treated as variables in PL/pgSQL.
+-- The preceding checked-in definition includes credit-velocity OUT columns.
+-- PostgreSQL cannot replace that return shape; recreate it during clean replay.
+drop function if exists public.kwilt_admin_use_summary(uuid, text[], int);
 
 create or replace function public.kwilt_admin_use_summary(
   p_user_id uuid,

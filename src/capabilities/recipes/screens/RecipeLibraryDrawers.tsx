@@ -96,6 +96,8 @@ const CUISINE_FILTER_ICONS: Record<CuisineFamilyId, IconName> = {
   vietnamese: "flower",
   "southeast-asian": "shrimp",
   australian: "shell",
+  contemporary: "home",
+  "east-asian": "map",
 };
 
 function FilterChoice({
