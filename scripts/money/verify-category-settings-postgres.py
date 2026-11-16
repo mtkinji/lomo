@@ -44,6 +44,8 @@ def build_schema():
     grant usage on schema auth,private to authenticated;
     grant execute on function auth.uid(),auth.jwt() to authenticated;
     ''']
+    entitlement_source=read('20251229000000_kwilt_pro_codes.sql')
+    parts.append(entitlement_source[entitlement_source.index('create table if not exists public.kwilt_pro_entitlements'):entitlement_source.index('alter table public.kwilt_pro_codes')])
     parts.append(fn(read('20260709131031_budget_living_plan_preferences.sql'),'public.set_updated_at'))
     s=read('20260709130916_budget_family_sharing.sql'); parts.append(s[:s.index('create table if not exists public.budget_household_invites')])
     parts.append(fn(s,'public.can_access_budget_household'))

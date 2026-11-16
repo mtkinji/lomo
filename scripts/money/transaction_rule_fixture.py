@@ -26,7 +26,10 @@ def schema():
       grant update(budget_assignment_source,budget_assignment_policy_version,budget_assignment_governed) on public.budget_transactions to authenticated;
       create policy fixture_transactions_read on public.budget_transactions for select to authenticated using(user_id=public.budget_effective_owner_user_id());
     ''']
-    for name in ['20260706160000_budget_transaction_reviews.sql','20260710034128_budget_transaction_money_meaning.sql',
+    # Review DDL moved after the transaction foundation for fresh replay.
+    foundation=read('20260709130754_budget_plaid_transactions.sql')
+    parts.append(foundation[foundation.index('alter table public.budget_transactions\n  add column if not exists budget_id'):])
+    for name in ['20260710034128_budget_transaction_money_meaning.sql',
                  '20260719155556_enforce_single_budget_transaction_merchant_rule.sql','20260728051739_merchant_rules_apply_all_transactions.sql',
                  '20260728052413_ensure_merchant_rule_backfill_on_rule_write.sql',
                  '20260804151537_add_money_transaction_plan_role_override.sql','20260822005640_add_budget_transaction_plan_coverage.sql',

@@ -1,0 +1,35 @@
+BEGIN
+SELECT 1
+GRANT
+INSERT 0 4
+INSERT 0 4
+DO
+INSERT 0 3
+INSERT 0 3
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+SET
+DO
+RESET
+INSERT 0 1
+INSERT 0 1
+SET
+DO
+RESET
+UPDATE 1
+SET
+DO
+RESET
+DO
+UPDATE 1
+SET
+DO
+RESET
+ROLLBACK
+                                   result                                   
+----------------------------------------------------------------------------
+ Atomic settings, rollback, replay, governance, and actor boundaries passed
+(1 row)
+

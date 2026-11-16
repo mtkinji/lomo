@@ -1,0 +1,35 @@
+{
+  "ingredients": {
+    "totalRecipes": 200,
+    "totalIngredientLines": 2211,
+    "fullyReviewedRecipes": 200,
+    "reviewedIngredientLines": 2211,
+    "quantityCoverage": 2211,
+    "unitCoverage": 2211,
+    "conceptCoverage": 2211,
+    "preparationCoverage": 653,
+    "optionalFlags": 0,
+    "blockingRecipes": 0
+  },
+  "scaling": {
+    "recipeCount": 200,
+    "unclassifiedRecipes": 0,
+    "partialScalingRecipes": 0,
+    "rows": []
+  },
+  "instructions": {
+    "totalRecipes": 200,
+    "representedRecipes": 200,
+    "recipesWithBlockingFindings": 0,
+    "recipesWithWarnings": 131,
+    "blockingFindings": 0,
+    "warnings": 194,
+    "blockingByCode": {},
+    "warningsByCode": {
+      "dense-phase": 4,
+      "late-preparation": 3,
+      "missing-doneness-cue": 181,
+      "missing-technique-time-or-temperature": 6
+    }
+  }
+}

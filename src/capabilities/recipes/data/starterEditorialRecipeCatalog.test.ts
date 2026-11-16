@@ -2,8 +2,19 @@ import { validateEditorialBatch } from "./editorialRecipeCatalog";
 import { STARTER_EDITORIAL_RECIPE_CATALOG } from "./starterEditorialRecipeCatalog";
 
 describe("staging starter editorial recipe catalog", () => {
+  it("keeps the 200 simple dinners within the approved serving and time limits", () => {
+    const additions = STARTER_EDITORIAL_RECIPE_CATALOG.filter(
+      (recipe) => /^DI\d{3}$/.test(recipe.rosterId) && Number(recipe.rosterId.slice(2)) >= 331,
+    );
+    expect(additions).toHaveLength(200);
+    const totalMinutes = (recipe: (typeof additions)[number]) =>
+      recipe.prepMinutes + recipe.cookMinutes + recipe.inactiveMinutes;
+    expect(additions.every((recipe) => recipe.yieldQuantity === 4 && recipe.yieldUnit === "servings")).toBe(true);
+    expect(additions.every((recipe) => totalMinutes(recipe) <= 60)).toBe(true);
+    expect(additions.filter((recipe) => totalMinutes(recipe) <= 40).length).toBeGreaterThanOrEqual(160);
+  });
   it("contains the authored roster entries in exact continuous order", () => {
-    expect(STARTER_EDITORIAL_RECIPE_CATALOG).toHaveLength(600);
+    expect(STARTER_EDITORIAL_RECIPE_CATALOG).toHaveLength(800);
     expect(
       STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) => recipe.rosterId),
     ).toEqual([
@@ -16,7 +27,7 @@ describe("staging starter editorial recipe catalog", () => {
         (_, index) => `LU${String(index + 1).padStart(3, "0")}`,
       ),
       ...Array.from(
-        { length: 330 },
+        { length: 530 },
         (_, index) => `DI${String(index + 1).padStart(3, "0")}`,
       ),
       ...Array.from(
@@ -78,7 +89,7 @@ describe("staging starter editorial recipe catalog", () => {
     expect(countBy("category")).toEqual({
       "Breakfast & brunch": 90,
       "Lunch & handhelds": 85,
-      Dinner: 330,
+      Dinner: 530,
       "Soups & stews": 15,
       "Salads & bowls": 10,
       "Appetizers & snacks": 10,
@@ -87,27 +98,27 @@ describe("staging starter editorial recipe catalog", () => {
       Desserts: 30,
     });
     expect(countBy("tier")).toEqual({
-      "household-anchor": 298,
+      "household-anchor": 498,
       "cuisine-anchor": 261,
       discovery: 41,
     });
   });
 
-  it("contains 600 distinct recipe bodies and complete appetite and story copy", () => {
+  it("contains 800 distinct recipe bodies and complete appetite and story copy", () => {
     expect(
       new Set(
         STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) =>
           recipe.ingredients.join("\n").toLocaleLowerCase(),
         ),
       ).size,
-    ).toBe(600);
+    ).toBe(800);
     expect(
       new Set(
         STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) =>
           recipe.instructions.join("\n").toLocaleLowerCase(),
         ),
       ).size,
-    ).toBe(600);
+    ).toBe(800);
     expect(
       STARTER_EDITORIAL_RECIPE_CATALOG.every(
         (recipe) =>
@@ -119,7 +130,7 @@ describe("staging starter editorial recipe catalog", () => {
     ).toBe(true);
   });
 
-  it("keeps discovery meals a small layer and records at least 1,800 sources", () => {
+  it("keeps discovery meals a small layer and records at least 2,400 sources", () => {
     const discoveryCount = STARTER_EDITORIAL_RECIPE_CATALOG.filter(
       (recipe) => recipe.tier === "discovery",
     ).length;
@@ -131,6 +142,6 @@ describe("staging starter editorial recipe catalog", () => {
     expect(
       discoveryCount / STARTER_EDITORIAL_RECIPE_CATALOG.length,
     ).toBeLessThan(0.1);
-    expect(sourceCount).toBeGreaterThanOrEqual(1_800);
+    expect(sourceCount).toBeGreaterThanOrEqual(2_400);
   });
 });

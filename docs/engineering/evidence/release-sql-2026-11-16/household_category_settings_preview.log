@@ -1,0 +1,32 @@
+BEGIN
+SELECT 1
+GRANT
+INSERT 0 4
+INSERT 0 4
+DO
+INSERT 0 3
+INSERT 0 3
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+DO
+RESET
+UPDATE 1
+SET
+DO
+RESET
+ROLLBACK
+                                                 result                                                 
+--------------------------------------------------------------------------------------------------------
+ Household snapshot/preview reads, unchanged write authority, and revoked/child/anonymous denial passed
+(1 row)
+

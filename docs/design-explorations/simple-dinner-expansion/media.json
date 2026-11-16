@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {
+      "rosterId": "DI331",
+      "path": "assets/recipes/simple-dinners/di331-hero.png",
+      "sha256": "de144f789f7b587cfccd04af5c5ae3ded1a9b4e66590f1117b12c2352411fa97",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Chicken strips, cabbage and carrot with rice and scallions; ingredients and finished structure match.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    },
+    {
+      "rosterId": "DI332",
+      "path": "assets/recipes/simple-dinners/di332-hero.png",
+      "sha256": "2d8d030e949486353a22da263bd8cdb340a7da6b6fcbdc15afc7a01fc7b4b2a9",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Breaded chicken cutlet with tomato and melted cheese, green beans and couscous; complete plated dinner matches.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    },
+    {
+      "rosterId": "DI333",
+      "path": "assets/recipes/simple-dinners/di333-hero.png",
+      "sha256": "7c77486f19409634d1033dea05d05df04f21eda107dcbec0c2d966bbb38ad488",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Glossy orange chicken pieces with snap peas and rice; no extra food props or unsupported garnish.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    },
+    {
+      "rosterId": "DI334",
+      "path": "assets/recipes/simple-dinners/di334-hero.png",
+      "sha256": "17ac64074f07f74542673195c540151fdd1f65935eb3bf085e3c3fe541700ae6",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Chicken and mushroom Marsala sauce with peas and egg noodles; recognizable sauce and sides.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    },
+    {
+      "rosterId": "DI335",
+      "path": "assets/recipes/simple-dinners/di335-hero.png",
+      "sha256": "1ae00fb0aaff3afdfedeecd737849cbb28bc542ae5c8f55c2984ef10a92ed97f",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Creamy chicken and spinach with lemon orzo; single serving and restrained natural light.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    },
+    {
+      "rosterId": "DI336",
+      "path": "assets/recipes/simple-dinners/di336-hero.png",
+      "sha256": "0a85bceb79ed950d5e6e6d9fb6d24e3e3ed5a0e92ed37dcab8e6321af34f289a",
+      "width": 1254,
+      "height": 1254,
+      "generator": "built-in image_gen",
+      "generatedAt": "2026-10-16",
+      "family": "editorial food photography",
+      "referencePaths": [
+        "assets/recipes/household-recipe-atlas.png"
+      ],
+      "reviewState": "visually_reviewed",
+      "reviewNotes": "Chicken black bean tortilla skillet with melted cheese and yogurt; full ingredient and crop review pending final authored recipe.",
+      "publicationState": "not_published",
+      "storageRef": null,
+      "promptProvenance": "Built-in generation call in this conversation; original prompt not copied into this ledger."
+    }
+  ]
+}
