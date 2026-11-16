@@ -24,6 +24,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Markdown parser denial-of-service regressions
+        run: node --test scripts/markdown-parser-security.test.mjs
+
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:

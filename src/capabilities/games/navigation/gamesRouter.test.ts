@@ -1,6 +1,25 @@
-import { resolveGamesHref } from './gamesRouter';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
+import { resolveGamesHref, router } from './gamesRouter';
+
+jest.mock('../../../navigation/rootNavigationRef', () => ({
+  rootNavigationRef: {
+    isReady: jest.fn(() => true),
+    getRootState: jest.fn(),
+    navigate: jest.fn(),
+    dispatch: jest.fn(),
+  },
+}));
 
 describe('Games router adapter', () => {
+  it('falls back to navigation when replacing before root state exists', () => {
+    jest.mocked(rootNavigationRef.getRootState).mockReturnValue(undefined);
+    expect(() => router.replace('/timer')).not.toThrow();
+    expect(rootNavigationRef.navigate).toHaveBeenCalledWith('Games', {
+      screen: 'GamesTimer', params: undefined,
+    });
+    expect(rootNavigationRef.dispatch).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['/', { screen: 'GamesShelf' }],
     ['/timer', { screen: 'GamesTimer' }],

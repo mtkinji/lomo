@@ -34,7 +34,7 @@ function navigate(href: Href) {
 function replace(href: Href) {
   if (!rootNavigationRef.isReady()) return;
   const destination = destinationFor(href);
-  const gamesRoute = rootNavigationRef.getRootState().routes.find((route) => route.name === 'Games');
+  const gamesRoute = rootNavigationRef.getRootState()?.routes.find((route) => route.name === 'Games');
   const target = gamesRoute?.state?.key;
   if (!target) {
     navigate(href);
