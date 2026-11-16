@@ -4,6 +4,8 @@ import type { ActivityFocusController } from './useActivityFocusController';
 import { ActivityFocusExperience } from './ActivityFocusExperience';
 import { FocusSessionOverlay } from './FocusSessionOverlay';
 
+const mockFullWindowOverlayProps: Array<{ unstable_accessibilityContainerViewIsModal?: boolean }> = [];
+
 const mockBottomDrawerProps: Array<{ snapPoints?: readonly string[] }> = [];
 
 jest.mock('../../ui/BottomDrawer', () => ({
@@ -19,7 +21,10 @@ jest.mock('react-native-screens', () => {
   const React = jest.requireActual('react');
   const { View: MockView } = jest.requireActual('react-native');
   return {
-    FullWindowOverlay: ({ children }: { children?: React.ReactNode }) => React.createElement(MockView, null, children),
+    FullWindowOverlay: ({ children, ...props }: { children?: React.ReactNode; unstable_accessibilityContainerViewIsModal?: boolean }) => {
+      mockFullWindowOverlayProps.push(props);
+      return React.createElement(MockView, null, children);
+    },
   };
 });
 
@@ -43,9 +48,10 @@ jest.mock('./FocusEnvironmentBackdrop', () => {
 describe('ActivityFocusExperience drawer presentation', () => {
   beforeEach(() => {
     mockBottomDrawerProps.length = 0;
+    mockFullWindowOverlayProps.length = 0;
   });
 
-  it('opens the standard iOS setup drawer tall enough for its complete contents', () => {
+  it('keeps the complete iOS setup drawer visible and accessible behind its empty menu portal', () => {
     expect(Platform.OS).toBe('ios');
 
     const controller: ActivityFocusController = {
@@ -87,6 +93,7 @@ describe('ActivityFocusExperience drawer presentation', () => {
     );
 
     expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['82%']);
+    expect(mockFullWindowOverlayProps.at(-1)?.unstable_accessibilityContainerViewIsModal).toBe(false);
   });
 
   it('shrinks the standard iOS setup drawer when the Screen Time offer is absent', () => {
@@ -131,6 +138,7 @@ describe('ActivityFocusExperience drawer presentation', () => {
     );
 
     expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['82%']);
+    expect(mockFullWindowOverlayProps.at(-1)?.unstable_accessibilityContainerViewIsModal).toBe(false);
 
     rerender(
       <ActivityFocusExperience

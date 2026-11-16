@@ -25,15 +25,17 @@ describe('InventoryControlGroup', () => {
     expect(groupStyle).toMatchObject({ borderRadius: 12, borderWidth: 1, overflow: 'hidden' });
     expect(filterStyle).toMatchObject({
       minWidth: INVENTORY_CONTROL_MIN_WIDTH_PX,
-      height: INVENTORY_CONTROL_HEIGHT_PX,
+      minHeight: INVENTORY_CONTROL_HEIGHT_PX,
       backgroundColor: colors.canvas,
     });
     expect(sortStyle).toMatchObject({
       minWidth: INVENTORY_CONTROL_MIN_WIDTH_PX,
-      height: INVENTORY_CONTROL_HEIGHT_PX,
+      minHeight: INVENTORY_CONTROL_HEIGHT_PX,
       backgroundColor: colors.sumi900,
     });
     expect(sortStyle.backgroundColor).not.toBe(colors.pine700);
+    // Dynamic Type must be able to grow the badge beyond compact geometry.
+    expect(sortStyle.height).toBeUndefined();
     expect(screen.getByText('2')).toBeTruthy();
   });
 });

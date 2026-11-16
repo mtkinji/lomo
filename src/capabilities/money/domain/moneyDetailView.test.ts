@@ -60,7 +60,7 @@ describe('money detail view projection', () => {
       transaction({ id: 'same', merchantName: "TRADER JOE'S #456" }),
       transaction({ id: 'other', merchantName: 'Whole Foods' }),
     ];
-    expect(getSimilarMerchantTransactions(rows, selected, 'partial').map((row) => row.id)).toEqual(['same']);
+    expect(getSimilarMerchantTransactions(rows, selected, 'partial', 'Trader Joe').map((row) => row.id)).toEqual(['same']);
   });
 
   it('previews candidates using the edited partial merchant value', () => {

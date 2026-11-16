@@ -5,10 +5,10 @@ export type GroceryAuthorityInput = {
   expectedVersion: number;
   actorPersonId: string;
   entries: Array<{ id: string; plan_version: number; servings: number | null; recipe_snapshot: Record<string, unknown> | null }>;
-  ingredientsByVersionId: Record<string, Array<{ id: string; original_text: string; optional: boolean }>>;
+  ingredientsByVersionId: Record<string, Array<{ id: string; original_text: string; optional: boolean; scale_rule?: unknown }>>;
 };
 
-type IngredientAuthority = { id: string; original_text: string; optional: boolean };
+type IngredientAuthority = { id: string; original_text: string; optional: boolean; scale_rule?: unknown };
 
 export type RecipeGrocerySource = {
   recipeId: string;
@@ -19,7 +19,7 @@ export type RecipeGrocerySource = {
   title: string;
   yieldQuantity: number | null;
   yieldUnit: string | null;
-  ingredients: Array<{ id: string; originalText: string; optional: boolean }>;
+  ingredients: Array<{ id: string; originalText: string; optional: boolean; scaleRule?: unknown }>;
 };
 
 type RecipeScaleMultiplier = 1 | 2 | 3;
@@ -48,6 +48,16 @@ export type HouseholdPlanGroceryAuthorityInput = {
   ingredientsByVersionId: Record<string, IngredientAuthority[]>;
 };
 
+/** Grocery quantities must obey the same reviewed rule as the recipe preview. */
+function ingredientMultiplier(ingredient: IngredientAuthority, multiplier: RecipeScaleMultiplier): RecipeScaleMultiplier {
+  if (multiplier === 1) return 1;
+  const rule = ingredient.scale_rule && typeof ingredient.scale_rule === 'object'
+    ? ingredient.scale_rule as Record<string, unknown> : null;
+  if (rule?.kind === 'multiply') return multiplier;
+  if (rule?.kind === 'fixed' && ['as_needed', 'garnish', 'to_taste', 'vessel', 'reviewed_other'].includes(String(rule.reason))) return 1;
+  throw new Error('ingredient_scale_review_required');
+}
+
 function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: string): IngredientAuthority[] | null {
   const hosted = typeof snapshot.contentHash === 'string' && /^sha256:[0-9a-f]{64}$/.test(snapshot.contentHash);
   if (snapshot.sourceType !== 'catalog'
@@ -69,7 +79,7 @@ function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: 
       || !ingredient.originalText.trim()
       || ingredient.originalText.length > 500
       || typeof ingredient.optional !== 'boolean') return null;
-    ingredients.push({ id: ingredient.id, original_text: ingredient.originalText, optional: ingredient.optional });
+    ingredients.push({ id: ingredient.id, original_text: ingredient.originalText, optional: ingredient.optional, scale_rule: ingredient.scaleRule });
   }
   return ingredients;
 }
@@ -88,7 +98,7 @@ export function compileGroceryAuthority(input: GroceryAuthorityInput) {
       ?? catalogIngredients(entry.recipe_snapshot, recipeVersionId);
     if (!recipeVersionId || !ingredients) throw new Error('missing_recipe_version');
     if (!input.ingredientsByVersionId[recipeVersionId]) catalogVersionIds.add(recipeVersionId);
-    for (const ingredient of ingredients) lines.push({ originalText: ingredient.original_text, recipeVersionId, ingredientLineId: ingredient.id, planEntryId: entry.id, recipeScaleMultiplier: scale.multiplier, optional: ingredient.optional });
+    for (const ingredient of ingredients) lines.push({ originalText: ingredient.original_text, recipeVersionId, ingredientLineId: ingredient.id, planEntryId: entry.id, recipeScaleMultiplier: ingredientMultiplier(ingredient, scale.multiplier), optional: ingredient.optional });
   }
   const compiled = buildGroceryCompilation(lines);
   const originalBySource = new Map(lines.map((line) => [`${line.recipeVersionId}:${line.ingredientLineId}:${line.planEntryId}`, line.originalText]));
@@ -122,7 +132,7 @@ export function compileRecipeGroceryAuthority(input: {
     recipeVersionId: input.source.recipeVersionId,
     ingredientLineId: ingredient.id,
     planEntryId: sourceRef,
-    recipeScaleMultiplier: input.recipeScaleMultiplier,
+    recipeScaleMultiplier: ingredientMultiplier(ingredient, input.recipeScaleMultiplier),
     optional: ingredient.optional,
   }));
   const compiled = buildGroceryCompilation(lines);
@@ -171,7 +181,7 @@ export function compileHouseholdPlanGroceryAuthority(input: HouseholdPlanGrocery
         recipeVersionId,
         ingredientLineId: ingredient.id,
         planEntryId: candidate.id,
-        recipeScaleMultiplier: scale.multiplier,
+        recipeScaleMultiplier: ingredientMultiplier(ingredient, scale.multiplier),
         optional: ingredient.optional,
       });
       originalBySource.set(`${recipeVersionId}:${ingredient.id}:${candidate.id}`, ingredient.original_text);

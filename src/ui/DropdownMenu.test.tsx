@@ -39,6 +39,7 @@ jest.mock('./Icon', () => {
 });
 
 import { DropdownMenuContent, DropdownMenuItem } from './DropdownMenu';
+import { NativeOnlyAnimatedView } from './NativeOnlyAnimatedView';
 import { colors } from '../theme';
 import { cardElevation } from '../theme/surfaces';
 
@@ -75,6 +76,19 @@ describe('DropdownMenuItem', () => {
 });
 
 describe('DropdownMenuContent', () => {
+  it('gives the absolutely positioned menu a bounded native accessibility ancestor', () => {
+    const menu = render(
+      <DropdownMenuContent>
+        <DropdownMenuItem label="Accounts & connections" />
+      </DropdownMenuContent>,
+    );
+    const animation = menu.UNSAFE_getAllByType(NativeOnlyAnimatedView).find(
+      (node) => node.props.entering,
+    );
+    expect(StyleSheet.flatten(animation?.props.style)).toMatchObject(StyleSheet.absoluteFillObject);
+    expect(animation?.props.pointerEvents).toBe('box-none');
+  });
+
   it('casts the canonical overlay shadow from an unclipped frame', () => {
     const menu = render(
       <DropdownMenuContent testID="test-menu">

@@ -32,9 +32,11 @@ import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
 import { executeServerAgentTool } from '../_shared/serverAgentTools.ts';
 import { projectExternalAuditReplay } from '../_shared/externalMcpReplay.ts';
 import {
-  EXTERNAL_DIRECT_LIFE_TOOLS, applyExternalLifeOperations, executeExternalAuthorizedTool,
+  EXTERNAL_DIRECT_TOOLS, EXTERNAL_DIRECT_FOOD_TOOLS,
+  applyExternalLifeOperations, applyExternalFoodOperations, executeExternalAuthorizedTool,
   readExternalExecutionReceipt,
 } from '../_shared/externalMcpExecution.ts';
+import { createExternalFoodActorClient } from '../_shared/externalFoodActor.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
 import type { ServerAgentToolCall, ServerAgentToolResult } from '../_shared/agentRuntime.ts';
 import { serverResponsesToolCatalogHash } from '../_shared/serverAgentResponses.ts';
@@ -536,7 +538,7 @@ async function findIdempotentWrite(
   idempotencyKeyHash: string,
   args: unknown,
 ): Promise<JsonObject | null> {
-  if (EXTERNAL_DIRECT_LIFE_TOOLS.has(tool.toolId)) {
+  if (EXTERNAL_DIRECT_TOOLS.has(tool.toolId)) {
     const call = prepareExternalMcpAction(tool, args, `mcp-${idempotencyKeyHash.slice(0, 64)}`);
     const receipt = await readExternalExecutionReceipt({
       client: admin, userId: context.userId, clientId: context.clientId, call,
@@ -569,6 +571,7 @@ async function executeCanonicalExternalTool(
 ): Promise<ServerAgentToolResult> {
   const tool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === call.toolId);
   if (!tool) throw new Error('canonical_server_tool_unavailable');
+  const actorClient = createExternalFoodActorClient(admin, context.userId);
   const telemetry = createConversationalControlTelemetry({ admin });
   const provider = tool.providers.includes('server') ? 'server' : tool.providers[0] ?? 'server';
   const catalogHash = serverResponsesToolCatalogHash(SERVER_AGENT_TOOL_CATALOG);
@@ -600,17 +603,19 @@ async function executeCanonicalExternalTool(
   }
   await audit({ event: authorization.replayed ? 'replayed' : 'requested', resultStatus: null });
   // External authorization belongs to the caller's conversation, never a hidden
-  // mobile thread. Direct Life writes have their own atomic mutation receipts.
-  if (EXTERNAL_DIRECT_LIFE_TOOLS.has(call.toolId)) {
+  // mobile thread. Direct writes have their own atomic mutation receipts.
+  if (EXTERNAL_DIRECT_TOOLS.has(call.toolId)) {
     const execution = { client: admin, userId: context.userId, clientId: context.clientId, call };
     const replay = await readExternalExecutionReceipt(execution);
     const result = replay ?? await executeExternalAuthorizedTool({
       execute: (planning) => executeServerAgentTool({
-        client: admin, userId: context.userId, call, tool, actionSource: 'mcp',
+        client: actorClient, userId: context.userId, call, tool, actionSource: 'mcp',
         stageDeviceAction: async () => { throw new Error('unexpected_device_action'); },
         ...planning,
       }),
-      apply: (proposals) => applyExternalLifeOperations(execution, proposals),
+      apply: (proposals) => EXTERNAL_DIRECT_FOOD_TOOLS.has(call.toolId)
+        ? applyExternalFoodOperations(execution, proposals)
+        : applyExternalLifeOperations(execution, proposals),
     });
     await audit({
       event: replay ? 'replayed' : conversationalControlEventForResult(result), resultStatus: result.status,
@@ -636,7 +641,7 @@ async function executeCanonicalExternalTool(
   try {
     const result = await executeExternalAuthorizedTool({
       execute: (planning) => executeServerAgentTool({
-      client: admin,
+      client: actorClient,
       userId: context.userId,
       call,
       tool,

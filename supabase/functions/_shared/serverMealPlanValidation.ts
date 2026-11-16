@@ -60,7 +60,7 @@ export function mealPlanRecipeCandidate(
       recipeId, recipeVersionId, recipeVersion: version.version, contentHash: version.contentHash ?? null,
       ingredients: Array.isArray(version.ingredients) ? version.ingredients.map((value) => {
         const ingredient = record(value);
-        return { id: ingredient?.id, originalText: ingredient?.originalText, optional: ingredient?.optional === true };
+        return { ...ingredient, id: ingredient?.id, originalText: ingredient?.originalText, optional: ingredient?.optional === true };
       }) : [],
       equipmentSuggestions: Array.isArray(version.equipmentRequirements) ? version.equipmentRequirements : [],
       title, yieldQuantity: version.yieldQuantity ?? null, yieldUnit: version.yieldUnit ?? null,

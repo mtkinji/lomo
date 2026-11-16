@@ -65,6 +65,12 @@ current source, and fresh runtime evidence.
 
 ## Evidence Boundary
 
+For the current reliability and performance investigation, see the
+[November 1, 2026 Budget quality assessment](../../engineering/budget-quality-assessment-2026-11-01.md).
+It distinguishes the passing source tests, repaired rollover schema mismatch,
+remaining save/read architecture gaps, and missing current-device evidence.
+The dated observations below remain historical evidence, not a current readiness verdict.
+
 As of 2026-07-27, source and automated contracts prove safe Plaid error
 normalization, the compact transaction category/meaning picker, account-type
 payment-source presentation, bounded confirmed transaction writes, atomic

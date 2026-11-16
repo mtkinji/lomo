@@ -37,7 +37,7 @@ export function MoneyLivingPlanReceiptScreen({ navigation, route }: NativeStackS
     setReversing(true);
     try {
       await reverseLivingPlan(client, detail.activeVersionId, detail.priorVersionId);
-      await refresh();
+      await refresh({ afterMutation: true });
       navigation.goBack();
     } catch (cause) {
       Alert.alert('Unable to reverse plan', cause instanceof Error ? cause.message : 'The active plan may have changed.');

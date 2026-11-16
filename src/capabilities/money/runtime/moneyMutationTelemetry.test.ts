@@ -1,4 +1,4 @@
-import { buildMoneyMutationProps, getMoneyMutationDurationBucket } from './moneyMutationTelemetry';
+import { buildMoneyMutationProps, captureMoneyMutation, getMoneyMutationDurationBucket } from './moneyMutationTelemetry';
 
 describe('money mutation telemetry', () => {
   it.each([
@@ -27,4 +27,13 @@ describe('money mutation telemetry', () => {
     });
     expect(Object.keys(props).sort()).toEqual(['duration_bucket', 'operation', 'outcome']);
   });
+  it('does not report an unknown save as a trusted completed decision', () => {
+    const capture = jest.fn();
+    captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'unknown', durationMs: 2200 });
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith('money_mutation_completed', {
+      operation: 'category_settings', outcome: 'unknown', duration_bucket: '2s_or_more',
+    });
+  });
+
 });

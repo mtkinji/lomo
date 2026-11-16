@@ -16,6 +16,32 @@ describe('food-core conservative compiler', () => {
     ['one 14-ounce can tomatoes', { quantityMin: 1, quantityMax: null, packageQuantity: 14, packageUnit: 'ounce' }],
   ])('parses %s', (line, expected) => expect(parseQuantity(line)).toEqual(expect.objectContaining(expected)));
 
+  test.each([
+    ['500g carrots', { quantityMin: 500, unit: 'gram', concept: 'carrots' }],
+    ['250–500ml milk', { quantityMin: 250, quantityMax: 500, unit: 'milliliter', concept: 'milk' }],
+    ['1 to 2 cups rice', { quantityMin: 1, quantityMax: 2, unit: 'cup', concept: 'rice' }],
+    ['1.5 litres water', { quantityMin: 1.5, unit: 'liter', concept: 'water' }],
+  ])('keeps metric amounts and range endpoints for %s', (text, expected) => {
+    expect(parseIngredientLine(text)).toEqual(expect.objectContaining(expected));
+  });
+
+  test.each(['1 1/0 cups flour', '1/0 cups flour', '2–1 cups flour'])('does not invent an amount for invalid quantity %s', (text) => {
+    expect(parseIngredientLine(text).quantityMin).toBeNull();
+  });
+
+  it('adds a range to an exact amount without double-counting the lower endpoint', () => {
+    const first = buildGroceryCompilation([line('1 cup rice', 'r1', 'i1'), line('2–3 cups rice', 'r2', 'i2')]);
+    const reverse = buildGroceryCompilation([line('2–3 cups rice', 'r2', 'i2'), line('1 cup rice', 'r1', 'i1')]);
+    expect(first.items[0]).toEqual(expect.objectContaining({ quantityMin: 3, quantityMax: 4 }));
+    expect(reverse.items[0]).toEqual(expect.objectContaining({ quantityMin: 3, quantityMax: 4 }));
+  });
+
+  it('merges metric volumes with exact source quantities', () => {
+    const result = buildGroceryCompilation([line('1 liter milk', 'r1', 'i1'), line('500ml milk', 'r2', 'i2')]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual(expect.objectContaining({ quantityMin: 1.5, unit: 'liter' }));
+  });
+
   it('preserves count separately from package weight', () => {
     expect(parseIngredientLine('2 14-ounce cans tomatoes')).toEqual(expect.objectContaining({ quantityMin: 2, unit: 'count', packageQuantity: 14, packageUnit: 'ounce', concept: 'tomatoes' }));
     expect(parseIngredientLine('1 can (14 ounces) tomatoes, drained')).toEqual(expect.objectContaining({ quantityMin: 1, unit: 'count', packageQuantity: 14, packageUnit: 'ounce', concept: 'tomatoes', preparation: 'drained' }));

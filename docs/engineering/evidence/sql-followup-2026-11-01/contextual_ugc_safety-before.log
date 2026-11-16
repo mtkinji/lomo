@@ -1,0 +1,5 @@
+{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated","is_anonymous":false}
+WARNING:  there is already a transaction in progress
+ERROR:  permission denied for table kwilt_ugc_reports
+CONTEXT:  SQL expression "exists (select 1 from public.kwilt_ugc_reports)"
+PL/pgSQL function inline_code_block line 3 at IF

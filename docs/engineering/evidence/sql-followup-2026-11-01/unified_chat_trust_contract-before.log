@@ -1,0 +1,3 @@
+{"sub":"00000000-0000-0000-0000-00000000a001","role":"authenticated","is_anonymous":false}
+WARNING:  there is already a transaction in progress
+ERROR:  null value in column "trigger_id" of relation "kwilt_agent_runs" violates not-null constraint

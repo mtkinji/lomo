@@ -1,0 +1,43 @@
+name: Native test runtime
+description: Install the verified native host and restore current-source Metro transforms
+inputs:
+  native-key:
+    required: true
+    description: Exact compatibility key produced by the native-host job
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22.23.2'
+        cache: npm
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+    - shell: bash
+      run: npm ci
+    - uses: actions/download-artifact@v4
+      with:
+        name: ios-native-host
+        path: artifacts/native-ci/host
+    - uses: actions/cache/restore@v4
+      with:
+        path: .cache/native-ci/metro
+        key: metro-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', '**/metro.config.*', '**/babel.config.*') }}-${{ github.sha }}
+        restore-keys: |
+          metro-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', '**/metro.config.*', '**/babel.config.*') }}-
+    - name: Install pinned Maestro
+      shell: bash
+      run: |
+        curl --fail --location --retry 3 https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
+        unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
+        echo "$RUNNER_TEMP/maestro-cli/maestro/bin" >> "$GITHUB_PATH"
+    - name: Boot test Simulator
+      shell: bash
+      run: bash scripts/e2e/boot-simulator.sh
+    - name: Verify and install native host
+      shell: bash
+      env:
+        EXPECTED_NATIVE_KEY: ${{ inputs.native-key }}
+      run: node scripts/e2e/native-host.mjs install

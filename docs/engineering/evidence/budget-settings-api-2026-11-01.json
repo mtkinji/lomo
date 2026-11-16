@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-11-01T22:57:06.616481+00:00",
+  "source": {
+    "checkout": "/Users/andrewwatanabe/Kwilt",
+    "branch": "codex/budget-reliability-checkpoint",
+    "head": "8cb13d6e1214c4181c2dcbe9e86d1d55b77bf536",
+    "dirty": true,
+    "sha256": {
+      "scripts/money/native-harness/server.py": "c1084634ccadae386b02a84780df54164f8c82032a9ded4dca1a0bd1a59de5f8",
+      "scripts/money/native-harness/check-api.ts": "19c726ee5a85644d581e38b7f9bd720633c3477af564b9cfe2bc4dc29497b71f",
+      "scripts/money/native-harness/settings.ts": "97d156ffe72fb09d6efcc690ddf785cc0b89633e3ac0e2774888221b7b135f9c",
+      "scripts/money/native-harness/Harness.tsx": "d7049478e0ad9020b6d8dda84b742fcdfa4c8930562e32f5b914499b3315e797",
+      "scripts/money/native-harness/fixture.ts": "1a8b15aa8a3400330b33bad5063fde9461dc805515efdcc40dc28494fa02883d",
+      ".github/workflows/ios-testflight.yml": "c3086c48dbffbf39ebe3d8ea930903916d80bd5fd7afa14066402ce2056e8475",
+      "scripts/ios-testflight-contract.test.mjs": "6d72d5cffcf667ce4ffb07f223f79831e78b9c747b270fb93c99e89ef0376308"
+    }
+  },
+  "runtime": {
+    "node": "22.23.2",
+    "postgresql": "17.11",
+    "postgrest": "16.5",
+    "api": "127.0.0.1:8082",
+    "data": "disposable synthetic cluster"
+  },
+  "command": "npm exec --yes --package=node@22.23.2 -c 'node --import tsx scripts/money/native-harness/check-api.ts'",
+  "result": "passed",
+  "cases": [
+    "PASS: signed JWT / PostgREST / production repository and command save all settings; concurrent taps create one receipt.",
+    "PASS: committed response loss remains unknown while offline; reopened command recovers original receipt without a duplicate write.",
+    "PASS: stale edit rejection is durable and cannot overwrite the confirmed category.",
+    "PASS: household adult can read/save; child, unrelated and anonymous users cannot; invalid JWT is denied.",
+    "PASS: late governed failure rolls back category, plan and version writes; rejection persists and replay cannot apply it.",
+    "Evidence boundary: synthetic local identities and fixture auth-user endpoint; real PostgreSQL 17/PostgREST JWT/RLS/RPC and production JS command/repository. No production household writes."
+  ],
+  "limitations": [
+    "Synthetic identity provider and category/plan SELECT policies; not live Supabase Auth acceptance.",
+    "In-memory journal in automated API check; native namespace persistence still requires app relaunch testing.",
+    "Native UI interaction unavailable because the Mac is locked.",
+    "GitHub repository secret list is empty; release Management API transport remains unverified.",
+    "No app build, upload or release."
+  ]
+}

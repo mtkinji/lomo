@@ -33,6 +33,20 @@ function nullableText(value: unknown, max: number): string | null | undefined {
   return value.trim() || null;
 }
 
+function validGroceryPatch(patch: Record<string, unknown>, current: Record<string, unknown>): boolean {
+  for (const key of ['quantityMin', 'quantityMax']) {
+    const value = patch[key];
+    if (value !== undefined && value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) return false;
+  }
+  const min = Object.prototype.hasOwnProperty.call(patch, 'quantityMin') ? patch.quantityMin : current.quantityMin;
+  const max = Object.prototype.hasOwnProperty.call(patch, 'quantityMax') ? patch.quantityMax : current.quantityMax;
+  if (typeof min === 'number' && typeof max === 'number' && max < min) return false;
+  if (patch.concept !== undefined && (typeof patch.concept !== 'string' || !patch.concept.trim() || patch.concept.length > 500)) return false;
+  if (patch.unit !== undefined && patch.unit !== null && (typeof patch.unit !== 'string' || patch.unit.length > 80)) return false;
+  if (patch.note !== undefined && patch.note !== null && (typeof patch.note !== 'string' || patch.note.length > 1000)) return false;
+  return true;
+}
+
 export async function executeServerGroceryTool({ snapshot, call, stageProposal, stageDeviceAction }: {
   snapshot: Record<string, unknown>;
   call: ServerAgentToolCall;
@@ -120,11 +134,11 @@ export async function executeServerGroceryTool({ snapshot, call, stageProposal, 
     const planId = text(call.arguments.mealPlanId); const version = Number(call.arguments.mealPlanVersion);
     const requestId = text(call.arguments.idempotencyKey);
     const plan = (snapshot.mealPlans as unknown[]).map(record).find((candidate) => text(candidate?.id) === planId);
-    if (!plan || !Number.isInteger(version) || version < 1 || plan.version !== version || plan.state !== 'finalized' || !requestId) {
-      return { status: 'failed', code: 'grocery_compile_invalid', message: 'Choose the exact current finalized Meal Plan and a stable request key.', retryable: Boolean(plan && plan.version !== version) };
+    if (!plan || !Number.isInteger(version) || version < 1 || plan.version !== version || !(plan.state === 'finalized' || plan.state === 'draft' && record(plan.horizon)?.kind === 'open') || !requestId) {
+      return { status: 'failed', code: 'grocery_compile_invalid', message: 'Choose the exact current finalized Meal Plan or ongoing open cart and a stable request key.', retryable: Boolean(plan && plan.version !== version) };
     }
     const proposal = await stageProposal({ capabilityId: 'groceries', title: 'Compile Grocery list',
-      body: 'Compiles the exact finalized Meal Plan into a provenance-preserving Grocery list for mobile review.',
+      body: 'Compiles the exact Meal Plan or open cart through the canonical grocery compiler, preserving manual groceries and reviewed edits.',
       operation: { type: call.toolId, targetType: 'grocery_list', targetId: planId,
         summary: 'Compile Grocery list', payload: { expectedVersion: version, mealPlanVersion: version } },
     });
@@ -147,13 +161,14 @@ export async function executeServerGroceryTool({ snapshot, call, stageProposal, 
     let title: string; let body: string; let payload: Record<string, unknown>; let targetId: string;
     if (call.toolId === 'groceries.item.add') {
       const itemTitle = text(call.arguments.title); const sourceKind = text(call.arguments.sourceKind);
-      if (!itemTitle || !['manual', 'household_request'].includes(sourceKind ?? '')) return { status: 'failed', code: 'grocery_item_invalid', message: 'Choose an item title and provenance.', retryable: false };
+      if (!itemTitle || itemTitle.length > 500 || !['manual', 'household_request'].includes(sourceKind ?? '')) return { status: 'failed', code: 'grocery_item_invalid', message: 'Choose an item title and provenance.', retryable: false };
       title = `Add ${itemTitle}`; body = 'Adds one reviewed item with distinct manual or household-request provenance.';
       payload = { expectedVersion, title: itemTitle, sourceKind }; targetId = String(list.id);
     } else if (call.toolId === 'groceries.item.update') {
       const patch = record(call.arguments.patch); const reason = call.arguments.reason === null ? null : nullableText(call.arguments.reason, 1_000);
       const allowed = ['concept', 'quantityMin', 'quantityMax', 'unit', 'note'];
-      if (!patch || Object.keys(patch).length < 1 || Object.keys(patch).some((key) => !allowed.includes(key)) || reason === undefined) {
+      if (!patch || Object.keys(patch).length < 1 || Object.keys(patch).some((key) => !allowed.includes(key)) || reason === undefined
+        || !validGroceryPatch(patch, (list.items as unknown[]).map(record).find((item) => item?.id === itemId) ?? {})) {
         return { status: 'failed', code: 'grocery_item_invalid', message: 'Choose a bounded Grocery item correction.', retryable: false };
       }
       title = 'Correct Grocery item'; body = 'Preserves original source evidence and records this reviewed correction.';

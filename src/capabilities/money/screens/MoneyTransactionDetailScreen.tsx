@@ -18,7 +18,7 @@ import { SettingsChoiceRow } from '../../../ui/SettingsSurface';
 import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplitDrawer';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
-import { getPartialMerchantRulePatternError, normalizePartialMerchant } from '../data/moneyMutations';
+import { getPartialMerchantRulePatternError } from '../data/moneyMutations';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getPersistedMerchantRuleOfferCategoryId, getPostCategorySelectionOutcome } from '../domain/merchantRuleOffer';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
@@ -68,6 +68,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('100.00');
+  const [pendingTransferRule, setPendingTransferRule] = useState(false);
   const [pendingRuleCategory, setPendingRuleCategory] = useState<MoneyCategory | null>(null);
   const [dismissedRuleCategoryId, setDismissedRuleCategoryId] = useState<string | null>(null);
   const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
@@ -96,8 +97,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     ? categories.find((category) => category.id === persistedRuleOfferCategoryId || category.sourceId === persistedRuleOfferCategoryId) ?? null
     : null;
   const ruleOfferCategory = pendingRuleCategory ?? persistedRuleOfferCategory;
+  const offerTransfer = !transaction?.allocations?.length && (pendingTransferRule || transaction?.moneyMeaning === 'transfer')
+    && transaction?.merchantRuleMeaning !== 'transfer' && dismissedRuleCategoryId !== 'meaning:transfer';
+  const ruleOffer = offerTransfer
+    ? { kind: 'transfer' as const, id: 'meaning:transfer', name: 'Internal transfer', categoryId: undefined }
+    : ruleOfferCategory && transaction?.moneyMeaning !== 'transfer'
+      ? { kind: 'category' as const, id: ruleOfferCategory.id, name: ruleOfferCategory.name, categoryId: ruleOfferCategory.sourceId }
+      : null;
   const partialRuleError = ruleMode === 'partial' && transaction
-    ? getPartialMerchantRulePatternError(transaction.merchantName, partialRuleMatch)
+    ? getPartialMerchantRulePatternError(transaction.merchantName, partialRuleMatch, transaction.originalDescription, transaction.bankName)
     : null;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
@@ -111,7 +119,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   }, [partialRuleError, partialRuleMatch, ruleMode, snapshot?.transactions, transaction]);
 
   useEffect(() => {
-    setPartialRuleMatch(normalizePartialMerchant(transaction?.merchantName ?? ''));
+    setPartialRuleMatch(transaction?.merchantName ?? '');
   }, [transaction?.id, transaction?.merchantName]);
 
   useEffect(() => {
@@ -167,6 +175,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
     setPendingChoice(null);
     if (!changed) return;
+    setPendingTransferRule(false);
     categoryCorrectionFeedbackPendingRef.current = true;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
@@ -187,6 +196,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (!transaction) return;
     const choice = `meaning:${meaning}`;
     setPendingRuleCategory(null);
+    setPendingTransferRule(false);
     setRuleDrawerOpen(false);
     signalMoneyChoice();
     setPendingChoice(choice);
@@ -195,10 +205,11 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       : reviewTransactionMeaning(transaction.id, { meaning }), 'transaction_meaning');
     setPendingChoice(null);
     if (changed) {
+      if (meaning === 'transfer') { setPendingTransferRule(true); setDismissedRuleCategoryId(null); }
       setCountsAsOpen(false);
       setCategoryPickerOpen(false);
       setCategoryQuery('');
-      if (route.params.economicRoleReview) {
+      if (route.params.economicRoleReview && meaning !== 'transfer') {
         await refresh();
         navigation.popTo('MoneySummary');
       }
@@ -273,16 +284,21 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   };
 
   const applyRule = async () => {
-    if (!transaction || !ruleOfferCategory) return;
+    if (!transaction || !ruleOffer) return;
     const saved = await runReview(() => saveMerchantRule({
       transactionId: transaction.id,
       merchantName: transaction.merchantName,
-      categoryId: ruleOfferCategory.sourceId,
-      categoryName: ruleOfferCategory.name,
+      originalDescription: transaction.originalDescription,
+      bankName: transaction.bankName,
+      targetKind: ruleOffer.kind,
+      categoryId: ruleOffer.categoryId,
+      categoryName: ruleOffer.name,
       matchMode: ruleMode,
       merchantPattern: ruleMode === 'partial' ? partialRuleMatch : undefined,
     }));
     if (saved) {
+      setDismissedRuleCategoryId(ruleOffer.id);
+      setPendingTransferRule(false);
       setPendingRuleCategory(null);
       setRuleDrawerOpen(false);
       if (route.params.economicRoleReview) {
@@ -294,7 +310,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   };
 
   const dismissRuleOffer = async () => {
-    setDismissedRuleCategoryId(ruleOfferCategory?.id ?? null);
+    setDismissedRuleCategoryId(ruleOffer?.id ?? null);
+    setPendingTransferRule(false);
     setPendingRuleCategory(null);
     setRuleDrawerOpen(false);
     if (route.params.economicRoleReview) {
@@ -489,6 +506,10 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 <Text style={styles.ruleReceiptText}>{coverageReceipt}</Text>
               </View>
             ) : null}
+            {transaction.merchantRuleMeaning === 'transfer' ? (
+              <View style={styles.ruleReceipt}><Icon name="checkCircle" size={16} color={colors.textSecondary} />
+                <Text style={styles.ruleReceiptText}>Rule active · Future {transaction.merchantName} matches are internal transfers</Text></View>
+            ) : null}
             {transaction.merchantRuleCategoryId && currentCategory?.id === transaction.merchantRuleCategoryId ? (
               <View style={styles.ruleReceipt}>
                 <Icon name="checkCircle" size={16} color={colors.pine700} />
@@ -523,10 +544,10 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         onClose={() => void dismissRuleOffer()}
         scrim="light"
         snapPoints={['42%']}
-        visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen && !noteEditorOpen}
+        visible={Boolean(ruleOffer) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen && !noteEditorOpen}
       >
         <View style={styles.ruleGuideCopy}>
-          <Text style={styles.ruleGuideTitle}>Use {ruleOfferCategory?.name} next time?</Text>
+          <Text style={styles.ruleGuideTitle}>Use {ruleOffer?.name} next time?</Text>
           <Text style={styles.ruleGuideDetail}>
             See which future {transaction.merchantName} transactions would match.
           </Text>
@@ -735,11 +756,11 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       </BottomDrawer>
 
       <BottomDrawer
-        visible={Boolean(ruleOfferCategory) && ruleDrawerOpen}
+        visible={Boolean(ruleOffer) && ruleDrawerOpen}
         onClose={() => setRuleDrawerOpen(false)}
         snapPoints={['88%']}
         enableContentPanningGesture
-        bottomAccessory={ruleOfferCategory ? (
+        bottomAccessory={ruleOffer ? (
           <View style={styles.ruleActions}>
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
             <Button disabled={saving || Boolean(partialRuleError)} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
@@ -752,10 +773,10 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <BottomDrawerHeader
             closeAccessibilityLabel="Close merchant rule"
             onClose={() => setRuleDrawerOpen(false)}
-            title={`Rule for ${ruleOfferCategory?.name ?? 'category'}`}
+            title={`Rule for ${ruleOffer?.name ?? 'category'}`}
             variant="withClose"
           />
-          <Text style={styles.drawerCopy}>Apply this category across your full transaction history and to future {transaction.merchantName} charges.</Text>
+          <Text style={styles.drawerCopy}>{ruleOffer?.kind === 'transfer' ? 'Treat matching transactions as internal transfers, not spending or income.' : 'Apply this category to matching transactions.'} This applies across your transaction history and to future matches. Split transactions and other explicitly reviewed money meanings stay unchanged.</Text>
           <View style={styles.ruleModeRow}>
             <RuleModeButton active={ruleMode === 'exact'} label="Exact match" onPress={() => setRuleMode('exact')} />
             <RuleModeButton active={ruleMode === 'partial'} label="Partial match" onPress={() => setRuleMode('partial')} />
@@ -782,7 +803,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               <Text style={styles.similarTitle}>Matching transaction examples</Text>
               {similarRows.slice(0, 6).map((row) => (
                 <View key={row.id} style={styles.similarRow}>
-                  <View style={styles.similarCopy}><Text numberOfLines={1} style={styles.similarMerchant}>{row.merchantName}</Text><Text style={styles.similarMeta}>{formatTransactionDate(row.date)} · {row.categoryName}</Text></View>
+                  <View style={styles.similarCopy}><Text numberOfLines={2} style={styles.similarMerchant}>{ruleMode === 'partial' ? row.originalDescription ?? row.merchantName : row.merchantName}</Text><Text style={styles.similarMeta}>{formatTransactionDate(row.date)} · {row.categoryName}</Text></View>
                   <Text style={styles.similarAmount}>{formatMoney(row.amountCents, row.currencyCode)}</Text>
                 </View>
               ))}

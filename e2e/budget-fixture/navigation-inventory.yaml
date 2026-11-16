@@ -1,0 +1,26 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Full acceptance extends the quick navigation/refresh contract.
+- runFlow: navigation-refresh.yaml
+- scrollUntilVisible:
+    element: "4000 transactions"
+    direction: DOWN
+    centerElement: true
+- tapOn: "4000 transactions"
+- tapOn: "Date scope"
+- tapOn: "All history"
+- assertVisible: "4000 of 4000 shown"
+- assertNotVisible: "Open End of synthetic transaction history transaction.*"
+- scrollUntilVisible:
+    element:
+      text: "Open End of synthetic transaction history transaction.*"
+    direction: DOWN
+    speed: 100
+    # Cold hosted Simulators traverse the same 4,000 rows more slowly.
+    timeout: 1200000
+- takeScreenshot: "budget-final-transaction"
+- tapOn: "Open End of synthetic transaction history transaction.*"
+- assertVisible: "End of synthetic transaction history"
+- tapOn: "Go back from End of synthetic transaction history"
+- assertVisible: "Open End of synthetic transaction history transaction.*"
+- takeScreenshot: "budget-final-position-retained"

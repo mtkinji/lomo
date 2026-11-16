@@ -52,7 +52,7 @@ const snapshot = {
 };
 const client = { rpc: async (name: string, args: Record<string, unknown>) => name === 'apply_kwilt_cook_session_conversational'
   ? ({ data: { session: (args.p_session as Record<string, unknown>), replayed: false }, error: null })
-  : ({ data: snapshot, error: null }) };
+  : ({ data: name === 'list_kwilt_recipe_catalog_v2' ? [] : snapshot, error: null }) };
 const common = { client, userId: 'user-1' };
 
 Deno.test('server food controls read bounded meal preferences', async () => {
@@ -136,7 +136,7 @@ Deno.test('server food controls read Grocery lists and stage exact compile and i
   const calls = [
     { id: 'compile', toolId: 'groceries.compile', arguments: { mealPlanId: 'plan-final', mealPlanVersion: 7, idempotencyKey: 'compile-1' } },
     { id: 'add', toolId: 'groceries.item.add', arguments: { groceryListId: 'list-1', expectedVersion: 3, title: 'Eggs', sourceKind: 'manual', idempotencyKey: 'add-1' } },
-    { id: 'update', toolId: 'groceries.item.update', arguments: { groceryItemId: 'item-1', expectedVersion: 3, patch: { quantityMin: 2 }, reason: null, idempotencyKey: 'update-1' } },
+    { id: 'update', toolId: 'groceries.item.update', arguments: { groceryItemId: 'item-1', expectedVersion: 3, patch: { quantityMin: 2, quantityMax: 2 }, reason: null, idempotencyKey: 'update-1' } },
     { id: 'state', toolId: 'groceries.item.set_state', arguments: { groceryItemId: 'item-1', expectedVersion: 3, state: 'already_have', idempotencyKey: 'state-1' } },
   ];
   for (const call of calls) {
@@ -244,7 +244,7 @@ Deno.test('server food controls reject stale Meal Plans and duplicate Recipe can
       mealPlanId: 'plan-1', expectedVersion: 2, horizon: { kind: 'open' },
     } }, stageProposal,
   });
-  const duplicateClient = { rpc: async () => ({ data: { ...snapshot, mealPlans: [{ ...snapshot.mealPlans[0], candidates: [{
+  const duplicateClient = { rpc: async (name: string) => ({ data: name === 'list_kwilt_recipe_catalog_v2' ? [] : { ...snapshot, mealPlans: [{ ...snapshot.mealPlans[0], candidates: [{
     id: 'candidate-existing', kind: 'recipe', title: 'Lemon pasta', recipeSnapshot: { recipeVersionId: 'version-1' },
   }] }] }, error: null }) };
   const duplicate = await executeServerFoodTool({ client: duplicateClient, userId: 'user-1',
@@ -567,4 +567,21 @@ Deno.test('server food controls refuse unsupported payloads and missing househol
     call: { id: 'call-6', toolId: 'meal_planning.preferences.read', arguments: {} },
   });
   if (denied?.status !== 'refused') throw new Error('missing meal authority accepted');
+});
+
+Deno.test('weekly recipe reuse ignores retired occurrences and refuses an undersized batch', async () => {
+  for (const lifecycle of ['removed', 'made']) {
+    const historyClient = { rpc: async (name: string) => ({ data: name === 'list_kwilt_recipe_catalog_v2' ? [] : { ...snapshot, mealPlans: [{ ...snapshot.mealPlans[0], candidates: [{
+      id: 'candidate-existing', kind: 'recipe', lifecycle, title: 'Lemon pasta', recipeSnapshot: { recipeVersionId: 'version-1' },
+    }] }] }, error: null }) };
+    for (const plannedPortions of [4, 6]) {
+      const result = await executeServerFoodTool({ client: historyClient, userId: 'user-1',
+        call: { id: `weekly-${lifecycle}-${plannedPortions}`, toolId: 'meal_planning.candidate.add', arguments: {
+          mealPlanId: 'plan-1', expectedVersion: 3,
+          candidate: { candidateId: 'candidate-new', title: 'Lemon pasta', recipeVersionId: 'version-1', plannedPortions },
+        } }, stageProposal: async () => ({ id: 'proposal' } as never) });
+      if (plannedPortions === 4 && result?.status !== 'proposed') throw new Error('historical recipe cannot be reused');
+      if (plannedPortions === 6 && (result?.status !== 'failed' || result.code !== 'recipe_portions_exceed_batch')) throw new Error('undersized recipe batch accepted');
+    }
+  }
 });

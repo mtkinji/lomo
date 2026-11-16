@@ -1,0 +1,54 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Only with KWILT_MAESTRO_BUDGET_FIXTURE=1. No production identity or writes.
+- launchApp:
+    clearState: true
+- openLink: "${DEV_CLIENT_URL}"
+- repeat:
+    times: 3
+    while:
+      visible: 'Open in .*Kwilt.*'
+    commands:
+      - tapOn:
+          text: "Open"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- assertNotVisible: 'Open in .*Kwilt.*'
+- extendedWaitUntil:
+    visible: "Budget native fixture"
+    timeout: 180000
+- tapOn: "Budget and Accounts navigation"
+- extendedWaitUntil:
+    visible: "Budget"
+    timeout: 15000
+- tapOn: "Budget options"
+- tapOn: "Accounts & connections"
+- tapOn: "Manage accounts"
+- assertVisible: "Go back from Accounts"
+- tapOn: "Go back from Accounts"
+- assertVisible: "Budget"
+- tapOn: "Budget options"
+- tapOn: "Accounts & connections"
+- tapOn: "Manage accounts"
+- assertVisible: "Accounts"
+# Main-menu routing uses production handlers and MoneyEntry's offline fallback.
+- tapOn: "Fixture menu"
+- tapOn:
+    id: "capability.menu.money-summary"
+- assertVisible: "Budget"
+- tapOn: "Choose fixture"
+- scrollUntilVisible:
+    element: "Stale data and refresh"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Stale data and refresh"
+- assertVisible: "Synthetic offline fixture. Pull to retry."
+- swipe:
+    start: "50%,35%"
+    end: "50%,85%"
+    duration: 1200
+- extendedWaitUntil:
+    notVisible: "Synthetic offline fixture. Pull to retry."
+    timeout: 15000
+- tapOn: "Choose fixture"
+- assertVisible: "Completed refreshes: 1"

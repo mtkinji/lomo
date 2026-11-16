@@ -65,13 +65,13 @@ export async function restoreDefaultBudgetCategories(
   return { createdCategoryCount: createdCategoryCount as number, categoryIds };
 }
 
-export async function getLivingPlanSettings(client: SupabaseClient): Promise<LivingPlanSettingsSnapshot> {
-  const userId = await requireUserId(client);
+export async function getLivingPlanSettings(client: SupabaseClient, ownerUserId?: string): Promise<LivingPlanSettingsSnapshot> {
+  const userId = ownerUserId ?? await requireUserId(client);
   const [targetResult, configResult, planningBasis, active, receiptResult] = await Promise.all([
     client.from('budget_living_target_intents').select('living_percent,provenance,updated_at').eq('user_id', userId).maybeSingle(),
     client.from('budget_living_plan_config').select('promotion_enabled').eq('user_id', userId).maybeSingle(),
     getOptionalPlanningBasis(client, userId),
-    getActiveLivingPlan(client),
+    getActiveLivingPlan(client, userId),
     client.from('budget_living_plan_receipts').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
   ]);
   const firstError = [targetResult.error, configResult.error, receiptResult.error].find(Boolean);
@@ -144,8 +144,8 @@ export async function saveLivingTargetIntent(client: SupabaseClient, intent: Liv
   if (error) throw error;
 }
 
-export async function getActiveLivingPlan(client: SupabaseClient): Promise<ActiveLivingPlan | null> {
-  const userId = await requireUserId(client);
+export async function getActiveLivingPlan(client: SupabaseClient, ownerUserId?: string): Promise<ActiveLivingPlan | null> {
+  const userId = ownerUserId ?? await requireUserId(client);
   const { data: pointer, error: pointerError } = await client
     .from('budget_active_living_plans').select('plan_version_id').eq('user_id', userId).maybeSingle();
   if (pointerError) throw pointerError;

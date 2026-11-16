@@ -70,6 +70,7 @@ export function createCapabilityNavigateAction(target: { name: string; params?: 
 }
 
 type CapabilityMenuNavigationDependencies = {
+  activeRouteName?: string;
   dispatch: (action: ReturnType<typeof createCapabilityNavigateAction>) => void;
   coverMenu: () => void;
   captureSelection: (id: CapabilityMenuDestinationId) => void;
@@ -79,14 +80,22 @@ export function createCapabilityMenuNavigationHandlers({
   dispatch,
   coverMenu,
   captureSelection,
+  activeRouteName,
 }: CapabilityMenuNavigationDependencies) {
+  const selectCapability = (id: CapabilityMenuDestinationId) => {
+    captureSelection(id);
+    dispatch(createCapabilityNavigateAction(resolveCapabilityNavigation(id)));
+    coverMenu();
+  };
   return {
-    onSelectCapability: (id: CapabilityMenuDestinationId) => {
-      captureSelection(id);
-      dispatch(createCapabilityNavigateAction(resolveCapabilityNavigation(id)));
-      coverMenu();
-    },
-    onReselectCapability: (_id: CapabilityMenuDestinationId) => {
+    onSelectCapability: selectCapability,
+    onReselectCapability: (id: CapabilityMenuDestinationId) => {
+      // The Money highlight includes child screens. Reselecting Budgets there
+      // is a request for the overview, not merely a request to close the menu.
+      if (id === 'money-summary' && activeRouteName !== 'MoneySummary') {
+        selectCapability(id);
+        return;
+      }
       coverMenu();
     },
   };

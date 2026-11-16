@@ -86,6 +86,10 @@ describe('UI parity inventory', () => {
       voice: { state: 'live', outcome: 'proposal_or_receipt' },
       chatgpt: { state: 'exposed', outcome: 'mobile_proposal' },
     });
+    expect(byOperation.get('meal_planning.cart.ensure')).toMatchObject({
+      surfaceId: 'meal-planning', mobile: { state: 'pending_provider', outcome: 'honest_boundary' },
+      voice: { state: 'pending_provider' }, chatgpt: { state: 'exposed' },
+    });
     expect(byOperation.get('games.open')).toMatchObject({
       surfaceId: 'games',
       mobile: { state: 'excluded' },

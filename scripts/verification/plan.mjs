@@ -45,8 +45,18 @@ export function buildVerificationPlan(files, base) {
     );
   }
 
+  if (matches(/^(package\.json$|app\.config\.ts$|eas\.json$|\.easignore$|scripts\/money\/|scripts\/ios-testflight|\.github\/workflows\/ios-testflight\.yml$|supabase\/migrations\/)/)) {
+    add('node --test scripts/money/backend-contract.test.mjs scripts/ios-testflight-contract.test.mjs',
+      'verify backend incompatibility stops the supported release before upload');
+  }
+
   if (matches(/^scripts\/code-health(-lib)?(\.test)?\.mjs$/)) {
     add('npm run test:code-health', 'unit-test the code-health ratchet rules');
+  }
+
+  if (matches(/^(\.github\/actions\/native-test-runtime\/|scripts\/money\/native-harness\/metro\.config\.js$|scripts\/e2e\/|scripts\/e2e-maestro-runtime\.test\.mjs$|e2e\/(maestro|workspace-fixture|budget-fixture)\/|\.github\/workflows\/e2e-maestro\.yml$)/)) {
+    add('node --test scripts/e2e-maestro-runtime.test.mjs scripts/e2e/fixture-manifest.test.mjs scripts/e2e/metro-fixture.test.mjs scripts/e2e/native-host.test.mjs scripts/e2e/native-suite.test.mjs',
+      'require a ready JavaScript runtime and retained diagnostics for native CI');
   }
 
   if (needsEasUploadPolicy(files)) {
@@ -131,7 +141,7 @@ export function buildVerificationPlan(files, base) {
     addManual('npm run mcp:smoke', 'requires MCP environment credentials; run when connector behavior changed');
   }
 
-  if (matches(/^(e2e\/maestro\/|src\/features\/(activities|arcs|goals|onboarding|ai)\/)/)) {
+  if (matches(/^(e2e\/(maestro|workspace-fixture|budget-fixture)\/|src\/features\/(activities|arcs|goals|onboarding|ai)\/)/)) {
     addManual('maestro test e2e/maestro/<relevant-flow>.yaml', 'native interaction flows need a simulator or device');
   }
 

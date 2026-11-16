@@ -2,7 +2,6 @@ import type { MoneySnapshot } from '../data/moneySnapshot';
 import {
   MoneyAuthenticationRequiredError,
   MoneyConfirmationRequiredError,
-  MoneyTargetStaleError,
   createMoneyControlActions,
   type MoneyControlActionBoundary,
 } from './moneyControlActions';
@@ -70,7 +69,7 @@ function boundary(): jest.Mocked<MoneyControlActionBoundary> {
   return {
     loadSnapshot: jest.fn(async () => snapshot),
     requireFreshAuthentication: jest.fn(async () => true),
-    updateCategoryPlan: jest.fn(async (..._args: Parameters<MoneyControlActionBoundary['updateCategoryPlan']>) => ({ confirmedAt: 'budget-v2' })),
+    applyBudgetChange: jest.fn(async (..._args: Parameters<MoneyControlActionBoundary['applyBudgetChange']>) => ({ categoryId: 'category-groceries', name: 'Groceries', plannedCents: 55000, updatedAt: 'budget-v2' })),
     reviewTransactionMeaning: jest.fn(async (..._args: Parameters<MoneyControlActionBoundary['reviewTransactionMeaning']>) => ({ confirmedAt: 'meaning-v2' })),
     setTransactionPlanRoleOverride: jest.fn(async (..._args: Parameters<MoneyControlActionBoundary['setTransactionPlanRoleOverride']>) => ({ confirmedAt: 'treatment-v2' })),
     reviewTransferPair: jest.fn(async (..._args: Parameters<MoneyControlActionBoundary['reviewTransferPair']>) => ({ confirmedAt: 'transfer-v3' })),
@@ -90,14 +89,14 @@ describe('moneyControlActions', () => {
     expect(JSON.stringify(result)).not.toMatch(/Private|merchantName|accountName|cash.?flow|saved money/i);
   });
 
-  it('rejects a stale budget diff before writing', async () => {
+  it('passes the immutable intent to the receipt-aware boundary without a pre-recovery snapshot read', async () => {
     const store = boundary();
+    const input = { requestId: 'budget-1', confirmed: true, month: '2026-08', categoryId: 'category-groceries',
+      expectedUpdatedAt: 'budget-old', plannedCents: 55000 };
     const actions = createMoneyControlActions(store);
-    await expect(actions.updateBudget({
-      requestId: 'budget-1', confirmed: true, month: '2026-08', categoryId: 'category-groceries',
-      expectedUpdatedAt: 'budget-old', plannedCents: 55_000,
-    })).rejects.toBeInstanceOf(MoneyTargetStaleError);
-    expect(store.updateCategoryPlan).not.toHaveBeenCalled();
+    await expect(actions.updateBudget(input)).resolves.toMatchObject({ status: 'completed', result: { plannedCents: 55000 } });
+    expect(store.applyBudgetChange).toHaveBeenCalledWith({ requestId: 'budget-1', month: '2026-08', categoryId: 'category-groceries', expectedUpdatedAt: 'budget-old', plannedCents: 55000 });
+    expect(store.loadSnapshot).not.toHaveBeenCalled();
   });
 
   it('keeps provider payroll inference distinct from an explicit user meaning', async () => {
@@ -182,4 +181,14 @@ describe('moneyControlActions', () => {
       ...input, requestId: 'disconnect-failed',
     })).rejects.toThrow('provider_disconnect_failed');
   });
+});
+
+it('allows an uncertain Budget request to recover on another attempt without retaining a rejected promise', async () => {
+  const store = boundary();
+  store.applyBudgetChange.mockRejectedValueOnce(new Error('outcome unknown'));
+  const actions = createMoneyControlActions(store);
+  const input = { requestId: 'retry-budget', confirmed: true, month: '2026-08', categoryId: 'category-groceries', expectedUpdatedAt: 'budget-v1', plannedCents: 55000 };
+  await expect(actions.updateBudget(input)).rejects.toThrow('outcome unknown');
+  await expect(actions.updateBudget(input)).resolves.toMatchObject({ status: 'completed' });
+  expect(store.requireFreshAuthentication).toHaveBeenCalledTimes(2);
 });

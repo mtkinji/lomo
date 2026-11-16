@@ -108,13 +108,13 @@ describe('KWILT_OPERATION_REGISTRY', () => {
     expect(Object.isFrozen(KWILT_OPERATION_REGISTRY)).toBe(true);
   });
 
-  test('declares the complete 232-operation conversational control catalog', () => {
+  test('declares the complete 237-operation conversational control catalog', () => {
     const ids = KWILT_OPERATION_REGISTRY.map(({ id }) => id);
 
     expect(CONTROL_PARITY_OPERATION_IDS).toHaveLength(87);
-    expect(KWILT_OPERATION_REGISTRY).toHaveLength(232);
+    expect(KWILT_OPERATION_REGISTRY).toHaveLength(237);
     expect(ids).toEqual(expect.arrayContaining(CONTROL_PARITY_OPERATION_IDS));
-    expect(new Set(ids).size).toBe(232);
+    expect(new Set(ids).size).toBe(237);
   });
 
   test('keeps every Household operation live with explicit reviewed writes and truthful Phone outcomes', () => {

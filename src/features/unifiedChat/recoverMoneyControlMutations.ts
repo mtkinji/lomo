@@ -1,3 +1,4 @@
+import { MoneyBudgetOutcomeUnknownError, MoneyBudgetRejectedError } from '../../capabilities/money/actions/moneyBudgetActionCommand';
 import { getTransactionPlanTreatment } from '../../capabilities/money/domain/transactionPlanTreatment';
 import type { MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 import type { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
@@ -31,9 +32,8 @@ export function isMoneyControlOperationApplied(
   snapshot: MoneySnapshot,
 ): boolean {
   if (operation.type === 'update_money_budget') {
-    const category = snapshot.categories.find((item) => item.sourceId === operation.targetId);
-    return snapshot.generatedAt.slice(0, 7) === operation.payload.month
-      && category?.plannedCents === operation.payload.plannedCents;
+    // State equality cannot identify which request produced that state.
+    return false;
   }
   if (operation.type === 'update_money_transaction_meaning') {
     const transaction = snapshot.transactions.find((item) => item.id === operation.targetId);
@@ -78,12 +78,14 @@ export async function recoverMoneyControlMutations({ aggregate, repository, acti
       candidate.proposalId === proposal.id && (candidate.status === 'reserved' || candidate.status === 'applied')
     ));
     if (!receipt) continue;
+    let writeConfirmed = receipt.status === 'applied';
     try {
       if (receipt.status === 'reserved') {
-        const snapshot = await loadSnapshot();
-        const resultState = isMoneyControlOperationApplied(proposal.operation, snapshot)
+        const snapshot = proposal.operation.type === 'update_money_budget' ? null : await loadSnapshot();
+        const resultState = snapshot && isMoneyControlOperationApplied(proposal.operation, snapshot)
           ? { recovered: true, updatedAt: snapshot.generatedAt, ...proposal.operation.payload }
           : await applyMoneyControlOperation(proposal.operation, actions);
+        writeConfirmed = true;
         await repository.finalizeMutationReceipt(receipt.id, {
           capabilityId: 'money', resultingObjectType: moneyControlTargetType(proposal.operation),
           resultingObjectId: proposal.operation.targetId, resultState,
@@ -95,6 +97,8 @@ export async function recoverMoneyControlMutations({ aggregate, repository, acti
         proposalId: proposal.id, fromStatus: 'applying', toStatus: 'applied', expectedVersion: proposal.version,
       });
     } catch (error) {
+      if (error instanceof MoneyBudgetOutcomeUnknownError || writeConfirmed
+        || (proposal.operation.type === 'update_money_budget' && !(error instanceof MoneyBudgetRejectedError))) continue;
       if (receipt.status === 'reserved') {
         await repository.failMutationReceipt(
           receipt.id, 'money_control_recovery_failed',

@@ -697,6 +697,9 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
   if (contract.id.startsWith('cook_session.')) {
     return live(row, recipeCookProof);
   }
+  if (contract.id.startsWith('meal_planning.cart.') || contract.id === 'meal_planning.history.read') {
+    return bounded('pending_provider', row, 'Available through the authenticated external MCP executor; native Chat proposal apply is not implemented for these cart operations.', ['supabase/functions/_shared/__tests__/serverMealCartTools_deno_test.ts']);
+  }
   if (contract.id === 'meal_planning.plan.create' || contract.id === 'meal_planning.plan.update'
     || contract.id === 'meal_planning.candidate.add' || contract.id === 'meal_planning.candidate.remove'
     || contract.id === 'meal_planning.round.open' || contract.id === 'meal_planning.round.close'

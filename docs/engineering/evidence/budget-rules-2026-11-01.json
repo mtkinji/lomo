@@ -1,0 +1,102 @@
+{
+  "date": "2026-11-01 America/Denver",
+  "checkout": "/Users/andrewwatanabe/Kwilt",
+  "branch": "codex/budget-reliability-checkpoint",
+  "baseHead": "2c6fde0f7ab58eb0b62df893664e4fc1989c71fa",
+  "dirty": true,
+  "sourceSha256": {
+    "scripts/money/backend-contract.mjs": "667ce66c736ade1ae37d333bc2d5844d3056200b3d817c93e65abd4b75224eb2",
+    "scripts/money/backend-contract.test.mjs": "c82d2741ab503374d87678744c7076d41d4d440152a23932201cfc7255647876",
+    "scripts/money/native-harness/README.md": "e12874897a24f485fcc370c9ee5c2df77ea4fd741307e4e4122342e97deef7b4",
+    "scripts/money/native-harness/server.py": "7d3d81f2f562fc548bafb967b9f897eb45496b0972cf8cf1df80deee2ab12869",
+    "scripts/money/verify-category-settings-postgres.py": "bb944684464150191be561178e2e3aa5cad7e03b87d9441c174b6f2472fb246f",
+    "src/capabilities/money/data/MoneyDataContext.test.tsx": "3130e9f4ee631364884d10754cd820ffca98afc7f242dbf19597f6e65644192c",
+    "src/capabilities/money/data/MoneyDataContext.tsx": "d6ffca32b8f6e4c1246f8a8e4033cec69f46164fafed1a32aa3084093fdcb3df",
+    "src/capabilities/money/data/moneyConfirmedPatches.test.ts": "130902f2abff48a00cf4748ef0d88556069a214171201c7fe1a274c019e4c2cd",
+    "src/capabilities/money/data/moneyConfirmedPatches.ts": "cd0db05a4cc4fc687e90c04310027bfa6db619452f8478e9c26c2e43e8cfe56c",
+    "src/capabilities/money/data/moneyMerchantRules.ts": "10560ac957d83786e8bed6f23e3e1804aad4af72b60f5c1ca90ee8c7f1c967b6",
+    "src/capabilities/money/data/moneyMutations.test.ts": "101f13c76defa3ca799978ce11d2876631fca6b58174bebcab7dcd58095dd3e6",
+    "src/capabilities/money/data/moneyMutations.ts": "94d8eaab343cf5f23800baff23818401bb50699e48caa781f6ae9908e9ee8390",
+    "src/capabilities/money/data/moneyRepository.test.ts": "8ba731cf65bd00860b10981afd213e0487d7265dd7ebb1841e9fb7dc6c4b81bd",
+    "src/capabilities/money/data/moneyRepository.ts": "218c4883b744e72c326c4bbfc58b7fc83752a429cd32b1fe31f540f84ecb2951",
+    "src/capabilities/money/data/moneySnapshot.merchantRules.test.ts": "7e05060715f1731098006c9fa88a8104c9925d353d912e83655e440a6bedef23",
+    "src/capabilities/money/data/moneySnapshot.ts": "9407dd96ce08ab4b3d827959fe160f824c38cb579ab65dee515e47c6324750fe",
+    "src/capabilities/money/domain/moneyDetailView.test.ts": "8e55de9a1ad7a5e47c821a38a5f938516abcca507f07cb63c3264824b833d531",
+    "src/capabilities/money/domain/moneyDetailView.ts": "dd2471ca19ebafe89fca5e7ca2967bac09b8c75ba1488b825693fb98e96c4d7c",
+    "src/capabilities/money/screens/MoneyTransactionDetailScreen.test.tsx": "c433e5833c49d76ea68a5c31feb3e24424eef1aff0a9a507493c8d077061b806",
+    "src/capabilities/money/screens/MoneyTransactionDetailScreen.tsx": "e86413e2346c1d5bf45d361b003b9a04657f89cf7658e357294c4cded84abd6e",
+    "scripts/money/native-harness/check-rules.acceptance.ts": "c5c1b7a02c6f8ce9f0ef5d92d3518b06fab8b33d3260b3de49bfcfe2d24b2ea3",
+    "scripts/money/transaction_rule_fixture.py": "85d31929c49cce5512f4caa473aabfe656e1d295d591d957ea09062ab3bbc15c",
+    "src/capabilities/money/data/moneyMerchantRules.regression.test.ts": "b5e7c83a94ea04c5d89b208fb03a7855ccefbed2d323bb687bbd3d54f79c3099",
+    "src/capabilities/money/screens/MoneyTransactionDetailScreen.rules.test.tsx": "9cee5718042f301dc75bd94bd3d5b8c598e837bca9be598c7e5768c8c8faafb6",
+    "supabase/migrations/20261102021916_transfer_and_literal_merchant_rules.sql": "4c37c34036170875223ea10e6d405dccab0101273effc835a238779b8e1548d4",
+    "supabase/tests/transaction_rules_v2.sql": "26e70cf2689acdff9d2a1618d9e66202d07bb8cb588200c637ce3c2e72c61df8"
+  },
+  "localVerification": {
+    "command": "npm run verify:local -- --run --base HEAD",
+    "status": "passed",
+    "seconds": 111.83,
+    "suites": 251,
+    "passedTests": 1765,
+    "skippedTests": 2,
+    "selectedFiles": 29,
+    "omittedFiles": 0
+  },
+  "database": {
+    "engine": "PostgreSQL 17.11",
+    "status": "passed",
+    "command": "python3 scripts/money/verify-category-settings-postgres.py --pg-bin /opt/homebrew/opt/postgresql@17/bin",
+    "boundary": "Disposable selected-schema fixture; documented auth, read-policy and entitlement substitutes; not full replay."
+  },
+  "http": {
+    "engine": "PostgREST 16.5",
+    "status": "passed",
+    "ruleEntry": "scripts/money/native-harness/check-rules.acceptance.ts",
+    "settingsEntry": "scripts/money/native-harness/check-api.ts",
+    "boundary": "Production repository and Supabase client; real HTTP/JWT/RLS/RPC; synthetic accounts, fixture auth-user lookup; no production household writes."
+  },
+  "review": {
+    "client": "No outstanding findings after effective-rule precedence and category-alias corrections.",
+    "backend": "No remaining blockers after helper loading and required matcher execute-grant checks.",
+    "mode": "read-only static review"
+  },
+  "livePreflight": {
+    "project": "sqxwjtorodqjdfnuvprf",
+    "contractHash": "a67616078742667083ccb52b8a4c8ebe0d910b2be4e32bc3d7e3c28c29a444d2",
+    "passed": 49,
+    "total": 61,
+    "failed": [
+      "column:public.budget_transaction_match_rules.match_version",
+      "column:public.budget_transaction_match_rules.rule_kind",
+      "function:public.apply_budget_transaction_match_rule_to_history",
+      "function:public.apply_budget_transaction_match_rule_to_row",
+      "function:public.budget_rule_matches_version",
+      "function:public.upsert_budget_transaction_match_rule",
+      "function:public.upsert_budget_transaction_rule_v2",
+      "rule-command-execute",
+      "rule-destination-schema",
+      "rule-matcher-execute",
+      "trigger:apply_budget_transaction_match_rule",
+      "trigger:apply_budget_transaction_match_rule_to_history"
+    ],
+    "invalidExistingRuleDestinations": 0,
+    "interpretation": "Only the new, undeployed rule contract fails. No production mutation performed."
+  },
+  "remaining": [
+    "New migration approval and deployment",
+    "Updated live contract and release credential transport",
+    "Native keyboard/save/reopen/relaunch; Mac locked",
+    "Prior inventory scroll and Dynamic Type acceptance",
+    "Final integration/CI/merge and release gates"
+  ],
+  "runtimeCleanup": "Disposable API and PostgreSQL stopped; no new Simulator runtime.",
+  "integrationVerification": {
+    "command": "npm run verify:changed -- --run --base origin/main",
+    "status": "passed",
+    "suites": 1319,
+    "passedTests": 8321,
+    "skippedTests": 2,
+    "snapshots": 2,
+    "boundary": "Uncached local integration gate; CI and native/live acceptance are separate."
+  }
+}

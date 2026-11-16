@@ -58,6 +58,16 @@ describe('AGENT_CAPABILITY_EVAL_CASES', () => {
     }
   });
 
+  it('keeps external Meal cart language distinct from unsupported native execution', () => {
+    for (const operationId of ['meal_planning.cart.ensure', 'meal_planning.cart.add', 'meal_planning.cart.mark_made', 'meal_planning.cart.remove', 'meal_planning.history.read']) {
+      const language = OPERATION_LANGUAGE_CASES.find(item => item.operationId === operationId);
+      const capability = AGENT_CAPABILITY_EVAL_CASES.find(item => item.operationId === operationId);
+      expect(language?.prompt).toBeTruthy();
+      expect(language?.boundaryReason).toContain('external MCP only');
+      expect(capability).toMatchObject({ mobileState: 'pending_provider', phoneState: 'pending_provider', expectedMobileOutcome: 'honest_boundary', expectedPhoneOutcome: 'honest_boundary' });
+    }
+  });
+
   it('represents every manifest operation exactly once', () => {
     expect(AGENT_CAPABILITY_EVAL_CASES.map((item) => item.operationId))
       .toEqual(CHAT_CAPABILITY_COVERAGE.map((row) => row.id));

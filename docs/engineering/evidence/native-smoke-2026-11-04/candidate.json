@@ -1,0 +1,33 @@
+{
+  "base_commit": "93f5a5f19b45a98dee01a55d1736125c026aede3",
+  "native_build_commit": "db7856ba3cc7bafd5d4096b87ec90ed1b52fca37",
+  "app_version": "2.0.2 (135)",
+  "simulator": "282D12B9-82BD-4D37-8DAF-A8A08F2EECAD",
+  "os": "iOS 26.5",
+  "xcode": "26.6",
+  "maestro": "2.12.1",
+  "source_sha256": {
+    ".github/workflows/e2e-maestro.yml": "d1a690aa7e0b7484804ec7b3d3a6dd44f24bc21d5a7885fa8590be1ef4ff64e7",
+    "e2e/maestro/activity-detail-key-actions.yaml": "4dc69370358d73b203c4a25fdd2782095b165818b0545b4a3f17b75366f48e1e",
+    "e2e/maestro/arc-banner-touch-regression.yaml": "6c3600155336a04bfe6f6300f020a4ad722ea5e86701092bdaf6eab94aada55a",
+    "e2e/maestro/onboarding-plan-ready-touch-regression.yaml": "8451b7d7d057d1d3f3ff0b78caa1f5e8c9fc2e522006b392e227b7efe84d76bf",
+    "e2e/workspace-fixture/activity-detail-key-actions.yaml": "c43011bf845ea890516ab82d871a6601f67ef71432e6de67f8d9e7f034bba1e4",
+    "e2e/workspace-fixture/arc-banner-touch-regression.yaml": "4b9d1c9fe6fceedc72a61edd52d70210092fa9994f69cfdce430a3cdac9c76e6",
+    "e2e/workspace-fixture/onboarding-plan-ready-touch-regression.yaml": "3b883fd1a002605a99dce0f73550c1107dfdf94560c7f1e006d1155a2ddf59fd",
+    "e2e/workspace-fixture/smoke-devtools.yaml": "28c4b2287c617997184479ce72cb51d5dbed3f7f70d1747c40ae7691aa653da5",
+    "e2e/workspace-fixture/start.yaml": "d1d490eb0386f55e22f4ac5cd82867563b7ff70c807fca1541439579c8054f7a",
+    "scripts/e2e-maestro-runtime.test.mjs": "b6348a3baf59aa0b951a25f16286a27005640114934f1f1c92ef18219eb931e6",
+    "scripts/e2e/native-harness/README.md": "316da2a0d30f9efd113fe1fb7a8fc7c85b4db0c731be9e4b9d5a8da77bb19281",
+    "scripts/e2e/native-harness/WorkspaceHarness.tsx": "8d9eba7ac0dd2b81f2d57da51d9dfd5abd2b3dac9f37784d569ba5d3cf5ba8b9",
+    "scripts/e2e/native-harness/app.config.js": "b916f23766d630dd78b17862793fb8d8524077fcd143973e4431653239c4f92a",
+    "scripts/e2e/native-harness/index.ts": "a92a065cfcf43b7966c7f55c36b8133662156df7602a9f23db365b552feccb9d",
+    "scripts/e2e/native-harness/metro.config.js": "78bc2d17694eb2a8d97d435aec484b0bfdb5d718c5a233a38bdc2243f748e52b",
+    "scripts/e2e/native-harness/package.json": "83ef6536b0b60436157b71ac1d409b966024d240be2495dd01d312be4a56a35e",
+    "scripts/e2e/native-harness/tsconfig.json": "4a08bfe67a31d36603032cb908ca0b18c0b3ef4faf1d455dd90fdd8aee0b8c08",
+    "scripts/e2e/run-maestro-ios.sh": "b3cfe3f101d65af18af7743366dd3338b17bc7c64763125ee3501b60edce9f63",
+    "scripts/verification/plan.mjs": "a38204bf1075bf18749daeda8bc61ca34a31ff39b0aa2d929af3e85293877f7f",
+    "scripts/verification/plan.test.mjs": "7d858eefefc5c1952cee0dc2b4c12be8cb26280ea5af6ba3c5becc34b5d4d81c",
+    "src/features/activities/ActivityFocusExperience.test.tsx": "ab592ad921c8332bf6f28565ac4c65afcc0369681800d23f92b1b1e456057ce2",
+    "src/features/activities/ActivityFocusExperience.tsx": "7be2ca0eae745ebfe4759ae06fcd72b0446ab6c2f1f19d3240640e632acb3136"
+  }
+}

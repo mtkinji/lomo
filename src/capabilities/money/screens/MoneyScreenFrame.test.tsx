@@ -1,8 +1,9 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { RefreshControl, Text } from 'react-native';
+import { RefreshControl, ScrollView, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HapticsService } from '../../../services/HapticsService';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { CanvasFlatList } from '../../../ui/layout/CanvasFlatList';
 
 const mockRefresh = jest.fn(async () => undefined);
 const mockUseMoneyData = jest.fn();
@@ -103,6 +104,22 @@ describe('MoneyScreenFrame recovery states', () => {
 
     expect(HapticsService.trigger).toHaveBeenCalledTimes(1);
     expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.selection');
+  });
+
+  it('lets a virtual inventory own scrolling while retaining refresh and stale-data warnings', () => {
+    mockUseMoneyData.mockReturnValue(moneyState({ snapshot: { generatedAt: 'earlier' }, status: 'ready', error: 'Network unavailable' }));
+    const screen = render(
+      <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, right: 0, bottom: 34, left: 0 } }}>
+        <MoneyScreenFrame title="Transactions" onPressBack={jest.fn()}>
+          {({ warning, ...scrollProps }) => <CanvasFlatList {...scrollProps} data={['row']} keyExtractor={(row) => row} ListHeaderComponent={<>{warning}</>} renderItem={() => <Text>Transaction</Text>} />}
+        </MoneyScreenFrame>
+      </SafeAreaProvider>,
+    );
+    expect(screen.UNSAFE_getAllByType(ScrollView)).toHaveLength(1);
+    expect(screen.getByText('Transaction')).toBeTruthy();
+    expect(screen.getByText('Showing the last successful update')).toBeTruthy();
+    act(() => screen.UNSAFE_getByType(RefreshControl).props.onRefresh());
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('renders a back-owned frame without requiring the global capability shell', () => {

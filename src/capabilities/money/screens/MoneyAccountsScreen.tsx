@@ -50,6 +50,7 @@ const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
 export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
   return (
     <MoneyAccountsSurface
+      onPressBack={() => navigation.popTo('MoneySummary')}
       onOpenTransactions={(accountId) => navigation.navigate('MoneyTransactions', { accountId })}
     />
   );

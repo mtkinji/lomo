@@ -186,10 +186,10 @@ private enum KwiltShieldCopy {
 
   static func buttonLabel(for reason: String) -> String {
     if reason == "focus_session_active" || reason == "focus" { return "Open Focus" }
-    if reason == "family_prerequisite" { return "Open Screen Time" }
+    if reason == "family_prerequisite" { return "Screen Time" }
     if reason.hasPrefix("money_") { return "Review in Money" }
     if reason == "meaningful_first_locked" { return "Open Today" }
-    if reason == "personal_usage_limit_reached" || reason == "personal_composite_rule" { return "Open Screen Time" }
+    if reason == "personal_usage_limit_reached" || reason == "personal_composite_rule" { return "Screen Time" }
     return "Open Kwilt"
   }
 
@@ -318,10 +318,20 @@ private enum KwiltShieldArtwork {
   }
 }
 
+private enum KwiltShieldPalette {
+  static let parchment = UIColor(red: 0.980, green: 0.969, blue: 0.929, alpha: 1.0)
+  static let sumi = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
+}
+
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
-  private let parchment = UIColor(red: 0.980, green: 0.969, blue: 0.929, alpha: 1.0)
-  private let sumi = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
-  private let detailColor = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 0.72)
+  // Resolve all shield colors in the host's appearance. A fixed dark button
+  // disappears against the system's dark shield background.
+  private let background = UIColor { traits in
+    traits.userInterfaceStyle == .dark ? KwiltShieldPalette.sumi : KwiltShieldPalette.parchment
+  }
+  private let foreground = UIColor { traits in
+    traits.userInterfaceStyle == .dark ? KwiltShieldPalette.parchment : KwiltShieldPalette.sumi
+  }
 
   private func configuration(
     appName: String,
@@ -360,12 +370,12 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
     }
     return ShieldConfiguration(
       backgroundBlurStyle: nil,
-      backgroundColor: parchment,
+      backgroundColor: background,
       icon: KwiltShieldArtwork.icon(),
-      title: ShieldConfiguration.Label(text: title, color: sumi),
-      subtitle: ShieldConfiguration.Label(text: subtitle, color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: UIColor.white),
-      primaryButtonBackgroundColor: sumi,
+      title: ShieldConfiguration.Label(text: title, color: foreground),
+      subtitle: ShieldConfiguration.Label(text: subtitle, color: foreground.withAlphaComponent(0.72)),
+      primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: background),
+      primaryButtonBackgroundColor: foreground,
       secondaryButtonLabel: nil
     )
   }
@@ -840,20 +850,12 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
 }
 
 function infoPlist({ displayName, extensionPointIdentifier, principalClass, fonts = [] }) {
-  const preservesParchmentAppearance =
-    extensionPointIdentifier === 'com.apple.ManagedSettingsUI.shield-configuration-service';
   const fontEntries = fonts.length
     ? `  <key>UIAppFonts</key>
   <array>
 ${fonts.map((font) => `    <string>${font}</string>`).join('\n')}
   </array>
 `
-    : '';
-  const appearanceEntry = preservesParchmentAppearance
-    ? '  <key>UIUserInterfaceStyle</key><string>Light</string>\n'
-    : '';
-  const hostAppearanceEntry = preservesParchmentAppearance
-    ? '    <key>NSExtensionOverridesHostUIAppearance</key><true/>\n'
     : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -868,9 +870,9 @@ ${fonts.map((font) => `    <string>${font}</string>`).join('\n')}
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-${fontEntries}${appearanceEntry}  <key>NSExtension</key>
+${fontEntries}  <key>NSExtension</key>
   <dict>
-${hostAppearanceEntry}    <key>NSExtensionPointIdentifier</key><string>${extensionPointIdentifier}</string>
+    <key>NSExtensionPointIdentifier</key><string>${extensionPointIdentifier}</string>
     <key>NSExtensionPrincipalClass</key><string>${principalClass}</string>
   </dict>
 </dict>

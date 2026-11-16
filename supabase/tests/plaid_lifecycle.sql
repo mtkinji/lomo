@@ -1,11 +1,13 @@
--- Run within a transaction and roll back. Uses an existing user only as a FK;
--- never touches existing connections or provider credentials.
+-- Rollback-only: owns its auth fixture and never touches existing users,
+-- connections or provider credentials. Works on an empty migration replay.
+begin;
 do $$
-declare c uuid:=gen_random_uuid(); t uuid:=gen_random_uuid(); j public.budget_plaid_jobs; stamp timestamptz;
+declare c uuid:=gen_random_uuid(); t uuid:=gen_random_uuid(); u uuid:=gen_random_uuid(); j public.budget_plaid_jobs; stamp timestamptz;
 begin
+  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,created_at,updated_at)
+    values('00000000-0000-0000-0000-000000000000',u,'authenticated','authenticated','plaid-lifecycle-'||u||'@example.invalid','',now(),now());
   insert into public.budget_financial_connections(id,user_id,environment,plaid_item_id,status)
-    select c,id,'sandbox','test-lifecycle-'||c,'healthy' from auth.users limit 1;
-  if not found then raise exception 'test requires one auth user'; end if;
+    values(c,u,'sandbox','test-lifecycle-'||c,'healthy');
   select updated_at into stamp from public.budget_financial_connections where id=c;
   if not public.acquire_budget_plaid_lease(c,t) then raise exception 'first lease not acquired'; end if;
   if public.acquire_budget_plaid_lease(c,gen_random_uuid()) then raise exception 'concurrent lease acquired'; end if;
@@ -36,3 +38,4 @@ begin
   if has_table_privilege('anon','public.budget_plaid_jobs','SELECT') then raise exception 'jobs exposed'; end if;
   delete from public.budget_financial_connections where id=c;
 end $$;
+rollback;

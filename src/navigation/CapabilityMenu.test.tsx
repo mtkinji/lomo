@@ -1,6 +1,9 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
+import { CommonActions } from '@react-navigation/native';
+import { createCapabilityMenuNavigationHandlers } from './capabilityNavigation';
+import { deriveActiveCapabilityDestinationId } from './CapabilityShellContext';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
 import type { CapabilityMenuDestinationId } from '../capabilities/types';
 import { bottomDockGeometry, colors, floatingControl, fonts, radii } from '../theme';
@@ -385,6 +388,27 @@ describe('CapabilityMenu', () => {
       expect(handlers.onSelectCapability).toHaveBeenCalledTimes(1);
       expect(handlers.onSelectCapability).toHaveBeenCalledWith(id);
       expect(onReselectCapability).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['MoneyAccounts', 'MoneyTransactions', 'MoneyTransactionDetail', 'MoneyCategoryDetail'])(
+    'returns to Budget when its selected menu item is pressed from %s', (screenName) => {
+      const state = { index: 0, routes: [{ name: 'Money', state: { index: 0, routes: [{ name: screenName }] } }] };
+      const dispatch = jest.fn();
+      const coverMenu = jest.fn();
+      const captureSelection = jest.fn();
+      const navigationHandlers = createCapabilityMenuNavigationHandlers({
+        dispatch, coverMenu, captureSelection, activeRouteName: screenName,
+      });
+      const menu = render(<CapabilityMenu activeCapabilityId={deriveActiveCapabilityDestinationId(state)}
+        chats={chats} {...handlers} {...navigationHandlers} />);
+      fireEvent.press(menu.getByLabelText('Budgets'));
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(CommonActions.navigate('Money', {
+        screen: 'MoneyEntry', params: { requestedPlace: 'MoneySummary', source: 'capability-menu', mode: 'automatic' },
+      }));
+      expect(coverMenu).toHaveBeenCalledTimes(1);
+      expect(captureSelection).toHaveBeenCalledWith('money-summary');
     },
   );
 

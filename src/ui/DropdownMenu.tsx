@@ -131,6 +131,8 @@ function DropdownMenuContent({
           style={resolvedOverlayStyle}
         >
           <NativeOnlyAnimatedView
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="box-none"
             entering={motion.menu.entering}
             exiting={motion.menu.exiting}
           >

@@ -6,7 +6,7 @@ const hostedCatalogSource = {
   recipeId: 'kwilt-recipe-lu002', recipeVersionId: 'kwilt-recipe-lu002-v1', recipeVersion: 1,
   contentHash: 'sha256:f641e8b737256497f0e7992b371b902f8822337b5f742b0ecb6076b5de84e2e8',
   sourceType: 'catalog', title: 'Classic BLT', yieldQuantity: 4, yieldUnit: 'sandwiches',
-  ingredients: [{ id: 'b597248b-5a5d-44aa-909f-0bbfc3245aa9', originalText: '12 slices thick-cut bacon', optional: false }],
+  ingredients: [{ id: 'b597248b-5a5d-44aa-909f-0bbfc3245aa9', originalText: '12 slices thick-cut bacon', optional: false, scaleRule: { kind: 'multiply' } }],
 };
 
 for (const householdId of ['household-1', null]) {
@@ -54,7 +54,7 @@ Deno.test('rejects malformed hosted catalog identity and ingredients', () => {
 const input = {
   plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' }, expectedVersion: 3, actorPersonId: 'person-1',
   entries: [{ id: 'entry-1', plan_version: 3, servings: 8, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4, yieldUnit: 'servings', selectedServings: 8 } }],
-  ingredientsByVersionId: { 'version-1': [{ id: 'ingredient-1', original_text: '2 onions', optional: false }] },
+  ingredientsByVersionId: { 'version-1': [{ id: 'ingredient-1', original_text: '2 onions', optional: false, scale_rule: { kind: 'multiply' } }] },
 };
 
 Deno.test('compiles finalized exact-version authority and preserves provenance', () => {
@@ -85,8 +85,8 @@ Deno.test('compiles every dish once while keeping dish entry provenance private'
       { id: 'alternate-dish', plan_version: 3, servings: 2, recipe_snapshot: { recipeVersionId: 'version-2', yieldQuantity: 2, recipeScaleMultiplier: 1 } },
     ],
     ingredientsByVersionId: {
-      'version-1': [{ id: 'onions', original_text: '2 onions', optional: false }],
-      'version-2': [{ id: 'bread', original_text: '4 slices bread', optional: false }],
+      'version-1': [{ id: 'onions', original_text: '2 onions', optional: false, scale_rule: { kind: 'multiply' } }],
+      'version-2': [{ id: 'bread', original_text: '4 slices bread', optional: false, scale_rule: { kind: 'multiply' } }],
     },
   });
   const sources = result.items.flatMap((item) => item.sources);
@@ -111,7 +111,7 @@ Deno.test('compiles an immutable bundled-catalog ingredient snapshot without pri
         ingredients: [{
           id: 'kwilt-recipe-br001-v1-ingredient-1',
           originalText: '2 cups flour',
-          optional: false,
+          optional: false, scaleRule: { kind: 'multiply' },
         }],
       },
     }],
@@ -137,7 +137,7 @@ Deno.test('compiles one readable Recipe version without inventing Meal Plan memb
       ingredients: [],
     },
     recipeScaleMultiplier: 2,
-    authoritativeIngredients: [{ id: 'ingredient-1', original_text: '2 onions', optional: false }],
+    authoritativeIngredients: [{ id: 'ingredient-1', original_text: '2 onions', optional: false, scale_rule: { kind: 'multiply' } }],
   });
 
   if (result.items[0]?.quantityMin !== 4) throw new Error('single Recipe serving scale failed');
@@ -156,7 +156,7 @@ Deno.test('compiles one immutable bundled-catalog Recipe snapshot', () => {
       title: 'Pancakes',
       yieldQuantity: 4,
       yieldUnit: 'servings',
-      ingredients: [{ id: 'kwilt-recipe-br001-v1-ingredient-1', originalText: '2 cups flour', optional: false }],
+      ingredients: [{ id: 'kwilt-recipe-br001-v1-ingredient-1', originalText: '2 cups flour', optional: false, scaleRule: { kind: 'multiply' } }],
     },
     recipeScaleMultiplier: 2,
     authoritativeIngredients: null,
@@ -177,8 +177,8 @@ Deno.test('compiles a persistent household Plan with candidate-level quantities'
       { id: 'candidate-b', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-b', yieldQuantity: 4, recipeScaleMultiplier: 1, plannedPortions: 4, selectedServings: 4 } },
     ],
     ingredientsByVersionId: {
-      'version-a': [{ id: 'cheese-a', original_text: '1 cup cheese', optional: false }],
-      'version-b': [{ id: 'cheese-b', original_text: '2 cups cheese', optional: false }],
+      'version-a': [{ id: 'cheese-a', original_text: '1 cup cheese', optional: false, scale_rule: { kind: 'multiply' } }],
+      'version-b': [{ id: 'cheese-b', original_text: '2 cups cheese', optional: false, scale_rule: { kind: 'multiply' } }],
     },
   });
   if (result.items[0]?.quantityMin !== 4) throw new Error('household aggregate or serving scale incorrect');
@@ -212,7 +212,7 @@ Deno.test('lets only the organizer compile a personal draft Plan', () => {
       recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 2, yieldUnit: 'servings', selectedServings: 4 },
     }],
     ingredientsByVersionId: {
-      'version-a': [{ id: 'rice', original_text: '1 cup rice', optional: false }],
+      'version-a': [{ id: 'rice', original_text: '1 cup rice', optional: false, scale_rule: { kind: 'multiply' } }],
     },
   };
 
@@ -238,7 +238,7 @@ Deno.test('compiles a loaf snapshot from recipeScaleMultiplier instead of planne
       id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null,
       recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6, recipeScaleMultiplier: 1 },
     }],
-    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false, scale_rule: { kind: 'multiply' } }] },
   });
   if (result.items.find((item) => item.concept === 'milk')?.quantityMin !== 1) throw new Error('planned portions changed loaf size');
 });
@@ -253,7 +253,7 @@ Deno.test('doubles a loaf only from an explicit recipe multiplier', () => {
       id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null,
       recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6, recipeScaleMultiplier: 2 },
     }],
-    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false, scale_rule: { kind: 'multiply' } }] },
   });
   if (result.items.find((item) => item.concept === 'milk')?.quantityMin !== 2) throw new Error('explicit loaf multiplier was ignored');
 });
@@ -265,10 +265,31 @@ Deno.test('requires review before compiling an ambiguous legacy physical yield',
       plan: { id: 'plan-loaf', household_id: 'household-1', organizer_person_id: 'person-1', version: 1, state: 'draft' },
       expectedVersion: 1, actorPersonId: 'person-1', actorRole: 'owner',
       candidates: [{ id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6 } }],
-      ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+      ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false, scale_rule: { kind: 'multiply' } }] },
     });
   } catch (error) {
     failed = error instanceof Error && error.message === 'legacy_recipe_scale_review_required';
   }
   if (!failed) throw new Error('ambiguous legacy loaf compiled');
+});
+
+Deno.test('reviewed fixed ingredients stay fixed in direct, finalized and ongoing cart groceries', () => {
+  const source = { ...hostedCatalogSource, ingredients: [{ ...hostedCatalogSource.ingredients[0], originalText: '1 tbsp oil', scaleRule: { kind: 'fixed', reason: 'vessel' } }] };
+  const results = [
+    compileRecipeGroceryAuthority({ source, recipeScaleMultiplier: 2, authoritativeIngredients: null }),
+    compileGroceryAuthority({ ...input, entries: [{ id: 'entry', plan_version: 3, servings: 8, recipe_snapshot: { ...source, recipeScaleMultiplier: 2 } }], ingredientsByVersionId: {} }),
+    compileHouseholdPlanGroceryAuthority({ plan: { id: 'plan', household_id: null, organizer_person_id: 'person-1', version: 3, state: 'draft' }, actorPersonId: 'person-1', actorRole: null, expectedVersion: 3,
+      candidates: [{ id: 'candidate', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { ...source, recipeScaleMultiplier: 2 } }], ingredientsByVersionId: {} }),
+    compileGroceryAuthority({ ...input, ingredientsByVersionId: { 'version-1': [{ id: 'ingredient-1', original_text: '1 tbsp oil', optional: false, scale_rule: { kind: 'fixed', reason: 'vessel' } }] } }),
+  ];
+  for (const result of results) if (result.items[0]?.quantityMin !== 1 || result.items[0]?.sources[0]?.quantityMin !== 1) throw new Error('fixed ingredient was multiplied');
+});
+
+Deno.test('scaled groceries refuse missing or unreviewed ingredient scaling authority', () => {
+  for (const scaleRule of [undefined, { kind: 'review_required' }, { kind: 'unknown' }]) {
+    let rejected = false;
+    try { compileRecipeGroceryAuthority({ source: { ...hostedCatalogSource, ingredients: [{ ...hostedCatalogSource.ingredients[0], scaleRule }] }, recipeScaleMultiplier: 2, authoritativeIngredients: null }); }
+    catch (error) { rejected = error instanceof Error && error.message === 'ingredient_scale_review_required'; }
+    if (!rejected) throw new Error('unreviewed scaled ingredient accepted');
+  }
 });

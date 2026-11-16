@@ -58,20 +58,17 @@ export async function previewLivingPlanOverride(
   categoryId: string,
   amountCents: number,
   funding?: Omit<LivingPlanPlanChangePreview, 'categoryId' | 'amountCents'>,
+  ownerUserId?: string,
 ): Promise<LivingPlanOverridePreview> {
-  const result = await evaluateLivingPlan(client, 'override_changed', { categoryId, amountCents, ...funding });
+  const result = await evaluateLivingPlan(client, 'override_changed', { categoryId, amountCents, ...funding }, ownerUserId);
   return result as LivingPlanOverridePreview;
 }
 
-export async function commitLivingPlanCategoryChange(client: SupabaseClient, input: {
-  planCategoryId: string;
-  allocationCategoryId: string;
-  amountCents: number;
-  fundingRhythm: 'monthly' | 'reserve';
-  expectedNeedCents: number | null;
-  expectedNeedDueMonth: string | null;
+export function validateReviewedCategoryPlan(input: {
+  allocationCategoryId: string; amountCents: number; fundingRhythm: 'monthly' | 'reserve';
+  expectedNeedCents: number | null; expectedNeedDueMonth: string | null;
   preview: ReadyLivingPlanOverridePreview;
-}): Promise<LivingPlanReconciliationResult> {
+}): void {
   if (input.preview.candidateHash !== input.preview.candidate.candidateHash) {
     throw new Error('The reviewed Money plan is no longer valid. Review the change again.');
   }
@@ -85,6 +82,18 @@ export async function commitLivingPlanCategoryChange(client: SupabaseClient, inp
     || reviewedAllocation.expectedNeed?.dueMonth !== (input.expectedNeedDueMonth ?? undefined)) {
     throw new Error('The category change no longer matches the reviewed Money plan. Review it again.');
   }
+}
+
+export async function commitLivingPlanCategoryChange(client: SupabaseClient, input: {
+  planCategoryId: string;
+  allocationCategoryId: string;
+  amountCents: number;
+  fundingRhythm: 'monthly' | 'reserve';
+  expectedNeedCents: number | null;
+  expectedNeedDueMonth: string | null;
+  preview: ReadyLivingPlanOverridePreview;
+}): Promise<LivingPlanReconciliationResult> {
+  validateReviewedCategoryPlan(input);
   const cause = causeFor('category_changed', input.preview.comparison.changedCategoryIds.length);
   const versionId = await applyGovernedCategoryPlanChange(client, {
     planCategoryId: input.planCategoryId,
@@ -106,11 +115,12 @@ async function evaluateLivingPlan(
   client: SupabaseClient,
   trigger: LivingPlanTrigger,
   hypotheticalOverride?: LivingPlanPlanChangePreview,
+  previewOwnerUserId?: string,
 ): Promise<LivingPlanReconciliationResult | LivingPlanOverridePreview> {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError) throw authError;
   if (!auth.user) return { outcome: 'not_ready', reason: 'signed_out' };
-  const userId = auth.user.id;
+  const userId = hypotheticalOverride ? previewOwnerUserId ?? auth.user.id : auth.user.id;
   const [targetResult, transactions, accountResult, forecastResult, overrideResult, connectionResult, categoryResult, productPlanRows, planningBasis, active] = await Promise.all([
     client.from('budget_living_target_intents').select('living_percent').eq('user_id', userId).maybeSingle(),
     collectAllPages(async (from, to) => {
@@ -125,7 +135,7 @@ async function evaluateLivingPlan(
     client.from('budget_categories').select('id,legacy_budget_id,slug').eq('user_id', userId).eq('status', 'active'),
     readReconciliationPlans(client, userId),
     readPlanningBasisOverride(client, userId),
-    getActiveLivingPlan(client),
+    getActiveLivingPlan(client, userId),
   ]);
   const firstError = [targetResult.error, accountResult.error, forecastResult.error, overrideResult.error, connectionResult.error, categoryResult.error].find(Boolean);
   if (firstError) throw firstError;

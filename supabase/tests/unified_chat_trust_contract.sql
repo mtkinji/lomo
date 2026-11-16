@@ -21,20 +21,22 @@ select set_config(
 insert into public.kwilt_agent_threads (id, user_id, title)
 values ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-00000000a001', 'RLS fixture');
 
-insert into public.kwilt_agent_runs (id, user_id, thread_id, status)
+insert into public.kwilt_agent_runs (id, user_id, thread_id, status, trigger_id)
 values (
   '00000000-0000-0000-0000-00000000c001',
   '00000000-0000-0000-0000-00000000a001',
   '00000000-0000-0000-0000-00000000b001',
-  'complete'
+  'complete',
+  'unified-chat-complete-fixture'
 );
 
-insert into public.kwilt_agent_runs (id, user_id, thread_id, status)
+insert into public.kwilt_agent_runs (id, user_id, thread_id, status, trigger_id)
 values (
   '00000000-0000-0000-0000-00000000c002',
   '00000000-0000-0000-0000-00000000a001',
   '00000000-0000-0000-0000-00000000b001',
-  'active'
+  'active',
+  'unified-chat-active-fixture'
 );
 
 select public.transition_kwilt_agent_run(
@@ -142,14 +144,14 @@ select public.create_kwilt_agent_user_message(
   '00000000-0000-0000-0000-00000000b001',
   'Please read the attached plan.',
   'unified-chat-attachment-request',
-  '[{"id":"attachment-1","name":"plan.md","mime_type":"text/markdown","size_bytes":18,"content":"# Plan\nCall school"}]'::jsonb
+  '[{"id":"attachment-1","name":"plan.md","mime_type":"text/markdown","kind":"text","inspection_status":"ready","inspection_failure":null,"size_bytes":18,"content":"# Plan\nCall school"}]'::jsonb
 );
 
 select public.create_kwilt_agent_user_message(
   '00000000-0000-0000-0000-00000000b001',
   'Please read the attached plan.',
   'unified-chat-attachment-request',
-  '[{"id":"attachment-1","name":"plan.md","mime_type":"text/markdown","size_bytes":18,"content":"# Plan\nCall school"}]'::jsonb
+  '[{"id":"attachment-1","name":"plan.md","mime_type":"text/markdown","kind":"text","inspection_status":"ready","inspection_failure":null,"size_bytes":18,"content":"# Plan\nCall school"}]'::jsonb
 );
 
 do $$

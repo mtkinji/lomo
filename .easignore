@@ -41,6 +41,7 @@ modules/*/android/build/
 
 # generated review, prototype, and store-presentation artifacts
 /artifacts/
+/.cache/native-ci/
 /prototypes/
 app-store-screenshots/
 
@@ -57,6 +58,8 @@ src/features/*/FEATURE.md
 
 # local env files
 .env
+# All environment variants are supplied by EAS, never uploaded as overrides.
+.env*
 .env*.local
 
 # credential material; store-build profiles use EAS remote credentials

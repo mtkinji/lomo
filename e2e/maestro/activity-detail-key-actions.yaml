@@ -22,36 +22,41 @@ appId: com.andrewwatanabe.kwilt
 - tapOn:
     id: "e2e.seed.showActivityDetailGuide"
 
-# Focus mode drawer (KeyActionsRow).
-- scrollUntilVisible:
-    element:
-      id: "e2e.activityDetail.keyAction.focusMode"
-    direction: DOWN
+# Dismiss the seeded coachmark before exercising the actual dock.
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
 
 - takeScreenshot: "activity-detail-key-actions"
-
 - tapOn:
-    id: "e2e.activityDetail.keyAction.focusMode"
+    id: "e2e.activityDetail.nextAction.primary"
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+- tapOn: "Close"
+- assertNotVisible:
+    id: "e2e.activityDetail.focus.start"
 
+# Scheduling lives in the dock's action menu.
 - tapOn:
-    id: "e2e.activityDetail.focus.cancel"
-
-# Calendar drawer.
+    id: "e2e.activityDetail.nextAction.menuTrigger"
 - tapOn:
-    id: "e2e.activityDetail.keyAction.addToCalendar"
+    id: "e2e.activityDetail.nextAction.menu.scheduleTime"
+- assertVisible: "Schedule to-do"
+- tapOn: "Close"
+- assertNotVisible: "Schedule to-do"
 
-- scrollUntilVisible:
-    element:
-      id: "e2e.activityDetail.calendar.close"
-    direction: DOWN
-
+# Reopen Focus to prove both drawers released their touch blockers.
 - tapOn:
-    id: "e2e.activityDetail.calendar.close"
-
-# Prove the page is still tappable after closing drawers.
-- tapOn:
-    id: "e2e.activityDetail.keyAction.focusMode"
-
-- tapOn:
-    id: "e2e.activityDetail.focus.cancel"
-
+    id: "e2e.activityDetail.nextAction.primary"
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+- tapOn: "Close"
+- assertNotVisible:
+    id: "e2e.activityDetail.focus.start"

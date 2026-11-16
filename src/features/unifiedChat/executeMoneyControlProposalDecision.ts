@@ -1,3 +1,4 @@
+import { MoneyBudgetOutcomeUnknownError } from '../../capabilities/money/actions/moneyBudgetActionCommand';
 import type { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
 import type {
   DecideUnifiedChatProposalInput,
@@ -109,6 +110,7 @@ export async function executeMoneyControlProposalDecision({
   });
   const operation = proposal.operation;
   let receipt: UnifiedChatMutationReceipt | null = null;
+  let writeConfirmed = false;
   try {
     const appliedAt = now();
     receipt = await repository.persistMutationReceipt({
@@ -119,6 +121,7 @@ export async function executeMoneyControlProposalDecision({
       returnTarget: moneyControlReturnTarget(operation), undoOperation: null, appliedAt,
     });
     const resultState = await applyMoneyControlOperation(operation, actions);
+    writeConfirmed = true;
     await repository.finalizeMutationReceipt(receipt.id, {
       capabilityId: 'money', resultingObjectType: moneyControlTargetType(operation),
       resultingObjectId: operation.targetId, resultState,
@@ -128,6 +131,8 @@ export async function executeMoneyControlProposalDecision({
       proposalId: proposal.id, fromStatus: 'applying', toStatus: 'applied', expectedVersion: applying.version,
     });
   } catch (error) {
+    // A lost write response or failed Chat bookkeeping must remain recoverable.
+    if (error instanceof MoneyBudgetOutcomeUnknownError || writeConfirmed) throw error;
     if (receipt) {
       await repository.failMutationReceipt(
         receipt.id,

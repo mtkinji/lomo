@@ -1,0 +1,281 @@
+{
+  "observedAt": "2026-11-02T02:36:53.117Z",
+  "sourceCommit": "bf4a7bbf0ef793742e0d6943b77ba0355f49b02f",
+  "projectRef": "sqxwjtorodqjdfnuvprf",
+  "origin": "https://auth.kwilt.app",
+  "authorizedBy": "Andrew explicitly approved the reviewed rule migration in this task before application",
+  "migration": {
+    "name": "transfer_and_literal_merchant_rules",
+    "reviewedVersion": "20261102021916",
+    "deployedVersion": "20261102023219",
+    "sha256": "4c37c34036170875223ea10e6d405dccab0101273effc835a238779b8e1548d4",
+    "contentsUnchanged": true
+  },
+  "contractHash": "a67616078742667083ccb52b8a4c8ebe0d910b2be4e32bc3d7e3c28c29a444d2",
+  "checks": [
+    {
+      "id": "column:private.budget_category_settings_receipts.actor_user_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.category_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.created_at",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.receipt",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.request",
+      "ok": true
+    },
+    {
+      "id": "column:private.budget_category_settings_receipts.request_id",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.name",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.status",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_categories.updated_at",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.base_budget_cents",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.expected_need_cents",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.expected_need_due_month",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.funding_rhythm",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.plan_role",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.rollover_enabled",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.rollover_policy",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_plans.updated_at",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_transaction_match_rules.match_version",
+      "ok": true
+    },
+    {
+      "id": "column:public.budget_transaction_match_rules.rule_kind",
+      "ok": true
+    },
+    {
+      "id": "command-execute",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_actor_is_active_household_child",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_canonical_adult_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:private.budget_effective_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:private.promote_budget_living_plan_for_owner",
+      "ok": true
+    },
+    {
+      "id": "function:public.apply_budget_transaction_match_rule_to_history",
+      "ok": true
+    },
+    {
+      "id": "function:public.apply_budget_transaction_match_rule_to_row",
+      "ok": true
+    },
+    {
+      "id": "function:public.apply_governed_category_plan_change",
+      "ok": true
+    },
+    {
+      "id": "function:public.budget_effective_owner_user_id",
+      "ok": true
+    },
+    {
+      "id": "function:public.budget_merchant_rule_matches",
+      "ok": true
+    },
+    {
+      "id": "function:public.budget_rule_matches_version",
+      "ok": true
+    },
+    {
+      "id": "function:public.get_budget_category_settings_receipt",
+      "ok": true
+    },
+    {
+      "id": "function:public.normalize_budget_merchant",
+      "ok": true
+    },
+    {
+      "id": "function:public.project_active_living_plan_into_budget_plans",
+      "ok": true
+    },
+    {
+      "id": "function:public.promote_budget_living_plan",
+      "ok": true
+    },
+    {
+      "id": "function:public.reverse_budget_living_plan",
+      "ok": true
+    },
+    {
+      "id": "function:public.save_budget_category_settings",
+      "ok": true
+    },
+    {
+      "id": "function:public.set_updated_at",
+      "ok": true
+    },
+    {
+      "id": "function:public.track_budget_rollover_amount",
+      "ok": true
+    },
+    {
+      "id": "function:public.upsert_budget_transaction_match_rule",
+      "ok": true
+    },
+    {
+      "id": "function:public.upsert_budget_transaction_rule_v2",
+      "ok": true
+    },
+    {
+      "id": "function:public.valid_budget_rollover_policy",
+      "ok": true
+    },
+    {
+      "id": "household-helper-access",
+      "ok": true
+    },
+    {
+      "id": "policy-select-scope",
+      "ok": true
+    },
+    {
+      "id": "policy:Household adults can read the Money plan config",
+      "ok": true
+    },
+    {
+      "id": "policy:Household adults can read the Money planning basis",
+      "ok": true
+    },
+    {
+      "id": "policy:Owners read living config",
+      "ok": true
+    },
+    {
+      "id": "policy:Users can read their Money planning basis",
+      "ok": true
+    },
+    {
+      "id": "preview-read-access",
+      "ok": true
+    },
+    {
+      "id": "private-receipts",
+      "ok": true
+    },
+    {
+      "id": "rollover-constraint",
+      "ok": true
+    },
+    {
+      "id": "rollover-trigger",
+      "ok": true
+    },
+    {
+      "id": "rule-command-execute",
+      "ok": true
+    },
+    {
+      "id": "rule-destination-schema",
+      "ok": true
+    },
+    {
+      "id": "rule-matcher-execute",
+      "ok": true
+    },
+    {
+      "id": "trigger:apply_budget_transaction_match_rule",
+      "ok": true
+    },
+    {
+      "id": "trigger:apply_budget_transaction_match_rule_to_history",
+      "ok": true
+    },
+    {
+      "id": "trigger:project_active_living_plan_into_budget_plans",
+      "ok": true
+    },
+    {
+      "id": "trigger:remove_budget_transaction_match_rule_from_history",
+      "ok": true
+    },
+    {
+      "id": "trigger:set_budget_categories_updated_at",
+      "ok": true
+    },
+    {
+      "id": "trigger:set_budget_plans_updated_at",
+      "ok": true
+    }
+  ],
+  "postgrestAnonymousCheck": {
+    "rpc": "upsert_budget_transaction_rule_v2",
+    "httpStatus": 401,
+    "code": "42501",
+    "outcome": "permission denied for function"
+  },
+  "readOnlyActorDenial": "Authenticated role with empty JWT claims denied with insufficient_privilege before writes; read-only transaction rolled back.",
+  "securityAdvisors": {
+    "beforeCount": 160,
+    "afterCount": 160,
+    "added": [],
+    "removed": [],
+    "comparison": "Observation timestamps excluded; no added, removed or changed findings."
+  },
+  "limits": [
+    "No existing household rows were changed for verification.",
+    "No signed-in live rule save or native typing/save/reopen acceptance.",
+    "Management API release-token transport remains unverified.",
+    "No app build, upload or release."
+  ]
+}

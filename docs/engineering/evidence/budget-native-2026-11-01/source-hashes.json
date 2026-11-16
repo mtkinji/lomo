@@ -1,0 +1,21 @@
+{
+  "sourceHead": "94f6c1ac31d245a600d21c5b71e144308894f334",
+  "dirty": true,
+  "scope": "transaction rendering and isolated native fixture; local only",
+  "sha256": {
+    "scripts/money/native-harness/Harness.tsx": "ea0ba65fe8e046e5ec3f88e0a752125de0080d96c190d0ac38188b498e6d7c05",
+    "scripts/money/native-harness/app.config.js": "7e908b67d4c7469be1e55fc5ec8641ead645e15d5d4fc68b514fec808ca353de",
+    "scripts/money/native-harness/babel.config.js": "4eebffefc06994cf5a9faec90c3a70e480c6d1a4b78e48a1c8bbffaba1ce8ada",
+    "scripts/money/native-harness/blocked-backend.ts": "ab747a8a1eaef87e8ada7f6bd11001cdd45a61616497b10a8ccd7d724b6cbd47",
+    "scripts/money/native-harness/fixture.ts": "3ecb20a60dfcedd8cf0335df75c37518b54893715d0a80b6fd1f3d444a2aac8b",
+    "scripts/money/native-harness/index.ts": "a86e062ad4140bc7ce39380543e26f0b6349dc4b1ef2928dca618e5536aadfa6",
+    "scripts/money/native-harness/memory-storage.ts": "fd2bbfe67b8b297a1d994c300053c8e8ed148cb46324365ec10de67e17d8c1ae",
+    "scripts/money/native-harness/metro.config.js": "53a9ae2c9a066222ea0cc0864b3184316fcc76d4600ba40873c71a06517b6bba",
+    "scripts/money/native-harness/package.json": "229683771458bfe5b77eaa6c909b11491775d7861ddb9c325456fde3f4c8366c",
+    "scripts/money/native-harness/tsconfig.json": "292cb853e7f80da20982a1d89a5a059819dae30162b5bc92d366b9df3d8cad9f",
+    "src/capabilities/money/components/MoneyInventoryListFrame.tsx": "80293ac47279868b4f07cd59f429a2f696533b03818412382546931b3d58fb30",
+    "src/capabilities/money/screens/MoneyScreenFrame.tsx": "7939e3c5860d3e7e9a8125be8053b57438719efc3601482108606ceb56af2a9b",
+    "src/capabilities/money/screens/MoneyTransactionsScreen.tsx": "b27ed2465b1bf3daa9fce00b4f6a2429a861ea9f5b0d0bc7c596d192a1f641ca",
+    "src/ui/InventoryControlGroup.tsx": "6bfcf730f8c2b924704ca0df7d7c755b3fbbdbc1324225adf8db80da741a80b6"
+  }
+}

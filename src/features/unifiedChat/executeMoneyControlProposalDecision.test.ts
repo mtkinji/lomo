@@ -1,3 +1,4 @@
+import { MoneyBudgetOutcomeUnknownError } from '../../capabilities/money/actions/moneyBudgetActionCommand';
 import type { UnifiedChatMutationReceipt } from './types';
 import {
   executeMoneyControlProposalDecision,
@@ -64,4 +65,16 @@ describe('executeMoneyControlProposalDecision', () => {
     );
     expect(repo.transitionProposalStatus).toHaveBeenLastCalledWith(expect.objectContaining({ toStatus: 'failed' }));
   });
+});
+
+it.each(['unknown', 'finalization'] as const)('keeps an %s result applying for receipt recovery', async (mode) => {
+  const repo = repository();
+  const actions = { updateBudget: jest.fn(async () => {
+    if (mode === 'unknown') throw new MoneyBudgetOutcomeUnknownError();
+    return { result: { categoryId: 'category-groceries', plannedCents: 55000, updatedAt: 'confirmed' } };
+  }) };
+  if (mode === 'finalization') repo.finalizeMutationReceipt.mockRejectedValue(new Error('offline'));
+  await expect(executeMoneyControlProposalDecision({ proposal, action: 'approve', repository: repo, actions: actions as never })).rejects.toThrow();
+  expect(repo.failMutationReceipt).not.toHaveBeenCalled();
+  expect(repo.transitionProposalStatus).not.toHaveBeenCalledWith(expect.objectContaining({ toStatus: 'failed' }));
 });

@@ -1,0 +1,56 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Activity detail major interactions (buggiest surface):
+# - navigate to a deterministic Activity detail via DevTools seed action
+# - open/close Focus mode sheet
+# - open/close Calendar sheet
+# - prove taps still work after closing drawers
+
+- runFlow: start.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showActivityDetailGuide"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.seed.showActivityDetailGuide"
+
+# Dismiss the seeded coachmark before exercising the actual dock.
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
+
+- takeScreenshot: "activity-detail-key-actions"
+- tapOn:
+    id: "e2e.activityDetail.nextAction.primary"
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+- tapOn: "Close"
+- assertNotVisible:
+    id: "e2e.activityDetail.focus.start"
+
+# Scheduling lives in the dock's action menu.
+- tapOn:
+    id: "e2e.activityDetail.nextAction.menuTrigger"
+- tapOn:
+    id: "e2e.activityDetail.nextAction.menu.scheduleTime"
+- assertVisible: "Schedule to-do"
+- tapOn: "Close"
+- assertNotVisible: "Schedule to-do"
+
+# Reopen Focus to prove both drawers released their touch blockers.
+- tapOn:
+    id: "e2e.activityDetail.nextAction.primary"
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+- tapOn: "Close"
+- assertNotVisible:
+    id: "e2e.activityDetail.focus.start"

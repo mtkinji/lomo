@@ -26,9 +26,11 @@ select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-0000000
 
 do $$
 begin
-  if exists (select 1 from public.kwilt_ugc_reports) then
+  begin
+    perform 1 from public.kwilt_ugc_reports;
     raise exception 'reporter could read moderation queue';
-  end if;
+  exception when insufficient_privilege then null;
+  end;
   begin
     insert into public.kwilt_ugc_reports (
       reporter_user_id, reported_user_id, target_kind, target_id, reason, snapshot, response_due_at

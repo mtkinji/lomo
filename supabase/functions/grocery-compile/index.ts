@@ -32,7 +32,7 @@ function parseRecipeSource(value: unknown): RecipeGrocerySource | null {
       || !ingredient.originalText.trim()
       || ingredient.originalText.length > 500
       || typeof ingredient.optional !== 'boolean') return null;
-    parsedIngredients.push({ id: ingredient.id, originalText: ingredient.originalText, optional: ingredient.optional });
+    parsedIngredients.push({ id: ingredient.id, originalText: ingredient.originalText, optional: ingredient.optional, scaleRule: ingredient.scaleRule });
   }
   return {
     recipeId: source.recipeId,
@@ -58,9 +58,9 @@ serve(async(req)=>{
     const recipeSource=parseRecipeSource(body?.recipe); const recipeScaleMultiplier=Number(body?.recipeScaleMultiplier);
     if(recipeSource){
       if(![1,2,3].includes(recipeScaleMultiplier))return json(400,{error:{code:'invalid_request'}});
-      let authoritativeIngredients:Array<{id:string;original_text:string;optional:boolean}>|null=null;
+      let authoritativeIngredients:Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>|null=null;
       if(recipeSource.sourceType!=='catalog'){
-        const {data:version,error:versionError}=await userClient.from('kwilt_recipe_versions').select('id,recipe_id,version,content_hash,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(id,lifecycle)').eq('id',recipeSource.recipeVersionId).maybeSingle();
+        const {data:version,error:versionError}=await userClient.from('kwilt_recipe_versions').select('id,recipe_id,version,content_hash,ingredients:kwilt_recipe_ingredients(id,original_text,optional,scale_rule),recipe:kwilt_recipes!inner(id,lifecycle)').eq('id',recipeSource.recipeVersionId).maybeSingle();
         if(versionError)throw versionError;
         const recipeRelation=Array.isArray(version?.recipe)?version.recipe[0]:version?.recipe;
         if(!version
@@ -68,7 +68,7 @@ serve(async(req)=>{
           || version.version!==recipeSource.recipeVersion
           || version.content_hash!==recipeSource.contentHash
           || recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');
-        authoritativeIngredients=(version.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;
+        authoritativeIngredients=(version.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>;
       }
       const compiled=compileRecipeGroceryAuthority({source:recipeSource,recipeScaleMultiplier:recipeScaleMultiplier as 1|2|3,authoritativeIngredients}); const payloadHash=await hash(compiled.items);
       const {data:receipt,error}=await userClient.rpc('compile_kwilt_recipe_grocery_list',{p_recipe_source:{...recipeSource,recipeScaleMultiplier},p_payload_hash:payloadHash,p_compiled_items:compiled.items}); if(error)throw error;
@@ -100,8 +100,8 @@ serve(async(req)=>{
       })).filter((candidate)=>candidate.lifecycleState==='sent'||candidate.lifecycleState==='removed'&&candidate.removedGroceryBehavior==='kept');
       if(candidateIds.some((id)=>!candidateRows?.some((candidate)=>candidate.id===id&&candidate.recipe_snapshot)))throw new Error('invalid_household_plan_candidate');
       const versionIds=[...new Set(candidates.flatMap((candidate)=>typeof candidate.recipeSnapshot?.recipeVersionId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate.recipeSnapshot.recipeVersionId)?[candidate.recipeSnapshot.recipeVersionId]:[]))];
-      const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
-      const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;}
+      const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional,scale_rule),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
+      const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>;}
       const compiled=compileHouseholdPlanGroceryAuthority({plan,expectedVersion,actorPersonId:binding.person_id,actorRole:membership?.role??null,candidates,ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
       const persistenceRpc=planAction==='return'
         ? plan.household_id?'return_kwilt_household_plan_candidate_to_ideas':'return_kwilt_personal_plan_candidate_to_ideas'
@@ -118,10 +118,10 @@ serve(async(req)=>{
     const {data:plan,error:planError}=await admin.from('kwilt_meal_plans').select('id,version,state,organizer_person_id').eq('id',planId).single(); if(planError)throw planError;
     const {data:entries,error:entryError}=await admin.from('kwilt_meal_plan_entries').select('id,plan_version,servings,recipe_snapshot').eq('plan_id',planId).eq('plan_version',expectedVersion).order('position'); if(entryError)throw entryError;
     const versionIds=[...new Set((entries??[]).flatMap((entry)=>typeof entry.recipe_snapshot?.recipeVersionId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entry.recipe_snapshot.recipeVersionId)?[entry.recipe_snapshot.recipeVersionId]:[]))];
-    const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,recipe_id,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
-    const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;}
+    const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,recipe_id,ingredients:kwilt_recipe_ingredients(id,original_text,optional,scale_rule),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
+    const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean;scale_rule?:unknown}>;}
     const compiled=compileGroceryAuthority({plan,expectedVersion,actorPersonId:binding.person_id,entries:entries??[],ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
     const {data:receipt,error}=await userClient.rpc('compile_kwilt_grocery_list',{p_plan_id:planId,p_expected_plan_version:expectedVersion,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_rebase_from_list_id:rebaseFromListId,p_expected_rebase_revision:expectedRebaseRevision}); if(error)throw error;
     return json(200,{receipt});
-  }catch(error){const unauthorized=isAuthenticationError(error);const code=error instanceof Error&&['stale_or_unfinalized_meal_plan','grocery_plan_not_owned','missing_recipe_version','invalid_recipe_grocery_source','grocery_compilation_idempotency_conflict','stale_grocery_rebase_source','grocery_rebase_idempotency_conflict','invalid_grocery_rebase','household_plan_grocery_manage_forbidden','personal_plan_grocery_manage_forbidden','stale_household_plan','invalid_household_plan_candidate','hard_pass_review_required'].includes(error.message)?error.message:unauthorized?'unauthorized':'grocery_compile_failed';console.error('grocery_compile_error',{code,message:error instanceof Error?error.message:'unknown'});return json(unauthorized?401:code==='grocery_compile_failed'?500:409,{error:{code,message:unauthorized?'Sign in to compile groceries.':'Groceries could not be compiled from the current source.'}});}
+  }catch(error){const unauthorized=isAuthenticationError(error);const code=error instanceof Error&&['ingredient_scale_review_required','stale_or_unfinalized_meal_plan','grocery_plan_not_owned','missing_recipe_version','invalid_recipe_grocery_source','grocery_compilation_idempotency_conflict','stale_grocery_rebase_source','grocery_rebase_idempotency_conflict','invalid_grocery_rebase','household_plan_grocery_manage_forbidden','personal_plan_grocery_manage_forbidden','stale_household_plan','invalid_household_plan_candidate','hard_pass_review_required'].includes(error.message)?error.message:unauthorized?'unauthorized':'grocery_compile_failed';console.error('grocery_compile_error',{code,message:error instanceof Error?error.message:'unknown'});return json(unauthorized?401:code==='grocery_compile_failed'?500:409,{error:{code,message:unauthorized?'Sign in to compile groceries.':'Groceries could not be compiled from the current source.'}});}
 });

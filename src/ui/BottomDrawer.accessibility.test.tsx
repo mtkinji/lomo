@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Reanimated from 'react-native-reanimated';
 import { act, fireEvent } from '@testing-library/react-native';
 import { KeyboardAvoidingView, StyleSheet, Text } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -10,6 +11,7 @@ import {
   BottomDrawer,
   BottomDrawerScrollView,
   getDrawerFocusedInputScrollOffset,
+  getBottomDrawerMeasuredHeight,
   getBottomDrawerExpansionOpacity,
   isBottomDrawerAccessibilityModal,
   isBottomDrawerHandleTouchY,
@@ -407,6 +409,45 @@ describe('BottomDrawer accessibility contract', () => {
       accessibilityViewIsModal: true,
       importantForAccessibility: 'yes',
     });
+  });
+
+  it('includes the bottom border so a scroll viewport cannot progressively shrink the guide', () => {
+    expect(getBottomDrawerMeasuredHeight({ y: 1, height: 300, paddingBottom: 0, borderBottomWidth: 1, maxHeight: 600 })).toBe(302);
+    expect(getBottomDrawerMeasuredHeight({ y: 20, height: 300, paddingBottom: 34, borderBottomWidth: 1, maxHeight: 600 })).toBe(355);
+    expect(getBottomDrawerMeasuredHeight({ y: 20, height: 900, paddingBottom: 34, borderBottomWidth: 1, maxHeight: 600 })).toBe(600);
+  });
+
+  it('gives scrolling content room to measure before opening instead of trapping it in a zero-height sheet', () => {
+    const clamp = jest.spyOn(Reanimated, 'clamp').mockImplementation(
+      (value: number, lower: number, upper: number) => Math.min(Math.max(value, lower), upper),
+    );
+    const dimensions = jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({
+      width: 390, height: 844, scale: 3, fontScale: 1,
+    });
+    try {
+      const drawer = () => (
+        <BottomDrawer visible dynamicSizing snapPoints={['72%']} sheetStyle={{ borderWidth: 1 }} onClose={jest.fn()}>
+          <BottomDrawerScrollView><Text>Screen Time controls</Text></BottomDrawerScrollView>
+        </BottomDrawer>
+      );
+      const { getByTestId } = renderWithProviders(drawer());
+      const surface = () => getByTestId('bottom-drawer.surface', { includeHiddenElements: true });
+      expect(StyleSheet.flatten(surface().props.style).height).toBeGreaterThan(0);
+      expect(StyleSheet.flatten(surface().props.style).opacity).toBe(0);
+      expect(StyleSheet.flatten(getByTestId('bottom-drawer.scrim', { includeHiddenElements: true }).props.style).opacity).toBe(0);
+
+      const measure = (height: number) => fireEvent(
+        getByTestId('bottom-drawer.dynamic-measurement', { includeHiddenElements: true }), 'layout',
+        { nativeEvent: { layout: { x: 0, y: 1, width: 320, height } } },
+      );
+      measure(0);
+      expect(surface().props.pointerEvents).toBe('none');
+      measure(300);
+      expect(surface().props.pointerEvents).toBe('auto');
+    } finally {
+      dimensions.mockRestore();
+      clamp.mockRestore();
+    }
   });
 });
 

@@ -150,6 +150,7 @@ export function projectExternalMcpWriteResult(input: {
       object_id: typeof first.id === 'string' ? first.id : receiptId ?? requestId,
       result_summary: summary,
       structured: { ...base, receipt_id: receiptId, result_references: refs, summary,
+        ...(Object.keys(record(result.output)).length ? { output: result.output as JsonObject } : {}),
         ...(receipt.replayed === true ? { idempotent_replay: true } : {}) },
     };
   }

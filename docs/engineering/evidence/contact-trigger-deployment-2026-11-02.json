@@ -1,0 +1,85 @@
+{
+  "observedAt": "2026-11-02T14:01:28.432Z",
+  "sourceCommit": "9e428f46ffe468d347672d79dcd118613b9bfa76",
+  "mergedCommit": "0ffa78446b776c4d234c12128e0aa6588f602313",
+  "sourcePullRequest": "https://github.com/mtkinji/lomo/pull/201",
+  "projectRef": "sqxwjtorodqjdfnuvprf",
+  "authorizedBy": "Andrew explicitly approved the trigger migration in this task before application.",
+  "migration": {
+    "name": "repair_targeted_contact_trigger",
+    "reviewedVersion": "20261102031926",
+    "deployedVersion": "20261102140026",
+    "sha256": "6338b2ce33c79c87f4030104114000deb2dbec02472a733225c41a25d0a496df",
+    "contentsUnchanged": true
+  },
+  "checks": {
+    "ledgerBytesMatch": true,
+    "bodyMatches": true,
+    "oidUnchanged": true,
+    "prosecdefUnchanged": true,
+    "proconfigUnchanged": true,
+    "proaclUnchanged": true,
+    "ownerUnchanged": true,
+    "triggersUnchanged": true
+  },
+  "before": {
+    "oid": "171063",
+    "definition": "CREATE OR REPLACE FUNCTION public.suppress_blocked_targeted_contact()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  if tg_table_name = 'kwilt_invites'\n    and new.intended_recipient_user_id is not null\n    and public.kwilt_users_blocked(new.created_by, new.intended_recipient_user_id) then\n    raise exception using errcode = '42501', message = 'blocked_relationship';\n  end if;\n  if tg_table_name = 'kwilt_shared_deliveries'\n    and new.actor_user_id is not null\n    and public.kwilt_users_blocked(new.actor_user_id, new.recipient_user_id) then\n    raise exception using errcode = '42501', message = 'blocked_relationship';\n  end if;\n  return new;\nend;\n$function$\n",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=\"\""
+    ],
+    "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres",
+    "triggers": [
+      {
+        "name": "suppress_blocked_shared_deliveries",
+        "table": "kwilt_shared_deliveries",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER suppress_blocked_shared_deliveries BEFORE INSERT OR UPDATE OF actor_user_id, recipient_user_id ON public.kwilt_shared_deliveries FOR EACH ROW EXECUTE FUNCTION suppress_blocked_targeted_contact()"
+      },
+      {
+        "name": "suppress_blocked_targeted_invites",
+        "table": "kwilt_invites",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER suppress_blocked_targeted_invites BEFORE INSERT OR UPDATE OF created_by, intended_recipient_user_id ON public.kwilt_invites FOR EACH ROW EXECUTE FUNCTION suppress_blocked_targeted_contact()"
+      }
+    ]
+  },
+  "after": {
+    "oid": "171063",
+    "definition": "CREATE OR REPLACE FUNCTION public.suppress_blocked_targeted_contact()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  if tg_table_name = 'kwilt_invites' then\n    if new.intended_recipient_user_id is not null\n      and public.kwilt_users_blocked(new.created_by, new.intended_recipient_user_id) then\n      raise exception using errcode = '42501', message = 'blocked_relationship';\n    end if;\n  elsif tg_table_name = 'kwilt_shared_deliveries' then\n    if new.actor_user_id is not null\n      and public.kwilt_users_blocked(new.actor_user_id, new.recipient_user_id) then\n      raise exception using errcode = '42501', message = 'blocked_relationship';\n    end if;\n  end if;\n  return new;\nend;\n$function$\n",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=\"\""
+    ],
+    "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres",
+    "triggers": [
+      {
+        "name": "suppress_blocked_shared_deliveries",
+        "table": "kwilt_shared_deliveries",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER suppress_blocked_shared_deliveries BEFORE INSERT OR UPDATE OF actor_user_id, recipient_user_id ON public.kwilt_shared_deliveries FOR EACH ROW EXECUTE FUNCTION suppress_blocked_targeted_contact()"
+      },
+      {
+        "name": "suppress_blocked_targeted_invites",
+        "table": "kwilt_invites",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER suppress_blocked_targeted_invites BEFORE INSERT OR UPDATE OF created_by, intended_recipient_user_id ON public.kwilt_invites FOR EACH ROW EXECUTE FUNCTION suppress_blocked_targeted_contact()"
+      }
+    ]
+  },
+  "securityAdvisors": {
+    "beforeCount": 444,
+    "afterCount": 444,
+    "unchanged": true,
+    "comparison": "Observation timestamps excluded; normalized before/after advisory content compared."
+  },
+  "limits": [
+    "Verification used read-only function, trigger, migration-ledger, and advisory inspection; no household rows were written for verification.",
+    "Behavioral regression evidence remains the isolated PostgreSQL tests recorded in sql-followup-2026-11-01/results.json; no signed-in live delivery or physical-device acceptance was performed.",
+    "No app build, upload, or release.",
+    "PR #197 and its historical catalog-crash investigation remain separate."
+  ]
+}
