@@ -517,7 +517,11 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       navigation.goBack();
       return;
     }
-    navigation.replace("RecipeLibrary");
+    if (route.params.source === 'meal_plan') {
+      navigation.replace("RecipeLibrary", { openPlan: true });
+    } else {
+      navigation.replace("RecipeLibrary");
+    }
   };
   const editorialPicks = useMemo(() => {
     if (!projection) return [];
@@ -827,7 +831,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         showFullWidthBackground={false}
         left={
           <HeaderActionPill
-            accessibilityLabel="Back to Recipes"
+            accessibilityLabel={route.params.source === "meal_plan" ? "Back to Meal plan" : "Back to Recipes"}
             materialVariant="floatingWhite"
             onPress={returnFromRecipeHome}
           >

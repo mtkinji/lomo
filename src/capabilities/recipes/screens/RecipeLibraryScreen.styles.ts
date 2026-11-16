@@ -462,6 +462,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
   planDrawerArtwork: { width: 56, height: 56, borderRadius: 14 },
+  planRecipeTitleTarget: { minHeight: 44, justifyContent: "center" },
   planDrawerMealCopy: { flex: 1, minWidth: 0, gap: 2 },
   planDrawerTitle: { ...typography.body, minWidth: 0, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22 },
   planDrawerMore: { alignSelf: "flex-start", marginTop: -6, flexShrink: 0 },
