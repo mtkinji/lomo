@@ -124,3 +124,19 @@ Primary references: [Microsoft Entra app credentials](https://learn.microsoft.co
 [Plaid key rotation](https://plaid.com/docs/account/security/),
 [Twilio secondary Auth Token](https://www.twilio.com/docs/iam/api/secondary_authtoken), and
 [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys).
+
+## Verified renewal — November 16, 2026
+
+Apple distribution certificate 8CDLTB3ST2 and all five App Store profiles
+(app, widgets, shield configuration, shield action, device activity monitor) now
+expire November 16, 2027 at 16:15:06 UTC. Apple API readback verified each profile
+is ACTIVE and references the replacement certificate. The old certificate remains
+for overlapping EAS consumers; it was not revoked.
+
+Microsoft Calendar uses app f5d7a291-77ee-4648-bf69-7c04dcb4e641 in tenant
+85eb32cd-7b26-4e34-8c79-6a6777aae817 (andykwilt.onmicrosoft.com), administered
+through portal.azure.com with andy@kwilt.app. The client ID SHA256 matches the
+production secret inventory. Its single “Kwilt O Auth” credential expires
+January 19, 2028; no rotation is currently required. The monitor uses the start
+of that date UTC conservatively because the UI exposes no exact expiry time.
+The generic Entra sign-in had selected Microsoft Services instead of this tenant.
