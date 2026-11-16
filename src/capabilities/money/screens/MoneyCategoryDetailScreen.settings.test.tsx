@@ -38,6 +38,16 @@ beforeEach(() => {
   mockMoney.saveCategorySettingsRequest.mockResolvedValue({ outcome: 'confirmed', receipt: {} });
 });
 describe('category settings screen save', () => {
+  it.each([[50000, '500'], [50025, '500.25']])('edits %s cents without forcing decimals or rounding saved cents', async (cents, value) => {
+    mockMoney.snapshot.categories[0].plannedCents = Number(cents);
+    const screen = renderWithProviders(tree());
+    fireEvent.press(screen.getByLabelText('Open Household settings'));
+    await waitFor(() => expect(screen.getByLabelText('Monthly amount').props.value).toBe(value));
+    expect(screen.getByLabelText('Monthly amount').props.keyboardType).toBe('number-pad');
+    await fireEventAsync.press(screen.getByText('Save changes'));
+    expect(mockMoney.saveCategorySettingsRequest).not.toHaveBeenCalled();
+  });
+
   it.each(['monthly', 'rollover', 'reserve'])('closes unchanged %s settings without a write or preview', async (mode) => {
     mockMoney.snapshot = { ...mockMoney.snapshot, categories: mockMoney.snapshot.categories.map((item) => ({ ...item,
       fundingRhythm: mode === 'reserve' ? 'reserve' as const : 'monthly' as const,

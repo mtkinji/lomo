@@ -142,7 +142,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           ? { amountCents: saved.expectedNeedCents, dueMonth: saved.expectedNeedDueMonth } : null } : baseline;
       setRolloverDraft(initialRolloverDraft(draftCategory, getLocalMoneyPeriodId(new Date())));
       setCategoryNameDraft(draftCategory.name);
-      setCategoryAmountDraft((draftCategory.plannedCents / 100).toFixed(2));
+      setCategoryAmountDraft(String(draftCategory.plannedCents / 100));
       setFundingRhythmDraft(draftCategory.fundingRhythm);
       setPlanRoleDraft(draftCategory.planRole ?? 'flexible');
       setExpectedNeedDraft(formatCentsInput(draftCategory.expectedNeed?.amountCents));
@@ -562,7 +562,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <SettingsGroup title="CATEGORY">
             <SettingsTextInputRow editable={!settingsLocked} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); invalidatePlanImpact(); setShowPlanChanges(false); }} value={categoryNameDraft} />
             <SettingsDivider />
-            <SettingsTextInputRow editable={!settingsLocked} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); invalidatePlanImpact(); }} value={categoryAmountDraft} />
+            <SettingsTextInputRow editable={!settingsLocked} keyboardType="number-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); invalidatePlanImpact(); }} value={categoryAmountDraft} />
           </SettingsGroup>
 
           <SettingsGroup

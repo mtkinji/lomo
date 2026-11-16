@@ -1,3 +1,4 @@
+import { livingPlanCategoryResolver, uniqueLivingPlanOverrides } from '../domain/livingPlanCategoryIdentity';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildLivingPlanEvidence, getCompletedCategorySpendingGuidepost, type CompletedCategorySpendingGuidepost, type LivingPlanEvidenceTransaction } from '../domain/living-plan-evidence';
 import { collectAllPages } from '../domain/living-plan-pagination';
@@ -142,17 +143,19 @@ async function evaluateLivingPlan(
   if (!targetResult.data || !transactions.length) return { outcome: 'not_ready', reason: 'target_or_history_missing', hasUsablePlan: Boolean(active) };
   const accounts = new Map((accountResult.data ?? []).map((row) => [row.id, row]));
   const connectionDates = (connectionResult.data ?? []).filter((row) => row.status !== 'error' && row.last_synced_at).map((row) => row.last_synced_at as string).sort();
-  const categoryKeys = new Map((categoryResult.data ?? []).map((row) => [row.id, row.legacy_budget_id || row.slug]));
+  const resolveCategory = livingPlanCategoryResolver(categoryResult.data ?? []);
+  if (hypotheticalOverride) hypotheticalOverride = { ...hypotheticalOverride, categoryId: resolveCategory(hypotheticalOverride.categoryId) };
+  const categoryKeys = new Map((categoryResult.data ?? []).map((row) => [row.id, resolveCategory(row.id)]));
   const productPlans = productPlanRows.map((row) => ({ ...row, budgetId: categoryKeys.get(row.category_id) })).filter((row) => row.budgetId);
-  const overrides = (overrideResult.data ?? [])
-    .filter((row) => row.category_id !== hypotheticalOverride?.categoryId)
-    .map((row) => ({ categoryId: row.category_id, amountCents: Number(row.amount_cents) }));
+  const overrides = uniqueLivingPlanOverrides((overrideResult.data ?? [])
+    .map((row) => ({ categoryId: resolveCategory(row.category_id), amountCents: Number(row.amount_cents) }))
+    .filter((row) => row.categoryId !== hypotheticalOverride?.categoryId));
   if (hypotheticalOverride) overrides.push({ categoryId: hypotheticalOverride.categoryId, amountCents: hypotheticalOverride.amountCents });
   const evidenceTransactions: LivingPlanEvidenceTransaction[] = transactions.map((row) => {
     const account = accounts.get(row.financial_account_id);
     return {
       id: row.id, date: row.date, direction: row.direction, amountCents: row.amount_cents,
-      description: row.merchant_name || row.name || row.original_description || 'Unknown source', budgetId: row.budget_id,
+      description: row.merchant_name || row.name || row.original_description || 'Unknown source', budgetId: row.budget_id ? resolveCategory(row.budget_id) : null,
       pending: row.pending, moneyMeaning: row.money_meaning, accountType: account ? `${account.type ?? ''} ${account.subtype ?? ''}` : null,
       providerCategory: row.personal_finance_category_primary,
     };
@@ -160,7 +163,7 @@ async function evaluateLivingPlan(
   const evidence = buildLivingPlanEvidence({
     nowIso: new Date().toISOString(), lastSyncedAtIso: connectionDates.at(-1) ?? null,
     transactions: evidenceTransactions,
-    forecastSettings: [...(forecastResult.data ?? []).map((row) => ({ budgetId: row.budget_id, mode: row.forecast_mode, scheduledAmountCents: row.scheduled_amount_cents })), ...productPlans.map((row) => ({ budgetId: row.budgetId!, mode: row.forecast_mode, scheduledAmountCents: row.scheduled_amount_cents }))],
+    forecastSettings: [...(forecastResult.data ?? []).map((row) => ({ budgetId: resolveCategory(row.budget_id), mode: row.forecast_mode, scheduledAmountCents: row.scheduled_amount_cents })), ...productPlans.map((row) => ({ budgetId: row.budgetId!, mode: row.forecast_mode, scheduledAmountCents: row.scheduled_amount_cents }))],
     existingPlanAmounts: productPlans.map((row) => {
       const preview = row.budgetId === hypotheticalOverride?.categoryId ? hypotheticalOverride : undefined;
       const expectedNeedCents = preview && 'expectedNeedCents' in preview
