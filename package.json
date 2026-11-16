@@ -84,7 +84,7 @@
     "test:chat-contracts": "node --test scripts/chat-delivery-lint.test.mjs scripts/unified-chat-migration-contract.test.mjs && npm run chat:protocol:conformance",
     "product:lint": "node scripts/product-lint.mjs && npm run chat:delivery-lint",
     "jtbd:lint": "npm run product:lint",
-    "postinstall": "patch-package && npm run hooks:install -- --if-git"
+    "postinstall": "patch-package --error-on-fail && npm run hooks:install -- --if-git"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^14.0.0",
@@ -99,10 +99,10 @@
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-picker/picker": "2.11.4",
-    "@react-navigation/bottom-tabs": "^7.18.14",
-    "@react-navigation/drawer": "^7.13.5",
-    "@react-navigation/native": "^7.3.14",
-    "@react-navigation/native-stack": "^7.18.6",
+    "@react-navigation/bottom-tabs": "7.22.0",
+    "@react-navigation/drawer": "7.14.5",
+    "@react-navigation/native": "7.5.2",
+    "@react-navigation/native-stack": "7.21.1",
     "@rn-primitives/alert-dialog": "^1.5.2",
     "@rn-primitives/dialog": "^1.5.2",
     "@rn-primitives/dropdown-menu": "^1.5.2",
@@ -168,7 +168,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@storybook/react-native-web-vite": "10.5.6",
+    "@storybook/react-native-web-vite": "10.6.7",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.10",
@@ -185,10 +185,10 @@
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "react-native-web": "0.21.2",
-    "storybook": "10.5.6",
+    "storybook": "10.6.7",
     "tsx": "^4.23.12",
     "typescript": "~5.9.2",
-    "vite": "8.2.0"
+    "vite": "8.3.8"
   },
   "expo": {
     "install": {
@@ -212,7 +212,7 @@
   "overrides": {
     "react-native-windows": "0.83.2",
     "react-native-markdown-display": {
-      "markdown-it": "14.2.0"
+      "markdown-it": "14.3.3"
     }
   },
   "private": true
